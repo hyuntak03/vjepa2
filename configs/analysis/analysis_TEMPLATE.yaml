@@ -1,0 +1,128 @@
+# =============================================================================
+#  evals/analysis  —  Layer-wise Probing 분석 config 레퍼런스(주석 템플릿)
+# -----------------------------------------------------------------------------
+#  이 파일은 evals/analysis 가 읽는 "모든" 키를 설명하는 참고용 템플릿이다.
+#  실제 코드(evals/analysis/eval.py, probes.py, modelcustom/vit_encoder_multilayer.py)
+#  기준이며, 각 키 옆에 [기본값] / 가능한 값 / 읽는 위치를 표기했다.
+#
+#  실행:
+#    python -m evals.main --fname configs/z_tak_attentive_probing/analysis_TEMPLATE.yaml \
+#           --devices cuda:0 --debugmode True      # 단일 GPU 디버그(프로세스 spawn 안 함)
+#    python -m evals.main_distributed --fname <이 파일> --time 8600 ...   # SLURM 분산
+#
+#  동작 흐름:
+#    main.py(YAML 로드) -> scaffold.py 가 eval_name 으로 evals.<eval_name>.eval 동적 import
+#    -> evals/analysis/eval.py:main() 실행. (eval_name: analysis 이므로 main.py 무수정)
+#
+#  CLI 로 덮어쓸 수 있는 키(evals/main.py):
+#    --val_only        -> val_only: true 강제
+#    --checkpoint X    -> model_kwargs.checkpoint
+#    --model_name X    -> model_kwargs.pretrain_kwargs.encoder.model_name
+#    --batch_size N    -> experiment.optimization.batch_size
+#    --folder X --override_config_folder -> folder
+# =============================================================================
+
+# --- 최상위(top-level) -------------------------------------------------------
+eval_name: analysis              # [필수] scaffold 라우팅 키. analysis 로 두면 evals/analysis/eval.py 로 감.
+folder: /data/hyuntak/project/2026/2027_cvpr/vjepa2/configs/analysis/logs
+                                 # [필수] 로그/체크포인트 루트. 실제 저장경로 = <folder>/analysis/<tag>/
+                                 #        latest.pt, log_r0.csv, summary.json 이 여기 생성됨.
+num_workers: 6                   # [12] DataLoader worker 수.
+resume_checkpoint: false         # [false] true 면 <folder>/analysis/<tag>/latest.pt 에서 이어서.
+val_only: false                  # [false] true=평가만(학습 skip), false=probe 학습+평가.
+tag: r2r-4way-analysis           # [None] 실험 이름(하위폴더). 같은 tag 면 같은 폴더 재사용.
+
+experiment:
+
+  # === 분석 설정(analysis 전용 신규 섹션) ===================================
+  analysis:
+    # 어떤 encoder block 의 feature 를 뽑을지. 0-indexed, "해당 block 통과 직후" 출력.
+    #   vit_large=0..23(마지막 23), vit_huge=0..31, vit_giant=0..39.
+    #   "all" 로 주면 전체 layer (depth 는 model_name 으로 자동 추론).
+    # 여기 적은 값이 encoder 의 out_layers 로 자동 주입된다(wrapper_kwargs.out_layers 불필요).
+    layers: "all"     # [필수] list[int] 또는 "all"
+
+    # 학습이 "전부 끝난 뒤 1회" <folder>/analysis/<tag>/layer_val_acc.png 저장.
+    #   x=layer, y=각 헤드의 best val accuracy(%, 전체 epoch 중 최고), probe 마다 라인 1개.
+    plot: true                   # [false] true|false. matplotlib 필요.
+
+    # layer 마다 붙일 probe 목록. (layers × probes) 개의 헤드가 만들어져 "동시에" 학습됨.
+    # 헤드 이름 = "L<layer>_<probe>" (예: L23_linear-mean, L11_attentive-d4).
+    probes:                      # [필수] 1개 이상
+      # --- probe 1: 진짜 linear probing (토큰 pooling 후 단일 Linear) ---------
+      - type: linear             # [attentive] "linear" | "attentive"
+        # name: my_lin           # (선택) 로그 컬럼명 직접 지정. 없으면 자동 생성.
+        pooling: mean            # [mean] "mean" | "max" | "meanmax"  (N개 토큰 -> 1개로 풀링)
+                                 #        meanmax 는 mean‖max concat 이라 입력차원 2D 가 됨.
+        pre_norm: true           # [true] pooling 결과에 LayerNorm. layer 간 scale 차이 보정용(권장).
+        optimization:            # (선택) 이 헤드 전용 옵티마이저. 비우면 optimization.default_head 사용.
+          lr: 0.01               # ref_lr. linear probe 는 보통 크게.
+          weight_decay: 0.0
+          warmup: 1.0            # warmup epoch 수
+          # start_lr: 0.0        # (default_head 에서 상속 가능)
+          # final_lr: 0.0
+          # final_weight_decay: 0.0
+
+      # --- probe 2: attentive probing (기존 AttentiveClassifier 재사용) -------
+      # - type: attentive          # cross-attention pooling(learnable query 1개) + Linear
+      #   num_heads: 16            # [16] attentive pooler 의 head 수
+      #   num_probe_blocks: 4      # [1] pooler depth = self-attn(depth-1)개 + cross-attn 1개
+      #                            #     (depth: 로도 받음. num_probe_blocks 우선)
+      #   optimization:
+      #     lr: 0.002
+      #     weight_decay: 0.01
+      #     warmup: 2.0
+
+      # 헤드를 더 추가하려면 위 형식으로 계속 나열 (예: max pooling linear, depth 1 attentive 등).
+      # 새로운 probe "종류" 자체를 추가하려면 evals/analysis/probes.py 의 build_probe() 에 등록.
+
+  # === 데이터 ===============================================================
+  data:
+    dataset_type: VideoDataset   # [VideoDataset] src/datasets 의 로더 종류. 보통 그대로.
+    # CSV 형식(헤더 없음, 공백 1칸): "<영상_절대경로> <정수라벨>"
+    dataset_train: /data/hyuntak/project/2026/2027_cvpr/vjepa2/configs/z_tak_attentive_probing/R2R_4way_1500_shape_color_train.csv
+    dataset_val:   /data/hyuntak/project/2026/2027_cvpr/vjepa2/configs/z_tak_attentive_probing/R2R_4way_1500_shape_color_val.csv
+    num_classes: 4               # [필수] CSV 라벨 종류 수와 일치 (R2R direction=4, SSv2=174)
+    resolution: 256              # [224] 입력 해상도. fpc64-256 체크포인트는 256.
+    frames_per_clip: 32          # [16] 클립당 프레임 수(짝수, tubelet_size=2 때문).
+    frame_step: 1                # [4] 프레임 샘플링 간격(stride).
+    num_segments: 1              # [1] 영상당 뽑는 클립 수(temporal). 분석은 1 권장(정확도용 ↑).
+    num_views_per_segment: 1     # [1] 클립당 spatial view 수(평가용 multi-crop). 분석은 1 권장.
+    # clip_duration: null        # [None] 초 단위 고정 길이 샘플링(주면 frame_step 대신 사용).
+    # normalization: null        # [None] ((mean),(std)). None 이면 ImageNet 기본값 사용.
+
+  # === 최적화(공통) =========================================================
+  optimization:
+    batch_size: 8                # [필수] GPU당 배치. 헤드 많으면(layers×probes) 메모리 보고 조절.
+    num_epochs: 20               # [필수] 학습 epoch 수.
+    use_bfloat16: true           # [필수] AMP(float16) 사용. (이름과 달리 float16 autocast)
+    # 각 probe 의 optimization 이 생략한 값에 대한 "기본값". probe.optimization 가 우선.
+    default_head:                # (선택) 비우면 코드 기본값 사용
+      start_lr: 0.0              # [0.0] warmup 시작 lr
+      final_lr: 0.0              # [0.0] cosine 끝 lr
+      lr: 0.001                  # [0.001] ref_lr (probe 가 lr 안 주면 이 값)
+      weight_decay: 0.01         # [0.01] ref_wd
+      final_weight_decay: 0.01   # [0.01] cosine 끝 wd
+      warmup: 1.0                # [1.0] warmup epoch
+
+# === 모델(frozen encoder) ===================================================
+model_kwargs:
+  # 사전학습 encoder 체크포인트(.pth/.pt). HF 캐시의 original/model.pth 사용.
+  checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vitl-fpc64-256/snapshots/b3c1679b7c34d3255ef3547f27c7b226aefab26f/original/model.pth
+  # 분석용 multilayer encoder 래퍼. layer별 (B,N,D) 리스트를 반환한다.
+  #   (기존: vit_encoder_multiclip=마지막 layer만 / _multilevel=여러 layer concat 1개)
+  module_name: evals.analysis.modelcustom.vit_encoder_multilayer
+  pretrain_kwargs:
+    encoder:
+      checkpoint_key: target_encoder  # [필수] 체크포인트 내 키. target_encoder=EMA(평가표준), encoder=online
+      model_name: vit_large           # [필수] vit_large|vit_huge|vit_giant ... (체크포인트와 일치)
+      patch_size: 16                  # [16] 공간 patch 크기
+      tubelet_size: 2                 # [2] 시간축 묶음(2프레임=1토큰)
+      uniform_power: true             # [true] RoPE 3D 축 power 균등 분배
+      use_rope: true                  # [true] V-JEPA2 는 RoPE 사용(additive pos-embed 없음)
+      img_temporal_dim_size: null     # [null] 보통 null
+      # 위 외 키는 ViT __init__ 의 **kwargs 로 흡수됨(checkpoint_key/model_name 등도 무해).
+  wrapper_kwargs:
+    max_frames: 128                   # [128] use_pos_embed=true 일 때 1D-temporal pos-embed 최대 길이
+    use_pos_embed: false              # [false] 클립 집계용 1D temporal pos-embed 추가 여부
+    # out_layers: 는 적지 말 것 — experiment.analysis.layers 에서 자동 주입됨.

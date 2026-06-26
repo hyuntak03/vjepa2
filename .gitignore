@@ -27,8 +27,20 @@ evals/simu_env_planning/docker2/
 evals/simu_env_planning/docker/
 app/vjepa_droid/local/
 app/vjepa_droid_v2/local/
-app/vjepa_droid_v3/local/
+app/vjepa_droid_v3/local/1
 app/vjepa_droid_v4/local/
 configs/local
 
 checkpoint/
+
+sample_video/
+
+z_scripts
+
+*csv
+
+*.json
+
+configs/z_tak_attentive_probing
+
+configs/analysis/logs

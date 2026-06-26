@@ -5,23 +5,18 @@ This source code is licensed under the MIT license found in the
 LICENSE file in the root directory of this source tree.
 ------------------------------------------------------------------------------
 
-modelcustom API requirements:
+Analysis encoder wrapper: returns features from MULTIPLE encoder layers
+SEPARATELY (one tensor per layer), so that an independent probe can be attached
+to each layer for layer-wise analysis.
 
-API requirements for Encoder module:
-    1) Needs to be a pytorch module with 'forward()' function protocol:
-        :param x: (Tensor) Video clip (shape=[batch_size x num_channels x num_frames x height x width])
-        :returns: (Tensor) Representations of video clip (shape=[batch_size x num_encoder_tokens x feature_dim])
-    2) Needs to have a public attribute called 'embed_dim' (int) describing its
-        output feature dimension.
+This differs from:
+  - vit_encoder_multiclip.py            -> returns only the LAST layer
+  - vit_encoder_multiclip_multilevel.py -> CONCATENATES several layers into one
+                                           long token sequence (single probe)
 
-API requirements for Predictor module:
-    1) Needs to be a pytorch module with 'forward()' function protocol:
-        :param x: (Tensor) Video clip tokens (shape=[batch_size x num_encoder_tokens x feature_dim])
-        :param anticipation_time: (Tensor) Seconds into the future to predict for each sample in batch
-            (shape=[batch_size])
-        :returns: (Tensor) Representations of future frames (shape=[batch_size x num_output_tokens x feature_dim])
-    2) Needs to have a public attribute called 'embed_dim' (int) describing its
-        output feature dimension.
+forward(x, clip_indices) returns:
+    List[Tensor],  len == len(out_layers),  each Tensor of shape (B, N, D)
+    in the same order as `out_layers`.
 """
 
 import logging
@@ -53,10 +48,17 @@ def init_module(
     enc_ckp_key = enc_kwargs.get("checkpoint_key")
     enc_model_name = enc_kwargs.get("model_name")
 
-    model = vit.__dict__[enc_model_name](img_size=resolution, num_frames=frames_per_clip, **enc_kwargs)
+    # -- which encoder blocks to read features from (0-indexed, output is AFTER
+    #    that block). e.g. for vit_large (depth 24): last layer == 23.
+    out_layers = wrapper_kwargs.get("out_layers")
+    if out_layers is None:
+        raise ValueError("analysis encoder requires wrapper_kwargs.out_layers (list of int)")
+
+    model = vit.__dict__[enc_model_name](
+        img_size=resolution, num_frames=frames_per_clip, out_layers=out_layers, **enc_kwargs
+    )
 
     pretrained_dict = checkpoint[enc_ckp_key]
-    # --
     pretrained_dict = {k.replace("module.", ""): v for k, v in pretrained_dict.items()}
     pretrained_dict = {k.replace("backbone.", ""): v for k, v in pretrained_dict.items()}
     for k, v in model.state_dict().items():
@@ -67,20 +69,24 @@ def init_module(
             pretrained_dict[k] = v
     msg = model.load_state_dict(pretrained_dict, strict=False)
     logger.info(f"loaded pretrained model with msg: {msg}")
-    print(model)
 
-    model = ClipAggregation(
+    # wrapper_kwargs may carry out_layers; ClipAggregation consumes the rest.
+    agg_kwargs = {k: v for k, v in wrapper_kwargs.items() if k != "out_layers"}
+    model = MultiLayerClipAggregation(
         model,
         tubelet_size=model.tubelet_size,
-        **wrapper_kwargs,
+        out_layers=out_layers,
+        **agg_kwargs,
     )
     del checkpoint
     return model
 
 
-class ClipAggregation(nn.Module):
+class MultiLayerClipAggregation(nn.Module):
     """
-    Process each clip independently and concatenate all tokens
+    Process each clip independently, then for EACH requested encoder layer
+    aggregate the multi-clip / multi-view tokens into a single (B, N, D) tensor.
+    Returns a list over layers.
     """
 
     def __init__(
@@ -89,40 +95,41 @@ class ClipAggregation(nn.Module):
         tubelet_size=2,
         max_frames=128,
         use_pos_embed=False,
+        out_layers=None,
     ):
         super().__init__()
         self.model = model
         self.tubelet_size = tubelet_size
         self.embed_dim = embed_dim = model.embed_dim
         self.num_heads = model.num_heads
+        self.out_layers = out_layers
 
-        # 1D-temporal pos-embedding
+        # 1D-temporal pos-embedding (same option as the stock wrapper)
         self.pos_embed = None
         if use_pos_embed:
             max_T = max_frames // tubelet_size
             self.pos_embed = nn.Parameter(torch.zeros(1, max_T, embed_dim), requires_grad=False)
             sincos = get_1d_sincos_pos_embed(embed_dim, max_T)
             self.pos_embed.copy_(torch.from_numpy(sincos).float().unsqueeze(0))
-    #! vit_encoder
-    def forward(self, x, clip_indices=None):
 
+    def forward(self, x, clip_indices=None):
         num_clips = len(x)
         num_views_per_clip = len(x[0])
         B, C, F, H, W = x[0][0].size()
 
-        # Concatenate all spatial and temporal views along batch dimension
+        # Concatenate all spatial and temporal views along the batch dimension
         x = [torch.cat(xi, dim=0) for xi in x]
         x = torch.cat(x, dim=0)
-        #! x.shape = [2,3,32,256,256] -> 3D conv 전
-        #! self.model(x) 해서 이제 모델 들어감
-        outputs = self.model(x)
+
+        layer_outputs = self.model(x)  # list over layers, each (B', N, D)
+        if not isinstance(layer_outputs, list):
+            layer_outputs = [layer_outputs]
 
         def multiviews_postprocess(outputs):
             _, N, D = outputs.size()
             T = F // self.tubelet_size  # num temporal indices
             S = N // T  # num spatial tokens
 
-            # Unroll outputs into a 2D array [spatial_views x temporal_views]
             eff_B = B * num_views_per_clip
             all_outputs = [[] for _ in range(num_views_per_clip)]
             for i in range(num_clips):
@@ -130,21 +137,19 @@ class ClipAggregation(nn.Module):
                 for j in range(num_views_per_clip):
                     all_outputs[j].append(o[j * B : (j + 1) * B])
 
-            for i, outputs in enumerate(all_outputs):
-                # Concatenate along temporal dimension
-                outputs = [o.reshape(B, T, S, D) for o in outputs]
-                outputs = torch.cat(outputs, dim=1).flatten(1, 2)
-                # Compute positional embedding
+            for i, outs in enumerate(all_outputs):
+                outs = [o.reshape(B, T, S, D) for o in outs]
+                outs = torch.cat(outs, dim=1).flatten(1, 2)  # concat along temporal dim
                 if (self.pos_embed is not None) and (clip_indices is not None):
                     _indices = [c[:, :: self.tubelet_size] for c in clip_indices]
-                    pos_embed = self.pos_embed.repeat(B, 1, 1)  # [B, max_T, D]
-                    pos_embed = apply_masks(pos_embed, _indices, concat=False)  # list(Tensor([B, T, D]))
-                    pos_embed = torch.cat(pos_embed, dim=1)  # concatenate along temporal dimension
-                    pos_embed = pos_embed.unsqueeze(2).repeat(1, 1, S, 1)  # [B, T*num_clips, S, D]
+                    pos_embed = self.pos_embed.repeat(B, 1, 1)
+                    pos_embed = apply_masks(pos_embed, _indices, concat=False)
+                    pos_embed = torch.cat(pos_embed, dim=1)
+                    pos_embed = pos_embed.unsqueeze(2).repeat(1, 1, S, 1)
                     pos_embed = pos_embed.flatten(1, 2)
-                    outputs += pos_embed
-                all_outputs[i] = outputs
+                    outs = outs + pos_embed
+                all_outputs[i] = outs
+            # concat the (default 1) spatial views along the token dim -> (B, N, D)
+            return torch.cat(all_outputs, dim=1)
 
-            return all_outputs
-
-        return multiviews_postprocess(outputs)
+        return [multiviews_postprocess(lo) for lo in layer_outputs]

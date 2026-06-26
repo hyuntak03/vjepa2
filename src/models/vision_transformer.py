@@ -185,6 +185,7 @@ class VisionTransformer(nn.Module):
             x = self.patch_embed(x)
             x += pos_embed
         else:
+            #! patch embedding만 하고 pos embedding은 self.blocks에서 처리 (RoPE 쓰니까)
             x = self.patch_embed(x)
 
         # Mask away unwanted tokens (if masks provided)
