@@ -50,7 +50,8 @@ def reduce_feature(feat, mode, num_temporal=None):
 
 
 @torch.no_grad()
-def build_feature_cache(encode_fn, loader, cache_pooling, num_temporal=None, max_gb=None, label="cache"):
+def build_feature_cache(encode_fn, loader, cache_pooling, num_temporal=None, max_gb=None,
+                        label="cache", rank=0):
     """One deterministic pre-pass: encode every sample, reduce, accumulate on CPU (fp16).
 
     encode_fn(data) -> (feats: list[(B,N,D)] per stage, labels: (B,), bsz)
@@ -64,8 +65,18 @@ def build_feature_cache(encode_fn, loader, cache_pooling, num_temporal=None, max
     except Exception:
         n_target = None
 
+    iterator = loader
+    if rank == 0:
+        try:
+            from tqdm import tqdm
+
+            iterator = tqdm(loader, desc=f"{label} (encode)", dynamic_ncols=True,
+                            mininterval=2.0, leave=False)
+        except Exception:
+            pass
+
     per_stage, labels_acc, n = None, [], 0
-    for data in loader:
+    for data in iterator:
         feats, labels, bsz = encode_fn(data)
         reduced = [reduce_feature(f, cache_pooling, num_temporal).half().cpu() for f in feats]
         if per_stage is None:

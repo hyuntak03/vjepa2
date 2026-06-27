@@ -90,7 +90,13 @@ def make_raw_dataloader(
     training,
     num_workers=6,
     decord_threads=2,
+    persistent=None,
 ):
+    # persistent_workers: keep workers alive across iterations. Good for per-epoch training
+    # loaders, but for a one-shot cache pre-pass set persistent=False so workers are released
+    # before the next split's loader spawns (avoids worker pile-up / spawn deadlock).
+    if persistent is None:
+        persistent = num_workers > 0
     ds = RawVideoDataset(csv_path, frames_per_clip, decord_threads=decord_threads)
     sampler = None
     if world_size > 1:
@@ -110,6 +116,8 @@ def make_raw_dataloader(
         collate_fn=_collate,
         pin_memory=False,
         drop_last=False,
-        persistent_workers=(num_workers > 0),
+        persistent_workers=(persistent and num_workers > 0),
+        # prefetch more so decode (CPU) overlaps the now-fast SDPA encode in the cache pre-pass
+        prefetch_factor=(4 if num_workers > 0 else None),
     )
     return loader, sampler

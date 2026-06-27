@@ -58,7 +58,7 @@ experiment:
     dataset_train: /data/hyuntak/project/2026/2027_cvpr/vjepa2/configs/z_tak_attentive_probing/R2R_4way_1500_shape_color_train.csv
     dataset_val:   /data/hyuntak/project/2026/2027_cvpr/vjepa2/configs/z_tak_attentive_probing/R2R_4way_1500_shape_color_val.csv
     num_classes: 4
-    frames_per_clip: 16
+    frames_per_clip: 16         # 고정
 
   optimization:
     batch_size: 8

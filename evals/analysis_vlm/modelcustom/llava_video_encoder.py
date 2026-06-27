@@ -29,6 +29,7 @@ import math
 import os
 import re
 import sys
+import types
 
 import torch
 import torch.nn as nn
@@ -55,6 +56,20 @@ def _stage_dim(name):
     raise ValueError(f"unknown LLaVA stage {name!r}")
 
 
+def _siglip_sdpa_forward(self, hidden_states, attention_mask=None, output_attentions=False):
+    """Drop-in for SigLipAttention.forward using fused scaled_dot_product_attention.
+    Mathematically the same attention; avoids materializing the (B,heads,729,729) float32
+    score matrix -> ~2-3x faster + far less memory (no behavior change for feature extraction).
+    SDPA's default scale (1/sqrt(head_dim)) == the eager `self.scale`."""
+    b, q, _ = hidden_states.size()
+    qs = self.q_proj(hidden_states).view(b, q, self.num_heads, self.head_dim).transpose(1, 2)
+    ks = self.k_proj(hidden_states).view(b, q, self.num_heads, self.head_dim).transpose(1, 2)
+    vs = self.v_proj(hidden_states).view(b, q, self.num_heads, self.head_dim).transpose(1, 2)
+    o = F.scaled_dot_product_attention(qs, ks, vs, attn_mask=attention_mask, dropout_p=0.0)
+    o = o.transpose(1, 2).reshape(b, q, self.embed_dim)
+    return self.out_proj(o), None
+
+
 def init_module(resolution, frames_per_clip, checkpoint, model_kwargs, wrapper_kwargs):
     # config knobs (model_kwargs.wrapper_kwargs):
     #   pretrained / cache_dir : weight location (HF repo id + cache, or local dir)
@@ -73,11 +88,14 @@ def init_module(resolution, frames_per_clip, checkpoint, model_kwargs, wrapper_k
     stages_cfg = wk.get("out_stages") or ["after_vision_encoder", "after_projector"]
     dtype = getattr(torch, wk.get("dtype", "float16"))
     return LLaVAVideoEncoder(snap, stages_cfg, pool_stride=wk.get("spatial_pool_stride", 2),
-                             num_temporal=int(frames_per_clip), dtype=dtype)
+                             num_temporal=int(frames_per_clip),
+                             vision_chunk=int(wk.get("vision_chunk", 32)),
+                             attn_impl=wk.get("attn_implementation", "sdpa"), dtype=dtype)
 
 
 class LLaVAVideoEncoder(nn.Module):
-    def __init__(self, snap, stages_cfg, pool_stride=2, num_temporal=8, dtype=torch.float16):
+    def __init__(self, snap, stages_cfg, pool_stride=2, num_temporal=8, vision_chunk=32,
+                 attn_impl="sdpa", dtype=torch.float16):
         super().__init__()
         from safetensors import safe_open
 
@@ -107,6 +125,18 @@ class LLaVAVideoEncoder(nn.Module):
         self.vision_model = vt.vision_model
         self.num_layers = len(self.vision_model.encoder.layers)  # 26
 
+        # SigLIP ships only an EAGER attention (float32 729x729 score matrix) -> slow + memory-heavy.
+        # Swap to fused SDPA (same math) for ~2-3x speed + much less memory. opt-out via attn_implementation=eager.
+        if attn_impl == "sdpa":
+            from llava.model.multimodal_encoder.siglip_encoder import SigLipAttention
+
+            patched = 0
+            for m in self.vision_model.modules():
+                if isinstance(m, SigLipAttention):
+                    m.forward = types.MethodType(_siglip_sdpa_forward, m)
+                    patched += 1
+            logger.info(f"SigLIP attention -> SDPA on {patched} layers")
+
         self.projector = nn.Sequential(nn.Linear(1152, 3584), nn.GELU(), nn.Linear(3584, 3584))
         self.projector.load_state_dict(proj_sd, strict=True)
         self.image_processor = SigLipImageProcessor()
@@ -117,6 +147,7 @@ class LLaVAVideoEncoder(nn.Module):
         self.embed_dim = self.embed_dims[0]
         self.tubelet_size = 1
         self.num_temporal = int(num_temporal)   # per-frame encoder -> T temporal positions
+        self.vision_chunk = int(vision_chunk)   # frames per SigLIP sub-forward (bounds attn memory)
         self._need_proj = any("projector" in s for s in self.stages)
 
         self.to(dtype)
@@ -197,8 +228,21 @@ class LLaVAVideoEncoder(nn.Module):
             pv.append(proc)
         pv = torch.cat(pv, dim=0).to(dev, dt)            # (B*T, 3, 384, 384)
 
-        # one forward gives all layer hidden states: hs[0]=embeddings, hs[i+1]=layer i output
-        hs = self.vision_model(pixel_values=pv, output_hidden_states=True).hidden_states
+        # SigLIP uses EAGER attention -> a (frames, heads, 729, 729) float32 matrix; with
+        # B*T large (e.g. 8*16=128) that alone is multiple GB and OOMs. Run the tower in
+        # frame-chunks to bound it; concatenate per-layer hidden states back.
+        chunk = self.vision_chunk
+        if chunk and pv.shape[0] > chunk:
+            parts = None
+            for i in range(0, pv.shape[0], chunk):
+                hi = self.vision_model(pixel_values=pv[i:i + chunk], output_hidden_states=True).hidden_states
+                if parts is None:
+                    parts = [[] for _ in hi]
+                for li, h in enumerate(hi):
+                    parts[li].append(h)
+            hs = tuple(torch.cat(p, dim=0) for p in parts)
+        else:
+            hs = self.vision_model(pixel_values=pv, output_hidden_states=True).hidden_states
         proj_final = self.projector(hs[-1]) if self._need_proj else None
 
         def _stage(name):

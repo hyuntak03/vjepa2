@@ -318,8 +318,9 @@ def main(args_eval, resume_preempt=False):
     # -- data (clip vs raw), with optional one-time FEATURE CACHE
     run_mode = data_mode
 
-    def _split_loader(root, training):
-        """A loader over a single split. training=False => deterministic (no augmentation)."""
+    def _split_loader(root, training, persistent=True):
+        """A loader over a single split. training=False => deterministic (no augmentation).
+        persistent=False frees workers when the loader is dropped (used for one-shot pre-pass)."""
         if data_mode == "clip":
             from evals.video_classification_frozen.eval import make_dataloader
 
@@ -334,27 +335,32 @@ def main(args_eval, resume_preempt=False):
         from evals.analysis_vlm.data import make_raw_dataloader
 
         return make_raw_dataloader(root, frames_per_clip, batch_size, world_size, rank,
-                                   training=training, num_workers=num_workers)
+                                   training=training, num_workers=num_workers, persistent=persistent)
 
     if cache_features:
         # ONE deterministic pre-pass per split (training=False -> NO augmentation), cache features,
-        # then train probes over the cache. Each rank caches its own shard.
+        # then train probes over the cache. Each rank caches its own shard. Build the two pre-pass
+        # loaders SEQUENTIALLY (drop train before creating val) with persistent_workers=False, so
+        # workers don't pile up / deadlock at the train->val transition under spawn multiprocessing.
         from evals.analysis_vlm.cache import build_feature_cache, make_cached_loader
 
         def encode_fn(d):
             return _encode(encoder, d, device, data_mode, use_bfloat16)
 
-        logger.info(f"cache_features=true (pooling={cache_pooling}): one deterministic pre-pass per split...")
-        tr_loader, _ = _split_loader(train_data_path[0], training=False)
-        va_loader, _ = _split_loader(val_data_path[0], training=False)
         enc_num_temporal = getattr(encoder, "num_temporal", None)  # for cache_pooling='framewise'
+        logger.info(f"cache_features=true (pooling={cache_pooling}): one deterministic pre-pass per split...")
+
+        tr_loader, _ = _split_loader(train_data_path[0], training=False, persistent=False)
         tr_feats, tr_labels = build_feature_cache(encode_fn, tr_loader, cache_pooling,
                                                   num_temporal=enc_num_temporal, max_gb=cache_max_gb,
-                                                  label="train-cache")
+                                                  label="train-cache", rank=rank)
+        del tr_loader  # release train workers before spawning val workers
+
+        va_loader, _ = _split_loader(val_data_path[0], training=False, persistent=False)
         va_feats, va_labels = build_feature_cache(encode_fn, va_loader, cache_pooling,
                                                   num_temporal=enc_num_temporal, max_gb=cache_max_gb,
-                                                  label="val-cache")
-        del tr_loader, va_loader
+                                                  label="val-cache", rank=rank)
+        del va_loader
         train_loader = make_cached_loader(tr_feats, tr_labels, batch_size, training=True)
         val_loader = make_cached_loader(va_feats, va_labels, batch_size, training=False)
         train_sampler = None
@@ -475,7 +481,10 @@ def _encode(encoder, data, device, data_mode, use_bfloat16):
         labels = labels.to(device, non_blocking=True)
         with torch.no_grad():  # VLM encoder runs in its own (half) dtype, no autocast
             feats = encoder(frames_list)
-    feats = [f.detach().float() for f in feats]
+    # keep the encoder dtype (fp16): the stages are views into the hidden states, so this is
+    # ~free; upcasting all stages to fp32 here would double peak GPU memory (OOM on all-layer).
+    # The cache stores fp16 (.half()) and the non-cached probe runs under autocast anyway.
+    feats = [f.detach() for f in feats]
     return feats, labels, labels.size(0)
 
 
