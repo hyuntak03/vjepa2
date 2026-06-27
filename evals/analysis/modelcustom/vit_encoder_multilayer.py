@@ -71,13 +71,19 @@ def init_module(
     logger.info(f"loaded pretrained model with msg: {msg}")
 
     # wrapper_kwargs may carry out_layers; ClipAggregation consumes the rest.
-    agg_kwargs = {k: v for k, v in wrapper_kwargs.items() if k != "out_layers"}
+    # `dtype` (optional) is a compute-dtype knob (e.g. float32 on CPU); pop it here
+    # and cast the assembled module rather than passing it to the wrapper ctor.
+    agg_kwargs = {k: v for k, v in wrapper_kwargs.items() if k not in ("out_layers", "dtype")}
     model = MultiLayerClipAggregation(
         model,
         tubelet_size=model.tubelet_size,
         out_layers=out_layers,
         **agg_kwargs,
     )
+    dtype = wrapper_kwargs.get("dtype")
+    if dtype is not None:
+        torch_dtype = getattr(torch, dtype) if isinstance(dtype, str) else dtype
+        model = model.to(dtype=torch_dtype)
     del checkpoint
     return model
 
