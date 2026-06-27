@@ -318,9 +318,11 @@ def main(args_eval, resume_preempt=False):
     # -- data (clip vs raw), with optional one-time FEATURE CACHE
     run_mode = data_mode
 
-    def _split_loader(root, training, persistent=True):
+    def _split_loader(root, training, persistent=True, workers=None):
         """A loader over a single split. training=False => deterministic (no augmentation).
-        persistent=False frees workers when the loader is dropped (used for one-shot pre-pass)."""
+        workers overrides num_workers (the cache pre-pass uses 0: a 2nd DataLoader's worker
+        respawn deadlocks under spawn multiprocessing, so decode single-threaded in-process)."""
+        w = num_workers if workers is None else workers
         if data_mode == "clip":
             from evals.video_classification_frozen.eval import make_dataloader
 
@@ -329,13 +331,13 @@ def main(args_eval, resume_preempt=False):
                 frames_per_clip=frames_per_clip, frame_step=frame_step, eval_duration=duration,
                 num_segments=num_segments, num_views_per_segment=1, allow_segment_overlap=True,
                 batch_size=batch_size, world_size=world_size, rank=rank, training=training,
-                num_workers=num_workers, normalization=normalization,
+                num_workers=w, normalization=normalization,
             )
             return ld, samp
         from evals.analysis_vlm.data import make_raw_dataloader
 
         return make_raw_dataloader(root, frames_per_clip, batch_size, world_size, rank,
-                                   training=training, num_workers=num_workers, persistent=persistent)
+                                   training=training, num_workers=w, persistent=persistent)
 
     if cache_features:
         # ONE deterministic pre-pass per split (training=False -> NO augmentation), cache features,
@@ -350,13 +352,15 @@ def main(args_eval, resume_preempt=False):
         enc_num_temporal = getattr(encoder, "num_temporal", None)  # for cache_pooling='framewise'
         logger.info(f"cache_features=true (pooling={cache_pooling}): one deterministic pre-pass per split...")
 
-        tr_loader, _ = _split_loader(train_data_path[0], training=False, persistent=False)
+        # workers=0: the cache pre-pass iterates each loader once; using DataLoader subprocess
+        # workers here deadlocks at the train->val loader transition under spawn multiprocessing.
+        tr_loader, _ = _split_loader(train_data_path[0], training=False, persistent=False, workers=0)
         tr_feats, tr_labels = build_feature_cache(encode_fn, tr_loader, cache_pooling,
                                                   num_temporal=enc_num_temporal, max_gb=cache_max_gb,
                                                   label="train-cache", rank=rank)
-        del tr_loader  # release train workers before spawning val workers
+        del tr_loader
 
-        va_loader, _ = _split_loader(val_data_path[0], training=False, persistent=False)
+        va_loader, _ = _split_loader(val_data_path[0], training=False, persistent=False, workers=0)
         va_feats, va_labels = build_feature_cache(encode_fn, va_loader, cache_pooling,
                                                   num_temporal=enc_num_temporal, max_gb=cache_max_gb,
                                                   label="val-cache", rank=rank)
