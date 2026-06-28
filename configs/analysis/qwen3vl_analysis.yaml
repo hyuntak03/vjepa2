@@ -52,8 +52,8 @@ experiment:
 
   data:
     # raw-frame 경로: 백엔드가 Qwen native 전처리 수행. resolution/frame_step 불필요.
-    dataset_train: /data/hyuntak/project/2026/2027_cvpr/vjepa2/configs/z_tak_attentive_probing/R2R_4way_1500_shape_color_train.csv
-    dataset_val:   /data/hyuntak/project/2026/2027_cvpr/vjepa2/configs/z_tak_attentive_probing/R2R_4way_1500_shape_color_val.csv
+    dataset_train: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/R2R_4way_1500_shape_color_train.csv
+    dataset_val:   /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/R2R_4way_1500_shape_color_val.csv
     num_classes: 4
     frames_per_clip: 8          # = lmms-eval max_num_frames. 짝수 (grid_t = T/2)
 

@@ -80,8 +80,8 @@ experiment:
   data:
     dataset_type: VideoDataset   # [VideoDataset] src/datasets 의 로더 종류. 보통 그대로.
     # CSV 형식(헤더 없음, 공백 1칸): "<영상_절대경로> <정수라벨>"
-    dataset_train: /data/hyuntak/project/2026/2027_cvpr/vjepa2/configs/z_tak_attentive_probing/R2R_4way_1500_shape_color_train.csv
-    dataset_val:   /data/hyuntak/project/2026/2027_cvpr/vjepa2/configs/z_tak_attentive_probing/R2R_4way_1500_shape_color_val.csv
+    dataset_train: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/R2R_4way_1500_shape_color_train.csv
+    dataset_val:   /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/R2R_4way_1500_shape_color_val.csv
     num_classes: 4               # [필수] CSV 라벨 종류 수와 일치 (R2R direction=4, SSv2=174)
     resolution: 256              # [224] 입력 해상도. fpc64-256 체크포인트는 256.
     frames_per_clip: 32          # [16] 클립당 프레임 수(짝수, tubelet_size=2 때문).
