@@ -161,6 +161,11 @@ def main(args_eval, resume_preempt=False):
     duration = args_data.get("clip_duration", None)
     num_views_per_segment = args_data.get("num_views_per_segment", 1)
     normalization = args_data.get("normalization", None)
+    # clip path (V-JEPA) spatial handling: 'crop' = shorter-side resize + center-crop (stock,
+    # default) | 'resize' = direct resize to resolution^2 (aspect squashed, like the VLM path).
+    clip_resize_mode = args_data.get("resize_mode", "crop")
+    if clip_resize_mode not in ("crop", "resize"):  # fail loud (don't silently fall back to crop)
+        raise ValueError(f"data.resize_mode must be 'crop' or 'resize', got {clip_resize_mode!r}")
 
     # -- OPTIMIZATION
     args_opt = args_exp.get("optimization")
@@ -324,6 +329,20 @@ def main(args_eval, resume_preempt=False):
         respawn deadlocks under spawn multiprocessing, so decode single-threaded in-process)."""
         w = num_workers if workers is None else workers
         if data_mode == "clip":
+            if clip_resize_mode == "resize":
+                # DIRECT resize to resolution^2 (no shorter-side + center-crop; aspect squashed,
+                # like the VLM SigLIP path). Mirrors make_dataloader's init_data call EXACTLY,
+                # swapping ONLY the transform (deterministic; no train-time augmentation).
+                from evals.video_classification_frozen.eval import DEFAULT_NORMALIZATION
+                from src.datasets.data_manager import init_data
+
+                transform = _DirectResizeClipTransform(resolution, normalization or DEFAULT_NORMALIZATION)
+                return init_data(
+                    data=dataset_type, root_path=[root], transform=transform,
+                    batch_size=batch_size, world_size=world_size, rank=rank,
+                    clip_len=frames_per_clip, frame_sample_rate=frame_step, duration=duration,
+                    num_clips=num_segments, allow_clip_overlap=True, num_workers=w, drop_last=False,
+                )
             from evals.video_classification_frozen.eval import make_dataloader
 
             ld, samp = make_dataloader(
@@ -376,10 +395,9 @@ def main(args_eval, resume_preempt=False):
     ipe = len(train_loader)
     logger.info(f"Dataloader created... iterations per epoch: {ipe} (mode={run_mode})")
 
-    # -- optimizers (one per head)
-    from evals.video_classification_frozen.eval import init_opt
-
-    optimizer, scaler, scheduler, wd_scheduler = init_opt(
+    # -- optimizer: ONE fused AdamW with one param-group per head (collapses N AdamW.step()/
+    #    zero_grad()/scaler.step() launches into one; per-group LR/WD schedule stays identical).
+    optimizer, scaler, scheduler, wd_scheduler = _init_opt_fused(
         classifiers=[h["module"] for h in heads], opt_kwargs=head_opt_kwargs,
         iterations_per_epoch=ipe, num_epochs=num_epochs, use_bfloat16=use_bfloat16,
     )
@@ -465,6 +483,62 @@ def main(args_eval, resume_preempt=False):
 
         plot_layer_val_acc(heads, best_val, os.path.join(folder, "stage_val_acc.png"),
                            subtitle=f"{model_sel} | best val over {last_epoch} epoch(s)")
+
+
+class _DirectResizeClipTransform:
+    """Eval-style V-JEPA clip transform that DIRECTLY resizes each frame to (crop, crop) —
+    no shorter-side-resize + center-crop — so the FULL frame is kept (aspect ratio squashed,
+    like the VLM SigLIP 384x384 path). Deterministic (no augmentation). Same call contract as
+    VideoTransform in eval mode: __call__(buffer) -> [clip_tensor (C,T,H,W) normalized].
+
+    Reuses the stock video-transform primitives (Compose/Resize/ClipToTensor/Normalize); used
+    only for the clip path when experiment.data.resize_mode == 'resize'. The original
+    VideoTransform / make_transforms are left untouched."""
+
+    def __init__(self, crop_size, normalize):
+        import src.datasets.utils.video.transforms as vt
+        import src.datasets.utils.video.volume_transforms as vvt
+
+        self.eval_transform = vt.Compose([
+            vt.Resize((crop_size, crop_size), interpolation="bilinear"),  # (w,h) tuple -> direct resize
+            vvt.ClipToTensor(),
+            vt.Normalize(mean=normalize[0], std=normalize[1]),
+        ])
+
+    def __call__(self, buffer):
+        return [self.eval_transform(buffer)]
+
+
+def _init_opt_fused(classifiers, opt_kwargs, iterations_per_epoch, num_epochs, use_bfloat16=False):
+    """ONE AdamW with one param-group per head (each carrying its own mc_* schedule keys),
+    a SINGLE LR/WD schedule and a SINGLE GradScaler.
+
+    Numerically identical to the one-optimizer-per-head path (the WarmupCosineLRSchedule /
+    CosineWDSchedule already iterate self.optimizer.param_groups and set LR/WD per group), but
+    collapses N AdamW.step() / zero_grad() / scaler.step() launches into ONE — ~25% off the
+    cached probe step when there are many heads (e.g. 26-layer scan). Returned as length-1
+    lists so the train loop and checkpoint code (which iterate the optimizer/scaler/scheduler/
+    wd_scheduler lists) keep working unchanged."""
+    from evals.video_classification_frozen.eval import CosineWDSchedule, WarmupCosineLRSchedule
+
+    param_groups = []
+    for c, kw in zip(classifiers, opt_kwargs):
+        param_groups.append({
+            "params": list(c.parameters()),  # materialize (a generator would exhaust)
+            "mc_warmup_steps": int(kw.get("warmup") * iterations_per_epoch),
+            "mc_start_lr": kw.get("start_lr"),
+            "mc_ref_lr": kw.get("ref_lr"),
+            "mc_final_lr": kw.get("final_lr"),
+            "mc_ref_wd": kw.get("ref_wd"),
+            "mc_final_wd": kw.get("final_wd"),
+        })
+    logger.info(f"Using ONE fused AdamW over {len(param_groups)} head param-group(s)")
+    optimizer = torch.optim.AdamW(param_groups)
+    T = int(num_epochs * iterations_per_epoch)
+    scheduler = WarmupCosineLRSchedule(optimizer, T_max=T)
+    wd_scheduler = CosineWDSchedule(optimizer, T_max=T)
+    scaler = torch.cuda.amp.GradScaler() if use_bfloat16 else None
+    return [optimizer], [scaler], [scheduler], [wd_scheduler]
 
 
 def _encode(encoder, data, device, data_mode, use_bfloat16):

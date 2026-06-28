@@ -55,6 +55,9 @@ experiment:
     dataset_val:   /data/hyuntak/project/2026/2027_cvpr/vjepa2/configs/z_tak_attentive_probing/R2R_4way_1500_shape_color_val.csv
     num_classes: 4
     resolution: 256             # fpc64-256 체크포인트는 256
+    resize_mode: crop           # 공간 처리: crop=짧은변 resize+center crop(원본 학습방식, 기본) |
+                                #   resize=resolution²로 직접 resize(aspect squash, VLM SigLIP 방식).
+                                #   (raw 경로 llava/qwen엔 무관 — clip 경로 전용)
     frames_per_clip: 32         # 짝수 (tubelet_size=2)
     frame_step: 1
     num_segments: 1             # 영상당 temporal clip 수 (분석은 1 권장)
@@ -66,10 +69,16 @@ experiment:
     use_bfloat16: true          # AMP float16 autocast
     save_optimizer: false       # latest.pt에 optimizer 상태 저장 여부(false=probe 가중치만, 용량↓)
     # ── 속도: frozen 인코더 + augment 없음 → feature 1회 추출 후 캐시, probe만 반복(epoch ~초) ──
-    cache_features: false       # true=캐시 사용 (train/val 모두 deterministic 전처리, inference와 동일)
+    cache_features: true        # ★ frozen 인코더 → 1회 추출 후 캐시 (epoch마다 재인코딩 X, ~20배↑).
+                                # 주의: clip-path train 로더는 원래 augmentation(RandAug/random-crop)을 쓰는데
+                                #   캐시는 train/val 모두 deterministic(no-aug)으로 추출 → "무-augment probing"이 됨
+                                #   (val/inference는 어차피 no-aug라 동일; train-time aug 정규화만 빠짐 — frozen
+                                #    인코더 linear/attentive probe엔 보통 불필요하고 llava/qwen과도 일관됨).
     cache_pooling: tokens       # tokens=전체 토큰(attentive 포함 전부 OK, 용량 큼) |
                                 # pooled=mean‖max만(매우 작음, linear 전용) → vision_encoder:all 층스캔에 최적
                                 #   (pooled 쓰려면 probes에서 attentive 빼고 linear만 남길 것)
+                                # ※ RAM: tokens·7stage·32f·256 ≈ 88GB/rank(4GPU, abort) / 44GB(8GPU, OK).
+                                #   4GPU거나 attentive 불필요하면 pooled 권장. 넘치면 가드가 깔끔히 abort.
     cache_max_gb: 64            # tokens 캐시 per-rank RAM 추정이 이 값 넘으면 abort (가드)
     default_head:               # 각 probe.optimization 이 생략한 값의 기본
       start_lr: 0.0

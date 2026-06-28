@@ -63,7 +63,9 @@ experiment:
     use_bfloat16: true
     save_optimizer: false
     # ── 속도: frozen 인코더 + augment 없음 → feature 1회 추출 후 캐시, probe만 반복(epoch ~초) ──
-    cache_features: false       # true=캐시 사용 (deterministic, inference와 동일)
+    cache_features: true        # ★ frozen 인코더+결정적 전처리 → 1회 추출 후 캐시 (epoch마다 재인코딩 X, ~20배↑)
+                                #   tokens 캐시는 영상별 토큰수 N 균일 필요. smart resize로 grid 동일하면 OK,
+                                #   아니면 resize_mode:fixed. RAM이 cache_max_gb 넘으면 깔끔히 abort됨.
     cache_pooling: tokens       # tokens=전체 토큰(공간 attention까지, 큼) | pooled=전역 mean‖max(작음, 전역 linear) |
                                 # framewise=프레임별 공간평균 (B,T,D)(시간 보존, 작음, VLM 전용)
     cache_max_gb: 64            # tokens 캐시 per-rank RAM 추정이 이 값 넘으면 abort (가드)

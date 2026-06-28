@@ -19,12 +19,59 @@
 # -----------------------------------------------------------------------------
 
 import logging
+import queue
+import threading
 
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
 
 logger = logging.getLogger()
+
+_PREFETCH_END = object()
+
+
+class _ThreadPrefetcher:
+    """Background-THREAD prefetch over a num_workers=0 loader. A daemon thread pulls
+    (decodes) the next batch into a small queue while the main thread runs the GPU
+    encode; decord releases the GIL during decode, so decode overlaps encode. Unlike
+    num_workers>0 there are NO subprocess workers -> none of the spawn / worker-respawn
+    deadlocks that bite the cache pre-pass at the train->val loader transition."""
+
+    def __init__(self, loader, depth=2):
+        self._q = queue.Queue(maxsize=max(1, depth))
+        self._err = None
+        try:
+            self._len = len(loader)
+        except TypeError:  # IterableDataset / bare iterator -> tqdm falls back to total=None
+            self._len = None
+        self._thread = threading.Thread(
+            target=self._run, args=(loader,), daemon=True, name="cache-prefetch"
+        )
+        self._thread.start()
+
+    def _run(self, loader):
+        try:
+            for batch in loader:
+                self._q.put(batch)
+        except Exception as e:  # surface decode errors to the consuming thread
+            self._err = e
+        finally:
+            self._q.put(_PREFETCH_END)
+
+    def __len__(self):
+        if self._len is None:
+            raise TypeError("prefetched loader length unknown")
+        return self._len
+
+    def __iter__(self):
+        while True:
+            batch = self._q.get()
+            if batch is _PREFETCH_END:
+                if self._err is not None:
+                    raise self._err
+                return
+            yield batch
 
 
 def reduce_feature(feat, mode, num_temporal=None):
@@ -65,13 +112,16 @@ def build_feature_cache(encode_fn, loader, cache_pooling, num_temporal=None, max
     except Exception:
         n_target = None
 
-    iterator = loader
+    # overlap CPU decode with the GPU encode WITHOUT subprocess workers (the pre-pass loader
+    # is num_workers=0): a daemon thread decodes the next batch while we encode the current one.
+    src = _ThreadPrefetcher(loader, depth=2)
+    iterator = src
     if rank == 0:
         try:
             from tqdm import tqdm
 
-            iterator = tqdm(loader, desc=f"{label} (encode)", dynamic_ncols=True,
-                            mininterval=2.0, leave=False)
+            iterator = tqdm(src, desc=f"{label} (encode)", dynamic_ncols=True,
+                            mininterval=2.0, leave=False)  # tqdm reads len(src) itself
         except Exception:
             pass
 
