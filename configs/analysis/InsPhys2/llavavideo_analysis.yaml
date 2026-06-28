@@ -1,0 +1,90 @@
+# ============================================================================
+# ANALYSIS TEMPLATE — LLaVA-Video-7B-Qwen2 (vision encoder ONLY, no LLM)  [model: llavavideo]
+# ----------------------------------------------------------------------------
+# 통합 probing harness. eval_name: analysis_vlm -> evals/analysis_vlm/eval.py
+# conda env: lmms_eval_llavavideo   (LLaVA-NeXT repo 필요 → wrapper_kwargs.llava_repo)
+#
+# 실행(단일 GPU 디버그):
+#   python -m evals.main --fname configs/analysis/llavavideo_analysis.yaml \
+#          --devices cuda:0 --debugmode True
+# 다중 GPU (vll4, 8장):
+#   sbatch --export=ALL,CONDA_ENV=lmms_eval_llavavideo,\
+# CONFIG=configs/analysis/llavavideo_analysis.yaml z_scripts/run_analysis_vlm.sh
+#
+# ▶ stages.vision_encoder 로 SigLIP을 LAYER-WISE 선택 (list[int] 0..25, 또는 "all").
+#   그 외 stage(after_projector 등)는 단일 지점이라 토글(true)만.
+# ============================================================================
+
+eval_name: analysis_vlm
+folder: /data/hyuntak/project/2026/2027_cvpr/vjepa2/configs/analysis/InsPhys2/logs
+num_workers: 8
+resume_checkpoint: false
+val_only: false
+tag: llavavideo_IntPhys2_easy_possible_impossible
+
+experiment:
+  analysis:
+    model: llavavideo
+
+    # ── STAGE 선택 ─────────────────────────────────────────────────────────
+    # vision_encoder = SigLIP 비전타워의 LAYER-WISE 선택 (각 1152-d, 영상당 T*729 토큰)
+    # 그 외는 토글: after_projector / *_pool2
+    stages:
+      # vision_encoder: [3, 7, 11, 15, 19, 23, 25]   # SigLIP layer 0..25 (25=마지막)
+      vision_encoder: all                          # ← 전 26개 layer scan
+      # after_projector: false              # mm_projector 출력 (3584-d, LLM 입력공간)
+      # after_vision_encoder_pool2: true # (선택) 2x bilinear spatial pool 변형 (1152-d)
+      # after_projector_pool2: true      # (선택) 3584-d pooled
+
+    plot: true                  # x=layer/stage, y=best val acc (stage_val_acc.png)
+
+    probes:
+      - type: linear            # ★ layer-wise linear probing
+        pooling: framewise_mean # mean|max|meanmax = 전역 pool (T·N 다 평균 → 시간순서 소실) |
+                                # framewise_mean/max = 프레임별 공간 pool 후 프레임 concat → (B, T·D) → Linear
+                                # direction은 시간순서가 핵심 → framewise 권장 (전역 mean은 방향 씻김).
+                                # framewise는 VLM 전용(num_temporal 필요) + cache_pooling=tokens 필요(pooled 불가)
+        pre_norm: true
+        optimization: { lr: 0.01, weight_decay: 0.0, warmup: 1.0 }
+      # - type: attentive
+      #   num_heads: 16
+      #   num_probe_blocks: 1     # depth-1 권장(고차원 stage 多면 메모리↑). depth-N 가능
+      #   temporal_pos: learnable # none | learnable | rope. LLaVA SigLIP은 프레임별이라 attentive가
+      #                           # 시간순서를 잃음 → direction엔 learnable/rope 권장 (none이면 set pooling)
+      #   optimization: { lr: 0.002, weight_decay: 0.01, warmup: 2.0 }
+
+  data:
+    # raw-frame 경로: 백엔드가 SigLIP native 전처리(384 resize) 수행. resolution/frame_step 불필요.
+    dataset_train: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/IntPhys2/IntPhys2_2way_easy_train.csv
+    dataset_val:   /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/IntPhys2/IntPhys2_2way_easy_val.csv
+    num_classes: 2
+    frames_per_clip: 16         # 고정
+
+  optimization:
+    batch_size: 8
+    num_epochs: 20
+    use_bfloat16: true
+    save_optimizer: false
+    # ── 속도: frozen 인코더 + augment 없음 → feature 1회 추출 후 캐시, probe만 반복(epoch ~초) ──
+    cache_features: true       # true=캐시 사용 (deterministic, inference와 동일)
+    cache_pooling: framewise    # tokens=전체 토큰(공간 attention까지, 용량 큼) |
+                                # pooled=mean‖max 전역(작음, 전역 linear 전용) |
+                                # framewise=프레임별 공간평균 (B,T,D) → 시간 보존 + 작음.
+                                #   framewise_mean linear / temporal attentive 에 최적 (VLM 전용)
+    cache_max_gb: 70
+    default_head:
+      start_lr: 0.0
+      final_lr: 0.0
+      final_weight_decay: 0.01
+
+model_kwargs:
+  # lmms-eval 스타일: checkpoint=HF repo id, cache_dir=캐시 루트.  (또는 checkpoint=로컬 스냅샷 dir)
+  checkpoint: lmms-lab/LLaVA-Video-7B-Qwen2
+  cache_dir: /data/dataset/LLaVA-Video-100K-Subset/
+  module_name: evals.analysis_vlm.modelcustom.llava_video_encoder
+  pretrain_kwargs:
+    encoder: {}
+  wrapper_kwargs:
+    llava_repo: /data/hyuntak/project/2026/vlm_direction/LLaVA-NeXT   # SigLip 코드 import 경로
+    spatial_pool_stride: 2      # *_pool2 stage 용 (mm_spatial_pool_mode=bilinear)
+    dtype: float16              # 인코더 forward dtype (CPU 디버그는 float32)

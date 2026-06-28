@@ -33,7 +33,7 @@ def _elbow_x(xs, ys):
     return best_x
 
 
-def plot_layer_val_acc(heads, val_acc, out_path, subtitle=None):
+def plot_layer_val_acc(heads, val_acc, out_path, subtitle=None, num_classes=None):
     """Save a [layer x val-acc] line plot (one line per probe).
 
     heads:    list of dict with keys 'layer' and 'name' (name == "L<layer>_<probe>")
@@ -100,6 +100,13 @@ def plot_layer_val_acc(heads, val_acc, out_path, subtitle=None):
     else:
         ax.set_xlabel("encoder layer (0-indexed block)")
     ax.set_ylabel("val accuracy (%)")
+    ax.set_ylim(0, 120)                 # fixed y-scale so plots are comparable across runs
+    ax.set_yticks(range(0, 121, 20))    # 0,20,40,60,80,100,120
+    if num_classes:                     # random-chance baseline (= 100 / #classes)
+        chance = 100.0 / num_classes
+        ax.axhline(chance, color="red", linestyle="--", linewidth=1.2, alpha=0.8, zorder=1)
+        ax.text(0.995, chance + 1.5, f"chance {chance:.1f}%", color="red", fontsize=8,
+                ha="right", va="bottom", transform=ax.get_yaxis_transform())
     title = "Layer-wise probing — val accuracy"
     if subtitle:
         title += f"\n({subtitle})"

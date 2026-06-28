@@ -1,0 +1,92 @@
+# ============================================================================
+# ANALYSIS TEMPLATE — Qwen3-VL-4B-Instruct (vision encoder ONLY, no LLM)  [model: qwen3vl]
+# ----------------------------------------------------------------------------
+# 통합 probing harness. eval_name: analysis_vlm -> evals/analysis_vlm/eval.py
+# conda env: lmms_eval_py311_2.7   (transformers qwen3_vl)
+#
+# 실행(단일 GPU 디버그):
+#   python -m evals.main --fname configs/analysis/qwen3vl_analysis.yaml \
+#          --devices cuda:0 --debugmode True
+# 다중 GPU (vll4, 8장):
+#   sbatch --export=ALL,CONDA_ENV=lmms_eval_py311_2.7,\
+# CONFIG=configs/analysis/qwen3vl_analysis.yaml z_scripts/run_analysis_vlm.sh
+#
+# ▶ stages.vision_encoder 로 ViT를 LAYER-WISE(per-block) 선택 (list[int] 0..23, 또는 "all").
+#   그 외 stage(after_merger/deepstack/before_merger)는 토글. 4B 실제 차원: hidden 1024 / out 2560.
+# ============================================================================
+
+eval_name: analysis_vlm
+folder: /data/hyuntak/project/2026/2027_cvpr/vjepa2/configs/analysis/InsPhys2/logs
+num_workers: 8
+resume_checkpoint: false
+val_only: false
+tag: qwen3vl_IntPhys2_possible_impossible
+
+experiment:
+  analysis:
+    model: qwen3vl
+
+    # ── STAGE 선택 ─────────────────────────────────────────────────────────
+    # vision_encoder = ViT의 LAYER-WISE(per-block) 선택. block 출력 = merger 전 raw 토큰(1024-d).
+    # 그 외 토글: after_merger(2560-d, LLM 입력) / deepstack(주입지점, 2560-d) / before_merger(=block 마지막)
+    stages:
+      vision_encoder: [3, 7, 11, 15, 19, 23]   # ViT block 0..23 (raw, 1024-d)
+      # vision_encoder: all                       # ← 전 24개 block scan
+      after_merger: true                 # 최종 merger 출력 (2560-d)
+      deepstack: [5, 11, 17]             # deepstack 주입지점 (2560-d). "all"/true = 전부 [5,11,17]
+      # before_merger: true              # == block_23 (merger 직전, 1024-d)
+
+    plot: true
+
+    probes:
+      - type: linear            # ★ layer-wise(per-block) linear probing
+        pooling: mean           # mean | max | meanmax
+        pre_norm: true
+        optimization: { lr: 0.01, weight_decay: 0.0, warmup: 1.0 }
+      - type: attentive
+        num_heads: 16
+        num_probe_blocks: 1     # depth-1 권장 (block+deepstack 多 고차원 → 메모리↑)
+        # temporal_pos: none    # none | learnable | rope. Qwen은 temporal_patch(2프레임 묶음)+RoPE로
+                                # 시간정보가 토큰값에 이미 있어 보통 none. 필요시 learnable/rope
+        optimization: { lr: 0.002, weight_decay: 0.01, warmup: 2.0 }
+
+  data:
+    # raw-frame 경로: 백엔드가 Qwen native 전처리 수행. resolution/frame_step 불필요.
+    dataset_train: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/IntPhys2/IntPhys2_2way_train.csv
+    dataset_val:   /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/IntPhys2/IntPhys2_2way_val.csv
+    num_classes: 2
+    frames_per_clip: 16          # = lmms-eval max_num_frames. 짝수 (grid_t = T/2)
+
+  optimization:
+    batch_size: 8
+    num_epochs: 20
+    use_bfloat16: true
+    save_optimizer: false
+    # ── 속도: frozen 인코더 + augment 없음 → feature 1회 추출 후 캐시, probe만 반복(epoch ~초) ──
+    cache_features: true        # ★ frozen 인코더+결정적 전처리 → 1회 추출 후 캐시 (epoch마다 재인코딩 X, ~20배↑)
+                                #   tokens 캐시는 영상별 토큰수 N 균일 필요. smart resize로 grid 동일하면 OK,
+                                #   아니면 resize_mode:fixed. RAM이 cache_max_gb 넘으면 깔끔히 abort됨.
+    cache_pooling: tokens       # tokens=전체 토큰(공간 attention까지, 큼) | pooled=전역 mean‖max(작음, 전역 linear) |
+                                # framewise=프레임별 공간평균 (B,T,D)(시간 보존, 작음, VLM 전용)
+    cache_max_gb: 64            # tokens 캐시 per-rank RAM 추정이 이 값 넘으면 abort (가드)
+    default_head:
+      start_lr: 0.0
+      final_lr: 0.0
+      final_weight_decay: 0.01
+
+model_kwargs:
+  # lmms-eval 스타일: checkpoint=HF repo id, cache_dir=캐시 루트.  (또는 checkpoint=로컬 스냅샷 dir)
+  checkpoint: Qwen/Qwen3-VL-4B-Instruct
+  cache_dir: /data/dataset/LLaVA-Video-100K-Subset/
+  module_name: evals.analysis_vlm.modelcustom.qwen3vl_encoder
+  pretrain_kwargs:
+    encoder: {}
+  wrapper_kwargs:
+    # 토큰 수 결정화: 영상 해상도가 균일하면 smart로도 grid 동일 → (B,N,D) stack OK.
+    resize_mode: smart          # smart (min/max_pixels) | fixed (qwen_fixed_h/w)
+    min_pixels: 8192            # lmms-eval MODEL_ARGS
+    max_pixels: 112896
+    # qwen_fixed_h: 224         # resize_mode=fixed 일 때만 (patch*merge=32 의 배수)
+    # qwen_fixed_w: 224
+    attn_implementation: sdpa   # sdpa | eager | flash_attention_2 (CPU 디버그는 eager)
+    dtype: float16              # CPU 디버그는 float32

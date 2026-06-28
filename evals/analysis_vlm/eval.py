@@ -337,21 +337,28 @@ def main(args_eval, resume_preempt=False):
                 from src.datasets.data_manager import init_data
 
                 transform = _DirectResizeClipTransform(resolution, normalization or DEFAULT_NORMALIZATION)
-                return init_data(
+                ld, samp = init_data(
                     data=dataset_type, root_path=[root], transform=transform,
                     batch_size=batch_size, world_size=world_size, rank=rank,
                     clip_len=frames_per_clip, frame_sample_rate=frame_step, duration=duration,
                     num_clips=num_segments, allow_clip_overlap=True, num_workers=w, drop_last=False,
                 )
-            from evals.video_classification_frozen.eval import make_dataloader
+            else:
+                from evals.video_classification_frozen.eval import make_dataloader
 
-            ld, samp = make_dataloader(
-                dataset_type=dataset_type, root_path=[root], img_size=resolution,
-                frames_per_clip=frames_per_clip, frame_step=frame_step, eval_duration=duration,
-                num_segments=num_segments, num_views_per_segment=1, allow_segment_overlap=True,
-                batch_size=batch_size, world_size=world_size, rank=rank, training=training,
-                num_workers=w, normalization=normalization,
-            )
+                ld, samp = make_dataloader(
+                    dataset_type=dataset_type, root_path=[root], img_size=resolution,
+                    frames_per_clip=frames_per_clip, frame_step=frame_step, eval_duration=duration,
+                    num_segments=num_segments, num_views_per_segment=1, allow_segment_overlap=True,
+                    batch_size=batch_size, world_size=world_size, rank=rank, training=training,
+                    num_workers=w, normalization=normalization,
+                )
+            # init_data/make_videodataset ignore the drop_last arg and default to drop_last=True,
+            # which silently drops partial batches — fatal for small splits (e.g. 20 val / 8 ranks
+            # ≈ 3/rank < batch_size -> 0 batches -> "saw 0 samples"). Force-keep them. Safe for DDP:
+            # DistributedSampler pads to equal per-rank counts, so batch counts stay aligned.
+            if getattr(ld, "batch_sampler", None) is not None:
+                ld.batch_sampler.drop_last = False
             return ld, samp
         from evals.analysis_vlm.data import make_raw_dataloader
 
@@ -470,7 +477,8 @@ def main(args_eval, resume_preempt=False):
             csv_logger.log(*row)
             with open(os.path.join(folder, "summary.json"), "w") as f:
                 json.dump({"epoch": epoch + 1, "num_epochs": num_epochs, "model": model_sel,
-                           "data_mode": data_mode, "stages": [str(s) for s in stages],
+                           "data_mode": data_mode, "num_classes": num_classes,
+                           "stages": [str(s) for s in stages],
                            "head_names": head_names, "val_acc": val_acc, "train_acc": train_acc,
                            "best_val_acc": best_val}, f, indent=2)
 
@@ -482,7 +490,8 @@ def main(args_eval, resume_preempt=False):
         from evals.analysis.plotting import plot_layer_val_acc
 
         plot_layer_val_acc(heads, best_val, os.path.join(folder, "stage_val_acc.png"),
-                           subtitle=f"{model_sel} | best val over {last_epoch} epoch(s)")
+                           subtitle=f"{model_sel} | best val over {last_epoch} epoch(s)",
+                           num_classes=num_classes)
 
 
 class _DirectResizeClipTransform:
