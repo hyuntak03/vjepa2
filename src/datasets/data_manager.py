@@ -84,6 +84,7 @@ def init_data(
             rank=rank,
             deterministic=deterministic,
             log_dir=log_dir,
+            uniform_sampling=uniform_sampling,
         )
 
     return (data_loader, dist_sampler)

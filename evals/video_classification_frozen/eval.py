@@ -428,6 +428,7 @@ def make_dataloader(
     num_workers=12,
     subset_file=None,
     normalization=None,
+    uniform_sampling=False,
 ):
     if normalization is None:
         normalization = DEFAULT_NORMALIZATION
@@ -461,6 +462,7 @@ def make_dataloader(
         num_workers=num_workers,
         drop_last=False,
         subset_file=subset_file,
+        uniform_sampling=uniform_sampling,
     )
     return data_loader, data_sampler
 

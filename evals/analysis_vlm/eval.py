@@ -162,6 +162,9 @@ def main(args_eval, resume_preempt=False):
     num_segments = args_data.get("num_segments", 1)
     frames_per_clip = args_data.get("frames_per_clip", 16)
     frame_step = args_data.get("frame_step", 4)
+    # clip path: sample frames_per_clip frames EVENLY across the whole video (length-agnostic),
+    # instead of frame_step's contiguous window. True => frame_step ignored. (raw path is always uniform)
+    uniform_sampling = args_data.get("uniform_sampling", False)
     duration = args_data.get("clip_duration", None)
     num_views_per_segment = args_data.get("num_views_per_segment", 1)
     normalization = args_data.get("normalization", None)
@@ -396,6 +399,7 @@ def main(args_eval, resume_preempt=False):
                     batch_size=batch_size, world_size=world_size, rank=rank,
                     clip_len=frames_per_clip, frame_sample_rate=frame_step, duration=duration,
                     num_clips=num_segments, allow_clip_overlap=True, num_workers=w, drop_last=False,
+                    uniform_sampling=uniform_sampling,
                 )
             else:
                 from evals.video_classification_frozen.eval import make_dataloader
@@ -405,7 +409,7 @@ def main(args_eval, resume_preempt=False):
                     frames_per_clip=frames_per_clip, frame_step=frame_step, eval_duration=duration,
                     num_segments=num_segments, num_views_per_segment=1, allow_segment_overlap=True,
                     batch_size=batch_size, world_size=world_size, rank=rank, training=training,
-                    num_workers=w, normalization=normalization,
+                    num_workers=w, normalization=normalization, uniform_sampling=uniform_sampling,
                 )
             # init_data/make_videodataset ignore the drop_last arg and default to drop_last=True,
             # which silently drops partial batches — fatal for small splits (e.g. 20 val / 8 ranks
