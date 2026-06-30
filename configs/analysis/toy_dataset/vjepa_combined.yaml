@@ -29,11 +29,11 @@ experiment:
       vision_encoder: all
     plot: true
 
-    # probes:
-    #   - type: linear
-    #     pooling: mean   # V-JEPA 시공간 → 전역 mean OK
-    #     pre_norm: true
-    #     optimization: { lr: 0.01, weight_decay: 0.0, warmup: 1.0 }
+    probes:
+      - type: linear
+        pooling: mean   # V-JEPA 시공간 → 전역 mean OK
+        pre_norm: true
+        optimization: { lr: 0.01, weight_decay: 0.0, warmup: 1.0 }
 
   data:
     dataset_type: VideoDataset
