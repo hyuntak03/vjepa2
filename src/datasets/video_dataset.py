@@ -51,6 +51,7 @@ def make_videodataset(
     persistent_workers=True,
     deterministic=True,
     log_dir=None,
+    uniform_sampling=False,
 ):
     dataset = VideoDataset(
         data_paths=data_paths,
@@ -67,6 +68,7 @@ def make_videodataset(
         filter_long_videos=filter_long_videos,
         shared_transform=shared_transform,
         transform=transform,
+        uniform_sampling=uniform_sampling,
     )
 
     log_dir = pathlib.Path(log_dir) if log_dir else None
@@ -137,10 +139,12 @@ class VideoDataset(torch.utils.data.Dataset):
         filter_short_videos=False,
         filter_long_videos=int(10**9),
         duration=None,  # duration in seconds
+        uniform_sampling=False,  # sample fpc frames evenly across the whole video (ignores frame_step)
     ):
         self.data_paths = data_paths
         self.datasets_weights = datasets_weights
         self.frame_step = frame_step
+        self.uniform_sampling = uniform_sampling
         self.num_clips = num_clips
         self.transform = transform
         self.shared_transform = shared_transform
@@ -326,6 +330,15 @@ class VideoDataset(torch.utils.data.Dataset):
             return [], None
 
         vr.seek(0)  # Go to start of video before sampling frames
+
+        # uniform_sampling: pick `fpc` frames evenly across the WHOLE video (length-agnostic;
+        # ignores frame_step / num_clips). Avoids the contiguous-window default that, when
+        # fpc*frame_step < len(video), only covers a sub-segment -> sub-patch motion per tubelet.
+        if getattr(self, "uniform_sampling", False):
+            n = len(vr)
+            indices = np.clip(np.linspace(0, n - 1, num=fpc).round(), 0, n - 1).astype(np.int64)
+            buffer = vr.get_batch(list(indices)).asnumpy()
+            return buffer, [indices]
 
         # Partition video into equal sized segments and sample each clip
         # from a different segment

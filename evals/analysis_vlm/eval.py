@@ -359,8 +359,16 @@ def main(args_eval, resume_preempt=False):
                 _name_set.add(name)
                 # `series` = plot line grouping (variable for regression, probe for classification).
                 # carry stage name explicitly so plotting doesn't re-parse `name`.
+                # plot series: variable for regression (probe for classification); when MULTIPLE
+                # probe specs exist (e.g. linear vs attentive), append the probe so each is its own curve.
+                if var_name is None:
+                    series = pname
+                elif len(probe_specs) > 1:
+                    series = f"{var_name}·{pname}"
+                else:
+                    series = var_name
                 heads.append(dict(name=name, layer=layer_val, layer_pos=stage_pos,
-                                  probe=pname, series=(var_name if var_name is not None else pname),
+                                  probe=pname, series=series,
                                   stage=stage_tag, module=module, tcols=var_cols))
                 head_opt_kwargs.append(_opt_kwargs(spec))
     head_names = [h["name"] for h in heads]

@@ -1,0 +1,88 @@
+# ============================================================================
+# TOY-PHYSICS R² — V-JEPA2-L COMBINED, paper's TWO probes side-by-side (Sec 3.2)
+#   primary    : linear on MEAN-pooled space-time patches   (= paper Fig.2 readout)
+#   complement : patch-preserving ATTENTIVE-MLP probe        (paper: "pooling can obscure
+#                spatial/temporal structure, we complement these with attentive-mlp probes")
+# Both run in ONE pass (cache_pooling: tokens; LinearProbe mean-pools the tokens internally,
+# AttentiveClassifier cross-attends them) -> ONE plot, 6 curves (speed/direction/accel × 2 probes).
+# ★ TEST: if EARLY-layer speed/accel R² is LOW under mean-pool but HIGH under attentive, the
+#   signal is in the tokens and mean-pool hid it; if BOTH stay low early, it's data/representation.
+# env: vjepa2 | 논문 inference = 16 frames @ 24fps
+# 실행: python -m evals.main --fname configs/analysis/toy_dataset/vjepa_combined_attentive.yaml --devices cuda:0 --debugmode True
+# ============================================================================
+
+eval_name: analysis_vlm
+folder: /data/hyuntak/project/2026/2027_cvpr/vjepa2/configs/analysis/toy_dataset/logs
+num_workers: 8
+resume_checkpoint: false
+val_only: false
+tag: vjepa-toy-combined-attentive
+
+experiment:
+  analysis:
+    model: vjepa
+
+    task: regression
+    regression:
+      targets_npy: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/toy_physics/combined_targets.npy
+      variables:
+        - {name: speed,     cols: [0]}
+        - {name: direction, cols: [1, 2]}
+        - {name: accel_mag, cols: [3]}
+
+    stages:
+      vision_encoder: all
+    plot: true
+    plot_pez: [0.2, 0.4]
+
+    probes:
+      # - type: linear                    # 논문 primary: mean-pool linear (token을 내부에서 mean)
+      #   pooling: mean
+      #   pre_norm: true
+      #   optimization: { lr: 0.01, weight_decay: 0.0, warmup: 1.0 }   # 수렴되는 lr (early-low가 lr탓 아님 확인용)
+      - type: attentive                 # 논문 complement: patch-preserving cross-attention pooling
+        num_heads: 16
+        num_probe_blocks: 1
+        optimization: { lr: 0.002, weight_decay: 0.01, warmup: 2.0 }
+
+  data:
+    dataset_type: VideoDataset
+    resolution: 256
+    resize_mode: resize
+    frame_step: 4              # ★ 64f 전체 궤적을 stride-4로 16프레임 균일샘플 (1이면 앞 16f=1/4만 = sub-patch motion → early-scalar 안 잡힘)
+    num_segments: 1
+    num_views_per_segment: 1
+    dataset_train: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/toy_physics/combined_train.csv
+    dataset_val:   /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/toy_physics/combined_val.csv
+    num_classes: 4
+    frames_per_clip: 16
+
+  optimization:
+    batch_size: 4
+    num_epochs: 40
+    use_bfloat16: true
+    save_optimizer: false
+    cache_features: true
+    cache_pooling: tokens          # ★ 전체 토큰 보존 → attentive 가능 + linear는 내부 mean-pool.
+                                   #   toy(16f·256·672개): ~16GB/rank(4GPU) / ~8GB(8GPU) → cache_max_gb 내.
+    cache_max_gb: 64
+    default_head:
+      start_lr: 0.0
+      final_lr: 0.0
+      final_weight_decay: 0.0
+
+model_kwargs:
+  checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vitl-fpc64-256/snapshots/b3c1679b7c34d3255ef3547f27c7b226aefab26f/original/model.pth
+  module_name: evals.analysis.modelcustom.vit_encoder_multilayer
+  pretrain_kwargs:
+    encoder:
+      checkpoint_key: target_encoder
+      model_name: vit_large
+      patch_size: 16
+      tubelet_size: 2
+      uniform_power: true
+      use_rope: true
+      img_temporal_dim_size: null
+  wrapper_kwargs:
+    max_frames: 128
+    use_pos_embed: false

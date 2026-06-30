@@ -37,7 +37,7 @@ experiment:
     dataset_type: VideoDataset
     resolution: 256
     resize_mode: resize          # 384² 전체 보존 (crop은 가장자리 손실 → motion 손해)
-    frame_step: 1
+    frame_step: 4              # ★ 64f 전체 궤적을 stride-4로 16프레임 균일샘플 (1이면 앞 16f=1/4만 = sub-patch motion → early-scalar 안 잡힘)
     num_segments: 1
     num_views_per_segment: 1
     dataset_train: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/toy_physics/acceleration_train.csv

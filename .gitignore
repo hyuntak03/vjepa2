@@ -46,3 +46,5 @@ configs/z_tak_attentive_probing
 configs/analysis/logs
 
 data_gen/
+
+configs/analysis/toy_dataset/logs/
