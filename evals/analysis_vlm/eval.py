@@ -147,6 +147,10 @@ def main(args_eval, resume_preempt=False):
     probe_specs = args_analysis.get("probes")
     assert isinstance(probe_specs, list) and len(probe_specs) > 0, "experiment.analysis.probes must be a non-empty list"
     make_plot = args_analysis.get("plot", False)
+    plot_pez = args_analysis.get("plot_pez")  # [lo,hi] layer-fraction band to shade (Physics Emergence
+    if plot_pez:                              # Zone, ~1/3 depth); None/false -> no shading
+        assert len(plot_pez) == 2 and 0.0 <= plot_pez[0] < plot_pez[1] <= 1.0, \
+            f"plot_pez must be [lo,hi] with 0<=lo<hi<=1, got {plot_pez}"
 
     # -- DATA
     args_data = args_exp.get("data")
@@ -540,7 +544,7 @@ def main(args_eval, resume_preempt=False):
         sub = f"{model_sel} | best {'R²' if metric == 'r2' else 'val'} over {last_epoch} epoch(s)"
         # multi-variable R²: each variable is its own curve (legend), so no single target_label
         plot_layer_val_acc(heads, best_val, os.path.join(folder, "stage_val_acc.png"),
-                           subtitle=sub, num_classes=num_classes, metric=metric)
+                           subtitle=sub, num_classes=num_classes, metric=metric, pez=plot_pez)
 
 
 class _DirectResizeClipTransform:

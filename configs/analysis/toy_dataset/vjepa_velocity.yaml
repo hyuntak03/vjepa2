@@ -25,12 +25,13 @@ experiment:
     stages:
       vision_encoder: all
     plot: true
+    plot_pez: [0.2, 0.4]        # Physics Emergence Zone 음영(layer-fraction). false/삭제하면 끔
 
     probes:
       - type: linear
         pooling: mean   # V-JEPA 시공간 인코더 → 전역 mean에도 방향 보존
         pre_norm: true
-        optimization: { lr: 0.01, weight_decay: 0.0, warmup: 1.0 }
+        optimization: { lr: 0.001, weight_decay: 0.1, warmup: 2.0 }
 
   data:
     dataset_type: VideoDataset
@@ -46,7 +47,7 @@ experiment:
 
   optimization:
     batch_size: 8
-    num_epochs: 20
+    num_epochs: 40
     use_bfloat16: true
     save_optimizer: false
     cache_features: true

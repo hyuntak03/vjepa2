@@ -34,7 +34,7 @@ def _elbow_x(xs, ys):
 
 
 def plot_layer_val_acc(heads, val_acc, out_path, subtitle=None, num_classes=None,
-                       metric="accuracy", target_label=None):
+                       metric="accuracy", target_label=None, pez=None):
     """Save a [layer x metric] line plot (one line per probe).
 
     heads:    list of dict with keys 'layer' and 'name' (name == "L<layer>_<probe>")
@@ -70,6 +70,15 @@ def plot_layer_val_acc(heads, val_acc, out_path, subtitle=None, num_classes=None
     stage_by_x = {h["layer"]: h["stage"] for h in heads if h.get("stage") is not None}
 
     fig, ax = plt.subplots(figsize=(8, 4.5))
+
+    # Physics Emergence Zone: shade a layer-fraction band (paper marks it ~1/3 depth, band ≈0.2–0.4).
+    # pez = [lo, hi] fractions in [0,1]; mapped onto the layer axis via the deepest layer index.
+    if pez:
+        depth = max((h["layer"] for h in heads), default=0) or 1
+        ax.axvspan(pez[0] * depth, pez[1] * depth, color="gray", alpha=0.15, zorder=0)
+        ax.text((pez[0] + pez[1]) / 2 * depth, 0.99, "PEZ", color="dimgray", fontsize=8,
+                ha="center", va="top", transform=ax.get_xaxis_transform())
+
     all_y = []
     for probe_label in sorted(series):
         pts = sorted(series[probe_label], key=lambda t: t[0])
