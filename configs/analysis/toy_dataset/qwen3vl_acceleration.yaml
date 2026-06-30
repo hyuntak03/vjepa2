@@ -1,0 +1,66 @@
+# ============================================================================
+# TOY-PHYSICS R² REGRESSION — qwen3vl / acceleration   (paper "Interpreting Physics", Fig.2 polar)
+# env: lmms_eval_py311_2.7  | 논문 inference = 16 frames @ 24fps
+# 실행(디버그): python -m evals.main --fname configs/analysis/toy_dataset/qwen3vl_acceleration.yaml --devices cuda:0 --debugmode True
+# ============================================================================
+
+eval_name: analysis_vlm
+folder: /data/hyuntak/project/2026/2027_cvpr/vjepa2/configs/analysis/toy_dataset/logs
+num_workers: 8
+resume_checkpoint: false
+val_only: false
+tag: qwen3vl-toy-acceleration
+
+experiment:
+  analysis:
+    model: qwen3vl
+
+    task: regression
+    regression:
+      targets_npy: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/toy_physics/acceleration_targets.npy
+      variables:
+        - {name: accel_mag, cols: [0]}        # polar scalar
+        - {name: direction, cols: [1, 2]}  # θ → (sin, cos)
+
+    stages:
+      vision_encoder: [3, 7, 11, 15, 19, 23]
+      after_merger: true
+    plot: true
+
+    probes:
+      - type: linear
+        pooling: framewise_mean   # 시간순서(direction) 보존
+        pre_norm: true
+        optimization: { lr: 0.01, weight_decay: 0.0, warmup: 1.0 }
+
+  data:
+    dataset_train: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/toy_physics/acceleration_train.csv
+    dataset_val:   /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/toy_physics/acceleration_val.csv
+    num_classes: 4               # 회귀에선 무시(출력차원=variable cols)
+    frames_per_clip: 16          # 논문 inference=16f@24fps (toy 영상은 64f@8fps → 16 균일샘플)
+
+  optimization:
+    batch_size: 8
+    num_epochs: 20
+    use_bfloat16: true
+    save_optimizer: false
+    cache_features: true
+    cache_pooling: framewise
+    cache_max_gb: 64
+    default_head:
+      start_lr: 0.0
+      final_lr: 0.0
+      final_weight_decay: 0.0
+
+model_kwargs:
+  checkpoint: Qwen/Qwen3-VL-4B-Instruct
+  cache_dir: /data/dataset/LLaVA-Video-100K-Subset/
+  module_name: evals.analysis_vlm.modelcustom.qwen3vl_encoder
+  pretrain_kwargs:
+    encoder: {}
+  wrapper_kwargs:
+    resize_mode: smart
+    min_pixels: 8192
+    max_pixels: 112896
+    attn_implementation: sdpa
+    dtype: float16

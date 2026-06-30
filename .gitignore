@@ -44,3 +44,5 @@ z_scripts
 configs/z_tak_attentive_probing
 
 configs/analysis/logs
+
+data_gen/

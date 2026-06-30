@@ -1,0 +1,95 @@
+# ============================================================================
+# REGRESSION (R²) layer-wise probing  —  paper "Interpreting Physics in Video World Models"
+# Fig.2: per-layer R² of a linear/attentive probe predicting CONTINUOUS motion variables
+# (speed / direction / acceleration ...). Each `variable` becomes its OWN curve on one plot.
+# ----------------------------------------------------------------------------
+# eval_name: analysis_vlm  (same harness; works for ALL models — see note at bottom)
+#
+# 준비: data_csv/make_regression_targets.py 로 targets.npy + *_reg.csv 생성
+#   (targets.npy[video_id] = [연속값...], CSV label = video id 인덱스).
+#
+# 실행(단일 GPU 디버그):
+#   python -m evals.main --fname configs/analysis/vjepa_regression.yaml --devices cuda:0 --debugmode True
+# ============================================================================
+
+eval_name: analysis_vlm
+folder: /data/hyuntak/project/2026/2027_cvpr/vjepa2/configs/analysis/logs
+num_workers: 8
+resume_checkpoint: false
+val_only: false
+tag: vjepa-r2r-regression
+
+experiment:
+  analysis:
+    model: vjepa                       # vjepa | llavavideo | qwen3vl  (회귀는 셋 다 동일하게 동작)
+
+    # ── R² 회귀 설정 ───────────────────────────────────────────────────────
+    task: regression                   # classification(기본) | regression
+    regression:
+      # (N, D) float npy. row = video id, col = 변수들. CSV의 정수 label이 이 row 인덱스.
+      targets_npy: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/R2R_4way_1500/regression/R2R_shape_color_targets.npy
+      variables:                       # 각 변수 = 한 curve. cols = targets_npy의 열 슬라이스.
+        - {name: speed,     cols: [0]}      # 스칼라
+        - {name: direction, cols: [1, 2]}   # 원형각 → (sin, cos) 2열
+        # - {name: accel_mag, cols: [3]}    # (가속도 데이터셋이면 추가)
+
+    stages:
+      vision_encoder: all              # 전 24 block layer-wise R² scan
+    plot: true                         # x=layer, y=R², 변수별 curve (stage_val_acc.png)
+
+    probes:
+      - type: linear                   # 논문의 linear probe (pooled feature → Linear → MSE)
+        pooling: mean                  # 회귀엔 보통 mean (pooled 캐시와 호환)
+        pre_norm: true
+        optimization: { lr: 0.01, weight_decay: 0.0, warmup: 1.0 }
+      # attentive 도 가능하지만 그땐 cache_pooling: tokens 필요 (아래 참고)
+
+  data:
+    dataset_type: VideoDataset
+    # ★ 회귀용 CSV (label = video id). make_regression_targets.py 가 생성.
+    dataset_train: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/R2R_4way_1500/regression/R2R_4way_1500_shape_color_train_reg.csv
+    dataset_val:   /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/R2R_4way_1500/regression/R2R_4way_1500_shape_color_val_reg.csv
+    num_classes: 4                     # 회귀에선 무시됨(출력차원=variable cols). 분류 호환 위해 유지
+    resolution: 256
+    resize_mode: crop                  # crop | resize (VLM식 직접 resize)
+    frames_per_clip: 32
+    frame_step: 1
+    num_segments: 1
+    num_views_per_segment: 1
+
+  optimization:
+    batch_size: 8
+    num_epochs: 20
+    use_bfloat16: true
+    save_optimizer: false
+    cache_features: true               # frozen → 1회 추출 후 캐시
+    cache_pooling: pooled              # ★ linear 회귀 → pooled(초소형) 로 전체 layer 가능.
+                                       #   attentive 쓰려면 tokens 로.
+    cache_max_gb: 64
+    default_head:
+      start_lr: 0.0
+      final_lr: 0.0
+      final_weight_decay: 0.0
+
+model_kwargs:
+  checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vitl-fpc64-256/snapshots/b3c1679b7c34d3255ef3547f27c7b226aefab26f/original/model.pth
+  module_name: evals.analysis.modelcustom.vit_encoder_multilayer
+  pretrain_kwargs:
+    encoder:
+      checkpoint_key: target_encoder
+      model_name: vit_large
+      patch_size: 16
+      tubelet_size: 2
+      uniform_power: true
+      use_rope: true
+      img_temporal_dim_size: null
+  wrapper_kwargs:
+    max_frames: 128
+    use_pos_embed: false
+
+# ----------------------------------------------------------------------------
+# ▶ VLM (llavavideo / qwen3vl) 회귀: 위 model 을 바꾸고 model_kwargs/ data 를 해당 VLM 템플릿
+#   (llavavideo_analysis.yaml / qwen3vl_analysis.yaml)에서 가져오면 끝.
+#   regression 블록(task/targets_npy/variables)은 동일하게 추가하면 됨 — 회귀 경로는
+#   인코더/데이터모드와 무관하게 label→target 인덱싱으로 동작하므로 그대로 적용됨.
+# ----------------------------------------------------------------------------

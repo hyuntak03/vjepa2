@@ -1,0 +1,66 @@
+# ============================================================================
+# TOY-PHYSICS R² REGRESSION (COMBINED) — llavavideo   (paper Fig.2c polar, ALL in ONE plot)
+# velocity + acceleration 영상을 합쳐 한 run. 변수별로 유효한 영상에서만 R² (NaN 마스킹):
+#   speed = 등속 392개 / accel_mag = 등가속 280개 / direction = 672개 전부.
+# env: lmms_eval_llavavideo  | 논문 inference = 16 frames @ 24fps
+# 실행: python -m evals.main --fname configs/analysis/toy_dataset/llavavideo_combined.yaml --devices cuda:0 --debugmode True
+# ============================================================================
+
+eval_name: analysis_vlm
+folder: /data/hyuntak/project/2026/2027_cvpr/vjepa2/configs/analysis/toy_dataset/logs
+num_workers: 8
+resume_checkpoint: false
+val_only: false
+tag: llavavideo-toy-combined
+
+experiment:
+  analysis:
+    model: llavavideo
+
+    task: regression
+    regression:
+      targets_npy: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/toy_physics/combined_targets.npy   # (672,4)=[speed, sinθ, cosθ, accel_mag], NaN=미정의
+      variables:
+        - {name: speed,     cols: [0]}     # 등속 클립에서만 (accel 클립은 NaN→마스킹)
+        - {name: direction, cols: [1, 2]}  # 모든 클립
+        - {name: accel_mag, cols: [3]}     # 등가속 클립에서만
+
+    stages:
+      vision_encoder: all
+    plot: true
+
+    probes:
+      - type: linear
+        pooling: framewise_mean   # SigLIP 프레임별 → 시간순서 보존
+        pre_norm: true
+        optimization: { lr: 0.01, weight_decay: 0.0, warmup: 1.0 }
+
+  data:
+    dataset_train: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/toy_physics/combined_train.csv
+    dataset_val:   /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/toy_physics/combined_val.csv
+    num_classes: 4               # 회귀에선 무시
+    frames_per_clip: 16          # 논문 inference=16f@24fps
+
+  optimization:
+    batch_size: 8
+    num_epochs: 20
+    use_bfloat16: true
+    save_optimizer: false
+    cache_features: true
+    cache_pooling: framewise
+    cache_max_gb: 64
+    default_head:
+      start_lr: 0.0
+      final_lr: 0.0
+      final_weight_decay: 0.0
+
+model_kwargs:
+  checkpoint: lmms-lab/LLaVA-Video-7B-Qwen2
+  cache_dir: /data/dataset/LLaVA-Video-100K-Subset/
+  module_name: evals.analysis_vlm.modelcustom.llava_video_encoder
+  pretrain_kwargs:
+    encoder: {}
+  wrapper_kwargs:
+    llava_repo: /data/hyuntak/project/2026/vlm_direction/LLaVA-NeXT
+    spatial_pool_stride: 2
+    dtype: float16

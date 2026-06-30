@@ -167,6 +167,45 @@ def main(args_eval, resume_preempt=False):
     if clip_resize_mode not in ("crop", "resize"):  # fail loud (don't silently fall back to crop)
         raise ValueError(f"data.resize_mode must be 'crop' or 'resize', got {clip_resize_mode!r}")
 
+    # -- TASK: 'classification' (CrossEntropy->accuracy) or 'regression' (MSE->R^2 of probes
+    # predicting CONTINUOUS variables). The CSV integer label INDEXES regression.targets_npy
+    # (an (N,D) .npy), so the dataloaders (incl. the shared clip VideoDataset AND the VLM raw
+    # path) stay unchanged — the harness maps label->target vector. `variables` lists one or
+    # more named targets, each a column-slice of that array; EACH becomes its own R^2 curve on
+    # the SAME plot (paper Fig.2c: speed / direction / accel together). e.g.
+    #   regression:
+    #     targets_npy: /.../toyball_targets.npy
+    #     variables:
+    #       - {name: speed,     cols: [0]}
+    #       - {name: direction, cols: [1, 2]}   # sin,cos of angle (circular)
+    #       - {name: accel_mag, cols: [3]}
+    task = str(args_analysis.get("task", "classification")).lower()
+    reg_cfg = args_analysis.get("regression") or {}
+    targets_arr, reg_vars = None, [(None, None)]   # (var_name, cols); classification = single dummy
+    if task == "regression":
+        tpath = reg_cfg.get("targets_npy") or reg_cfg.get("targets")
+        assert tpath, "task=regression needs experiment.analysis.regression.targets_npy ((N,D) .npy)"
+        targets_arr = np.load(tpath).astype(np.float32)
+        if targets_arr.ndim == 1:
+            targets_arr = targets_arr[:, None]
+        # standardize per-column (NaN-aware: a column may be defined on only a subset of videos,
+        # NaN elsewhere). R^2 is invariant to this affine transform; it keeps MSE/lr well-scaled
+        # regardless of units (pixels vs sin/cos in [-1,1]). NaNs stay NaN -> masked out per head.
+        mu = np.nanmean(targets_arr, axis=0, keepdims=True)
+        sd = np.nanstd(targets_arr, axis=0, keepdims=True)
+        targets_arr = (targets_arr - mu) / np.clip(sd, 1e-6, None)
+        var_cfg = reg_cfg.get("variables")
+        if not var_cfg:  # default: one variable spanning all columns
+            var_cfg = [{"name": reg_cfg.get("name", "target"), "cols": list(range(targets_arr.shape[1]))}]
+        reg_vars = [(v["name"], [int(c) for c in v["cols"]]) for v in var_cfg]
+        D = targets_arr.shape[1]
+        for vn, cols in reg_vars:
+            assert all(0 <= c < D for c in cols), f"variable {vn!r} cols {cols} out of range (D={D})"
+        logger.info(f"task=regression: targets={tpath} shape={targets_arr.shape} "
+                    f"variables={[(n, c) for n, c in reg_vars]}")
+    elif task != "classification":
+        raise ValueError(f"experiment.analysis.task must be 'classification' or 'regression', got {task!r}")
+
     # -- OPTIMIZATION
     args_opt = args_exp.get("optimization")
     batch_size = args_opt.get("batch_size")
@@ -206,6 +245,9 @@ def main(args_eval, resume_preempt=False):
 
     world_size, rank = init_distributed()
     logger.info(f"Initialized (rank/world-size) {rank}/{world_size}")
+
+    # regression targets live on-device (N,D); per-batch we index targets_t[label] (label = CSV int)
+    targets_t = torch.from_numpy(targets_arr).to(device) if targets_arr is not None else None
 
     folder = os.path.join(pretrain_folder, "analysis_vlm/")
     if eval_tag is not None:
@@ -248,7 +290,8 @@ def main(args_eval, resume_preempt=False):
             tpos = str(spec.get("temporal_pos", "none")).lower()  # none | learnable | rope (attentive only)
             pooling = str(spec.get("pooling", "mean")).lower()
             framewise = ptype == "linear" and pooling.startswith("framewise")  # spatial-pool per frame, keep T
-            pname = probe_name(spec)
+            use_tpos = ptype == "attentive" and tpos in ("learnable", "rope")
+            pname = probe_name(spec) + (f"-{tpos}" if use_tpos else "")
             if cache_features and cache_pooling == "pooled":
                 # cache stores only [mean‖max] -> linear probes only (attentive needs tokens)
                 if ptype != "linear":
@@ -261,62 +304,61 @@ def main(args_eval, resume_preempt=False):
                         f"pooling='{pooling}' keeps the per-frame token structure, which the 'pooled' "
                         f"cache has already collapsed. Use cache_pooling='tokens' (or cache_features=false)."
                     )
-                from evals.analysis_vlm.cache import PooledLinearProbe
 
-                module = PooledLinearProbe(
-                    embed_dim=embed_dims[stage_pos], num_classes=num_classes,
-                    pooling=pooling, pre_norm=spec.get("pre_norm", True),
-                ).to(device)
-            elif framewise:
-                # temporal-preserving linear: spatial-pool within each frame, concat frames, Linear.
-                # Better than global mean for direction (keeps 'up' vs 'down').
-                num_temporal = getattr(encoder, "num_temporal", None)
-                if num_temporal is None:
-                    raise ValueError(
-                        f"pooling='{pooling}' (temporal-preserving) needs encoder.num_temporal (VLM backends only)."
-                    )
-                from evals.analysis_vlm.probes import TemporalLinearProbe
+            def _build(out_dim):  # build one probe head with the given output dim
+                if cache_features and cache_pooling == "pooled":
+                    from evals.analysis_vlm.cache import PooledLinearProbe
 
-                module = TemporalLinearProbe(
-                    embed_dim=embed_dims[stage_pos], num_temporal=num_temporal, num_classes=num_classes,
-                    spatial_pool=pooling.split("_", 1)[1], pre_norm=spec.get("pre_norm", True),
-                ).to(device)
-            elif ptype == "attentive" and tpos in ("learnable", "rope"):
-                # temporal positional encoding for the attentive pooler (e.g. LLaVA per-frame SigLIP)
-                num_temporal = getattr(encoder, "num_temporal", None)
-                if num_temporal is None:
-                    raise ValueError(
-                        f"temporal_pos='{tpos}' needs encoder.num_temporal (VLM backends only); "
-                        f"this encoder does not expose it (V-JEPA already encodes time via RoPE)."
-                    )
-                from evals.analysis_vlm.probes import TemporalAttentiveClassifier
+                    return PooledLinearProbe(embed_dim=embed_dims[stage_pos], num_classes=out_dim,
+                                             pooling=pooling, pre_norm=spec.get("pre_norm", True))
+                if framewise:
+                    # temporal-preserving linear: spatial-pool within each frame, concat, Linear.
+                    nt = getattr(encoder, "num_temporal", None)
+                    if nt is None:
+                        raise ValueError(f"pooling='{pooling}' needs encoder.num_temporal (VLM backends only).")
+                    from evals.analysis_vlm.probes import TemporalLinearProbe
 
-                module = TemporalAttentiveClassifier(
-                    embed_dim=embed_dims[stage_pos], num_temporal=num_temporal, mode=tpos,
-                    num_heads=spec.get("num_heads", 16),
-                    depth=spec.get("num_probe_blocks", spec.get("depth", 1)),
-                    num_classes=num_classes, use_activation_checkpointing=True,
-                ).to(device)
-                pname = f"{pname}-{tpos}"
-            else:
-                module = build_probe(
-                    spec, embed_dim=embed_dims[stage_pos], num_classes=num_classes,
-                    use_activation_checkpointing=True,
-                ).to(device)
-            if use_ddp:
-                module = DistributedDataParallel(module, static_graph=True)
-            name = f"{stage_tag}_{pname}"
-            if name in _name_set:  # probe_name ignores num_heads/pre_norm -> de-collide duplicate specs
-                k = 2
-                while f"{name}#{k}" in _name_set:
-                    k += 1
-                name = f"{name}#{k}"
-            _name_set.add(name)
-            # carry probe label + stage name explicitly so plotting doesn't re-parse `name`
-            # (VLM stage tags contain underscores, which breaks name.split("_", 1)).
-            heads.append(dict(name=name, layer=layer_val, layer_pos=stage_pos,
-                              probe=pname, stage=stage_tag, module=module))
-            head_opt_kwargs.append(_opt_kwargs(spec))
+                    return TemporalLinearProbe(embed_dim=embed_dims[stage_pos], num_temporal=nt,
+                                               num_classes=out_dim, spatial_pool=pooling.split("_", 1)[1],
+                                               pre_norm=spec.get("pre_norm", True))
+                if use_tpos:
+                    nt = getattr(encoder, "num_temporal", None)
+                    if nt is None:
+                        raise ValueError(
+                            f"temporal_pos='{tpos}' needs encoder.num_temporal (VLM backends only); "
+                            f"this encoder does not expose it (V-JEPA already encodes time via RoPE)."
+                        )
+                    from evals.analysis_vlm.probes import TemporalAttentiveClassifier
+
+                    return TemporalAttentiveClassifier(
+                        embed_dim=embed_dims[stage_pos], num_temporal=nt, mode=tpos,
+                        num_heads=spec.get("num_heads", 16),
+                        depth=spec.get("num_probe_blocks", spec.get("depth", 1)),
+                        num_classes=out_dim, use_activation_checkpointing=True)
+                return build_probe(spec, embed_dim=embed_dims[stage_pos], num_classes=out_dim,
+                                   use_activation_checkpointing=True)
+
+            # one head per regressed VARIABLE (classification: a single dummy var) -> each
+            # variable becomes its own R^2 curve on the plot (grouped by `series`).
+            for var_name, var_cols in reg_vars:
+                out_dim = len(var_cols) if var_cols is not None else num_classes
+                module = _build(out_dim).to(device)
+                if use_ddp:
+                    module = DistributedDataParallel(module, static_graph=True)
+                var_tag = f"__{var_name}" if var_name is not None else ""
+                name = f"{stage_tag}_{pname}{var_tag}"
+                if name in _name_set:  # de-collide duplicate specs
+                    k = 2
+                    while f"{name}#{k}" in _name_set:
+                        k += 1
+                    name = f"{name}#{k}"
+                _name_set.add(name)
+                # `series` = plot line grouping (variable for regression, probe for classification).
+                # carry stage name explicitly so plotting doesn't re-parse `name`.
+                heads.append(dict(name=name, layer=layer_val, layer_pos=stage_pos,
+                                  probe=pname, series=(var_name if var_name is not None else pname),
+                                  stage=stage_tag, module=module, tcols=var_cols))
+                head_opt_kwargs.append(_opt_kwargs(spec))
     head_names = [h["name"] for h in heads]
     logger.info(f"Built {len(heads)} probe heads over {len(stages)} stages: {head_names}")
 
@@ -440,7 +482,7 @@ def main(args_eval, resume_preempt=False):
     # --------------------------------------------------------------------- #
     #  TRAIN / EVAL LOOP
     # --------------------------------------------------------------------- #
-    best_val = {n: -1.0 for n in head_names}
+    best_val = {n: -float("inf") for n in head_names}   # R^2 can be < 0; -inf is a safe floor
     last_epoch = start_epoch
     for epoch in range(start_epoch, num_epochs):
         last_epoch = epoch + 1
@@ -455,12 +497,14 @@ def main(args_eval, resume_preempt=False):
                 device=device, training=True, encoder=encoder, heads=heads, scaler=scaler,
                 optimizer=optimizer, scheduler=scheduler, wd_scheduler=wd_scheduler,
                 data_loader=train_loader, use_bfloat16=use_bfloat16, data_mode=run_mode, rank=rank,
+                task=task, targets=targets_t,
             )
 
         val_acc = run_one_epoch(
             device=device, training=False, encoder=encoder, heads=heads, scaler=scaler,
             optimizer=optimizer, scheduler=scheduler, wd_scheduler=wd_scheduler,
             data_loader=val_loader, use_bfloat16=use_bfloat16, data_mode=run_mode, rank=rank,
+            task=task, targets=targets_t,
         )
         for n in head_names:
             best_val[n] = max(best_val[n], val_acc[n])
@@ -478,6 +522,9 @@ def main(args_eval, resume_preempt=False):
             with open(os.path.join(folder, "summary.json"), "w") as f:
                 json.dump({"epoch": epoch + 1, "num_epochs": num_epochs, "model": model_sel,
                            "data_mode": data_mode, "num_classes": num_classes,
+                           "task": task, "metric": ("r2" if task == "regression" else "accuracy"),
+                           "variables": ([{"name": n, "cols": c} for n, c in reg_vars]
+                                         if task == "regression" else None),
                            "stages": [str(s) for s in stages],
                            "head_names": head_names, "val_acc": val_acc, "train_acc": train_acc,
                            "best_val_acc": best_val}, f, indent=2)
@@ -489,9 +536,11 @@ def main(args_eval, resume_preempt=False):
     if rank == 0 and make_plot:
         from evals.analysis.plotting import plot_layer_val_acc
 
+        metric = "r2" if task == "regression" else "accuracy"
+        sub = f"{model_sel} | best {'R²' if metric == 'r2' else 'val'} over {last_epoch} epoch(s)"
+        # multi-variable R²: each variable is its own curve (legend), so no single target_label
         plot_layer_val_acc(heads, best_val, os.path.join(folder, "stage_val_acc.png"),
-                           subtitle=f"{model_sel} | best val over {last_epoch} epoch(s)",
-                           num_classes=num_classes)
+                           subtitle=sub, num_classes=num_classes, metric=metric)
 
 
 class _DirectResizeClipTransform:
@@ -576,15 +625,32 @@ def _encode(encoder, data, device, data_mode, use_bfloat16):
 
 
 def run_one_epoch(device, training, encoder, heads, scaler, optimizer, scheduler,
-                  wd_scheduler, data_loader, use_bfloat16, data_mode, rank=0):
+                  wd_scheduler, data_loader, use_bfloat16, data_mode, rank=0,
+                  task="classification", targets=None):
+    """task='classification' -> CrossEntropy loss, returns per-head val ACCURACY (%).
+    task='regression'        -> MSE loss on a continuous target (looked up as targets[label],
+                                where the integer label indexes the (N,D) targets tensor),
+                                returns per-head val R^2 (1 - SS_res/SS_tot, all-reduced)."""
     for h in heads:
         h["module"].train(mode=training)
 
-    criterion = torch.nn.CrossEntropyLoss()
+    is_reg = task == "regression"
+    criterion = torch.nn.MSELoss() if is_reg else torch.nn.CrossEntropyLoss()
     n_heads = len(heads)
-    correct = torch.zeros(n_heads, device=device)
-    total = torch.zeros((), device=device)
     amp_scaler = scaler[0]
+    total = torch.zeros((), device=device)
+    if is_reg:
+        head_cols = [h["tcols"] for h in heads]         # per-head column slice into the (N,D) targets
+        Dmax = max(len(c) for c in head_cols)
+        # PER-HEAD stats over each head's VALID (non-NaN target) samples — lets one combined
+        # dataset hold multiple variables defined on different video subsets (NaN elsewhere),
+        # e.g. speed (velocity clips) + accel_mag (acceleration clips) + direction (both).
+        ss_res = torch.zeros(n_heads, device=device)         # Σ‖pred-y‖² per head
+        sum_y = torch.zeros(n_heads, Dmax, device=device)    # Σy per head (padded to Dmax)
+        sum_y2 = torch.zeros(n_heads, device=device)         # Σ‖y‖² per head
+        cnt = torch.zeros(n_heads, device=device)            # #valid samples per head
+    else:
+        correct = torch.zeros(n_heads, device=device)
 
     iterator = data_loader
     if rank == 0:
@@ -602,14 +668,27 @@ def run_one_epoch(device, training, encoder, heads, scaler, optimizer, scheduler
             [wds.step() for wds in wd_scheduler]
 
         feats, labels, bsz = _encode(encoder, data, device, data_mode, use_bfloat16)
+        yfull = targets[labels].float() if is_reg else None   # (B,D) all target columns
 
         # In validation, run the heads under no_grad: no autograd graph is built and the
         # DDP reducer is NOT armed (a grad-enabled DDP forward with no backward trips the
         # static_graph reducer on the next forward under multi-GPU).
         grad_ctx = nullcontext() if training else torch.no_grad()
         with grad_ctx, torch.amp.autocast("cuda", dtype=torch.float16, enabled=use_bfloat16):
-            logits = [h["module"](feats[h["layer_pos"]]) for h in heads]
-            losses = [criterion(o, labels) for o in logits] if training else None
+            preds = [h["module"](feats[h["layer_pos"]]) for h in heads]
+            if not training:
+                losses = None
+            elif is_reg:
+                # masked-mean MSE per head: NaN target rows contribute 0 (kept in the graph so the
+                # DDP static-graph structure is identical across ranks regardless of which rows are valid).
+                losses = []
+                for hi in range(n_heads):
+                    yh = yfull[:, head_cols[hi]]
+                    m = (~torch.isnan(yh).any(dim=1)).float()                       # (B,)
+                    err = ((preds[hi] - torch.nan_to_num(yh)) ** 2).sum(dim=1) * m  # (B,)
+                    losses.append(err.sum() / m.sum().clamp(min=1.0))
+            else:
+                losses = [criterion(p, labels) for p in preds]
 
         if training:
             loss_total = sum(losses)
@@ -627,14 +706,45 @@ def run_one_epoch(device, training, encoder, heads, scaler, optimizer, scheduler
 
         with torch.no_grad():
             total += bsz
-            for hi, o in enumerate(logits):
-                correct[hi] += (o.argmax(dim=1) == labels).sum()
+            if is_reg:
+                for hi in range(n_heads):
+                    d = len(head_cols[hi])
+                    yh = yfull[:, head_cols[hi]]
+                    m = ~torch.isnan(yh).any(dim=1)            # valid rows for this variable
+                    if m.any():
+                        p, y = preds[hi][m].float(), yh[m]
+                        ss_res[hi] += ((p - y) ** 2).sum()
+                        sum_y[hi, :d] += y.sum(dim=0)
+                        sum_y2[hi] += (y ** 2).sum()
+                        cnt[hi] += m.sum()
+            else:
+                for hi, p in enumerate(preds):
+                    correct[hi] += (p.argmax(dim=1) == labels).sum()
 
         if rank == 0 and hasattr(iterator, "set_postfix") and (itr % 20 == 0):
-            iterator.set_postfix(best=f"{(100.0 * correct.max() / total.clamp(min=1)).item():.1f}%")
+            if is_reg:
+                best = -9.9
+                for hi in range(n_heads):
+                    d, nh = len(head_cols[hi]), cnt[hi].clamp(min=1)
+                    sst = (sum_y2[hi] - (sum_y[hi, :d] ** 2).sum() / nh).clamp(min=1e-12)
+                    best = max(best, (1.0 - ss_res[hi] / sst).item())
+                iterator.set_postfix(R2=f"{best:.3f}")  # best head so far
+            else:
+                iterator.set_postfix(best=f"{(100.0 * correct.max() / total.clamp(min=1)).item():.1f}%")
 
-    correct = AllReduceSum.apply(correct)
     total = AllReduceSum.apply(total)
+    if is_reg:
+        ss_res = AllReduceSum.apply(ss_res)
+        sum_y = AllReduceSum.apply(sum_y)
+        sum_y2 = AllReduceSum.apply(sum_y2)
+        cnt = AllReduceSum.apply(cnt)
+        r2 = []
+        for hi in range(n_heads):
+            d, nh = len(head_cols[hi]), cnt[hi].clamp(min=1)
+            sst = (sum_y2[hi] - (sum_y[hi, :d] ** 2).sum() / nh).clamp(min=1e-12)
+            r2.append((1.0 - ss_res[hi] / sst).item())
+        return {h["name"]: r2[hi] for hi, h in enumerate(heads)}
+    correct = AllReduceSum.apply(correct)
     accs = (100.0 * correct / total.clamp(min=1)).tolist()
     return {h["name"]: accs[hi] for hi, h in enumerate(heads)}
 
