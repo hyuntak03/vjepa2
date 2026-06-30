@@ -16,7 +16,7 @@ folder: /data/hyuntak/project/2026/2027_cvpr/vjepa2/configs/analysis/toy_dataset
 num_workers: 8
 resume_checkpoint: false
 val_only: false
-tag: vjepa-toy-combined-attentive
+tag: vjepa-toy-linear_regression
 
 experiment:
   analysis:
@@ -36,14 +36,14 @@ experiment:
     plot_pez: [0.2, 0.4]
 
     probes:
-      # - type: linear                    # 논문 primary: mean-pool linear (token을 내부에서 mean)
-      #   pooling: mean
-      #   pre_norm: true
-      #   optimization: { lr: 0.01, weight_decay: 0.0, warmup: 1.0 }   # 수렴되는 lr (early-low가 lr탓 아님 확인용)
-      - type: attentive                 # 논문 complement: patch-preserving cross-attention pooling
-        num_heads: 16
-        num_probe_blocks: 1
-        optimization: { lr: 0.002, weight_decay: 0.01, warmup: 2.0 }
+      - type: linear                    # 논문 primary: mean-pool linear (token을 내부에서 mean)
+        pooling: mean
+        pre_norm: true
+        optimization: { lr: 0.01, weight_decay: 0.0, warmup: 1.0 }   # 수렴되는 lr (early-low가 lr탓 아님 확인용)
+      # - type: attentive                 # 논문 complement: patch-preserving cross-attention pooling
+      #   num_heads: 16
+      #   num_probe_blocks: 1
+      #   optimization: { lr: 0.002, weight_decay: 0.01, warmup: 2.0 }
 
   data:
     dataset_type: VideoDataset
@@ -56,10 +56,10 @@ experiment:
     dataset_train: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/toy_physics/combined_train.csv
     dataset_val:   /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/toy_physics/combined_val.csv
     num_classes: 4
-    frames_per_clip: 16
+    frames_per_clip: 32
 
   optimization:
-    batch_size: 4
+    batch_size: 8
     num_epochs: 40
     use_bfloat16: true
     save_optimizer: false
