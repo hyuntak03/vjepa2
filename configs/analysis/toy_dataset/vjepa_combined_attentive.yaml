@@ -60,11 +60,11 @@ experiment:
 
   optimization:
     batch_size: 8
-    num_epochs: 40
+    num_epochs: 50
     use_bfloat16: true
     save_optimizer: false
     cache_features: true
-    cache_pooling: tokens          # ★ 전체 토큰 보존 → attentive 가능 + linear는 내부 mean-pool.
+    cache_pooling: pooled          # ★ 전체 토큰 보존 → attentive 가능 + linear는 내부 mean-pool.
                                    #   toy(16f·256·672개): ~16GB/rank(4GPU) / ~8GB(8GPU) → cache_max_gb 내.
     cache_max_gb: 64
     default_head:
