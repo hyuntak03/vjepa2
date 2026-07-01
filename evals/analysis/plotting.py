@@ -99,7 +99,9 @@ def plot_layer_val_acc(heads, val_acc, out_path, subtitle=None, num_classes=None
                     fontweight="bold", ha="center", color=color)
         # ELBOW = saturation layer (max distance from the first->last chord). Hollow
         # diamond + dotted guide, distinct from the filled-star peak. Skipped if == peak.
-        ex = _elbow_x(xs, ys)
+        # Only drawn for the 'direction' series — it's the meaningful emergence marker
+        # (speed/accel are high from the start, so their elbow isn't informative).
+        ex = _elbow_x(xs, ys) if probe_label == "direction" else None
         if ex is not None and ex != bx:
             ey = dict(zip(xs, ys))[ex]
             elbow_label = stage_by_x.get(ex, f"L{ex}")
@@ -110,13 +112,13 @@ def plot_layer_val_acc(heads, val_acc, out_path, subtitle=None, num_classes=None
                         textcoords="offset points", xytext=(6, -16), fontsize=8,
                         fontweight="bold", ha="left", color=color)
 
-    if stage_by_x:
-        xs_sorted = sorted(stage_by_x)
-        ax.set_xticks(xs_sorted)
-        ax.set_xticklabels([stage_by_x[x] for x in xs_sorted], rotation=45, ha="right", fontsize=7)
-        ax.set_xlabel("stage")
-    else:
-        ax.set_xlabel("encoder layer (0-indexed block)")
+    # x-axis as LAYER FRACTION (0..1), matching the paper. Data/PEZ/peak positions stay in
+    # layer-index space (axis is linear), we just place ticks at fractions of the deepest layer.
+    depth = max((h["layer"] for h in heads), default=0) or 1
+    ax.set_xticks([depth * f for f in (0.0, 0.2, 0.4, 0.6, 0.8, 1.0)])
+    ax.set_xticklabels(["0.0", "0.2", "0.4", "0.6", "0.8", "1.0"])
+    ax.set_xlim(-0.02 * depth, 1.02 * depth)
+    ax.set_xlabel("layer fraction")
 
     if is_r2:
         ax.set_ylabel("validation R²")
@@ -143,7 +145,7 @@ def plot_layer_val_acc(heads, val_acc, out_path, subtitle=None, num_classes=None
     title = head + (f"\n({subtitle})" if subtitle else "")
     ax.set_title(title)
     ax.grid(True, alpha=0.3)
-    ax.legend(title=("variable" if is_r2 else "probe"))
+    ax.legend(title=("variable" if is_r2 else "probe"), loc="lower right")
     fig.tight_layout()
     fig.savefig(out_path, dpi=130)
     plt.close(fig)
