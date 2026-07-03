@@ -32,7 +32,7 @@ experiment:
       attention_distance:          # ← default-off unless present; absent ⇒ existing behavior
         enabled: true
         query_chunk: 512           # stream queries so the (B,H,N,N) matrix is never materialized
-        max_batches: 8             # measure the first 8 val batches (cheap, stable)
+        max_batches: 10             # measure the first 10 val batches (cheap, stable)
 
     probes:
       - type: linear
