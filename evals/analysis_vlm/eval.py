@@ -498,9 +498,13 @@ def main(args_eval, resume_preempt=False):
     # --------------------------------------------------------------------- #
     #  TRAIN / EVAL LOOP
     # --------------------------------------------------------------------- #
+    # skip_base_probe (default false, additive): encoder-only analysis modes don't need the
+    # layer probes trained, so allow shortening the loop to 0 epochs. Off => num_probe_epochs
+    # == num_epochs => loop is byte-identical to before.
+    num_probe_epochs = 0 if args_analysis.get("skip_base_probe", False) else num_epochs
     best_val = {n: -float("inf") for n in head_names}   # R^2 can be < 0; -inf is a safe floor
     last_epoch = start_epoch
-    for epoch in range(start_epoch, num_epochs):
+    for epoch in range(start_epoch, num_probe_epochs):
         last_epoch = epoch + 1
         logger.info("Epoch %d" % (epoch + 1))
         if train_sampler is not None:
@@ -557,6 +561,33 @@ def main(args_eval, resume_preempt=False):
         # multi-variable R²: each variable is its own curve (legend), so no single target_label
         plot_layer_val_acc(heads, best_val, os.path.join(folder, "stage_val_acc.png"),
                            subtitle=sub, num_classes=num_classes, metric=metric, pez=plot_pez)
+
+    # ─── ADDITIVE: post-hoc analysis modes (experiment.analysis.modes). ──────────────────
+    # Absent from a config ⇒ modes_cfg == {} ⇒ this whole block is skipped and nothing is
+    # imported ⇒ existing runs behave byte-for-byte identically. Runs on rank 0 only.
+    modes_cfg = args_analysis.get("modes") or {}
+    if modes_cfg and rank == 0:
+        from evals.analysis_vlm.modes import AnalysisContext, run_modes
+
+        ctx = AnalysisContext(
+            encoder=encoder, device=device, folder=folder, rank=rank, world_size=world_size,
+            use_bfloat16=use_bfloat16, plot_pez=plot_pez, task=task, num_classes=num_classes,
+            heads=heads, best_val=best_val, stages=stages, embed_dims=embed_dims, reg_vars=reg_vars,
+            targets_t=targets_t,
+            targets_npy=(tpath if task == "regression" else None),
+            col_mu=(mu if task == "regression" else None),
+            col_sd=(sd if task == "regression" else None),
+            cache_pooling=cache_pooling, data_mode=data_mode,
+            tr_feats=(tr_feats if cache_features else None),
+            tr_labels=(tr_labels if cache_features else None),
+            va_feats=(va_feats if cache_features else None),
+            va_labels=(va_labels if cache_features else None),
+            encode_clip=lambda d: _encode(encoder, d, device, data_mode, use_bfloat16),
+            make_val_clip_loader=lambda: _split_loader(val_data_path[0], training=False, workers=0)[0],
+        )
+        run_modes(modes_cfg, ctx)
+    if torch.distributed.is_initialized():
+        torch.distributed.barrier()
 
 
 class _DirectResizeClipTransform:

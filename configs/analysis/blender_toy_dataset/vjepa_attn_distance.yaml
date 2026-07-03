@@ -1,0 +1,81 @@
+# ============================================================================
+# ATTENTION DISTANCE ANALYSIS (Appendix C.6 / Fig 19,3) — vjepa, Blender toy data
+# Per (layer,head) attention-weighted spatial (patch) & temporal (tubelet) distance
+# of the FROZEN encoder, captured via the additive attention_hooks SDPA patch
+# (encoder output bit-identical). ENCODER-ONLY: no probe is trained.
+#   Expect: mean attention distance DIPS and head specialization SPIKES ~1/3 depth (PEZ).
+# env: vjepa2
+# 실행: python -m evals.main --fname configs/analysis/blender_toy_dataset/vjepa_attn_distance.yaml --devices cuda:0 --debugmode True
+# ============================================================================
+
+eval_name: analysis_vlm
+folder: /data/hyuntak/project/2026/2027_cvpr/vjepa2/configs/analysis/blender_toy_dataset/logs
+num_workers: 8
+resume_checkpoint: false
+val_only: false
+tag: vjepa-blender-attn_distance
+
+experiment:
+  analysis:
+    model: vjepa
+    task: regression
+    regression:
+      targets_npy: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/blender_toy/blender_targets.npy
+      variables:
+        - {name: direction, cols: [1, 2]}
+    stages:
+      vision_encoder: all
+    plot_pez: [0.2, 0.4]
+
+    skip_base_probe: true          # encoder-only: distance capture needs no trained probe
+    modes:
+      attention_distance:          # ← default-off unless present; absent ⇒ existing behavior
+        enabled: true
+        query_chunk: 512           # stream queries so the (B,H,N,N) matrix is never materialized
+        max_batches: 8             # measure the first 8 val batches (cheap, stable)
+
+    probes:
+      - type: linear
+        pooling: mean
+        pre_norm: true
+        optimization: { lr: 0.001, weight_decay: 0.1, warmup: 2.0 }
+
+  data:
+    dataset_type: VideoDataset
+    resolution: 224                # paper geometry: 14x14 patches x 8 tubelets = 1568 tokens
+    resize_mode: resize
+    frame_step: 1
+    uniform_sampling: true
+    num_segments: 1
+    num_views_per_segment: 1
+    dataset_train: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/blender_toy/velocity_val.csv
+    dataset_val:   /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/blender_toy/velocity_val.csv
+    num_classes: 4
+    frames_per_clip: 16
+
+  optimization:
+    batch_size: 8
+    num_epochs: 0                  # no probe training (encoder-only mode)
+    use_bfloat16: true
+    save_optimizer: false
+    cache_features: false          # attention capture runs fresh forwards, not the cache
+    default_head:
+      start_lr: 0.0
+      final_lr: 0.0
+      final_weight_decay: 0.0
+
+model_kwargs:
+  checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vitl-fpc64-256/snapshots/b3c1679b7c34d3255ef3547f27c7b226aefab26f/original/model.pth
+  module_name: evals.analysis.modelcustom.vit_encoder_multilayer
+  pretrain_kwargs:
+    encoder:
+      checkpoint_key: target_encoder
+      model_name: vit_large
+      patch_size: 16
+      tubelet_size: 2
+      uniform_power: true
+      use_rope: true
+      img_temporal_dim_size: null
+  wrapper_kwargs:
+    max_frames: 128
+    use_pos_embed: false
