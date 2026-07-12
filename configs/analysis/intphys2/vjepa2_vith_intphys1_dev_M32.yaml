@@ -1,0 +1,45 @@
+tag: vjepa2_vith_intphys1_dev_M32
+folder: /data/hyuntak/project/2026/2027_cvpr/vjepa2/analysis/intphys2/logs
+
+data:
+  dataset_variant: intphys1
+  root: /local_datasets/world/IntPhys1_dev_videos
+  target_fps: 15.0
+  img_size: 256
+
+model:
+  checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vith-fpc64-256/snapshots/b5eac8703e3efdc1547fbb6ddfbeb133dc0bdee5/original/model.pth
+  arch_name: vit_huge
+  img_size: 256
+  patch_size: 16
+  tubelet_size: 2
+  window_size: 32
+  use_rope: true
+  uniform_power: false
+  predictor: { embed_dim: 384, depth: 12, num_heads: 12, num_mask_tokens: 10 }
+  dtype: bfloat16
+
+surprise:
+  window_size: 32
+  context_length: 8
+  context_length_sweep: [2, 4, 6, 8, 10, 12, 14]
+  stride: 2
+  distance: l1
+  loss_exp: 1.0
+  target_layer_norm: true
+  aggregation: avg
+  protocol: fixed
+  mask_index: 0
+  context_forward_mode: masked
+
+evaluation:
+  compute_pairwise: true
+  compute_auroc: true
+  breakdown_by: [condition]
+  ddp: true
+  num_workers: 4
+
+output:
+  save_per_video: true
+  plot_breakdowns: true
+  plot_context_sweep: true

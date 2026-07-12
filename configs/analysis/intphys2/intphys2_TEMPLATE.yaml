@@ -1,0 +1,118 @@
+# =============================================================================
+# IntPhys2 pairwise-surprise evaluation — annotated TEMPLATE
+# =============================================================================
+# Reproduces the "prediction-based" evaluation protocol of IntPhys 2 (Bordes et
+# al. 2025; arXiv:2506.09849), Appendix D. Every knob has a comment; concrete
+# ready-to-run configs live next to this file.
+#
+# Entry point:
+#   python -m analysis.intphys2.eval --config <this-file>
+#
+# Two protocols the harness computes:
+#   * pairwise_accuracy -- inside each SceneIndex the model is "correct" iff
+#       surprise(impossible) > surprise(possible). Main paper number.
+#   * single-video AUROC (harder, Fig. 4 middle).
+#
+# Design invariant: ALL settings live here. No code path reads env vars for
+# behavior; only the SLURM launcher does.
+# =============================================================================
+
+# --- output root -------------------------------------------------------------
+tag: intphys2_TEMPLATE
+folder: /data/hyuntak/project/2026/2027_cvpr/vjepa2/analysis/intphys2/logs
+# Results land under <folder>/<tag>/.
+
+# --- IntPhys2 dataset --------------------------------------------------------
+data:
+  root: /local_datasets/world/IntPhys2      # split dirs live under this
+  split: Debug                              # Debug | Main | HeldOut
+  target_fps: 6.0                           # paper D.3 Table 8: framerate=6 for V-JEPA 2
+  min_frames: 8                             # drop videos with fewer effective frames
+  img_size: 256                             # V-JEPA 2 ViT-L was pretrained @ 256²
+  decord_threads: 2
+
+# --- model (encoder + predictor) --------------------------------------------
+model:
+  # required: path to a V-JEPA 2 .pth/.pt containing "encoder", "target_encoder",
+  # "predictor" state dicts (this is the format produced by the official
+  # V-JEPA 2 release, e.g. facebook/vjepa2-vitl-fpc64-256).
+  checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vitl-fpc64-256/snapshots/b3c1679b7c34d3255ef3547f27c7b226aefab26f/original/model.pth
+
+  arch_name: vit_large                      # vit_large | vit_huge | vit_giant(_xformers)
+  img_size: 256
+  patch_size: 16
+  tubelet_size: 2
+  # `window_size` is automatically synced with `surprise.window_size`; you can
+  # leave it out. If you set it here it MUST match surprise.window_size.
+  # window_size: 48
+  use_rope: true
+  uniform_power: false                      # V-JEPA 2 pretrain uses False
+
+  # Which state_dict key powers each role. Both default to `target_encoder`
+  # (EMA teacher) — matches the analysis harness convention.
+  context_encoder_key: target_encoder       # target_encoder | encoder
+  target_encoder_key:  target_encoder
+  dual_encoder: false                       # if true, load TWO copies (context + target)
+
+  # V-JEPA 2 predictor defaults (ViT-L/H all use these).
+  predictor:
+    embed_dim: 384
+    depth: 12
+    num_heads: 12
+    num_mask_tokens: 10
+
+  dtype: bfloat16                           # frozen graph -> cast for speed
+
+# --- surprise (Eq. 1 / Fig. 8) ----------------------------------------------
+surprise:
+  # Paper D.3 Table 8 for V-JEPA 2 -> window=48, pred=-1 (predict to end of window),
+  # framerate=6. `context_length` here is C in Eq. 1; prediction_length = M - C.
+  window_size: 48                           # M (frames)
+  context_length: 12                        # C -- single-C mode (see below)
+  # OPTIONAL: list -> run the paper's D.3 sweep and REPORT MAX pairwise accuracy
+  # across the sweep (matching Table 2's "best hyperparameters" line).
+  # context_length_sweep: [4, 6, 8, 10, 12, 14]
+  context_length_sweep: null
+  stride: 4                                 # window slides by this many frames
+
+  # Distance measure used for the surprise scalar. `l1` (with loss_exp=1) matches
+  # the V-JEPA training loss recipe in app/vjepa/train.py:440-450.
+  distance: l1                              # l1 | smoothl1 | l2 | cosine
+  loss_exp: 1.0                             # only relevant for `l1`
+  target_layer_norm: true                   # per-token LN over D on the target — matches training
+
+  # Per-video aggregation over windows (Eq. 2).
+  aggregation: avg                          # avg (paper default, good for pairwise) | max
+
+  # Sliding-window protocol. Only `fixed` (paper Fig. 8A / Garrido 2024) is wired
+  # today; `growing` (paper's proposed Fig. 8B) is a TODO — Table 7 shows the
+  # two are numerically equivalent for V-JEPA / VideoMAE.
+  protocol: fixed
+
+# --- what to compute ---------------------------------------------------------
+evaluation:
+  compute_pairwise: true
+  compute_auroc: true
+  # Breakdown axes (must be columns of the enriched metadata frame). Any of:
+  #   condition   -- one of {permanence, immutability, continuity, solidity}
+  #   difficulty  -- one of {Easy, Medium, Hard, Unknown}   [main metric in paper Table 2]
+  #   camera      -- one of {Fixed, Moving}                 [paper Table 3]
+  #   env         -- e.g. BasicLevel_0, DesertMap_0, ...
+  breakdown_by: [condition, difficulty, camera]
+
+  ddp: false                                # opt-in DDP shard across ranks (torchrun)
+  verbose: true
+  log_every_videos: 25
+  # limit_videos: 10                        # smoke-test knob; comment out for real runs
+  limit_videos: null
+
+# --- what to save ------------------------------------------------------------
+output:
+  save_per_video: true                      # per_video.csv (row per (video, C))
+  save_per_window: false                    # heavier: per-window trace parquet/jsonl
+  save_config: true                         # config.resolved.yaml with defaults filled in
+
+  plot_breakdowns: true                     # bar chart of pairwise acc by breakdown key
+  plot_context_sweep: true                  # only meaningful if context_length_sweep is set
+  plot_scene_curves: false
+  scene_curve_indices: null                 # e.g. [0, 1, 2] to plot the first 3 scenes

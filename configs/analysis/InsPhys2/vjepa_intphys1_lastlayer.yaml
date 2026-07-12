@@ -1,0 +1,69 @@
+# =============================================================================
+# IntPhys 1 last-layer linear + attentive probing (V-JEPA 2 ViT-L)
+# Sanity check: if this saturates near paper's ~85-95% (Joseph et al. 2026 Fig 1
+# reports V-JEPA v2 Large last-layer linear probe accuracy on IntPhys ≈ 85%),
+# then our surprise-based pipeline has a structural bug.
+# Runs on `eval_name: analysis_vlm` -> evals/analysis_vlm/eval.py.
+# =============================================================================
+eval_name: analysis_vlm
+folder: /data/hyuntak/project/2026/2027_cvpr/vjepa2/analysis/intphys2/logs/probes
+num_workers: 8
+resume_checkpoint: false
+val_only: false
+tag: vjepa2_vitl_intphys1_lastlayer
+
+experiment:
+  analysis:
+    model: vjepa
+    stages:
+      vision_encoder: [23]    # ViT-L last layer only
+    plot: false
+
+    probes:
+      - type: linear
+        pooling: mean
+        pre_norm: true
+        optimization: { lr: 0.01, weight_decay: 0.0, warmup: 1.0 }
+      - type: attentive
+        num_heads: 16
+        num_probe_blocks: 4
+        optimization: { lr: 0.002, weight_decay: 0.01, warmup: 2.0 }
+
+  data:
+    dataset_type: VideoDataset
+    dataset_train: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/IntPhys1/IntPhys1_2way_train.csv
+    dataset_val:   /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/IntPhys1/IntPhys1_2way_val.csv
+    num_classes: 2
+    resolution: 256
+    resize_mode: crop
+    frames_per_clip: 32
+    frame_step: 1
+    num_segments: 1
+    num_views_per_segment: 1
+    uniform_sampling: true      # 100-frame native clip -> uniformly sample 32 frames
+
+  optimization:
+    batch_size: 8
+    num_epochs: 20
+    use_bfloat16: true
+    save_optimizer: false
+    cache_features: true
+    cache_pooling: tokens       # attentive needs tokens; only 1 stage so cache fits easily
+    cache_max_gb: 24
+    default_head: { start_lr: 0.0, final_lr: 0.0, final_weight_decay: 0.01 }
+
+model_kwargs:
+  checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vitl-fpc64-256/snapshots/b3c1679b7c34d3255ef3547f27c7b226aefab26f/original/model.pth
+  module_name: evals.analysis.modelcustom.vit_encoder_multilayer
+  pretrain_kwargs:
+    encoder:
+      checkpoint_key: target_encoder
+      model_name: vit_large
+      patch_size: 16
+      tubelet_size: 2
+      uniform_power: true
+      use_rope: true
+      img_temporal_dim_size: null
+  wrapper_kwargs:
+    max_frames: 128
+    use_pos_embed: false

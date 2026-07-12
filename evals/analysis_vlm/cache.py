@@ -7,12 +7,16 @@
 # cache the per-stage features in RAM, then train the probes for many epochs over
 # the cache (no decode, no encoder forward) -> epochs become ~seconds.
 #
-# Two cache granularities (config: optimization.cache_pooling):
+# Cache granularities (config: optimization.cache_pooling):
+#   "mean"    -> store mean-pooled vector over tokens, shape (n, D). TINY.
+#                Paper (Joseph 2026 / Sonia clarification) uses spatiotemporal MEAN pool.
+#   "max"     -> store max-pooled vector over tokens, shape (n, D). TINY.
 #   "pooled"  -> store [mean ‖ max] over tokens, shape (n, 2D) per stage. TINY.
-#                Works with LINEAR probes only (attentive needs the token set).
-#                Ideal for the all-layer `vision_encoder: all` linear scan.
+#                Legacy: covers both mean and max via a single probe.pooling knob.
 #   "tokens"  -> store the full (N, D) token tensor per stage. Works with ALL
 #                probe types incl. attentive, but large (scales with N * #stages).
+# All pooled modes (mean/max/pooled) are LINEAR-probe only; attentive probes need
+# the token set (use "tokens").
 #
 # DDP: each rank pre-passes its OWN fixed shard (shuffle=False DistributedSampler)
 # and caches it; training then shuffles locally. Metrics all-reduce as usual.
@@ -77,12 +81,19 @@ class _ThreadPrefetcher:
 def reduce_feature(feat, mode, num_temporal=None):
     """feat: (B, N, D).
       'tokens'    -> (B, N, D)                       full tokens (all probes; large)
-      'pooled'    -> (B, 2D) = [mean ‖ max] over N   global pool (linear only; tiny)
+      'mean'      -> (B, D)    mean over N           global mean pool (linear only; tiny)
+      'max'       -> (B, D)    max  over N           global max  pool (linear only; tiny)
+      'pooled'    -> (B, 2D) = [mean ‖ max] over N   both (linear only; probe.pooling
+                                                     slices mean|max|meanmax; tiny)
       'framewise' -> (B, T, D) spatial-mean per frame (keeps temporal; needs num_temporal;
                      supports linear/framewise/attentive over the T per-frame vectors; small)
     """
     if mode == "tokens":
         return feat
+    if mode == "mean":
+        return feat.mean(dim=1)
+    if mode == "max":
+        return feat.max(dim=1).values
     if mode == "pooled":
         return torch.cat([feat.mean(dim=1), feat.max(dim=1).values], dim=-1)
     if mode == "framewise":
@@ -93,7 +104,8 @@ def reduce_feature(feat, mode, num_temporal=None):
             raise ValueError(f"framewise cache: token count {n} not divisible by num_temporal={num_temporal}")
         s = n // num_temporal
         return feat.view(b, num_temporal, s, d).mean(dim=2)   # (B, T, D)
-    raise ValueError(f"unknown cache_pooling {mode!r} (expected 'tokens' | 'pooled' | 'framewise')")
+    raise ValueError(f"unknown cache_pooling {mode!r} "
+                     f"(expected 'tokens' | 'mean' | 'max' | 'pooled' | 'framewise')")
 
 
 @torch.no_grad()
@@ -125,10 +137,16 @@ def build_feature_cache(encode_fn, loader, cache_pooling, num_temporal=None, max
         except Exception:
             pass
 
+    # Downcast policy: fp16 is only needed for the (large) 'tokens' cache (~72 GB fp32 becomes
+    # 36 GB fp16 for 360 samples × 24 stages × 2048 tokens × 1024 dims). For pooled caches
+    # (mean/max/pooled/framewise) the total is ~30-70 MB even in fp32 -- so we keep fp32 to
+    # avoid the mantissa loss (23-bit -> 10-bit) that could quietly shave 1-2pt off probing
+    # accuracy on subtle physics signals.
+    cache_dtype = torch.float16 if cache_pooling == "tokens" else torch.float32
     per_stage, labels_acc, n = None, [], 0
     for data in iterator:
         feats, labels, bsz = encode_fn(data)
-        reduced = [reduce_feature(f, cache_pooling, num_temporal).half().cpu() for f in feats]
+        reduced = [reduce_feature(f, cache_pooling, num_temporal).to(cache_dtype).cpu() for f in feats]
         if per_stage is None:
             per_stage = [[] for _ in reduced]
             per_sample_mb = sum(r[:1].element_size() * r[:1].nelement() for r in reduced) / 1024.0**2
@@ -191,24 +209,42 @@ def make_cached_loader(feats_cat, labels, batch_size, training):
 
 
 class PooledLinearProbe(nn.Module):
-    """Linear probe over a PRE-POOLED cached vector x=(B, 2D)=[mean ‖ max]."""
+    """Linear probe over a PRE-POOLED cached vector.
 
-    def __init__(self, embed_dim, num_classes, pooling="mean", pre_norm=True):
+    Cache layouts this accepts:
+      x: (B, D)   -- cache_pooling='mean' or 'max'.  Single-pool cache; probe.pooling
+                     must match (mean cache -> pooling='mean', max cache -> 'max').
+                     The whole (B, D) is used directly.
+      x: (B, 2D)  -- cache_pooling='pooled'.  Concatenated [mean ‖ max]; probe.pooling
+                     ∈ {mean, max, meanmax} slices the appropriate half (or both).
+    """
+
+    def __init__(self, embed_dim, num_classes, pooling="mean"):
         super().__init__()
         self.D = embed_dim
         self.pooling = pooling
         in_dim = embed_dim * (2 if pooling == "meanmax" else 1)
-        self.norm = nn.LayerNorm(in_dim) if pre_norm else nn.Identity()
         self.linear = nn.Linear(in_dim, num_classes, bias=True)
 
-    def forward(self, x):  # x: (B, 2D)
+    def forward(self, x):  # x: (B, D) or (B, 2D)
         d = self.D
-        if self.pooling == "mean":
-            z = x[..., :d]
-        elif self.pooling == "max":
-            z = x[..., d:2 * d]
-        elif self.pooling == "meanmax":
-            z = x[..., :2 * d]
+        last = x.size(-1)
+        if last == d:
+            # single-pool cache: use as-is (probe.pooling must match cache mode)
+            z = x
+        elif last == 2 * d:
+            # meanmax cache: slice
+            if self.pooling == "mean":
+                z = x[..., :d]
+            elif self.pooling == "max":
+                z = x[..., d:2 * d]
+            elif self.pooling == "meanmax":
+                z = x[..., :2 * d]
+            else:
+                raise ValueError(f"unknown pooling {self.pooling!r}")
         else:
-            raise ValueError(f"unknown pooling {self.pooling!r}")
-        return self.linear(self.norm(z))
+            raise ValueError(
+                f"cached feature dim {last} incompatible with embed_dim {d} "
+                f"(expected D or 2D). check cache_pooling matches probe pooling."
+            )
+        return self.linear(z)

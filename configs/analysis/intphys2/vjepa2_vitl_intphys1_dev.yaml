@@ -1,0 +1,59 @@
+# =============================================================================
+# IntPhys 1 (Riochet et al. 2018) dev split -- V-JEPA 2 ViT-L, paper's D.3 sweep.
+#
+# 360 videos = 3 blocks (O1/O2/O3) x 30 quadruplets x 4 runs, 100 frames @ 15 fps.
+# Each quadruplet has 2 pairs (runs 1-2 and runs 3-4); paper's V-JEPA-h+RoPE hits
+# 98.30% on IntPhys1 (Table 2 rightmost column). Ours is V-JEPA 2 ViT-L -- expect
+# a high number, well above the ~55% seen on IntPhys2.
+# =============================================================================
+tag: vjepa2_vitl_intphys1_dev_sweep
+folder: /data/hyuntak/project/2026/2027_cvpr/vjepa2/analysis/intphys2/logs
+
+data:
+  dataset_variant: intphys1
+  root: /local_datasets/world/IntPhys1_dev_videos
+  target_fps: 6.0
+  img_size: 256
+
+model:
+  checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vitl-fpc64-256/snapshots/b3c1679b7c34d3255ef3547f27c7b226aefab26f/original/model.pth
+  arch_name: vit_large
+  img_size: 256
+  patch_size: 16
+  tubelet_size: 2
+  use_rope: true
+  uniform_power: false
+  predictor:
+    embed_dim: 384
+    depth: 12
+    num_heads: 12
+    num_mask_tokens: 10
+  dtype: bfloat16
+
+surprise:
+  window_size: 48
+  context_length: 12                     # unused when sweep is set (kept for readability)
+  context_length_sweep: [4, 6, 8, 10, 12, 14]
+  stride: 4
+  distance: l1
+  loss_exp: 1.0
+  target_layer_norm: true
+  aggregation: avg
+  protocol: fixed
+
+evaluation:
+  compute_pairwise: true
+  compute_auroc: true
+  # IntPhys1 dev has no difficulty/camera diversity in this split; break down by block instead.
+  breakdown_by: [condition]              # "condition" holds the IntPhys1 block (O1/O2/O3)
+  ddp: true
+  num_workers: 4
+  verbose: true
+  log_every_videos: 25
+
+output:
+  save_per_video: true
+  save_per_window: false
+  plot_breakdowns: true
+  plot_context_sweep: true
+  plot_scene_curves: false

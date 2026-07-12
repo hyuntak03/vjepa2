@@ -1,0 +1,64 @@
+# =============================================================================
+# IntPhys 1 dev split -- V-JEPA 2 ViT-L, window=16 (short-clip regime).
+#
+# IntPhys1 clips are 100 frames @ 15fps native = ~6.7s each. At the paper's
+# target_fps=6 the sequence is 40 frames -- SHORTER than the M=48 window we used
+# for IntPhys2, so a single-window fallback fires and kills the signal
+# (empirically 46.4% at M=48 vs paper's 98.3% target). Paper Table 8 uses
+# window=16 for V-JEPA+RoPE on IntPhys1, so we match that regime here.
+#
+#   Setting     : window=16, stride=2, target_fps=6
+#   Result      : ~13 sliding windows per 40-frame clip -> denser surprise curve
+#   Context     : sweep [2, 4, 6, 8, 10, 12] (all < window and tubelet-aligned)
+# =============================================================================
+tag: vjepa2_vitl_intphys1_dev_w16
+folder: /data/hyuntak/project/2026/2027_cvpr/vjepa2/analysis/intphys2/logs
+
+data:
+  dataset_variant: intphys1
+  root: /local_datasets/world/IntPhys1_dev_videos
+  target_fps: 6.0
+  img_size: 256
+
+model:
+  checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vitl-fpc64-256/snapshots/b3c1679b7c34d3255ef3547f27c7b226aefab26f/original/model.pth
+  arch_name: vit_large
+  img_size: 256
+  patch_size: 16
+  tubelet_size: 2
+  window_size: 16                             # short-clip regime
+  use_rope: true
+  uniform_power: false
+  predictor:
+    embed_dim: 384
+    depth: 12
+    num_heads: 12
+    num_mask_tokens: 10
+  dtype: bfloat16
+
+surprise:
+  window_size: 16
+  context_length: 8                           # unused when sweep is set
+  context_length_sweep: [2, 4, 6, 8, 10, 12]  # paper D.3 range, all < 16 and even
+  stride: 2                                   # denser sliding for short clips
+  distance: l1
+  loss_exp: 1.0
+  target_layer_norm: true
+  aggregation: avg
+  protocol: fixed
+
+evaluation:
+  compute_pairwise: true
+  compute_auroc: true
+  breakdown_by: [condition]
+  ddp: true
+  num_workers: 4
+  verbose: true
+  log_every_videos: 25
+
+output:
+  save_per_video: true
+  save_per_window: false
+  plot_breakdowns: true
+  plot_context_sweep: true
+  plot_scene_curves: false

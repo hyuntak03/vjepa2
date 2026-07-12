@@ -52,6 +52,7 @@ def make_videodataset(
     deterministic=True,
     log_dir=None,
     uniform_sampling=False,
+    center_sampling=False,
 ):
     dataset = VideoDataset(
         data_paths=data_paths,
@@ -69,6 +70,7 @@ def make_videodataset(
         shared_transform=shared_transform,
         transform=transform,
         uniform_sampling=uniform_sampling,
+        center_sampling=center_sampling,
     )
 
     log_dir = pathlib.Path(log_dir) if log_dir else None
@@ -140,11 +142,19 @@ class VideoDataset(torch.utils.data.Dataset):
         filter_long_videos=int(10**9),
         duration=None,  # duration in seconds
         uniform_sampling=False,  # sample fpc frames evenly across the whole video (ignores frame_step)
+        center_sampling=False,   # take the CENTER fpc frames (contiguous window around video midpoint).
+                                 # Rationale: paper (Joseph 2026) centers each 16-frame clip on the
+                                 # 'break-point' frame, which we don't have per-video metadata for.
+                                 # Prior: IntPhys break-point tends to fall near mid-video, so
+                                 # picking [len//2 - fpc//2 : len//2 + fpc//2] gives a stronger
+                                 # temporal window than diluted uniform sampling.
+                                 # Ignores frame_step and uniform_sampling when true.
     ):
         self.data_paths = data_paths
         self.datasets_weights = datasets_weights
         self.frame_step = frame_step
         self.uniform_sampling = uniform_sampling
+        self.center_sampling = center_sampling
         self.num_clips = num_clips
         self.transform = transform
         self.shared_transform = shared_transform
@@ -330,6 +340,22 @@ class VideoDataset(torch.utils.data.Dataset):
             return [], None
 
         vr.seek(0)  # Go to start of video before sampling frames
+
+        # center_sampling: take a contiguous fpc-frame window centered on the video midpoint.
+        # For IntPhys (native 100 frames, fpc=16) this gives indices [42..57]. Ignores
+        # frame_step / num_clips. Precedence: center_sampling > uniform_sampling > default.
+        if getattr(self, "center_sampling", False):
+            n = len(vr)
+            if n >= fpc:
+                start = (n - fpc) // 2
+                indices = np.arange(start, start + fpc).astype(np.int64)
+            else:
+                # video shorter than fpc: pad with the last frame
+                indices = np.concatenate(
+                    [np.arange(n), np.full(fpc - n, n - 1)]
+                ).astype(np.int64)
+            buffer = vr.get_batch(list(indices)).asnumpy()
+            return buffer, [indices]
 
         # uniform_sampling: pick `fpc` frames evenly across the WHOLE video (length-agnostic;
         # ignores frame_step / num_clips). Avoids the contiguous-window default that, when

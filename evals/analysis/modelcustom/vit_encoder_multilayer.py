@@ -54,8 +54,14 @@ def init_module(
     if out_layers is None:
         raise ValueError("analysis encoder requires wrapper_kwargs.out_layers (list of int)")
 
+    # Build the ViT with out_layers=None (default). We capture raw block outputs via
+    # forward hooks in MultiLayerClipAggregation instead of the built-in `out_layers`
+    # path, which appends `self.norm(x)` per intermediate and is designed for the
+    # multi-level *concat* wrapper (evals/video_classification_frozen/modelcustom/
+    # vit_encoder_multiclip_multilevel.py), not per-layer probing. Hooks give us the
+    # raw residual x_N without touching upstream src/.
     model = vit.__dict__[enc_model_name](
-        img_size=resolution, num_frames=frames_per_clip, out_layers=out_layers, **enc_kwargs
+        img_size=resolution, num_frames=frames_per_clip, **enc_kwargs
     )
 
     pretrained_dict = checkpoint[enc_ckp_key]
@@ -74,6 +80,7 @@ def init_module(
     # `dtype` (optional) is a compute-dtype knob (e.g. float32 on CPU); pop it here
     # and cast the assembled module rather than passing it to the wrapper ctor.
     agg_kwargs = {k: v for k, v in wrapper_kwargs.items() if k not in ("out_layers", "dtype")}
+
     model = MultiLayerClipAggregation(
         model,
         tubelet_size=model.tubelet_size,
@@ -108,7 +115,18 @@ class MultiLayerClipAggregation(nn.Module):
         self.tubelet_size = tubelet_size
         self.embed_dim = embed_dim = model.embed_dim
         self.num_heads = model.num_heads
-        self.out_layers = out_layers
+        self.out_layers = list(out_layers) if out_layers is not None else []
+
+        # Forward hooks: capture the raw block output x_N (residual-stream after block N)
+        # for every requested layer. Standard PyTorch pattern — no upstream src/ edits,
+        # no Identity swap. The base ViT runs its normal forward (out_layers=None, so
+        # line 205-206 of src/models/vision_transformer.py is skipped); we discard its
+        # final self.norm-ed return and use these captures instead.
+        self._captured = []
+        self._hook_handles = []
+        for idx in self.out_layers:
+            h = model.blocks[idx].register_forward_hook(self._make_capture_hook())
+            self._hook_handles.append(h)
 
         # 1D-temporal pos-embedding (same option as the stock wrapper)
         self.pos_embed = None
@@ -117,6 +135,11 @@ class MultiLayerClipAggregation(nn.Module):
             self.pos_embed = nn.Parameter(torch.zeros(1, max_T, embed_dim), requires_grad=False)
             sincos = get_1d_sincos_pos_embed(embed_dim, max_T)
             self.pos_embed.copy_(torch.from_numpy(sincos).float().unsqueeze(0))
+
+    def _make_capture_hook(self):
+        def _hook(_module, _input, output):
+            self._captured.append(output)
+        return _hook
 
     def forward(self, x, clip_indices=None):
         num_clips = len(x)
@@ -127,9 +150,23 @@ class MultiLayerClipAggregation(nn.Module):
         x = [torch.cat(xi, dim=0) for xi in x]
         x = torch.cat(x, dim=0)
 
-        layer_outputs = self.model(x)  # list over layers, each (B', N, D)
-        if not isinstance(layer_outputs, list):
-            layer_outputs = [layer_outputs]
+        # Run the base ViT normally; forward hooks capture the raw block outputs.
+        # Order of captures matches the order of blocks iterated in the base forward,
+        # which is 0..depth-1; the hooks were registered in `out_layers` order but
+        # fire during forward in block-index order — sort captures to align with the
+        # numeric order of self.out_layers.
+        self._captured = []
+        _ = self.model(x)  # discard the final (self.norm-ed) output
+        assert len(self._captured) == len(self.out_layers), (
+            f"forward-hook capture mismatch: got {len(self._captured)} outputs for "
+            f"{len(self.out_layers)} requested layers"
+        )
+        # captures are in block-execution order (0..depth-1 for the subset in out_layers);
+        # reorder to match the user's out_layers list so downstream heads keyed by
+        # out_layers[i] see the correct feature.
+        exec_order = sorted(range(len(self.out_layers)), key=lambda i: self.out_layers[i])
+        pos_of = {oi: pi for pi, oi in enumerate(exec_order)}
+        layer_outputs = [self._captured[pos_of[i]] for i in range(len(self.out_layers))]
 
         def multiviews_postprocess(outputs):
             _, N, D = outputs.size()

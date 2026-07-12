@@ -1,0 +1,63 @@
+# =============================================================================
+# IntPhys 1 dev split -- V-JEPA 2 ViT-L, native fps=15 (100 frames preserved).
+#
+# Post-audit-fix version (fixes A/E/F applied by defaults + this config):
+#  - target_fps=15 keeps all 100 native frames -> M=48 window fits, 14 sliding windows
+#    per video (avoids the plan_windows short-video fallback single-window collapse).
+#  - surprise.mask_index=0 (DEFAULT_CFG default now) uses the only trained mask token.
+#  - context_forward_mode=masked (DEFAULT_CFG default now) restores train-time context
+#    semantics (encoder only self-attends over context tokens).
+#  - dataset.py now fills pair_id from run index for IntPhys 1 -> the pairwise metric
+#    uses paper's matched-pair protocol instead of the earlier cross-pair diagnostic.
+# =============================================================================
+tag: vjepa2_vitl_intphys1_dev_fps15
+folder: /data/hyuntak/project/2026/2027_cvpr/vjepa2/analysis/intphys2/logs
+
+data:
+  dataset_variant: intphys1
+  root: /local_datasets/world/IntPhys1_dev_videos
+  target_fps: 15.0                            # keep all 100 native frames
+  img_size: 256
+
+model:
+  checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vitl-fpc64-256/snapshots/b3c1679b7c34d3255ef3547f27c7b226aefab26f/original/model.pth
+  arch_name: vit_large
+  img_size: 256
+  patch_size: 16
+  tubelet_size: 2
+  window_size: 48
+  use_rope: true
+  uniform_power: false
+  predictor:
+    embed_dim: 384
+    depth: 12
+    num_heads: 12
+    num_mask_tokens: 10
+  dtype: bfloat16
+
+surprise:
+  window_size: 48
+  context_length: 12
+  context_length_sweep: [4, 6, 8, 10, 12, 14]
+  stride: 4
+  distance: l1
+  loss_exp: 1.0
+  target_layer_norm: true
+  aggregation: avg
+  protocol: fixed
+
+evaluation:
+  compute_pairwise: true
+  compute_auroc: true
+  breakdown_by: [condition]
+  ddp: true
+  num_workers: 4
+  verbose: true
+  log_every_videos: 25
+
+output:
+  save_per_video: true
+  save_per_window: false
+  plot_breakdowns: true
+  plot_context_sweep: true
+  plot_scene_curves: false

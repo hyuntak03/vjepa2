@@ -1,0 +1,54 @@
+# =============================================================================
+# IntPhys2 Debug split -- V-JEPA 2 ViT-L smoke test.
+# Debug has 60 videos (5 scenes x 4 videos x 3 seeds); a full pass should take
+# a few minutes on 1 GPU. Use this to verify the pipeline before scaling up.
+# =============================================================================
+tag: vjepa2_vitl_debug
+folder: /data/hyuntak/project/2026/2027_cvpr/vjepa2/analysis/intphys2/logs
+
+data:
+  root: /local_datasets/world/IntPhys2
+  split: Debug
+  target_fps: 6.0
+  img_size: 256
+
+model:
+  checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vitl-fpc64-256/snapshots/b3c1679b7c34d3255ef3547f27c7b226aefab26f/original/model.pth
+  arch_name: vit_large
+  img_size: 256
+  patch_size: 16
+  tubelet_size: 2
+  use_rope: true
+  uniform_power: false
+  predictor:
+    embed_dim: 384
+    depth: 12
+    num_heads: 12
+    num_mask_tokens: 10
+  dtype: bfloat16
+
+surprise:
+  window_size: 48
+  context_length: 12
+  stride: 4
+  distance: l1
+  loss_exp: 1.0
+  target_layer_norm: true
+  aggregation: avg
+  protocol: fixed
+
+evaluation:
+  compute_pairwise: true
+  compute_auroc: true
+  breakdown_by: [condition, difficulty, camera]
+  ddp: false
+  verbose: true
+  log_every_videos: 10
+
+output:
+  save_per_video: true
+  save_per_window: true                # Debug -> keep per-window for the Fig 9-style scene plots
+  plot_breakdowns: true
+  plot_context_sweep: false            # single-C run
+  plot_scene_curves: true
+  scene_curve_indices: [0, 1, 2]       # plot the first 3 scenes

@@ -165,6 +165,7 @@ def main(args_eval, resume_preempt=False):
     # clip path: sample frames_per_clip frames EVENLY across the whole video (length-agnostic),
     # instead of frame_step's contiguous window. True => frame_step ignored. (raw path is always uniform)
     uniform_sampling = args_data.get("uniform_sampling", False)
+    center_sampling = args_data.get("center_sampling", False)  # contiguous fpc-frame window at video midpoint
     duration = args_data.get("clip_duration", None)
     num_views_per_segment = args_data.get("num_views_per_segment", 1)
     normalization = args_data.get("normalization", None)
@@ -299,25 +300,39 @@ def main(args_eval, resume_preempt=False):
             framewise = ptype == "linear" and pooling.startswith("framewise")  # spatial-pool per frame, keep T
             use_tpos = ptype == "attentive" and tpos in ("learnable", "rope")
             pname = probe_name(spec) + (f"-{tpos}" if use_tpos else "")
-            if cache_features and cache_pooling == "pooled":
-                # cache stores only [mean‖max] -> linear probes only (attentive needs tokens)
+            _POOLED_CACHE_MODES = ("pooled", "mean", "max")
+            if cache_features and cache_pooling in _POOLED_CACHE_MODES:
+                # cache stores a global-pooled vector -> linear probes only (attentive needs tokens)
                 if ptype != "linear":
                     raise ValueError(
-                        "cache_pooling='pooled' caches only pooled vectors -> linear probes only. "
+                        f"cache_pooling={cache_pooling!r} caches only pooled vectors -> linear probes only. "
                         "Use cache_pooling='tokens' (or cache_features=false) for attentive probes."
                     )
                 if framewise:
                     raise ValueError(
-                        f"pooling='{pooling}' keeps the per-frame token structure, which the 'pooled' "
-                        f"cache has already collapsed. Use cache_pooling='tokens' (or cache_features=false)."
+                        f"pooling='{pooling}' keeps the per-frame token structure, which the "
+                        f"'{cache_pooling}' cache has already collapsed. Use cache_pooling='tokens' "
+                        f"(or cache_features=false)."
+                    )
+                # single-pool cache: probe.pooling MUST match the cache mode (mean cache -> mean probe,
+                # max cache -> max probe). meanmax probe is only valid on the concat 'pooled' cache.
+                if cache_pooling == "mean" and pooling != "mean":
+                    raise ValueError(
+                        f"cache_pooling='mean' stores only the mean vector; probe pooling must be 'mean' "
+                        f"(got {pooling!r})."
+                    )
+                if cache_pooling == "max" and pooling != "max":
+                    raise ValueError(
+                        f"cache_pooling='max' stores only the max vector; probe pooling must be 'max' "
+                        f"(got {pooling!r})."
                     )
 
             def _build(out_dim):  # build one probe head with the given output dim
-                if cache_features and cache_pooling == "pooled":
+                if cache_features and cache_pooling in _POOLED_CACHE_MODES:
                     from evals.analysis_vlm.cache import PooledLinearProbe
 
                     return PooledLinearProbe(embed_dim=embed_dims[stage_pos], num_classes=out_dim,
-                                             pooling=pooling, pre_norm=spec.get("pre_norm", True))
+                                             pooling=pooling)
                 if framewise:
                     # temporal-preserving linear: spatial-pool within each frame, concat, Linear.
                     nt = getattr(encoder, "num_temporal", None)
@@ -399,7 +414,7 @@ def main(args_eval, resume_preempt=False):
                     batch_size=batch_size, world_size=world_size, rank=rank,
                     clip_len=frames_per_clip, frame_sample_rate=frame_step, duration=duration,
                     num_clips=num_segments, allow_clip_overlap=True, num_workers=w, drop_last=False,
-                    uniform_sampling=uniform_sampling,
+                    uniform_sampling=uniform_sampling, center_sampling=center_sampling,
                 )
             else:
                 from evals.video_classification_frozen.eval import make_dataloader

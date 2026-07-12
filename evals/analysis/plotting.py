@@ -81,7 +81,15 @@ def plot_layer_val_acc(heads, val_acc, out_path, subtitle=None, num_classes=None
 
     all_y = []
     for probe_label in sorted(series):
-        pts = sorted(series[probe_label], key=lambda t: t[0])
+        # DEDUP by layer: when multiple heads share the same (series, layer) -- e.g. an HP sweep
+        # runs many probe configurations under a single `probe: linear-mean` label -- take the MAX
+        # (paper's max-over-HP protocol). Without this the plotter connects all HPs sequentially at
+        # each x, producing a sawtooth. Idempotent for the single-head case.
+        layer_best = {}
+        for x, y in series[probe_label]:
+            if x not in layer_best or y > layer_best[x]:
+                layer_best[x] = y
+        pts = sorted(layer_best.items(), key=lambda t: t[0])
         xs = [p[0] for p in pts]
         ys = [p[1] for p in pts]
         all_y += ys

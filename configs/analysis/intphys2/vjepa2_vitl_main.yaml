@@ -1,0 +1,59 @@
+# =============================================================================
+# IntPhys2 MAIN split -- V-JEPA 2 ViT-L, paper-faithful context sweep.
+#
+# Main has 253 scenes x 4 videos = 1012 videos. With the full context-length
+# sweep {4,6,8,10,12,14} that is 6072 per-video surprise scorings; expect a few
+# hours on 1 GPU. Use DDP (torchrun) to shard across GPUs.
+#
+# The pairwise accuracy reported here (Table 2 column "Overall") is the MAX over
+# the context sweep, matching paper D.3.
+# =============================================================================
+tag: vjepa2_vitl_main_sweep
+folder: /data/hyuntak/project/2026/2027_cvpr/vjepa2/analysis/intphys2/logs
+
+data:
+  root: /local_datasets/world/IntPhys2
+  split: Main
+  target_fps: 6.0
+  img_size: 256
+
+model:
+  checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vitl-fpc64-256/snapshots/b3c1679b7c34d3255ef3547f27c7b226aefab26f/original/model.pth
+  arch_name: vit_large
+  img_size: 256
+  patch_size: 16
+  tubelet_size: 2
+  use_rope: true
+  uniform_power: false
+  predictor:
+    embed_dim: 384
+    depth: 12
+    num_heads: 12
+    num_mask_tokens: 10
+  dtype: bfloat16
+
+surprise:
+  window_size: 48
+  context_length: 12                        # ignored when sweep is set (kept for readability)
+  context_length_sweep: [4, 6, 8, 10, 12, 14]   # paper Table 8 sweep
+  stride: 4
+  distance: l1
+  loss_exp: 1.0
+  target_layer_norm: true
+  aggregation: avg
+  protocol: fixed
+
+evaluation:
+  compute_pairwise: true
+  compute_auroc: true
+  breakdown_by: [condition, difficulty, camera]
+  ddp: true                                 # torchrun -> shard videos across ranks
+  verbose: true
+  log_every_videos: 50
+
+output:
+  save_per_video: true
+  save_per_window: false                    # too much data at Main scale
+  plot_breakdowns: true
+  plot_context_sweep: true
+  plot_scene_curves: false

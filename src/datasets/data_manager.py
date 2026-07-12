@@ -38,6 +38,7 @@ def init_data(
     deterministic=True,
     log_dir=None,
     uniform_sampling=False,
+    center_sampling=False,
 ):
     if data.lower() == "imagenet":
         from src.datasets.imagenet1k import make_imagenet1k
@@ -85,6 +86,7 @@ def init_data(
             deterministic=deterministic,
             log_dir=log_dir,
             uniform_sampling=uniform_sampling,
+            center_sampling=center_sampling,
         )
 
     return (data_loader, dist_sampler)
