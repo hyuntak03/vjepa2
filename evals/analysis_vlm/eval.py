@@ -19,6 +19,7 @@
 # -----------------------------------------------------------------------------
 
 import os
+import re
 
 try:
     os.environ["CUDA_VISIBLE_DEVICES"] = os.environ["SLURM_LOCALID"]
@@ -82,6 +83,261 @@ def _unwrap(m):
     return m.module if isinstance(m, DistributedDataParallel) else m
 
 
+# ─── config-selectable eval metric (per_video | paired | quadruplet) ────────────────
+# Only affects the val loop (train stays per-sample CE). Default 'per_video' is a strict
+# no-op — control flow enters the new branches only when the config knob is set. See
+# `_build_val_metric_ctx`, `_reduce_ranked_metric`, `_paired_acc`, `_quadruplet_acc`.
+_EVAL_METRICS = ("per_video", "paired", "quadruplet")
+
+# IntPhys 1 filename: ".../<split>/O{block}_{quad_idx:02d}_{run}.mp4"; the (block, quad)
+# pair uniquely identifies a quadruplet (i.e., a group of 4 videos).
+_QUAD_RE = re.compile(r"/(O\d+_\d+)_\d+\.mp4$")
+
+
+def _read_val_csv(csv_path):
+    """Read a probe CSV in the SAME order VideoDataset / RawVideoDataset materialises it,
+    so integer positions here match dataset __getitem__ indices (= sampler indices)."""
+    import pandas as pd
+    try:
+        df = pd.read_csv(csv_path, header=None, delimiter=" ")
+    except pd.errors.ParserError:
+        df = pd.read_csv(csv_path, header=None, delimiter="::")
+    return list(df.values[:, 0]), [int(x) for x in df.values[:, 1]]
+
+
+def _parse_quad_id(path):
+    m = _QUAD_RE.search(path)
+    if m is None:
+        raise ValueError(f"cannot parse IntPhys quad_id (O<block>_<idx>) from {path!r}")
+    return m.group(1)
+
+
+def _all_reduce_max_int(v, world_size):
+    if not (dist.is_available() and dist.is_initialized() and world_size > 1):
+        return int(v)
+    t = torch.tensor([int(v)], device="cuda")
+    dist.all_reduce(t, op=dist.ReduceOp.MAX)
+    return int(t.item())
+
+
+def _build_val_metric_ctx(eval_metric, val_csv, keystones_by_path, local_csv_idx,
+                          world_size, rank):
+    """Materialise per-sample metadata for the paired/quadruplet metric ONCE at setup.
+
+    Returns None if eval_metric == 'per_video' (retains the byte-for-byte legacy path).
+
+    Returns a dict with:
+      metric            : 'paired' | 'quadruplet'
+      csv_paths         : list[str]     — CSV row -> abs video path
+      csv_labels_t      : LongTensor(n_val,) — CSV row -> {0=poss, 1=imp}
+      quad_ids_arr      : list[str]     — CSV row -> quad_id ('O{block}_{idx}')
+      pair_ids_arr      : list[str] | None — CSV row -> pair_id (paired only)
+      local_csv_idx_t   : LongTensor(K_local,) — this rank's val visit -> CSV row idx.
+                          Order matches iter(val_loader). NEVER call set_epoch on val
+                          sampler or this goes stale.
+      max_local         : max K_local across ranks (uniform pad shape for all_gather)
+      world_size, rank  : ints
+    """
+    if eval_metric == "per_video":
+        return None
+    if eval_metric not in _EVAL_METRICS:
+        raise ValueError(f"eval_metric must be one of {_EVAL_METRICS}, got {eval_metric!r}")
+
+    paths, labels = _read_val_csv(val_csv)
+    assert len(paths) == len(labels), f"CSV len mismatch: {len(paths)} paths vs {len(labels)} labels"
+    label_set = set(labels)
+    if not label_set <= {0, 1}:
+        raise ValueError(
+            f"eval_metric={eval_metric!r} needs binary labels in {{0=possible, 1=impossible}}, "
+            f"got labels={sorted(label_set)}"
+        )
+    quad_ids = [_parse_quad_id(p) for p in paths]
+
+    pair_ids = None
+    if eval_metric == "paired":
+        if not keystones_by_path:
+            raise ValueError(
+                "eval_metric='paired' requires experiment.data.keystones_json — matched-pair "
+                "id is derived as (quad_id, keystones[path]). Same tick within a quadruplet "
+                "identifies the same matched pair."
+            )
+        missing = [p for p in paths if p not in keystones_by_path]
+        if missing:
+            raise ValueError(
+                f"keystones.json missing {len(missing)}/{len(paths)} val paths; first: {missing[0]}"
+            )
+        pair_ids = [f"{quad_ids[i]}#{int(keystones_by_path[paths[i]])}" for i in range(len(paths))]
+
+    # --- validation (fail loud at setup so a bad val CSV can't reach the training loop) ---
+    from collections import Counter, defaultdict
+    if eval_metric == "paired":
+        cnt = Counter(pair_ids)
+        bad_sz = [p for p, c in cnt.items() if c != 2]
+        if bad_sz:
+            raise ValueError(
+                f"eval_metric='paired' requires each matched pair to have exactly 2 val rows, "
+                f"but {len(bad_sz)}/{len(cnt)} pair(s) have wrong size. First: {bad_sz[:5]}. "
+                f"If keystones.json assigns one tick per QUADRUPLET (not per pair), each "
+                f"(quad,tick) key groups 4 videos — the current keystones cannot distinguish "
+                f"the two matched pairs inside a quadruplet. Emit per-pair keystones or "
+                f"switch to eval_metric='quadruplet'."
+            )
+        pair_labels = defaultdict(list)
+        for i, pid in enumerate(pair_ids):
+            pair_labels[pid].append(labels[i])
+        bad_lab = [pid for pid, ls in pair_labels.items() if sorted(ls) != [0, 1]]
+        if bad_lab:
+            raise ValueError(
+                f"eval_metric='paired': {len(bad_lab)} pair(s) do not have exactly {{0,1}} "
+                f"labels. First: {[(p, pair_labels[p]) for p in bad_lab[:5]]}"
+            )
+    else:  # quadruplet
+        cnt = Counter(quad_ids)
+        bad_sz = [q for q, c in cnt.items() if c != 4]
+        if bad_sz:
+            raise ValueError(
+                f"eval_metric='quadruplet' requires 4 val rows per quadruplet; "
+                f"{len(bad_sz)} quad(s) have wrong size. First: {bad_sz[:5]}"
+            )
+        quad_labels = defaultdict(list)
+        for i, q in enumerate(quad_ids):
+            quad_labels[q].append(labels[i])
+        bad_lab = [q for q, ls in quad_labels.items() if sorted(ls) != [0, 0, 1, 1]]
+        if bad_lab:
+            raise ValueError(
+                f"eval_metric='quadruplet': {len(bad_lab)} quad(s) do not have label multiset "
+                f"[0,0,1,1]. First: {[(q, quad_labels[q]) for q in bad_lab[:5]]}"
+            )
+
+    local_csv_idx_l = [int(i) for i in local_csv_idx]
+    if local_csv_idx_l and not all(0 <= i < len(paths) for i in local_csv_idx_l):
+        raise ValueError(
+            f"local csv index out of range [0,{len(paths)}); "
+            f"saw min={min(local_csv_idx_l)}/max={max(local_csv_idx_l)}"
+        )
+    local_csv_idx_t = torch.tensor(local_csv_idx_l, dtype=torch.long)
+    max_local = _all_reduce_max_int(local_csv_idx_t.numel(), world_size)
+
+    logger.info(
+        f"eval metric ctx built: metric={eval_metric} n_val={len(paths)} "
+        f"quads={len(set(quad_ids))}"
+        + (f" pairs={len(set(pair_ids))}" if pair_ids is not None else "")
+        + f" K_local={local_csv_idx_t.numel()} max_local={max_local}"
+    )
+    return dict(
+        metric=eval_metric,
+        csv_paths=paths,
+        csv_labels_t=torch.tensor(labels, dtype=torch.long),
+        quad_ids_arr=quad_ids,
+        pair_ids_arr=pair_ids,
+        local_csv_idx_t=local_csv_idx_t,
+        max_local=max_local,
+        world_size=world_size,
+        rank=rank,
+    )
+
+
+def _reduce_ranked_metric(local_scores, metric_ctx):
+    """Aggregate per-sample impossible-class scores across ranks + de-dup DistributedSampler
+    padding, then compute the paired/quadruplet accuracy IDENTICALLY on every rank
+    (SPMD friendly — no broadcast needed).
+
+    local_scores: (n_heads, max_local) fp32; first K_local columns hold real scores in the
+                  order this rank's val loader emitted them; padded with NaN.
+    Returns list[n_heads] of accuracy in percent.
+    """
+    world_size = metric_ctx["world_size"]
+    max_local  = metric_ctx["max_local"]
+    n_heads    = local_scores.size(0)
+    device     = local_scores.device
+
+    # pad local csv idx (with -1 sentinel) so all_gather sees equal-shape tensors across ranks
+    local_idx_padded = torch.full((max_local,), -1, dtype=torch.long, device=device)
+    li = metric_ctx["local_csv_idx_t"].to(device)
+    local_idx_padded[: li.numel()] = li
+
+    if dist.is_available() and dist.is_initialized() and world_size > 1:
+        gathered_scores = [torch.empty_like(local_scores) for _ in range(world_size)]
+        gathered_idx    = [torch.empty_like(local_idx_padded) for _ in range(world_size)]
+        dist.all_gather(gathered_scores, local_scores.contiguous())
+        dist.all_gather(gathered_idx,    local_idx_padded.contiguous())
+        scores_all = torch.cat(gathered_scores, dim=1)  # (n_heads, sum_max)
+        idx_all    = torch.cat(gathered_idx,    dim=0)  # (sum_max,)
+    else:
+        scores_all = local_scores
+        idx_all    = local_idx_padded
+
+    # De-pad + dedup: first occurrence per csv index wins. DistributedSampler's padding
+    # repeats early global indices verbatim; the frozen encoder + deterministic transform
+    # would re-emit the same probability, so first==dup — the seen[] guard is belt-and-
+    # suspenders against a future change.
+    n_val = metric_ctx["csv_labels_t"].numel()
+    idx_list   = idx_all.detach().cpu().tolist()
+    scores_np  = scores_all.detach().float().cpu().numpy()
+    per_sample = np.full((n_heads, n_val), np.nan, dtype=np.float32)
+    seen = [False] * n_val
+    for pos, ci in enumerate(idx_list):
+        if ci < 0 or seen[ci]:
+            continue
+        per_sample[:, ci] = scores_np[:, pos]
+        seen[ci] = True
+    if not all(seen):
+        missing = [i for i, s in enumerate(seen) if not s][:5]
+        raise RuntimeError(
+            f"ranked metric: {sum(1 for s in seen if not s)} val rows never scored (first: {missing})"
+        )
+
+    labels_np = metric_ctx["csv_labels_t"].numpy()
+    if metric_ctx["metric"] == "quadruplet":
+        return _quadruplet_acc(per_sample, labels_np, metric_ctx["quad_ids_arr"])
+    return _paired_acc(per_sample, labels_np, metric_ctx["pair_ids_arr"])
+
+
+def _quadruplet_acc(scores, labels, quad_ids):
+    """A quadruplet is CORRECT when  Σ_imp P(imp|v) > Σ_pos P(imp|v) across its 4 videos
+    (ties count as incorrect — matches IntPhys 1 official score.py::_score_relative).
+    scores: (n_heads, n_val) impossible-class probability. labels: (n_val,) 0/1.
+    quad_ids: list[str] len n_val. Returns list[n_heads] accuracy in percent."""
+    from collections import defaultdict
+    n_heads = scores.shape[0]
+    by_quad = defaultdict(list)
+    for i, q in enumerate(quad_ids):
+        by_quad[q].append(i)
+    accs = []
+    for hi in range(n_heads):
+        n_ok, n_total = 0, 0
+        for q, idxs in by_quad.items():
+            if len(idxs) != 4:
+                continue        # asserted at setup; belt-and-suspenders
+            imp_sum  = sum(scores[hi, i] for i in idxs if labels[i] == 1)
+            poss_sum = sum(scores[hi, i] for i in idxs if labels[i] == 0)
+            n_ok    += int(imp_sum > poss_sum)
+            n_total += 1
+        accs.append(100.0 * n_ok / max(n_total, 1))
+    return accs
+
+
+def _paired_acc(scores, labels, pair_ids):
+    """A pair is CORRECT when  P(imp | imp_video) > P(imp | poss_video). Ties = incorrect."""
+    from collections import defaultdict
+    n_heads = scores.shape[0]
+    by_pair = defaultdict(list)
+    for i, p in enumerate(pair_ids):
+        by_pair[p].append(i)
+    accs = []
+    for hi in range(n_heads):
+        n_ok, n_total = 0, 0
+        for p, idxs in by_pair.items():
+            if len(idxs) != 2:
+                continue
+            imp_i = next(i for i in idxs if labels[i] == 1)
+            pos_i = next(i for i in idxs if labels[i] == 0)
+            n_ok += int(scores[hi, imp_i] > scores[hi, pos_i])
+            n_total += 1
+        accs.append(100.0 * n_ok / max(n_total, 1))
+    return accs
+
+
 def main(args_eval, resume_preempt=False):
 
     # --------------------------------------------------------------------- #
@@ -92,6 +348,16 @@ def main(args_eval, resume_preempt=False):
     resume_checkpoint = args_eval.get("resume_checkpoint", False) or resume_preempt
     eval_tag = args_eval.get("tag", None)
     num_workers = args_eval.get("num_workers", 12)
+
+    # Re-seed once we can read the config's `seed` field (default 0 = pre-existing
+    # module-level init). All probe weight inits, param shuffles, and Adam beta
+    # decisions after this line inherit this seed. Encoder is frozen so its RNG
+    # state doesn't matter.
+    _seed = int(args_eval.get("seed", 0))
+    np.random.seed(_seed)
+    torch.manual_seed(_seed)
+    torch.cuda.manual_seed_all(_seed)
+    logger.info(f"seed override -> {_seed}")
 
     args_pretrain = args_eval.get("model_kwargs")
     checkpoint = args_pretrain.get("checkpoint")          # local .pth (vjepa) OR HF repo id (vlm)
@@ -166,6 +432,13 @@ def main(args_eval, resume_preempt=False):
     # instead of frame_step's contiguous window. True => frame_step ignored. (raw path is always uniform)
     uniform_sampling = args_data.get("uniform_sampling", False)
     center_sampling = args_data.get("center_sampling", False)  # contiguous fpc-frame window at video midpoint
+    keystones_json = args_data.get("keystones_json", None)     # per-video break-point centered sampling
+    keystones_by_path = None
+    if keystones_json:
+        import json as _json
+        with open(keystones_json) as _kf:
+            keystones_by_path = _json.load(_kf)
+        logger.info(f"loaded {len(keystones_by_path)} keystone ticks from {keystones_json}")
     duration = args_data.get("clip_duration", None)
     num_views_per_segment = args_data.get("num_views_per_segment", 1)
     normalization = args_data.get("normalization", None)
@@ -228,6 +501,28 @@ def main(args_eval, resume_preempt=False):
     cache_features = args_opt.get("cache_features", False)
     cache_pooling = args_opt.get("cache_pooling", "tokens")  # 'pooled' (linear-only, tiny) | 'tokens' (all probes)
     cache_max_gb = args_opt.get("cache_max_gb", 64)          # abort if est. per-rank cache RAM exceeds this
+    # EVAL METRIC (val loop only; train loop is unchanged): 'per_video' (legacy, default)
+    # is byte-identical to today's numbers; 'paired' / 'quadruplet' collect per-sample
+    # softmax scores across ranks and aggregate group-wise (paper: IntPhys 1 official
+    # scoring). Accept the knob under either optimization.eval_metric (design) or
+    # data.eval_metric (fallback for user-facing 'metric belongs with data' preference).
+    eval_metric = str(args_opt.get("eval_metric",
+                                    args_data.get("eval_metric", "per_video"))).lower()
+    if eval_metric not in _EVAL_METRICS:
+        raise ValueError(
+            f"experiment.optimization.eval_metric must be one of {_EVAL_METRICS}, "
+            f"got {eval_metric!r}"
+        )
+    if eval_metric != "per_video":
+        if task != "classification":
+            raise ValueError(
+                f"eval_metric={eval_metric!r} needs task='classification' (got task={task!r})"
+            )
+        if int(num_classes) != 2:
+            raise ValueError(
+                f"eval_metric={eval_metric!r} needs num_classes=2 (uses softmax[:,1] = P(imp)); "
+                f"got num_classes={num_classes}"
+            )
 
     def _opt_kwargs(spec):
         o = dict(default_opt)
@@ -415,6 +710,7 @@ def main(args_eval, resume_preempt=False):
                     clip_len=frames_per_clip, frame_sample_rate=frame_step, duration=duration,
                     num_clips=num_segments, allow_clip_overlap=True, num_workers=w, drop_last=False,
                     uniform_sampling=uniform_sampling, center_sampling=center_sampling,
+                    keystones_by_path=keystones_by_path,
                 )
             else:
                 from evals.video_classification_frozen.eval import make_dataloader
@@ -454,23 +750,40 @@ def main(args_eval, resume_preempt=False):
         # workers=0: the cache pre-pass iterates each loader once; using DataLoader subprocess
         # workers here deadlocks at the train->val loader transition under spawn multiprocessing.
         tr_loader, _ = _split_loader(train_data_path[0], training=False, persistent=False, workers=0)
-        tr_feats, tr_labels = build_feature_cache(encode_fn, tr_loader, cache_pooling,
-                                                  num_temporal=enc_num_temporal, max_gb=cache_max_gb,
-                                                  label="train-cache", rank=rank)
+        tr_feats, tr_labels, tr_csv_indices = build_feature_cache(
+            encode_fn, tr_loader, cache_pooling, num_temporal=enc_num_temporal, max_gb=cache_max_gb,
+            label="train-cache", rank=rank)
         del tr_loader
 
         va_loader, _ = _split_loader(val_data_path[0], training=False, persistent=False, workers=0)
-        va_feats, va_labels = build_feature_cache(encode_fn, va_loader, cache_pooling,
-                                                  num_temporal=enc_num_temporal, max_gb=cache_max_gb,
-                                                  label="val-cache", rank=rank)
+        va_feats, va_labels, va_csv_indices = build_feature_cache(
+            encode_fn, va_loader, cache_pooling, num_temporal=enc_num_temporal, max_gb=cache_max_gb,
+            label="val-cache", rank=rank)
         del va_loader
-        train_loader = make_cached_loader(tr_feats, tr_labels, batch_size, training=True)
-        val_loader = make_cached_loader(va_feats, va_labels, batch_size, training=False)
+        train_loader = make_cached_loader(tr_feats, tr_labels, batch_size, training=True,
+                                          csv_indices=tr_csv_indices)
+        val_loader = make_cached_loader(va_feats, va_labels, batch_size, training=False,
+                                        csv_indices=va_csv_indices)
         train_sampler = None
         run_mode = "cached"
+        # ranked eval metric needs this rank's val CSV row indices in iteration order — for
+        # the cached path they're literally what build_feature_cache just returned (the pre-
+        # pass loader's sampler order, mirrored 1:1 into the CachedTensorDataset), which is
+        # exactly what make_cached_loader(training=False) will emit next.
+        val_metric_ctx = _build_val_metric_ctx(
+            eval_metric, val_data_path[0], keystones_by_path,
+            va_csv_indices.tolist(), world_size, rank,
+        )
     else:
         train_loader, train_sampler = _split_loader(train_data_path[0], training=True)
         val_loader, _ = _split_loader(val_data_path[0], training=False)
+        # ranked eval metric: capture the val loader's sampler order NOW (deterministic
+        # across epochs — we never set_epoch() on the val sampler; see loop below).
+        from evals.analysis_vlm.cache import _sampler_indices
+        val_metric_ctx = _build_val_metric_ctx(
+            eval_metric, val_data_path[0], keystones_by_path,
+            _sampler_indices(val_loader), world_size, rank,
+        )
 
     ipe = len(train_loader)
     logger.info(f"Dataloader created... iterations per epoch: {ipe} (mode={run_mode})")
@@ -539,7 +852,7 @@ def main(args_eval, resume_preempt=False):
             device=device, training=False, encoder=encoder, heads=heads, scaler=scaler,
             optimizer=optimizer, scheduler=scheduler, wd_scheduler=wd_scheduler,
             data_loader=val_loader, use_bfloat16=use_bfloat16, data_mode=run_mode, rank=rank,
-            task=task, targets=targets_t,
+            task=task, targets=targets_t, metric_ctx=val_metric_ctx,
         )
         for n in head_names:
             best_val[n] = max(best_val[n], val_acc[n])
@@ -558,6 +871,9 @@ def main(args_eval, resume_preempt=False):
                 json.dump({"epoch": epoch + 1, "num_epochs": num_epochs, "model": model_sel,
                            "data_mode": data_mode, "num_classes": num_classes,
                            "task": task, "metric": ("r2" if task == "regression" else "accuracy"),
+                           # eval_metric: 'per_video' (default; unchanged) | 'paired' | 'quadruplet'.
+                           # val_acc / best_val_acc under this key are computed with THIS metric.
+                           "eval_metric": eval_metric,
                            "variables": ([{"name": n, "cols": c} for n, c in reg_vars]
                                          if task == "regression" else None),
                            "stages": [str(s) for s in stages],
@@ -573,6 +889,8 @@ def main(args_eval, resume_preempt=False):
 
         metric = "r2" if task == "regression" else "accuracy"
         sub = f"{model_sel} | best {'R²' if metric == 'r2' else 'val'} over {last_epoch} epoch(s)"
+        if metric == "accuracy" and eval_metric != "per_video":
+            sub += f" | metric={eval_metric}"
         # multi-variable R²: each variable is its own curve (legend), so no single target_label
         plot_layer_val_acc(heads, best_val, os.path.join(folder, "stage_val_acc.png"),
                            subtitle=sub, num_classes=num_classes, metric=metric, pez=plot_pez)
@@ -688,11 +1006,17 @@ def _encode(encoder, data, device, data_mode, use_bfloat16):
 
 def run_one_epoch(device, training, encoder, heads, scaler, optimizer, scheduler,
                   wd_scheduler, data_loader, use_bfloat16, data_mode, rank=0,
-                  task="classification", targets=None):
+                  task="classification", targets=None, metric_ctx=None):
     """task='classification' -> CrossEntropy loss, returns per-head val ACCURACY (%).
     task='regression'        -> MSE loss on a continuous target (looked up as targets[label],
                                 where the integer label indexes the (N,D) targets tensor),
-                                returns per-head val R^2 (1 - SS_res/SS_tot, all-reduced)."""
+                                returns per-head val R^2 (1 - SS_res/SS_tot, all-reduced).
+
+    metric_ctx: optional dict from _build_val_metric_ctx (val loop only). When provided,
+                per-head accuracy is computed via the group-wise 'paired' / 'quadruplet'
+                aggregation instead of per-video CE-argmax. Passing None (default) keeps
+                the legacy per-video path byte-identical.
+    """
     for h in heads:
         h["module"].train(mode=training)
 
@@ -701,6 +1025,13 @@ def run_one_epoch(device, training, encoder, heads, scaler, optimizer, scheduler
     n_heads = len(heads)
     amp_scaler = scaler[0]
     total = torch.zeros((), device=device)
+    # Ranked eval metric collects per-sample impossible-class probability for every val
+    # sample this rank sees, in the LOADER's iteration order. Only activated when
+    # metric_ctx is passed (val loop, classification, non-regression). See §5 of design.
+    use_ranked = (not training) and (not is_reg) and (metric_ctx is not None)
+    if use_ranked:
+        local_scores = torch.full((n_heads, metric_ctx["max_local"]), float("nan"), device=device)
+        write_ptr = 0
     if is_reg:
         head_cols = [h["tcols"] for h in heads]         # per-head column slice into the (N,D) targets
         Dmax = max(len(c) for c in head_cols)
@@ -782,6 +1113,14 @@ def run_one_epoch(device, training, encoder, heads, scaler, optimizer, scheduler
             else:
                 for hi, p in enumerate(preds):
                     correct[hi] += (p.argmax(dim=1) == labels).sum()
+                if use_ranked:
+                    # per-sample P(imp | v); float() so metric aggregation is fp32
+                    # regardless of autocast dtype. Positional slice — the loader is
+                    # shuffle=False for val, so `write_ptr` mirrors iter(sampler).
+                    for hi, p in enumerate(preds):
+                        prob_imp = torch.softmax(p.float(), dim=1)[:, 1]
+                        local_scores[hi, write_ptr : write_ptr + bsz] = prob_imp
+                    write_ptr += bsz
 
         if rank == 0 and hasattr(iterator, "set_postfix") and (itr % 20 == 0):
             if is_reg:
@@ -808,6 +1147,23 @@ def run_one_epoch(device, training, encoder, heads, scaler, optimizer, scheduler
         return {h["name"]: r2[hi] for hi, h in enumerate(heads)}
     correct = AllReduceSum.apply(correct)
     accs = (100.0 * correct / total.clamp(min=1)).tolist()
+    if use_ranked:
+        # Sanity sentinel: assert we wrote all K_local expected rows for this rank.
+        expected = int(metric_ctx["local_csv_idx_t"].numel())
+        if write_ptr != expected:
+            raise RuntimeError(
+                f"ranked metric: wrote {write_ptr} val rows on rank {rank}, expected {expected}. "
+                f"batches may have been dropped."
+            )
+        grouped = _reduce_ranked_metric(local_scores, metric_ctx)
+        if rank == 0:
+            # Sanity floor: report the per-video accuracy alongside, so a bad group-metric
+            # implementation shows up as an unexpected large gap between the two.
+            logger.info(
+                f"[val metric] eval_metric={metric_ctx['metric']}  |  best per_video "
+                f"{max(accs):.2f}% -> best {metric_ctx['metric']} {max(grouped):.2f}%"
+            )
+        return {h["name"]: grouped[hi] for hi, h in enumerate(heads)}
     return {h["name"]: accs[hi] for hi, h in enumerate(heads)}
 
 

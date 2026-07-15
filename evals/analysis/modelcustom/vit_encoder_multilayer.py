@@ -54,14 +54,29 @@ def init_module(
     if out_layers is None:
         raise ValueError("analysis encoder requires wrapper_kwargs.out_layers (list of int)")
 
-    # Build the ViT with out_layers=None (default). We capture raw block outputs via
-    # forward hooks in MultiLayerClipAggregation instead of the built-in `out_layers`
-    # path, which appends `self.norm(x)` per intermediate and is designed for the
-    # multi-level *concat* wrapper (evals/video_classification_frozen/modelcustom/
-    # vit_encoder_multiclip_multilevel.py), not per-layer probing. Hooks give us the
-    # raw residual x_N without touching upstream src/.
+    # Feature-extraction path selection (per-layer probing knob):
+    #   apply_encoder_norm=False (DEFAULT): forward-hook path. Base ViT is built with
+    #     out_layers=None so src/models/vision_transformer.py:205-206
+    #     `outs.append(self.norm(x))` is NEVER executed. MultiLayerClipAggregation
+    #     registers hooks on each requested block and returns the RAW residual x_N.
+    #     Semantically: "what does layer N actually encode?"
+    #
+    #   apply_encoder_norm=True: stock VJEPA2 path. out_layers is passed to the ViT
+    #     ctor, which triggers line 205-206 and returns self.norm(x_N) per intermediate.
+    #     self.norm is the FINAL LayerNorm whose gain/bias were trained on the LAST
+    #     block's distribution. Applying it to every intermediate is a CONCAT-wrapper
+    #     convention (evals/video_classification_frozen/modelcustom/
+    #     vit_encoder_multiclip_multilevel.py); reactivated here as an ABLATION knob
+    #     to test the hypothesis that the paper (Joseph 2026 Fig 1) shape (dramatic
+    #     Peak → L23 degradation) comes from this normalization artifact.
+    apply_encoder_norm = bool(wrapper_kwargs.get("apply_encoder_norm", False))
+    logger.info(f"apply_encoder_norm={apply_encoder_norm}  "
+                f"({'stock self.norm-per-intermediate (Meta concat convention)' if apply_encoder_norm else 'raw x_N via forward hooks'})")
+
+    _vit_out_layers = out_layers if apply_encoder_norm else None
     model = vit.__dict__[enc_model_name](
-        img_size=resolution, num_frames=frames_per_clip, **enc_kwargs
+        img_size=resolution, num_frames=frames_per_clip,
+        out_layers=_vit_out_layers, **enc_kwargs,
     )
 
     pretrained_dict = checkpoint[enc_ckp_key]
@@ -109,6 +124,7 @@ class MultiLayerClipAggregation(nn.Module):
         max_frames=128,
         use_pos_embed=False,
         out_layers=None,
+        apply_encoder_norm=False,
     ):
         super().__init__()
         self.model = model
@@ -116,17 +132,17 @@ class MultiLayerClipAggregation(nn.Module):
         self.embed_dim = embed_dim = model.embed_dim
         self.num_heads = model.num_heads
         self.out_layers = list(out_layers) if out_layers is not None else []
+        self.apply_encoder_norm = apply_encoder_norm
 
-        # Forward hooks: capture the raw block output x_N (residual-stream after block N)
-        # for every requested layer. Standard PyTorch pattern — no upstream src/ edits,
-        # no Identity swap. The base ViT runs its normal forward (out_layers=None, so
-        # line 205-206 of src/models/vision_transformer.py is skipped); we discard its
-        # final self.norm-ed return and use these captures instead.
+        # Forward hooks: only registered in the RAW x_N path (apply_encoder_norm=False).
+        # When True, we consume the ViT's built-in out_layers return (already self.norm-ed)
+        # and skip hooks entirely.
         self._captured = []
         self._hook_handles = []
-        for idx in self.out_layers:
-            h = model.blocks[idx].register_forward_hook(self._make_capture_hook())
-            self._hook_handles.append(h)
+        if not self.apply_encoder_norm:
+            for idx in self.out_layers:
+                h = model.blocks[idx].register_forward_hook(self._make_capture_hook())
+                self._hook_handles.append(h)
 
         # 1D-temporal pos-embedding (same option as the stock wrapper)
         self.pos_embed = None
@@ -150,23 +166,30 @@ class MultiLayerClipAggregation(nn.Module):
         x = [torch.cat(xi, dim=0) for xi in x]
         x = torch.cat(x, dim=0)
 
-        # Run the base ViT normally; forward hooks capture the raw block outputs.
-        # Order of captures matches the order of blocks iterated in the base forward,
-        # which is 0..depth-1; the hooks were registered in `out_layers` order but
-        # fire during forward in block-index order — sort captures to align with the
-        # numeric order of self.out_layers.
-        self._captured = []
-        _ = self.model(x)  # discard the final (self.norm-ed) output
-        assert len(self._captured) == len(self.out_layers), (
-            f"forward-hook capture mismatch: got {len(self._captured)} outputs for "
-            f"{len(self.out_layers)} requested layers"
-        )
-        # captures are in block-execution order (0..depth-1 for the subset in out_layers);
-        # reorder to match the user's out_layers list so downstream heads keyed by
-        # out_layers[i] see the correct feature.
-        exec_order = sorted(range(len(self.out_layers)), key=lambda i: self.out_layers[i])
-        pos_of = {oi: pi for pi, oi in enumerate(exec_order)}
-        layer_outputs = [self._captured[pos_of[i]] for i in range(len(self.out_layers))]
+        if self.apply_encoder_norm:
+            # Stock ViT path: model was built with out_layers=<list>, so its forward
+            # returns a LIST of self.norm(x_N) for each requested layer, in the SAME
+            # order as out_layers (src/models/vision_transformer.py:198-209).
+            layer_outputs = self.model(x)
+            if not isinstance(layer_outputs, list):
+                layer_outputs = [layer_outputs]
+            assert len(layer_outputs) == len(self.out_layers), (
+                f"stock-out_layers mismatch: got {len(layer_outputs)} outputs for "
+                f"{len(self.out_layers)} requested layers"
+            )
+        else:
+            # Raw x_N path: base ViT runs normally, hooks capture the residual stream
+            # after each requested block. Hooks fire in block-execution order (0..depth-1)
+            # regardless of out_layers ordering, so we reorder to match out_layers[i].
+            self._captured = []
+            _ = self.model(x)  # discard the final (self.norm-ed) return
+            assert len(self._captured) == len(self.out_layers), (
+                f"forward-hook capture mismatch: got {len(self._captured)} outputs for "
+                f"{len(self.out_layers)} requested layers"
+            )
+            exec_order = sorted(range(len(self.out_layers)), key=lambda i: self.out_layers[i])
+            pos_of = {oi: pi for pi, oi in enumerate(exec_order)}
+            layer_outputs = [self._captured[pos_of[i]] for i in range(len(self.out_layers))]
 
         def multiviews_postprocess(outputs):
             _, N, D = outputs.size()

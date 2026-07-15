@@ -51,3 +51,7 @@ configs/analysis/toy_dataset/logs/
 
 # analysis/ subpackage logs (e.g. analysis/intphys2/logs/) — code is tracked; run outputs are not
 analysis/*/logs/
+
+*.pt
+
+*.png

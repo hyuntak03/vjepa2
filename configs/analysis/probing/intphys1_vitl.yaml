@@ -39,7 +39,7 @@ folder: /data/hyuntak/project/2026/2027_cvpr/vjepa2/configs/analysis/probing/log
 num_workers: 8
 resume_checkpoint: false
 val_only: false
-tag: probe_intphys1_vitl
+tag: probe_intphys1_vitl_mean_64f
 
 experiment:
   analysis:
@@ -97,19 +97,23 @@ experiment:
     num_classes: 2
     resolution: 256
     resize_mode: resize                 # no crop -- preserves full IntPhys 1 FoV (round-2 audit)
-    frames_per_clip: 16                 # paper (Sonia): 16 frames per clip, keystone-centered.
+    frames_per_clip: 64                 # paper (Sonia): 16 frames per clip, keystone-centered.
     frame_step: 1
     num_segments: 1
     num_views_per_segment: 1
-    uniform_sampling: false             # disabled -- superseded by center_sampling.
-    center_sampling: true               # contiguous 16-frame window at video midpoint = [42..57]
-                                        # (native 100 frames). Prior: IntPhys break-point tends
-                                        # near mid-video; uniform sampling dilutes the physics
-                                        # signal by hopping every ~6 frames.
+    uniform_sampling: true             # disabled -- superseded by keystones_json
+    center_sampling: false              # disabled -- superseded by keystones_json
+    # keystones_json: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/IntPhys1/keystones.json
+                                        # per-video break-point index (Joseph 2026 keystone-centered).
+                                        # For each video, sample 16 consecutive frames centered on the
+                                        # break-point frame: [tick - 8 : tick + 8]. Impossible videos
+                                        # use their magic tick; possible videos inherit the tick from
+                                        # their matched impossible pair (recovered via md5(scene_001.png)).
+                                        # 2-violation impossibles use the midpoint of the two ticks.
 
   optimization:
     batch_size: 8
-    num_epochs: 200                     # cached-feature linear probe = ms/epoch.
+    num_epochs: 20                     # cached-feature linear probe = ms/epoch.
                                         # 20 was way too short: peak-layer train acc stuck at
                                         # ~60% (underfitting) even though a linear probe on
                                         # 1024-dim features over 288 samples should overfit to
@@ -121,6 +125,11 @@ experiment:
                                         # uses mean pool. Prev 'pooled' cached mean||max (2D) even
                                         # though probes.pooling='mean' only used the mean half.
     cache_max_gb: 100
+    # eval_metric: per_video (default; unchanged) | paired | quadruplet.
+    # See intphys1_vitl_5fold_appb.yaml for the full explanation. Default 'per_video'
+    # matches the paper's Fig 1 y-axis ("Test Accuracy (%)"), so leaving this unset
+    # is byte-identical to legacy runs.
+    eval_metric: per_video
     # default_head: values here are overridden per-probe by the explicit start_lr/final_lr/final_wd
     # above. Kept as fallback for any downstream head that omits its own schedule.
     default_head: { start_lr: 0.0, final_lr: 0.0, final_weight_decay: 0.0 }

@@ -108,17 +108,41 @@ def reduce_feature(feat, mode, num_temporal=None):
                      f"(expected 'tokens' | 'mean' | 'max' | 'pooled' | 'framewise')")
 
 
+def _sampler_indices(loader):
+    """The list of DATASET indices this loader will yield, in order — used to align
+    the cache (feats_cat[i] / labels[i]) with the CSV row it came from.
+
+    Handles the three loader flavours the harness produces for eval / cache pre-pass:
+      * clip path via make_videodataset -> DistributedSampler(shuffle=True) with the
+        default seed. Since eval NEVER set_epoch()s the val sampler, the permutation is
+        deterministic across epochs. May include padding duplicates at the tail
+        (DistributedSampler pads by wrapping around); duplicates are harmless — the
+        deterministic frozen encoder produces the same feature/label for the same
+        dataset index, so `feats_cat[i]` still corresponds to the CSV row visited at
+        loader position i.
+      * raw path -> _UnpaddedShardSampler (rank::world_size stride, no padding).
+      * single-rank / no sampler -> arange(len(dataset)).
+    """
+    if getattr(loader, "sampler", None) is not None:
+        return [int(i) for i in iter(loader.sampler)]
+    return list(range(len(loader.dataset)))
+
+
 @torch.no_grad()
 def build_feature_cache(encode_fn, loader, cache_pooling, num_temporal=None, max_gb=None,
                         label="cache", rank=0):
     """One deterministic pre-pass: encode every sample, reduce, accumulate on CPU (fp16).
 
     encode_fn(data) -> (feats: list[(B,N,D)] per stage, labels: (B,), bsz)
-    returns: (feats_cat: list[stage] of (n_local, ...) fp16 CPU, labels: (n_local,) long CPU)
+    returns: (feats_cat: list[stage] of (n_local, ...) fp16 CPU, labels: (n_local,) long CPU,
+              csv_indices_local: (n_local,) long CPU — DATASET-row index of each cached row,
+              in the order the pre-pass loader emitted them. Aligns 1:1 with feats_cat[i]
+              and labels[i].)
 
     Aborts up front (after the first batch) if the estimated per-rank RAM exceeds max_gb,
     so a `cache_pooling='tokens'` selection with many stages/tokens can't silently OOM.
     """
+    csv_indices_local = _sampler_indices(loader)
     try:
         n_target = len(loader.sampler) if loader.sampler is not None else len(loader.dataset)
     except Exception:
@@ -176,34 +200,48 @@ def build_feature_cache(encode_fn, loader, cache_pooling, num_temporal=None, max
             f"or ensure uniform video resolution."
         ) from e
     labels = torch.cat(labels_acc, dim=0)
+    csv_indices_t = torch.tensor(csv_indices_local, dtype=torch.long)
+    if csv_indices_t.numel() != labels.numel():
+        raise RuntimeError(
+            f"[{label}] cache size mismatch: {labels.numel()} labels vs "
+            f"{csv_indices_t.numel()} sampler indices (loader emitted a different number of "
+            f"samples than the sampler enumerated). This is a pipeline bug."
+        )
     mb = sum(f.element_size() * f.nelement() for f in feats_cat) / 1024.0**2
     logger.info(f"[{label}] feature cache built: {n} samples x {len(feats_cat)} stages "
                 f"({cache_pooling}) -> {mb:.0f} MB RAM (this rank)")
-    return feats_cat, labels
+    return feats_cat, labels, csv_indices_t
 
 
 class CachedTensorDataset(Dataset):
-    def __init__(self, feats_cat, labels):
+    def __init__(self, feats_cat, labels, csv_indices=None):
         self.feats = feats_cat            # list[stage] of (n, ...)
         self.labels = labels              # (n,)
+        # Optional (n,) LongTensor of the CSV row index for each cached row (aligned to
+        # feats/labels). Emitted per-sample so the ranked eval metric (paired/quadruplet)
+        # in evals/analysis_vlm/eval.py can map probe outputs back to a stable CSV row id
+        # for group aggregation. -1 sentinel when unavailable (per_video path never needs it).
+        self.csv_indices = csv_indices
 
     def __len__(self):
         return self.labels.size(0)
 
     def __getitem__(self, i):
-        return [f[i] for f in self.feats], int(self.labels[i])
+        ci = int(self.csv_indices[i]) if self.csv_indices is not None else -1
+        return [f[i] for f in self.feats], int(self.labels[i]), ci
 
 
 def _cached_collate(batch):
     nstage = len(batch[0][0])
     feats = [torch.stack([b[0][s] for b in batch], dim=0) for s in range(nstage)]
     labels = torch.tensor([b[1] for b in batch], dtype=torch.long)
-    return feats, labels
+    csv_indices = torch.tensor([b[2] for b in batch], dtype=torch.long)
+    return feats, labels, csv_indices
 
 
-def make_cached_loader(feats_cat, labels, batch_size, training):
+def make_cached_loader(feats_cat, labels, batch_size, training, csv_indices=None):
     # cache is already this rank's shard -> plain DataLoader, just shuffle locally for train.
-    ds = CachedTensorDataset(feats_cat, labels)
+    ds = CachedTensorDataset(feats_cat, labels, csv_indices=csv_indices)
     return DataLoader(ds, batch_size=batch_size, shuffle=training, num_workers=0,
                       collate_fn=_cached_collate, drop_last=False)
 

@@ -53,6 +53,7 @@ def make_videodataset(
     log_dir=None,
     uniform_sampling=False,
     center_sampling=False,
+    keystones_by_path=None,
 ):
     dataset = VideoDataset(
         data_paths=data_paths,
@@ -71,6 +72,7 @@ def make_videodataset(
         transform=transform,
         uniform_sampling=uniform_sampling,
         center_sampling=center_sampling,
+        keystones_by_path=keystones_by_path,
     )
 
     log_dir = pathlib.Path(log_dir) if log_dir else None
@@ -143,18 +145,21 @@ class VideoDataset(torch.utils.data.Dataset):
         duration=None,  # duration in seconds
         uniform_sampling=False,  # sample fpc frames evenly across the whole video (ignores frame_step)
         center_sampling=False,   # take the CENTER fpc frames (contiguous window around video midpoint).
-                                 # Rationale: paper (Joseph 2026) centers each 16-frame clip on the
-                                 # 'break-point' frame, which we don't have per-video metadata for.
-                                 # Prior: IntPhys break-point tends to fall near mid-video, so
-                                 # picking [len//2 - fpc//2 : len//2 + fpc//2] gives a stronger
-                                 # temporal window than diluted uniform sampling.
                                  # Ignores frame_step and uniform_sampling when true.
+        keystones_by_path=None,  # dict[str, int]: per-video keystone (break-point) frame index.
+                                 # When provided, sampling centers a contiguous fpc-frame window on
+                                 # this frame for every path in the dict; other paths fall through
+                                 # to center/uniform/default sampling. This is the paper (Joseph
+                                 # 2026) 'keystone-centered' sampling: 16 frames symmetric around
+                                 # the physics break-point. Takes precedence over center_sampling
+                                 # and uniform_sampling.
     ):
         self.data_paths = data_paths
         self.datasets_weights = datasets_weights
         self.frame_step = frame_step
         self.uniform_sampling = uniform_sampling
         self.center_sampling = center_sampling
+        self.keystones_by_path = keystones_by_path or {}
         self.num_clips = num_clips
         self.transform = transform
         self.shared_transform = shared_transform
@@ -340,6 +345,23 @@ class VideoDataset(torch.utils.data.Dataset):
             return [], None
 
         vr.seek(0)  # Go to start of video before sampling frames
+
+        # keystone-centered sampling: take a contiguous fpc-frame window centered on the video's
+        # physics break-point (per keystones_by_path lookup). tick is the frame index (0-indexed).
+        # window = [tick - fpc//2 : tick + fpc//2] (clipped to video bounds). Highest precedence.
+        _ks = getattr(self, "keystones_by_path", None)
+        if _ks and sample in _ks:
+            n = len(vr)
+            tick = int(_ks[sample])
+            half = fpc // 2
+            start = max(0, tick - half)
+            end = min(n, start + fpc)
+            start = max(0, end - fpc)  # slide back if clipped at end
+            indices = np.arange(start, end).astype(np.int64)
+            if len(indices) < fpc:
+                indices = np.concatenate([indices, np.full(fpc - len(indices), n - 1)]).astype(np.int64)
+            buffer = vr.get_batch(list(indices)).asnumpy()
+            return buffer, [indices]
 
         # center_sampling: take a contiguous fpc-frame window centered on the video midpoint.
         # For IntPhys (native 100 frames, fpc=16) this gives indices [42..57]. Ignores

@@ -32,6 +32,7 @@ def _import_modes():
     run_modes) so `from evals.analysis_vlm.modes import AnalysisContext` has no
     side effects and never fails on an unfinished mode file."""
     from . import attention_distance  # noqa: F401
+    from . import representation_geometry  # noqa: F401
     # future phases self-register here as they are added:
     # from . import orthogonal_probe_sequence, steering, direction_tuning, attention_ablation
 
