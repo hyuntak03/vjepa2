@@ -218,7 +218,9 @@ class _MaskGenerator(object):
                     mask_e *= self._sample_block_mask(p_size)
                 mask_e = mask_e.flatten()
 
+                #! mask에서 0인 위치들 (for predictor)
                 mask_p = torch.argwhere(mask_e == 0).squeeze()
+                #! mask에서 1인 위치들 (for encoder)
                 mask_e = torch.nonzero(mask_e).squeeze()
 
                 empty_context = len(mask_e) == 0

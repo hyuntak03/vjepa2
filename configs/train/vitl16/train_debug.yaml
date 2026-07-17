@@ -1,0 +1,123 @@
+# ============================================================================
+# TRAINING DEBUG — V-JEPA2 vit_large pretraining pipeline, SINGLE GPU, tiny run.
+# Purpose: step through the WHOLE training loop (data -> mask -> encoder/predictor
+# forward -> loss -> backward -> optimizer/EMA -> checkpoint) on one GPU.
+#
+#   python -m app.main --fname configs/train/vitl16/train_debug.yaml \
+#       --devices cuda:0 --debugmode True
+#   (or VS Code launch config "training_debug")
+#
+# Derived from configs/train/vitl16/pretrain-256px-16f.yaml with debug overrides:
+#   nodes/tasks=1, batch_size=2, epochs=1, ipe=10, num_workers=2, no activation-ckpt.
+#
+# WEIGHTS: default load_checkpoint=false => FRESH random init, so the loop ALWAYS
+# runs from epoch 0 (best for pipeline debug). To instead LOAD the local vitl
+# weights, set meta.load_checkpoint: true — BUT note:
+#   * load_checkpoint() (app/vjepa/utils.py:90) requires the checkpoint to contain
+#     encoder + predictor + target_encoder + opt + scaler + epoch (a full TRAINING
+#     checkpoint, not just eval weights) or it KeyErrors.
+#   * it RESUMES from checkpoint["epoch"], so if that epoch >= optimization.epochs
+#     below the training loop is skipped — raise `epochs` above the ckpt epoch.
+#   read_checkpoint below already points at the local vitl model.pth.
+# ============================================================================
+
+app: vjepa
+nodes: 1
+tasks_per_node: 1
+cpus_per_task: 8
+mem_per_gpu: 80G
+folder: /data/hyuntak/project/2026/2027_cvpr/vjepa2/train_debug/vitl16_intphys2
+
+data:
+  dataset_type: VideoDataset
+  datasets:
+  - /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/IntPhys2/IntPhys2_2way_val.csv
+  datasets_weights:
+  - 1.0
+  batch_size: 2                 # tiny for single-GPU debug
+  crop_size: 256
+  patch_size: 16
+  dataset_fpcs:                 # frames-per-clip per dataset (must match #datasets)
+  - 16
+  tubelet_size: 2
+  fps: 4
+  num_workers: 2
+  persistent_workers: false
+  pin_mem: true
+
+data_aug:
+  auto_augment: false
+  motion_shift: false
+  random_resize_aspect_ratio:
+  - 0.75
+  - 1.35
+  random_resize_scale:
+  - 0.3
+  - 1.0
+  reprob: 0.0
+
+loss:
+  loss_exp: 1.0
+
+mask:
+- aspect_ratio:
+  - 0.75
+  - 1.5
+  full_complement: false
+  max_keep: null
+  max_temporal_keep: 1.0
+  num_blocks: 8
+  spatial_scale:
+  - 0.15
+  - 0.15
+  temporal_scale:
+  - 1.0
+  - 1.0
+- aspect_ratio:
+  - 0.75
+  - 1.5
+  full_complement: false
+  max_keep: null
+  max_temporal_keep: 1.0
+  num_blocks: 2
+  spatial_scale:
+  - 0.7
+  - 0.7
+  temporal_scale:
+  - 1.0
+  - 1.0
+
+meta:
+  dtype: bfloat16
+  eval_freq: 100
+  load_checkpoint: false        # ← DEBUG default: fresh init so the loop runs from epoch 0.
+                                #    Flip to true to load `read_checkpoint` (see header caveats).
+  read_checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vitl-fpc64-256/snapshots/b3c1679b7c34d3255ef3547f27c7b226aefab26f/original/model.pth
+  save_every_freq: 1000
+  seed: 239
+  use_sdpa: true
+
+model:
+  model_name: vit_large
+  pred_depth: 12
+  pred_embed_dim: 384
+  pred_num_heads: 12
+  uniform_power: true
+  use_activation_checkpointing: false   # debug: keep the forward graph un-recomputed for clean stepping
+  use_mask_tokens: true
+  use_rope: true
+  zero_init_mask_tokens: true
+
+optimization:
+  ema:
+  - 0.99925
+  - 0.99925
+  epochs: 1                     # debug: one short epoch
+  ipe: 10                       # 10 iterations/epoch = a quick pass through the loop
+  ipe_scale: 1.25
+  lr: 0.000525
+  start_lr: 0.0001
+  final_lr: 0.000525
+  warmup: 2
+  weight_decay: 0.04
+  final_weight_decay: 0.04
