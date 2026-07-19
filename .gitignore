@@ -55,3 +55,5 @@ analysis/*/logs/
 *.pt
 
 *.png
+
+dummy_droid_data/

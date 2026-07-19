@@ -423,15 +423,21 @@ def main(args, resume_preempt=False):
                         return _z
 
                     # -- one step of predictor with teacher forcing
+                    #! z.shape = [B, T*N, D], actions.shape = [B, T-1, 7], states.shape = [B, T, 7], extrinsics.shape = [B, T, 7]
+                    #! last frame 통째로 잘라냄
+                    #! predictor input을 위한거임 (predictor가 teacher forcing으로 last frame prediction 학습되도록)
                     _z, _a, _s, _e = z[:, :-tokens_per_frame], actions, states[:, :-1], extrinsics[:, :-1]
                     z_tf = _step_predictor(_z, _a, _s, _e)
 
                     # -- full auto-regressive rollouts of predictor
+                    #! frame 1이랑 예측된 frame 2 (z_tf 첫 프레임)를 concat해서 넣음
                     _z = torch.cat([z[:, : tokens_per_frame], z_tf[:, : tokens_per_frame]], dim=1)
                     for n in range(1, auto_steps):
                         _a, _s, _e = actions[:, : n + 1], states[:, : n + 1], extrinsics[:, : n + 1]
                         _z_nxt = _step_predictor(_z, _a, _s, _e)[:, -tokens_per_frame:]
                         _z = torch.cat([_z, _z_nxt], dim=1)
+                    #! 실제 real f1은 지우고 예측된 frame만 남김
+                    #! auto_steps = 2 이면 (1번만 roll out함), z_ar.shape = [B, 2 x 256, D]
                     z_ar = _z[:, tokens_per_frame:]
 
                     return z_tf, z_ar
@@ -442,9 +448,13 @@ def main(args, resume_preempt=False):
 
                 # Step 1. Forward
                 with torch.cuda.amp.autocast(dtype=dtype, enabled=mixed_precision):
+                    #! target encoder에 video 넣어서 feature 얻음
+                    #! 16frame video 넣으면, h.shape = [B, 8*256, 1024] (ViT/L 16 기준)
                     h = forward_target(clips)
                     z_tf, z_ar = forward_predictions(h)
+                    #! teacher forcing loss
                     jloss = loss_fn(z_tf, h)
+                    #! auto-regressive loss
                     sloss = loss_fn(z_ar, h)
                     loss = jloss + sloss
 

@@ -143,16 +143,20 @@ class VisionTransformerPredictorAC(nn.Module):
         T = N_ctxt // (self.grid_height * self.grid_width)
 
         # Interleave action tokens
+        #! s.shape (B, T-1, 1, D), a.shape (B, T-1, 1, D), e.shape (B, T-1, 1, D)
         s = self.state_encoder(states).unsqueeze(2)
         a = self.action_encoder(actions).unsqueeze(2)
+        #! per-frame 단위로, action, state, extrinsics, context token들을 interleave해서 넣어주기 위해 view 진행
         x = x.view(B, T, self.grid_height * self.grid_width, D)  # [B, T, H*W, D]
         if self.use_extrinsics:
             e = self.extrinsics_encoder(extrinsics).unsqueeze(2)
             x = torch.cat([a, s, e, x], dim=2).flatten(1, 2)  # [B, T*(H*W+3), D]
         else:
+            #! x.shape = [B, T*(H*W+2), D], a.shape = [B, T-1, 1, D], s.shape = [B, T-1, 1, D]
             x = torch.cat([a, s, x], dim=2).flatten(1, 2)  # [B, T*(H*W+2), D]
 
         cond_tokens = 3 if self.use_extrinsics else 2
+        #! decoder 마냥, 완전한 causal mask는 아니고, frame block 단위 masking : block mask
         attn_mask = self.attn_mask[: x.size(1), : x.size(1)].to(x.device, non_blocking=True)
 
         # Fwd prop
@@ -182,6 +186,7 @@ class VisionTransformerPredictorAC(nn.Module):
 
         # Split out action and frame tokens
         x = x.view(B, T, cond_tokens + self.grid_height * self.grid_width, D)  # [B, T, K+H*W, D]
+        #! action, state, extrinsics token은 제거, 오로지 predictied frame만 남음
         x = x[:, :, cond_tokens:, :].flatten(1, 2)
 
         x = self.predictor_norm(x)

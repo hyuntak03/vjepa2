@@ -1,0 +1,114 @@
+# ============================================================================
+# AC TRAINING DEBUG — V-JEPA2-AC on DROID, SINGLE GPU, tiny run.
+# Purpose: step through the WHOLE AC training loop on one GPU:
+#   dataset (video + actions + states) -> forward_target -> forward_predictions
+#   (teacher forcing z_tf + auto-regressive z_ar) -> jloss + sloss -> backward.
+#
+# Launch:
+#   1) Generate dummy data + stub ckpt first:
+#        python z_scripts/gen_dummy_droid.py
+#      (creates /data/hyuntak/project/2026/2027_cvpr/vjepa2/dummy_droid_data/{
+#          traj_0000/..., droid_debug_paths.csv, stub_ckpt.pt })
+#
+#   2) Run debug via VS Code launch config "AC_training_debugging"
+#      or CLI:
+#        python -m app.main --fname configs/train/vitl16/droid_ac_debug.yaml \
+#            --devices cuda:0 --debugmode True
+#
+# ----------------------------------------------------------------------------
+# Derived from configs/train/vitg16/droid-256px-8f.yaml with debug overrides:
+#   * model: vit_large (not vit_giant_xformers) so it fits on 1 GPU with random init
+#   * pred depth/embed/heads shrunk for speed (still hits the same code paths)
+#   * nodes=1, tasks_per_node=1, batch_size=2, ipe=5, epochs=1
+#   * num_workers=0 so DataLoader runs in main proc (breakpoint-friendly)
+#   * use_activation_checkpointing=false (clean forward graph for stepping)
+#   * meta.load_encoder=false + meta.load_predictor=false + stub pretrain ckpt
+#     -> we start from FRESH random weights (no vitg checkpoint needed).
+#     load_pretrained() still reads checkpoint["epoch"] so the stub must exist.
+#
+# Recommended breakpoints (top-to-bottom in one iteration):
+#   1) app/vjepa_droid/train.py:396      load_clips()   -> clips/actions/states shape
+#   2) app/vjepa_droid/train.py:410      .repeat(1,1,2,1,1) tubelet fake trick
+#   3) app/vjepa_droid/train.py:426      teacher forcing input slicing (_z, _a, _s)
+#   4) src/models/ac_predictor.py:146    a = action_encoder(actions).unsqueeze(2)
+#   5) src/models/ac_predictor.py:153    torch.cat([a, s, x], dim=2).flatten(1, 2)  -> interleave check
+#   6) src/models/ac_predictor.py:156    attn_mask slice          -> imshow visualize
+#   7) src/models/ac_predictor.py:185    conditioning-token strip -> shape [B, T*H*W, D_pred]
+#   8) app/vjepa_droid/train.py:447-448  jloss, sloss values      -> normally sloss > jloss
+# ============================================================================
+
+app: vjepa_droid
+nodes: 1
+tasks_per_node: 1
+cpus_per_task: 8
+mem_per_gpu: 40G
+folder: /data/hyuntak/project/2026/2027_cvpr/vjepa2/train_debug/droid_ac
+
+data:
+  batch_size: 2                        # tiny for single-GPU debug
+  camera_views:
+  - left_mp4_path
+  crop_size: 256
+  datasets:
+  - /data/hyuntak/project/2026/2027_cvpr/vjepa2/dummy_droid_data/droid_debug_paths.csv
+  dataset_fpcs:
+  - 8
+  fps: 4
+  num_workers: 0                       # main-proc DataLoader -> breakpoints work in __getitem__
+  patch_size: 16
+  pin_mem: false
+  stereo_view: false
+  tubelet_size: 2
+
+data_aug:
+  auto_augment: false
+  horizontal_flip: false
+  motion_shift: false
+  random_resize_aspect_ratio:
+  - 0.75
+  - 1.35
+  random_resize_scale:
+  - 1.777
+  - 1.777
+  reprob: 0.0
+
+loss:
+  auto_steps: 2                        # teacher forcing (1 predictor call) + AR rollout (1 more) = 2 total
+  loss_exp: 1.0                        # L1
+  normalize_reps: true
+  reg_coeff: 0.0
+
+meta:
+  dtype: bfloat16
+  eval_freq: 100
+  resume_checkpoint: null
+  load_encoder: false                  # ← FRESH random init (skip state-dict load)
+  load_predictor: false
+  pretrain_checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/dummy_droid_data/stub_ckpt.pt
+  context_encoder_key: target_encoder  # matches droid convention
+  target_encoder_key: target_encoder
+  save_every_freq: 1000                # effectively disable per-epoch save spam in debug
+  seed: 239
+  use_sdpa: true
+
+model:
+  model_name: vit_large                # ← was vit_giant_xformers. vitl embed_dim=1024, fits 1 GPU.
+  pred_depth: 4                        # ← was 24. Faster & still exercises the full ACBlock stack.
+  pred_embed_dim: 1024
+  pred_is_frame_causal: true
+  pred_num_heads: 6                    # ← was 16.
+  uniform_power: true
+  use_activation_checkpointing: false  # ← keep forward graph un-recomputed (easier to step)
+  use_extrinsics: false
+  use_rope: true
+
+optimization:
+  anneal: 1                            # unused with epochs=1 but must be present
+  epochs: 1                            # one short epoch
+  final_lr: 0.0
+  final_weight_decay: 0.04
+  ipe: 5                               # 5 iterations only
+  lr: 0.000425
+  start_lr: 0.000075
+  warmup: 1
+  weight_decay: 0.04
