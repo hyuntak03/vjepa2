@@ -39,6 +39,7 @@ def init_data(
     log_dir=None,
     uniform_sampling=False,
     center_sampling=False,
+    headtail_sampling=False,
     keystones_by_path=None,
 ):
     if data.lower() == "imagenet":
@@ -88,6 +89,7 @@ def init_data(
             log_dir=log_dir,
             uniform_sampling=uniform_sampling,
             center_sampling=center_sampling,
+            headtail_sampling=headtail_sampling,
             keystones_by_path=keystones_by_path,
         )
 

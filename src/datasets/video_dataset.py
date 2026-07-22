@@ -53,6 +53,7 @@ def make_videodataset(
     log_dir=None,
     uniform_sampling=False,
     center_sampling=False,
+    headtail_sampling=False,
     keystones_by_path=None,
 ):
     dataset = VideoDataset(
@@ -72,6 +73,7 @@ def make_videodataset(
         transform=transform,
         uniform_sampling=uniform_sampling,
         center_sampling=center_sampling,
+        headtail_sampling=headtail_sampling,
         keystones_by_path=keystones_by_path,
     )
 
@@ -146,6 +148,10 @@ class VideoDataset(torch.utils.data.Dataset):
         uniform_sampling=False,  # sample fpc frames evenly across the whole video (ignores frame_step)
         center_sampling=False,   # take the CENTER fpc frames (contiguous window around video midpoint).
                                  # Ignores frame_step and uniform_sampling when true.
+        headtail_sampling=False, # take the FIRST ceil(fpc/2) frames + the LAST floor(fpc/2) frames
+                                 # (a "front-half + back-half" clip; drops the middle). For a 48-frame
+                                 # clip with fpc=16 -> indices [0..7]+[40..47]. Ignores frame_step /
+                                 # num_clips. Precedence: keystones > center > headtail > uniform > default.
         keystones_by_path=None,  # dict[str, int]: per-video keystone (break-point) frame index.
                                  # When provided, sampling centers a contiguous fpc-frame window on
                                  # this frame for every path in the dict; other paths fall through
@@ -159,6 +165,7 @@ class VideoDataset(torch.utils.data.Dataset):
         self.frame_step = frame_step
         self.uniform_sampling = uniform_sampling
         self.center_sampling = center_sampling
+        self.headtail_sampling = headtail_sampling
         self.keystones_by_path = keystones_by_path or {}
         self.num_clips = num_clips
         self.transform = transform
@@ -373,6 +380,27 @@ class VideoDataset(torch.utils.data.Dataset):
                 indices = np.arange(start, start + fpc).astype(np.int64)
             else:
                 # video shorter than fpc: pad with the last frame
+                indices = np.concatenate(
+                    [np.arange(n), np.full(fpc - n, n - 1)]
+                ).astype(np.int64)
+            buffer = vr.get_batch(list(indices)).asnumpy()
+            return buffer, [indices]
+
+        # headtail_sampling: take the FIRST ceil(fpc/2) frames + the LAST floor(fpc/2) frames
+        # (a "front-half + back-half" clip; the middle is dropped). For a 48-frame clip with
+        # fpc=16 this yields indices [0..7]+[40..47] -- the start and end of the motion. The
+        # 8|8 split aligns with tubelet_size=2, so no tubelet straddles the head/tail gap.
+        # Ignores frame_step / num_clips. Precedence: keystones > center > headtail > uniform > default.
+        if getattr(self, "headtail_sampling", False):
+            n = len(vr)
+            n_head = (fpc + 1) // 2          # ceil -> front half
+            n_tail = fpc - n_head            # floor -> back half
+            if n >= fpc:
+                head = np.arange(0, n_head)
+                tail = np.arange(n - n_tail, n)
+                indices = np.concatenate([head, tail]).astype(np.int64)
+            else:
+                # video shorter than fpc: take all frames, pad with the last frame
                 indices = np.concatenate(
                     [np.arange(n), np.full(fpc - n, n - 1)]
                 ).astype(np.int64)

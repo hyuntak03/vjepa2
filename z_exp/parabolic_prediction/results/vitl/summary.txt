@@ -1,0 +1,8 @@
+============================================================
+PARABOLIC PREDICTOR-SURPRISE EVAL
+============================================================
+scenes=200  context_length=32  variants=['possible', 'higher', 'frozen']
+
+[argmin]  acc=1.0000  (chance 0.333, n=200)  candidates=['possible', 'higher', 'frozen']
+[pairwise frozen_vs_possible]  acc=1.0000  (chance 0.5, n=200)
+[pairwise higher_vs_possible]  acc=1.0000  (chance 0.5, n=200)

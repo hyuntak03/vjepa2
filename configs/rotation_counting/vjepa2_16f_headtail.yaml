@@ -1,0 +1,71 @@
+# =============================================================================
+# Layer-wise linear probing: rotation_counting, V-JEPA 2 ViT-L (fpc64-256).
+#
+# Task: count the number of full clockwise turns of a clock hand over a 4s clip
+#       -> 5-way classification (label in {0,1,2,3,4}). 250 clips @ 384x384, 12fps,
+#       48 frames each; 200 train (40/class) + 50 val (10/class), balanced.
+#
+# This is the 16-FRAME HEAD-TAIL variant: instead of sampling 16 frames evenly
+# across the clip (uniform), it feeds the FIRST 8 frames + the LAST 8 frames
+# (indices [0..7]+[40..47]) -- the start and end of the motion, dropping the
+# middle. The 8|8 split aligns with tubelet_size=2 so no tubelet straddles the
+# head/tail gap. Compare against vjepa2_16f.yaml (uniform 16f) and vjepa2.yaml
+# (all 48f). resize_mode='resize': direct 384->256 resize (no crop, full FoV).
+# =============================================================================
+eval_name: analysis_vlm
+folder: /data/hyuntak/project/2026/2027_cvpr/vjepa2/configs/rotation_counting/logs
+num_workers: 8
+resume_checkpoint: false
+val_only: false
+tag: vjepa2_rotation_counting_16f_headtail
+
+experiment:
+  analysis:
+    model: vjepa
+    stages:
+      vision_encoder: all              # 24 blocks (ViT-L)
+    plot: true                         # plot_pez intentionally omitted (not requested)
+
+    probes:
+      - { type: linear, pooling: mean, pre_norm: true, optimization: { lr: 0.0001, weight_decay: 0.01, warmup: 1.0 } }
+      - { type: linear, pooling: mean, pre_norm: true, optimization: { lr: 0.0001, weight_decay: 0.1,  warmup: 1.0 } }
+
+  data:
+    dataset_type: VideoDataset
+    dataset_train: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/rotation_counting/rotation_counting_train.csv
+    dataset_val:   /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/rotation_counting/rotation_counting_val.csv
+    num_classes: 5
+    resolution: 256
+    resize_mode: resize                 # direct resize to 256^2 (no crop) -- keeps full FoV. Clips native 384x384.
+    frames_per_clip: 16                 # 16-frame inference (head-tail): first 8 + last 8 frames.
+    frame_step: 1                       # ignored when headtail_sampling=true
+    num_segments: 1
+    num_views_per_segment: 1
+    uniform_sampling: false             # head-tail takes precedence over uniform anyway; set false to be explicit
+    headtail_sampling: true             # first ceil(fpc/2)=8 frames + last floor(fpc/2)=8 frames -> [0..7]+[40..47]
+
+  optimization:
+    batch_size: 8
+    num_epochs: 50
+    use_bfloat16: false                 # fp32 probe training (round-4 audit: fp16 fused sum-of-losses freezes heads)
+    save_optimizer: false
+    cache_features: true
+    cache_pooling: mean                 # spatiotemporal MEAN only (paper-faithful; matches linear-mean probes)
+    cache_max_gb: 80                    # 24 layers x 250 videos x 1024-d -- ample headroom
+    default_head: { start_lr: 0.0, final_lr: 0.0, final_weight_decay: 0.01 }
+
+model_kwargs:
+  checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vitl-fpc64-256/snapshots/b3c1679b7c34d3255ef3547f27c7b226aefab26f/original/model.pth
+  module_name: evals.analysis.modelcustom.vit_encoder_multilayer
+  pretrain_kwargs:
+    encoder:
+      checkpoint_key: target_encoder
+      model_name: vit_large
+      patch_size: 16
+      tubelet_size: 2
+      uniform_power: true
+      use_rope: true
+      img_temporal_dim_size: null
+  wrapper_kwargs:
+    max_frames: 128
+    use_pos_embed: false

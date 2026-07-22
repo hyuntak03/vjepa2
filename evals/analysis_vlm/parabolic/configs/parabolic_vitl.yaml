@@ -1,0 +1,51 @@
+# =============================================================================
+# Parabolic predictor-surprise eval — V-JEPA2 ViT-L (pretrained, frozen).
+# Run:  python -m evals.analysis_vlm.parabolic.eval --config <this> --device cuda:0
+# Everything below is editable; scoring modes/pairs are fully config-driven.
+# =============================================================================
+tag: parabolic_vitl
+output_dir: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_exp/parabolic_prediction/results/vitl
+
+data:
+  root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_gen/parabolic_dataset
+  variants: [possible, higher, frozen]
+  context_variant: possible          # whose (shared) context is spliced onto every variant
+
+model:                               # schema = analysis.intphys2.model.build_from_config
+  checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vitl-fpc64-256/snapshots/b3c1679b7c34d3255ef3547f27c7b226aefab26f/original/model.pth
+  arch_name: vit_large
+  img_size: 256
+  patch_size: 16
+  tubelet_size: 2
+  window_size: 40                    # = clip length N (must match dataset n_frames)
+  use_rope: true
+  uniform_power: false
+  # TRAIN-FAITHFUL role split (matches app/vjepa/train.py):
+  #   context -> ONLINE encoder (what the predictor consumed during training)
+  #   target  -> EMA target_encoder (what the predictor was trained to match)
+  dual_encoder: true
+  context_encoder_key: encoder
+  target_encoder_key: target_encoder
+  predictor:
+    embed_dim: 384
+    depth: 12
+    num_heads: 12
+    num_mask_tokens: 10
+  dtype: bfloat16
+
+eval:
+  context_length: 32                 # frames 0..31 = context ; 32..39 = predicted target
+  distance: l1                       # l1 | smoothl1 | l2 | cosine
+  loss_exp: 1.0                      # 1.0 -> L1 (matches V-JEPA training loss)
+  target_layer_norm: true            # per-token LN on targets (train-faithful)
+  mask_index: 0                      # only mask_tokens[0] is trained in the release
+
+scoring:
+  modes: [argmin, pairwise]          # run one or both
+  # (a) 3-way ranking: predictor's imagined future should be closest to `possible`
+  argmin_candidates: [possible, higher, frozen]
+  argmin_correct: possible
+  # (b) 2-way pairwise: surprise(impossible) > surprise(possible)
+  pairwise_pairs:
+    - [possible, frozen]
+    - [possible, higher]

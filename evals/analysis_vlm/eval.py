@@ -432,6 +432,7 @@ def main(args_eval, resume_preempt=False):
     # instead of frame_step's contiguous window. True => frame_step ignored. (raw path is always uniform)
     uniform_sampling = args_data.get("uniform_sampling", False)
     center_sampling = args_data.get("center_sampling", False)  # contiguous fpc-frame window at video midpoint
+    headtail_sampling = args_data.get("headtail_sampling", False)  # first ceil(fpc/2) + last floor(fpc/2) frames
     keystones_json = args_data.get("keystones_json", None)     # per-video break-point centered sampling
     keystones_by_path = None
     if keystones_json:
@@ -447,6 +448,11 @@ def main(args_eval, resume_preempt=False):
     clip_resize_mode = args_data.get("resize_mode", "crop")
     if clip_resize_mode not in ("crop", "resize"):  # fail loud (don't silently fall back to crop)
         raise ValueError(f"data.resize_mode must be 'crop' or 'resize', got {clip_resize_mode!r}")
+    # headtail_sampling is threaded through the resize path's init_data() only; the crop path
+    # (make_dataloader) does not carry it. Fail loud rather than silently sampling uniformly/default.
+    if headtail_sampling and clip_resize_mode != "resize":
+        raise ValueError("data.headtail_sampling=true is only wired for resize_mode='resize' "
+                         f"(got resize_mode={clip_resize_mode!r}).")
 
     # -- TASK: 'classification' (CrossEntropy->accuracy) or 'regression' (MSE->R^2 of probes
     # predicting CONTINUOUS variables). The CSV integer label INDEXES regression.targets_npy
@@ -710,6 +716,7 @@ def main(args_eval, resume_preempt=False):
                     clip_len=frames_per_clip, frame_sample_rate=frame_step, duration=duration,
                     num_clips=num_segments, allow_clip_overlap=True, num_workers=w, drop_last=False,
                     uniform_sampling=uniform_sampling, center_sampling=center_sampling,
+                    headtail_sampling=headtail_sampling,
                     keystones_by_path=keystones_by_path,
                 )
             else:
