@@ -493,6 +493,65 @@ def main(args_eval, resume_preempt=False):
     elif task != "classification":
         raise ValueError(f"experiment.analysis.task must be 'classification' or 'regression', got {task!r}")
 
+    # ─── ADDITIVE: MULTI-ATTRIBUTE CLASSIFICATION ──────────────────────────────────────
+    # experiment.analysis.classification.attributes lets ONE run probe SEVERAL categorical
+    # attributes of the SAME videos (e.g. sprite2d: motion_direction / object_shape / ...),
+    # so the (expensive) frozen-encoder pass happens ONCE instead of once per attribute, and
+    # every attribute lands on the SAME [layer x accuracy] plot as its own curve.
+    #
+    # Mechanism mirrors the regression multi-variable design: the CSV integer is a ROW INDEX
+    # into an (N, A) int64 label matrix (classification.labels_npy) and each head reads its
+    # own column. Dataloaders are untouched. -1 in the matrix = "undefined for this video"
+    # (masked out of both the loss and the accuracy of that attribute only).
+    #
+    #   classification:
+    #     labels_npy: /.../sprite2d_labels.npy          # (N, A) int64, row = CSV label
+    #     label_map_json: /.../sprite2d_label_maps.json # gives col + num_classes per name
+    #     attributes: all                               # or [motion_direction, object_shape]
+    #                                                   # or [{name: .., col: .., num_classes: ..}]
+    # Absent  =>  cls_attrs == {}  =>  the legacy single-label path is byte-for-byte unchanged.
+    cls_cfg = args_analysis.get("classification") or {}
+    cls_attrs = {}   # attr name -> num_classes (empty => legacy single-label classification)
+    if task == "classification" and cls_cfg.get("attributes"):
+        lpath = cls_cfg.get("labels_npy") or cls_cfg.get("labels")
+        assert lpath, "classification.attributes needs classification.labels_npy ((N,A) int64 .npy)"
+        labels_arr = np.load(lpath)
+        if labels_arr.ndim == 1:
+            labels_arr = labels_arr[:, None]
+        labels_arr = labels_arr.astype(np.int64)
+        lm_path = cls_cfg.get("label_map_json")
+        lm = {}
+        if lm_path:
+            with open(lm_path) as _lf:
+                lm = json.load(_lf).get("attributes", {})
+        attr_cfg = cls_cfg["attributes"]
+        if isinstance(attr_cfg, str):
+            if attr_cfg.lower() != "all":
+                raise ValueError(f"classification.attributes must be a list or 'all', got {attr_cfg!r}")
+            if not lm:
+                raise ValueError("classification.attributes='all' needs classification.label_map_json")
+            attr_cfg = sorted(lm, key=lambda k: int(lm[k]["col"]))
+        attr_specs = []   # (name, column, num_classes)
+        for a in attr_cfg:
+            if isinstance(a, dict):
+                attr_specs.append((str(a["name"]), int(a["col"]), int(a["num_classes"])))
+                continue
+            if a not in lm:
+                raise ValueError(f"attribute {a!r} not in {lm_path} (have: {sorted(lm)})")
+            attr_specs.append((str(a), int(lm[a]["col"]), int(lm[a]["num_classes"])))
+        n_label_cols = labels_arr.shape[1]
+        for a_name, a_col, a_k in attr_specs:
+            assert 0 <= a_col < n_label_cols, (
+                f"attribute {a_name!r} col {a_col} out of range (labels have {n_label_cols} columns)")
+            a_max = int(labels_arr[:, a_col].max())
+            assert a_max < a_k, (
+                f"attribute {a_name!r}: label matrix holds class id {a_max} but num_classes={a_k}")
+        reg_vars = [(a_name, [a_col]) for a_name, a_col, _ in attr_specs]
+        cls_attrs = {a_name: a_k for a_name, _, a_k in attr_specs}
+        targets_arr = labels_arr
+        logger.info(f"task=classification (multi-attribute): labels={lpath} shape={labels_arr.shape} "
+                    f"attributes={attr_specs}")
+
     # -- OPTIMIZATION
     args_opt = args_exp.get("optimization")
     batch_size = args_opt.get("batch_size")
@@ -528,6 +587,11 @@ def main(args_eval, resume_preempt=False):
             raise ValueError(
                 f"eval_metric={eval_metric!r} needs num_classes=2 (uses softmax[:,1] = P(imp)); "
                 f"got num_classes={num_classes}"
+            )
+        if cls_attrs:
+            raise ValueError(
+                f"eval_metric={eval_metric!r} is a single-label IntPhys metric and cannot be "
+                "combined with classification.attributes (multi-attribute probing)."
             )
 
     def _opt_kwargs(spec):
@@ -664,7 +728,12 @@ def main(args_eval, resume_preempt=False):
             # one head per regressed VARIABLE (classification: a single dummy var) -> each
             # variable becomes its own R^2 curve on the plot (grouped by `series`).
             for var_name, var_cols in reg_vars:
-                out_dim = len(var_cols) if var_cols is not None else num_classes
+                if cls_attrs:                       # multi-attribute classification
+                    out_dim = cls_attrs[var_name]
+                elif var_cols is not None:          # regression: one output per target column
+                    out_dim = len(var_cols)
+                else:                               # legacy single-label classification
+                    out_dim = num_classes
                 module = _build(out_dim).to(device)
                 if use_ddp:
                     module = DistributedDataParallel(module, static_graph=True)
@@ -682,12 +751,17 @@ def main(args_eval, resume_preempt=False):
                 # probe specs exist (e.g. linear vs attentive), append the probe so each is its own curve.
                 if var_name is None:
                     series = pname
-                elif len(probe_specs) > 1:
-                    series = f"{var_name}·{pname}"
                 else:
-                    series = var_name
+                    # multi-attribute classification: carry the class count in the legend so a
+                    # curve can be read against its own chance level (they differ per attribute).
+                    base = (f"{var_name} ({cls_attrs[var_name]}-way, chance {100.0 / cls_attrs[var_name]:.1f}%)"
+                            if cls_attrs else var_name)
+                    series = f"{base}·{pname}" if len(probe_specs) > 1 else base
                 heads.append(dict(name=name, layer=layer_val, layer_pos=stage_pos,
-                                  probe=pname, series=series,
+                                  probe=pname, series=series, var=var_name,
+                                  # random-chance level of THIS head's attribute (multi-attribute
+                                  # classification only) -> carried into the logs / plot / summary.
+                                  chance=(100.0 / cls_attrs[var_name] if cls_attrs else None),
                                   stage=stage_tag, module=module, tcols=var_cols))
                 head_opt_kwargs.append(_opt_kwargs(spec))
     head_names = [h["name"] for h in heads]
@@ -800,6 +874,8 @@ def main(args_eval, resume_preempt=False):
     optimizer, scaler, scheduler, wd_scheduler = _init_opt_fused(
         classifiers=[h["module"] for h in heads], opt_kwargs=head_opt_kwargs,
         iterations_per_epoch=ipe, num_epochs=num_epochs, use_bfloat16=use_bfloat16,
+        optimizer_name=args_opt.get("optimizer", "adamw"),
+        momentum=args_opt.get("momentum", 0.9),
     )
 
     if rank == 0:
@@ -867,8 +943,13 @@ def main(args_eval, resume_preempt=False):
         logger.info("[epoch %d] stage x probe acc (train | val | best):" % (epoch + 1))
         for h in heads:
             n = h["name"]
-            logger.info("    %-32s  train %6.2f%%  val %6.2f%%  best %6.2f%%"
-                        % (n, train_acc[n], val_acc[n], best_val[n]))
+            # multi-attribute: show the attribute's random-chance level next to its accuracy,
+            # since chance differs per head (2-way 50% vs 8-way 12.5%) and a bare % is unreadable.
+            chance = h.get("chance")
+            tail = ("  | chance %5.2f%%  (best %+6.2f%%p)" % (chance, best_val[n] - chance)
+                    if chance else "")
+            logger.info("    %-36s  train %6.2f%%  val %6.2f%%  best %6.2f%%%s"
+                        % (n, train_acc[n], val_acc[n], best_val[n], tail))
         if rank == 0:
             row = [epoch + 1]
             for n in head_names:
@@ -883,6 +964,10 @@ def main(args_eval, resume_preempt=False):
                            "eval_metric": eval_metric,
                            "variables": ([{"name": n, "cols": c} for n, c in reg_vars]
                                          if task == "regression" else None),
+                           # multi-attribute classification: per-attribute column + chance level
+                           "attributes": ([{"name": n, "col": c[0], "num_classes": cls_attrs[n],
+                                            "chance": round(100.0 / cls_attrs[n], 4)}
+                                           for n, c in reg_vars] if cls_attrs else None),
                            "stages": [str(s) for s in stages],
                            "head_names": head_names, "val_acc": val_acc, "train_acc": train_acc,
                            "best_val_acc": best_val}, f, indent=2)
@@ -890,6 +975,40 @@ def main(args_eval, resume_preempt=False):
         save_checkpoint(epoch + 1)
         if val_only:
             break
+
+    # ─── per-ATTRIBUTE report table (multi-attribute classification, rank 0) ───────────
+    # The head-level log is [layer x attribute]; what actually gets reported is, per
+    # attribute, the BEST layer and how far above random chance it is. Emitted to the log
+    # and to attribute_summary.csv next to summary.json.
+    if rank == 0 and cls_attrs:
+        rows = []
+        for attr, ncls in cls_attrs.items():
+            hs = [h for h in heads if h["var"] == attr]
+            best_h = max(hs, key=lambda h: best_val[h["name"]])
+            acc, chance = best_val[best_h["name"]], 100.0 / ncls
+            rows.append((attr, ncls, chance, best_h["stage"], best_h["probe"], acc, acc - chance))
+        rows.sort(key=lambda r: r[6], reverse=True)   # most-above-chance first
+        logger.info("=" * 88)
+        logger.info("per-attribute best val accuracy over %d epoch(s)  [%s]", last_epoch, eval_tag)
+        logger.info("  %-20s %6s %8s %8s %10s %10s", "attribute", "#cls", "chance", "best", "Δchance", "@stage")
+        for a, k, ch, st, pb, acc, d in rows:
+            logger.info("  %-20s %6d %7.2f%% %7.2f%% %+9.2f%%p %10s", a, k, ch, acc, d, st)
+        logger.info("=" * 88)
+        with open(os.path.join(folder, "attribute_summary.csv"), "w") as f:
+            f.write("attribute,num_classes,chance,best_val_acc,delta_over_chance,best_stage,probe,epochs\n")
+            for a, k, ch, st, pb, acc, d in rows:
+                f.write(f"{a},{k},{ch:.4f},{acc:.4f},{d:.4f},{st},{pb},{last_epoch}\n")
+        logger.info("wrote %s", os.path.join(folder, "attribute_summary.csv"))
+
+        if make_plot:
+            from evals.analysis.plotting import plot_attr_best_bar
+
+            plot_attr_best_bar(
+                [dict(attribute=a, num_classes=k, chance=ch, best_val_acc=acc,
+                      delta_over_chance=d, best_stage=st) for a, k, ch, st, pb, acc, d in rows],
+                os.path.join(folder, "attribute_best_bar.png"),
+                subtitle=f"{model_sel} | best over {last_epoch} epoch(s) x {len(stages)} layers | {eval_tag}",
+            )
 
     if rank == 0 and make_plot:
         from evals.analysis.plotting import plot_layer_val_acc
@@ -899,8 +1018,11 @@ def main(args_eval, resume_preempt=False):
         if metric == "accuracy" and eval_metric != "per_video":
             sub += f" | metric={eval_metric}"
         # multi-variable R²: each variable is its own curve (legend), so no single target_label
+        # multi-attribute: chance differs per curve -> no single chance line (it's in the legend)
         plot_layer_val_acc(heads, best_val, os.path.join(folder, "stage_val_acc.png"),
-                           subtitle=sub, num_classes=num_classes, metric=metric, pez=plot_pez)
+                           subtitle=sub, num_classes=(None if cls_attrs else num_classes),
+                           metric=metric, pez=plot_pez,
+                           legend_title=("attribute" if cls_attrs else None))
 
     # ─── ADDITIVE: post-hoc analysis modes (experiment.analysis.modes). ──────────────────
     # Absent from a config ⇒ modes_cfg == {} ⇒ this whole block is skipped and nothing is
@@ -954,7 +1076,8 @@ class _DirectResizeClipTransform:
         return [self.eval_transform(buffer)]
 
 
-def _init_opt_fused(classifiers, opt_kwargs, iterations_per_epoch, num_epochs, use_bfloat16=False):
+def _init_opt_fused(classifiers, opt_kwargs, iterations_per_epoch, num_epochs, use_bfloat16=False,
+                    optimizer_name="adamw", momentum=0.9):
     """ONE AdamW with one param-group per head (each carrying its own mc_* schedule keys),
     a SINGLE LR/WD schedule and a SINGLE GradScaler.
 
@@ -977,8 +1100,21 @@ def _init_opt_fused(classifiers, opt_kwargs, iterations_per_epoch, num_epochs, u
             "mc_ref_wd": kw.get("ref_wd"),
             "mc_final_wd": kw.get("final_wd"),
         })
-    logger.info(f"Using ONE fused AdamW over {len(param_groups)} head param-group(s)")
-    optimizer = torch.optim.AdamW(param_groups)
+    # optimizer is a config knob (experiment.optimization.optimizer); default 'adamw' keeps
+    # every existing run byte-identical. 'adam' matters when weight_decay is large: AdamW
+    # DECOUPLES the decay (w *= 1 - lr*wd) while Adam folds it into the gradient (L2), where
+    # the adaptive denominator rescales it — at the paper's wd sweep (up to 0.8) the two are
+    # not interchangeable.
+    name = str(optimizer_name).lower()
+    if name == "adamw":
+        optimizer = torch.optim.AdamW(param_groups)
+    elif name == "adam":
+        optimizer = torch.optim.Adam(param_groups)
+    elif name == "sgd":
+        optimizer = torch.optim.SGD(param_groups, momentum=momentum)
+    else:
+        raise ValueError(f"optimization.optimizer must be adamw|adam|sgd, got {optimizer_name!r}")
+    logger.info(f"Using ONE fused {name} over {len(param_groups)} head param-group(s)")
     T = int(num_epochs * iterations_per_epoch)
     scheduler = WarmupCosineLRSchedule(optimizer, T_max=T)
     wd_scheduler = CosineWDSchedule(optimizer, T_max=T)
@@ -1028,6 +1164,9 @@ def run_one_epoch(device, training, encoder, heads, scaler, optimizer, scheduler
         h["module"].train(mode=training)
 
     is_reg = task == "regression"
+    # multi-attribute classification: `targets` is an (N,A) int64 matrix and the batch label is a
+    # ROW INDEX into it; each head reads its own column. targets is None for the legacy path.
+    is_multi_cls = (not is_reg) and (targets is not None)
     criterion = torch.nn.MSELoss() if is_reg else torch.nn.CrossEntropyLoss()
     n_heads = len(heads)
     amp_scaler = scaler[0]
@@ -1051,6 +1190,9 @@ def run_one_epoch(device, training, encoder, heads, scaler, optimizer, scheduler
         cnt = torch.zeros(n_heads, device=device)            # #valid samples per head
     else:
         correct = torch.zeros(n_heads, device=device)
+        if is_multi_cls:
+            head_cols = [int(h["tcols"][0]) for h in heads]   # per-head column of the label matrix
+            cnt = torch.zeros(n_heads, device=device)         # #labelled samples per head (-1 = skip)
 
     iterator = data_loader
     if rank == 0:
@@ -1068,7 +1210,12 @@ def run_one_epoch(device, training, encoder, heads, scaler, optimizer, scheduler
             [wds.step() for wds in wd_scheduler]
 
         feats, labels, bsz = _encode(encoder, data, device, data_mode, use_bfloat16)
-        yfull = targets[labels].float() if is_reg else None   # (B,D) all target columns
+        if is_reg:
+            yfull = targets[labels].float()                   # (B,D) all target columns
+        elif is_multi_cls:
+            yfull = targets[labels]                           # (B,A) int64 class ids (-1 = undefined)
+        else:
+            yfull = None
 
         # In validation, run the heads under no_grad: no autograd graph is built and the
         # DDP reducer is NOT armed (a grad-enabled DDP forward with no backward trips the
@@ -1087,6 +1234,17 @@ def run_one_epoch(device, training, encoder, heads, scaler, optimizer, scheduler
                     m = (~torch.isnan(yh).any(dim=1)).float()                       # (B,)
                     err = ((preds[hi] - torch.nan_to_num(yh)) ** 2).sum(dim=1) * m  # (B,)
                     losses.append(err.sum() / m.sum().clamp(min=1.0))
+            elif is_multi_cls:
+                # masked-mean CE per attribute head: rows labelled -1 for THIS attribute
+                # contribute 0 but stay in the graph (identical DDP static-graph structure
+                # across ranks regardless of which rows are valid).
+                losses = []
+                for hi in range(n_heads):
+                    yh = yfull[:, head_cols[hi]]                                  # (B,)
+                    m = (yh >= 0).float()
+                    ce = torch.nn.functional.cross_entropy(
+                        preds[hi], yh.clamp(min=0), reduction="none") * m         # (B,)
+                    losses.append(ce.sum() / m.sum().clamp(min=1.0))
             else:
                 losses = [criterion(p, labels) for p in preds]
 
@@ -1117,6 +1275,12 @@ def run_one_epoch(device, training, encoder, heads, scaler, optimizer, scheduler
                         sum_y[hi, :d] += y.sum(dim=0)
                         sum_y2[hi] += (y ** 2).sum()
                         cnt[hi] += m.sum()
+            elif is_multi_cls:
+                for hi, p in enumerate(preds):
+                    yh = yfull[:, head_cols[hi]]
+                    m = yh >= 0
+                    correct[hi] += ((p.argmax(dim=1) == yh) & m).sum()
+                    cnt[hi] += m.sum()
             else:
                 for hi, p in enumerate(preds):
                     correct[hi] += (p.argmax(dim=1) == labels).sum()
@@ -1138,7 +1302,8 @@ def run_one_epoch(device, training, encoder, heads, scaler, optimizer, scheduler
                     best = max(best, (1.0 - ss_res[hi] / sst).item())
                 iterator.set_postfix(R2=f"{best:.3f}")  # best head so far
             else:
-                iterator.set_postfix(best=f"{(100.0 * correct.max() / total.clamp(min=1)).item():.1f}%")
+                denom = cnt.clamp(min=1) if is_multi_cls else total.clamp(min=1)
+                iterator.set_postfix(best=f"{(100.0 * correct / denom).max().item():.1f}%")
 
     total = AllReduceSum.apply(total)
     if is_reg:
@@ -1153,7 +1318,11 @@ def run_one_epoch(device, training, encoder, heads, scaler, optimizer, scheduler
             r2.append((1.0 - ss_res[hi] / sst).item())
         return {h["name"]: r2[hi] for hi, h in enumerate(heads)}
     correct = AllReduceSum.apply(correct)
-    accs = (100.0 * correct / total.clamp(min=1)).tolist()
+    if is_multi_cls:  # per-head denominator: only the samples where that attribute is defined
+        cnt = AllReduceSum.apply(cnt)
+        accs = (100.0 * correct / cnt.clamp(min=1)).tolist()
+    else:
+        accs = (100.0 * correct / total.clamp(min=1)).tolist()
     if use_ranked:
         # Sanity sentinel: assert we wrote all K_local expected rows for this rank.
         expected = int(metric_ctx["local_csv_idx_t"].numel())

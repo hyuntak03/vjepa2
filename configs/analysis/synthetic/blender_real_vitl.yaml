@@ -1,0 +1,135 @@
+# ============================================================================
+# SYNTHETIC TESTBED — blender_real : per-ATTRIBUTE layer-wise LINEAR PROBING (V-JEPA2 ViT-L, frozen)
+#
+# 하나의 run 에서 blender_real 비디오의 여러 attribute(motion_direction / object_shape / ...)를
+# 동시에 probing 한다. encoder forward 는 한 번(캐시)만 돌고, attribute 마다 layer 별
+# linear head 가 붙어 [layer x accuracy] 그래프에 각각 하나의 곡선으로 그려진다.
+#
+# 실행 (데이터 생성 -> probing):
+#   python z_scripts/synth_probe/build_synth_probe_data.py --fname configs/analysis/synthetic/blender_real_vitl.yaml
+#   python -m evals.main --fname configs/analysis/synthetic/blender_real_vitl.yaml --devices cuda:0
+#   # 또는 sbatch z_scripts/run_synth_probe.sh   (아래 sh 가 위 두 단계를 순서대로 실행)
+#
+# 결과: <folder>/analysis_vlm/<tag>/{summary.json, stage_val_acc.png, log_r0.csv}
+#       summary.json 의 "attributes" 에 attribute 별 chance level 이 같이 기록된다.
+# ============================================================================
+
+# ── (A) 데이터 생성 전용 블록. evals 는 이 블록을 읽지 않는다.
+#        build_synth_probe_data.py 가 읽어서 CSV / labels.npy / label_maps.json 을 만든다.
+synthetic:
+  domain: blender_real
+  index_root: /data/hyuntak/project/2026/2027_cvpr/synthetic_test/out   # <root>/<domain>/index.csv
+  # ★ 영상이 실제로 놓이는 위치(계산 노드 기준). CSV 경로 = <video_root>/<video_subdir>/<uid>.mp4
+  video_root: /local_datasets/world/synthetic_test
+  video_subdir: "{domain}/videos"
+  out_dir: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/synthetic/blender_real
+  val_ratio: 0.2
+  seed: 0
+  max_videos: null          # 정수로 주면 그 개수만 뽑아서 (deterministic) 빠른 디버그
+  check_exists: false       # true = mp4 존재를 전부 확인 (로컬에서 보이는 경로일 때만)
+  video_ext: .mp4           # 로컬 videos/ 를 읽을 수 있으면 실제 확장자를 uid 별로 자동 인식
+  exclude_uid_regex: null   # blender_real 도 중복 클립 없음
+  # blender_real 은 장면 팩터가 14개 더 붙은 index_full.csv 를 쓴다 (기존 15개 컬럼은
+  # index.csv 와 값·순서까지 완전히 동일한 상위집합). 그중 실제로 쓰는 건
+  # hdri_idx(4) / ground_palette(4) 두 개이고, 나머지는 연속값이거나 전부 NaN.
+  index_file: index_full.csv
+  # 클래스로 쓰지 않을 컬럼 (id / 연속값). 전부 NaN 인 컬럼
+  # (bg_value, bg_flip_ramp, bg_flip_axis, bg_noise_mean, bg_noise_std, n_distractors)
+  # 은 빌더가 자동으로 건너뛴다 — blender_real 에는 해당 없는 필드들.
+  drop_columns: [uid, domain, seed, size_px, speed_px_per_frame,
+                 phase0_deg, start_x, start_y, end_x, end_y, hdri_rot_deg]
+  # 연속값 타깃도 같이 써둔다 (regression config 가 같은 파일을 쓴다)
+  continuous_columns: [speed_px_per_frame, size_px]
+
+eval_name: analysis_vlm
+folder: /data/hyuntak/project/2026/2027_cvpr/vjepa2/configs/analysis/synthetic/logs
+num_workers: 8
+resume_checkpoint: false
+val_only: false
+tag: blender_real-vitl-linear
+
+experiment:
+  analysis:
+    model: vjepa
+    task: classification
+
+    # ── (B) 어떤 클래스(attribute)를 probing 할지 ──────────────────────────────
+    #   attributes: all                      -> label_map_json 의 모든 attribute
+    #   attributes: [motion_direction, ...]  -> 특정 N개만
+    #   attributes: [{name: .., col: .., num_classes: ..}]  -> label_map_json 없이 직접 지정
+    # blender_real 가 가진 attribute (chance):
+    #   object_shape(6, 16.7%) object_color(8, 12.5%) motion_direction(8, 12.5%)
+    #   trajectory_type(3, 33.3%) rotation_direction(2, 50%)
+    #   size_bin(3, 33.3%) speed_bin(3, 33.3%)
+    #   hdri_idx(4, 25%) ground_palette(4, 25%)   <- index_full.csv 에서 새로 들어온 것
+    # ※ background_type(4, 25%) 은 이 도메인에서 NEGATIVE CONTROL 이다.
+    #   generators/blender_scene_realistic.py 는 background_type 을 읽지 않는다 —
+    #   배경은 hdri_idx(HDRI) + ground_palette(절차적 지면) 로만 만들어지고
+    #   (blender_run.py:92 가 job 에 싣는 것도 그 둘뿐), background_type 은 spec 에
+    #   남아 index 에 기록만 된다. blender_simple/sprite2d 에서는 실제로 렌더에 쓰인다
+    #   (blender_scene.py:280 / sprite2d.py:112).
+    #   => 화면에 대응물이 없는 게 코드로 확인된 라벨이므로 25% 근처여야 정상이고,
+    #      유의하게 넘으면 라벨 정렬 / split 누수를 의심해야 한다.
+    #      random_label / seed_parity 를 끈 상태라 이게 유일한 sanity check 이다.
+    # ※ random_label(8) / seed_parity(2) 는 negative control 이라 아예 학습하지 않는다.
+    #   (다시 보고 싶으면 아래 리스트에 이름만 추가하거나 `attributes: all` 로 되돌리면 됨)
+    classification:
+      labels_npy: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/synthetic/blender_real/blender_real_labels.npy
+      label_map_json: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/synthetic/blender_real/blender_real_label_maps.json
+      attributes: [object_shape, object_color, motion_direction,
+                   trajectory_type, rotation_direction, size_bin, speed_bin,
+                   hdri_idx, ground_palette, background_type]
+
+    stages:
+      vision_encoder: all       # ViT-L 24개 block 전부 (특정 layer 만: [5, 11, 17, 23])
+    plot: true
+    plot_pez: [0.2, 0.4]        # Physics Emergence Zone 음영 (끄려면 false)
+
+    probes:
+      - type: linear
+        pooling: mean           # (T*S) 전체 토큰 mean pooling. cache_pooling 과 반드시 일치시킬 것
+        pre_norm: true          # ※ cache_features=true + pooled 캐시 경로에서는 무시됨(LayerNorm 없음).
+                                #    LayerNorm 을 실제로 쓰려면 cache_features: false 로 둘 것.
+        optimization: { lr: 0.001, weight_decay: 0.1, warmup: 2.0 }
+
+  data:
+    dataset_type: VideoDataset
+    dataset_train: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/synthetic/blender_real/blender_real_train.csv
+    dataset_val:   /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/synthetic/blender_real/blender_real_val.csv
+    num_classes: 8             # multi-attribute 에서는 무시됨 (head 별 클래스 수는 label_map 에서)
+    resolution: 256
+    resize_mode: resize        # 384x384 원본 전체 유지 (crop 시 물체가 잘릴 수 있음)
+    frames_per_clip: 16
+    frame_step: 1
+    uniform_sampling: true     # 128프레임 전체에서 16프레임 균일 샘플 (motion 계열에 필수)
+    num_segments: 1
+    num_views_per_segment: 1
+
+  optimization:
+    batch_size: 16
+    num_epochs: 30
+    use_bfloat16: true
+    save_optimizer: false
+    cache_features: true       # frozen encoder + 무증강 -> 1회만 인코딩 후 epoch 은 캐시로
+    cache_pooling: mean        # linear probe 전용, per-rank 캐시 = N x 24layer x 1024 x 2B
+    cache_max_gb: 80
+    default_head:
+      start_lr: 0.0
+      final_lr: 0.0
+      final_weight_decay: 0.0
+
+model_kwargs:
+  checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vitl-fpc64-256/snapshots/b3c1679b7c34d3255ef3547f27c7b226aefab26f/original/model.pth
+  module_name: evals.analysis.modelcustom.vit_encoder_multilayer
+  pretrain_kwargs:
+    encoder:
+      checkpoint_key: target_encoder
+      model_name: vit_large
+      patch_size: 16
+      tubelet_size: 2
+      uniform_power: true
+      use_rope: true
+      img_temporal_dim_size: null
+  wrapper_kwargs:
+    max_frames: 128
+    use_pos_embed: false

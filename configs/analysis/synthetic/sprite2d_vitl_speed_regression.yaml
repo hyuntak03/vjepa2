@@ -1,0 +1,114 @@
+# ============================================================================
+# SYNTHETIC TESTBED — sprite2d : SPEED 연속값 REGRESSION (V-JEPA2 ViT-L, frozen)
+#
+# 왜 이걸 따로 도는가:
+#   speed_bin 3-way 분류가 71.9% (chance 33.3%) 로 제일 낮았는데, per-sample 오류를
+#   까보니 fast<->slow 혼동이 2000개 중 9개뿐이고 오류가 전부 인접 bin 경계에 몰려 있었다.
+#   => 표현이 속도를 "못 읽는" 게 아니라 단조적으로 읽되 해상도가 bin 간격 수준.
+#   3-way CE 는 클래스가 순서를 가진다는 걸 모르므로 이 신호를 그대로 버린다.
+#   연속값 MSE 로 학습하고 R^2 로 재면 실제 해상도가 그대로 드러난다.
+#
+# 분류 run 과 train/val CSV 가 완전히 동일하다 (CSV 의 정수 = targets.npy 의 행 인덱스).
+# 따라서 split 이 같아서 두 결과를 바로 비교할 수 있다.
+#
+# 실행:
+#   CONFIGS="configs/analysis/synthetic/sprite2d_vitl_speed_regression.yaml" \
+#     bash z_scripts/run_synth_probe.sh
+#
+# 결과: configs/analysis/synthetic/logs/analysis_vlm/sprite2d-vitl-speed-r2/
+#         stage_val_acc.png  (x=layer fraction, y=R^2, R^2=0 기준선 = 평균 예측)
+#         summary.json       (best_val_acc = layer 별 best R^2)
+#
+# 읽는 법: R^2 = 1 - (예측오차분산 / 속도분산). speed sd = 0.256 px/frame 이므로
+#   R^2 0.45 -> 오차 sd ~0.19 (지금 3-way 결과에서 역산한 값)
+#   R^2 0.90 -> 오차 sd ~0.08 (같은 모델에서 3-way 로 재면 ~93% 에 해당)
+# ============================================================================
+
+synthetic:
+  domain: sprite2d
+  index_root: /data/hyuntak/project/2026/2027_cvpr/synthetic_test/out
+  video_root: /local_datasets/world/synthetic_test
+  video_subdir: "{domain}/videos"
+  out_dir: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/synthetic/sprite2d
+  val_ratio: 0.2
+  seed: 0                   # ★ 분류 run 과 동일해야 split 이 같다
+  max_videos: null
+  check_exists: false
+  video_ext: .mp4
+  exclude_uid_regex: "_ll_"
+  drop_columns: [uid, domain, seed, size_px, speed_px_per_frame]
+  # ── 연속값 타깃 (regression). 순서가 곧 targets.npy 의 컬럼 순서.
+  continuous_columns: [speed_px_per_frame, size_px]
+
+eval_name: analysis_vlm
+folder: /data/hyuntak/project/2026/2027_cvpr/vjepa2/configs/analysis/synthetic/logs
+num_workers: 8
+resume_checkpoint: false
+val_only: false
+tag: sprite2d-vitl-speed-r2
+
+experiment:
+  analysis:
+    model: vjepa
+    task: regression
+
+    regression:
+      targets_npy: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/synthetic/sprite2d/sprite2d_targets.npy
+      # 지금은 speed 만. size 도 같이 보려면 아래 줄의 주석을 풀면 된다
+      # (같은 run 안에서 각각 별도 R^2 곡선으로 그려진다 — encoder pass 는 한 번).
+      variables:
+        - {name: speed, cols: [0]}       # speed_px_per_frame
+        # - {name: size,  cols: [1]}     # size_px
+
+    stages:
+      vision_encoder: all
+    plot: true
+    plot_pez: [0.2, 0.4]
+
+    probes:
+      - type: linear
+        pooling: mean
+        pre_norm: true
+        optimization: { lr: 0.001, weight_decay: 0.1, warmup: 2.0 }
+
+  data:
+    dataset_type: VideoDataset
+    dataset_train: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/synthetic/sprite2d/sprite2d_train.csv
+    dataset_val:   /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/synthetic/sprite2d/sprite2d_val.csv
+    num_classes: 8             # 회귀에서는 무시됨
+    resolution: 256
+    resize_mode: resize
+    frames_per_clip: 16
+    frame_step: 1
+    uniform_sampling: true
+    num_segments: 1
+    num_views_per_segment: 1
+
+  optimization:
+    batch_size: 16
+    num_epochs: 30
+    use_bfloat16: true
+    save_optimizer: false
+    cache_features: true
+    cache_pooling: mean
+    cache_max_gb: 80
+    default_head:
+      start_lr: 0.0
+      final_lr: 0.0
+      final_weight_decay: 0.0
+
+model_kwargs:
+  checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vitl-fpc64-256/snapshots/b3c1679b7c34d3255ef3547f27c7b226aefab26f/original/model.pth
+  module_name: evals.analysis.modelcustom.vit_encoder_multilayer
+  pretrain_kwargs:
+    encoder:
+      checkpoint_key: target_encoder
+      model_name: vit_large
+      patch_size: 16
+      tubelet_size: 2
+      uniform_power: true
+      use_rope: true
+      img_temporal_dim_size: null
+  wrapper_kwargs:
+    max_frames: 128
+    use_pos_embed: false

@@ -1,0 +1,130 @@
+# ==== VARIANT: constant lr + Adam ====
+# =============================================================================
+# IntPhys 1 — Joseph 2026 Appendix B verbatim + 5-fold grouped CV.
+#
+# Appendix B (p13) full text: "For all experiments, we trained linear probes of
+# the form f(hℓ) = W hℓ + b on spatiotemporally pooled activations from each
+# layer ℓ ∈ {0,...,n−1} of the frozen n-layer encoder. We performed a
+# hyperparameter sweep over 20 configurations, with learning rates
+# {10⁻⁴, 3×10⁻⁴, 10⁻³, 3×10⁻³, 5×10⁻³} and weight decay {0.01, 0.1, 0.4, 0.8},
+# selecting the best model based on validation performance. We used 5-fold
+# grouped cross-validation and report results as mean ± standard deviation
+# across folds."
+#
+# Gaps the paper is SILENT on (we fill from C.11 for internal consistency):
+#   * Optimizer         : NOT SPECIFIED  -> we use AdamW (C.11 uses Adam;
+#                                           at these wd values (>=0.01), the
+#                                           AdamW-vs-Adam difference is real
+#                                           but small; both are wd-only variants
+#                                           of the same core step)
+#   * Epochs            : NOT SPECIFIED  -> we use 50 to match C.11
+#   * Schedule/warmup   : NOT SPECIFIED  -> constant lr/wd, no warmup
+#
+# Grouping for 5-fold CV: quadruplet (90 quads → 18 per fold, 4 videos each →
+# 72 videos per val fold). This preserves matched pairs together (both pairs of
+# a quadruplet stay in the same fold), matching the paper's phrasing "between
+# matched possible and impossible video pairs".
+#
+# Placeholders replaced by z_scripts/run_5fold.sh at launch time:
+#   __TRAIN_CSV__ / __VAL_CSV__  -> data_csv/IntPhys1/cv/{train,val}_fold{k}.csv
+#   __TAG__                       -> probe_intphys1_vitl_5fold_appb_f{k}
+# =============================================================================
+eval_name: analysis_vlm
+folder: /data/hyuntak/project/2026/2027_cvpr/vjepa2/configs/analysis/probing/logs
+num_workers: 8
+resume_checkpoint: false
+val_only: false
+tag: __TAG__
+
+experiment:
+  analysis:
+    model: vjepa
+    stages:
+      vision_encoder: all
+    plot: true
+    plot_pez: [0.2, 0.4]
+
+    # Paper Appendix B verbatim: 5 lr × 4 wd = 20 configs.
+    probes:
+      # lr = 1e-4
+      - { type: linear, pooling: mean, optimization: { lr: 0.0001, weight_decay: 0.01, start_lr: 0.0001, final_lr: 0.0001, final_weight_decay: 0.01, warmup: 0.0 } }
+      - { type: linear, pooling: mean, optimization: { lr: 0.0001, weight_decay: 0.1,  start_lr: 0.0001, final_lr: 0.0001, final_weight_decay: 0.1,  warmup: 0.0 } }
+      - { type: linear, pooling: mean, optimization: { lr: 0.0001, weight_decay: 0.4,  start_lr: 0.0001, final_lr: 0.0001, final_weight_decay: 0.4,  warmup: 0.0 } }
+      - { type: linear, pooling: mean, optimization: { lr: 0.0001, weight_decay: 0.8,  start_lr: 0.0001, final_lr: 0.0001, final_weight_decay: 0.8,  warmup: 0.0 } }
+      # lr = 3e-4
+      - { type: linear, pooling: mean, optimization: { lr: 0.0003, weight_decay: 0.01, start_lr: 0.0003, final_lr: 0.0003, final_weight_decay: 0.01, warmup: 0.0 } }
+      - { type: linear, pooling: mean, optimization: { lr: 0.0003, weight_decay: 0.1,  start_lr: 0.0003, final_lr: 0.0003, final_weight_decay: 0.1,  warmup: 0.0 } }
+      - { type: linear, pooling: mean, optimization: { lr: 0.0003, weight_decay: 0.4,  start_lr: 0.0003, final_lr: 0.0003, final_weight_decay: 0.4,  warmup: 0.0 } }
+      - { type: linear, pooling: mean, optimization: { lr: 0.0003, weight_decay: 0.8,  start_lr: 0.0003, final_lr: 0.0003, final_weight_decay: 0.8,  warmup: 0.0 } }
+      # lr = 1e-3
+      - { type: linear, pooling: mean, optimization: { lr: 0.001, weight_decay: 0.01, start_lr: 0.001, final_lr: 0.001, final_weight_decay: 0.01, warmup: 0.0 } }
+      - { type: linear, pooling: mean, optimization: { lr: 0.001, weight_decay: 0.1,  start_lr: 0.001, final_lr: 0.001, final_weight_decay: 0.1,  warmup: 0.0 } }
+      - { type: linear, pooling: mean, optimization: { lr: 0.001, weight_decay: 0.4,  start_lr: 0.001, final_lr: 0.001, final_weight_decay: 0.4,  warmup: 0.0 } }
+      - { type: linear, pooling: mean, optimization: { lr: 0.001, weight_decay: 0.8,  start_lr: 0.001, final_lr: 0.001, final_weight_decay: 0.8,  warmup: 0.0 } }
+      # lr = 3e-3
+      - { type: linear, pooling: mean, optimization: { lr: 0.003, weight_decay: 0.01, start_lr: 0.003, final_lr: 0.003, final_weight_decay: 0.01, warmup: 0.0 } }
+      - { type: linear, pooling: mean, optimization: { lr: 0.003, weight_decay: 0.1,  start_lr: 0.003, final_lr: 0.003, final_weight_decay: 0.1,  warmup: 0.0 } }
+      - { type: linear, pooling: mean, optimization: { lr: 0.003, weight_decay: 0.4,  start_lr: 0.003, final_lr: 0.003, final_weight_decay: 0.4,  warmup: 0.0 } }
+      - { type: linear, pooling: mean, optimization: { lr: 0.003, weight_decay: 0.8,  start_lr: 0.003, final_lr: 0.003, final_weight_decay: 0.8,  warmup: 0.0 } }
+      # lr = 5e-3
+      - { type: linear, pooling: mean, optimization: { lr: 0.005, weight_decay: 0.01, start_lr: 0.005, final_lr: 0.005, final_weight_decay: 0.01, warmup: 0.0 } }
+      - { type: linear, pooling: mean, optimization: { lr: 0.005, weight_decay: 0.1,  start_lr: 0.005, final_lr: 0.005, final_weight_decay: 0.1,  warmup: 0.0 } }
+      - { type: linear, pooling: mean, optimization: { lr: 0.005, weight_decay: 0.4,  start_lr: 0.005, final_lr: 0.005, final_weight_decay: 0.4,  warmup: 0.0 } }
+      - { type: linear, pooling: mean, optimization: { lr: 0.005, weight_decay: 0.8,  start_lr: 0.005, final_lr: 0.005, final_weight_decay: 0.8,  warmup: 0.0 } }
+
+  data:
+    dataset_type: VideoDataset
+    dataset_train: __TRAIN_CSV__
+    dataset_val:   __VAL_CSV__
+    num_classes: 2
+    resolution: 256
+    resize_mode: resize
+    frames_per_clip: 16
+    frame_step: 1
+    num_segments: 1
+    num_views_per_segment: 1
+    uniform_sampling: false
+    center_sampling: false
+    keystones_json: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/IntPhys1/keystones.json
+
+  optimization:
+    batch_size: 8
+    num_epochs: 50
+    use_bfloat16: false
+    save_optimizer: false
+    cache_features: true
+    cache_pooling: mean
+    cache_max_gb: 100
+    # eval_metric: per_video | paired | quadruplet
+    #   per_video  (default; paper Fig 1 canonical) — binary classifier accuracy of the
+    #              linear probe on each individual video. Chance = 50%.
+    #   paired     — per matched-pair accuracy: correct iff P(imp|imp_vid) > P(imp|pos_vid).
+    #              REQUIRES keystones.json to distinguish the two matched pairs inside a
+    #              quadruplet (the shipping keystones.json has per-QUAD ticks so 'paired'
+    #              will fail at setup — use 'quadruplet' or emit per-pair keystones).
+    #   quadruplet — official IntPhys 1 relative score (Riochet 2020 Eq. 1): quadruplet is
+    #              correct iff Σ P(imp|impossible_i) > Σ P(imp|possible_i) across its 4 videos.
+    eval_metric: per_video
+    optimizer: adam
+    default_head: { start_lr: 0.0, final_lr: 0.0, final_weight_decay: 0.0 }
+
+model_kwargs:
+  checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vitl-fpc64-256/snapshots/b3c1679b7c34d3255ef3547f27c7b226aefab26f/original/model.pth
+  module_name: evals.analysis.modelcustom.vit_encoder_multilayer
+  pretrain_kwargs:
+    encoder:
+      checkpoint_key: target_encoder
+      model_name: vit_large
+      patch_size: 16
+      tubelet_size: 2
+      uniform_power: true
+      use_rope: true
+      img_temporal_dim_size: null
+  wrapper_kwargs:
+    max_frames: 128
+    use_pos_embed: false
+    apply_encoder_norm: false           # false (default) = raw x_N via forward hooks.
+                                        # true = stock VJEPA2 path (out_layers → self.norm(x_N)
+                                        #   per intermediate). Ablation for reproducing paper
+                                        #   Fig 1 shape (sharp PEZ + steep L23 degradation) —
+                                        #   see PAPER_VS_OURS.md.
