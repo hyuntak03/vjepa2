@@ -57,3 +57,5 @@ analysis/*/logs/
 *.png
 
 dummy_droid_data/
+
+z_exp/

@@ -1,0 +1,149 @@
+# =============================================================================
+# QUICK CHECK — 물체가 100% 보이는 1~8 프레임만 잘라서 probing (linear / attentive)
+#
+# 목적: LayerNorm 을 train-faithful 하게 고친 뒤, "물체가 완전히 보이는 8프레임"
+#       에서 shape/color 가 애초에 읽히기는 하는가를 최소 구성으로 빠르게 확인.
+#       여기서 안 나오면 그 아래 모든 실험(가림 구간 / predictor)의 해석이 무의미하다.
+#
+# 구성:
+#   * possible 비디오만 (291 scene). imp_* 는 아예 로드하지 않는다.
+#   * index.csv 의 train/test 를 합쳐서 scene 기준 50/50 재분할
+#     -> train 약 145 scene (기존 63 보다 두 배 이상). 같은 scene 이 양쪽에 걸치지 않는다.
+#     ("합쳐서 그냥 전부 학습" 을 원하면 아래 train_acc 컬럼이 바로 그 값이다.)
+#   * 입력 자체를 8프레임으로 자른다 (40프레임 forward 를 하지 않음) -> 훨씬 빠르고
+#     캐시도 작다.
+#   * 실험 2개가 같은 feature 캐시를 공유한다 (--only 로 하나만 돌릴 수 있다):
+#       quick_visible8f      linear probe   — 토큰 1024개를 그냥 평균낸 뒤 Linear
+#       attentive_visible8f  attentive probe— learnable query 1개가 cross-attention 으로
+#                                             토큰별 가중합. 평균이 아니다.
+#     캐시가 pooled 벡터가 아니라 토큰 시퀀스(1024 tokens x 1024 dim)를 저장하는 이유가
+#     이것이다 — attentive 는 토큰 집합 자체가 필요하다.
+#
+# 두 인코더를 같이 본다 (둘 다 8프레임 입력이라 비용 차이 없음):
+#   tgt8__visible  target encoder (EMA)     <- 이후 predictor 이식 실험이 쓰는 쪽
+#   ctx8__visible  context encoder (online) <- predictor 에 실제로 입력되는 쪽
+#
+# 실행:  bash z_scripts/blender_occlusion/run_quick_visible8f.sh
+# =============================================================================
+
+tag: quick_visible8f_vitl
+output_dir: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_exp/blender_occlusion/results/quick_visible8f
+
+data:
+  root: /local_datasets/world/blender_occlusion_dataset
+  index_csv: index.csv
+  n_frames: 40                       # 원본 클립 길이 (자르는 건 window 가 한다)
+  resolution: 256
+
+  targets:
+    - name: shape
+      column: shape_after
+      before_column: shape           # 1~8 프레임에 보이는 물체 = 가림 이전 정체성
+      classes: [bar, cross, cube, ell, ring, sphere, star, triangle]
+    - name: color
+      column: color_after
+      before_column: color
+      classes: ["#3CB44B", "#42D4F4", "#4363D8", "#911EB4",
+                "#E6194B", "#F032E6", "#F58231", "#FFE119"]
+
+  eval_variants:  [possible]         # possible 만 로드
+  extra_variants: []
+
+  split:
+    mode: ratio                      # index.csv 의 train/test 를 무시하고 전부 합쳐서 재분할
+    group_by: scene_id               # 같은 scene 이 train/val 에 동시에 들어가지 않게
+    train_frac: 0.5
+    seed: 0
+
+model:
+  checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vitl-fpc64-256/snapshots/b3c1679b7c34d3255ef3547f27c7b226aefab26f/original/model.pth
+  arch_name: vit_large
+  img_size: 256
+  patch_size: 16
+  tubelet_size: 2
+  window_size: 40
+  use_rope: true
+  uniform_power: false
+  dual_encoder: true
+  context_encoder_key: encoder
+  target_encoder_key: target_encoder
+  predictor: { embed_dim: 384, depth: 12, num_heads: 12, num_mask_tokens: 10 }
+  dtype: bfloat16
+
+features:
+  context_length: 32
+  mask_index: 0
+  batch_size: 8                      # 8프레임 클립이라 40프레임 대비 메모리 여유가 크다
+  num_workers: 6
+  cache_dtype: float16
+  cache_dir: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_exp/blender_occlusion/cache
+
+  windows:
+    visible_f1to8: [0, 8]            # 0-idx [0,8) = 사람 기준 1~8 번째 프레임
+
+  # isolated_* = 그 window 의 프레임만 독립 클립으로 인코더에 입력.
+  # 40프레임 forward 를 아예 하지 않으므로 이 config 는 매우 빠르다.
+  sources:
+    - {name: tgt8__visible, encoder: isolated_target, window: visible_f1to8}
+    - {name: ctx8__visible, encoder: isolated_ctx,    window: visible_f1to8}
+
+experiments:
+  - name: quick_visible8f
+    title: "물체가 100% 보이는 1~8 프레임만 입력 — shape/color 가 읽히는가"
+    question: >
+      LayerNorm 을 train-faithful 하게 고친 뒤, 물체가 완전히 보이는 최소 구간에서
+      shape 와 color 가 linear probe 로 읽히는가. 다른 모든 실험의 전제 조건이다.
+    expect: >
+      shape 는 chance(0.125)보다 확실히 높아야 한다. color 는 mean pooling 특성상
+      낮게 나올 수 있다 — 24px 공이 256개 spatial token 으로 희석되기 때문이다
+      (같은 feature 에서 배경 바닥색은 0.88 로 읽혔다).
+    read_as: >
+      train_acc 가 1.0 에 못 미치면 20 epoch 이 부족한 것이므로 val 값을 해석하기 전에
+      epoch 부터 올릴 것. tgt8 과 ctx8 의 차이는 EMA teacher 와 online 인코더의 차이다.
+    fit_on: tgt8__visible
+    fit_labels: before
+    fit_variants: [possible]
+    apply_to: [tgt8__visible, ctx8__visible]
+    probe: {type: linear, pooling: mean, pre_norm: true}
+    optimization: {num_epochs: 20, batch_size: 16, lr: 0.001, weight_decay: 0.01}
+    independent_probes: true         # ctx8 도 자체 head 로 따로 평가 (indep 컬럼)
+
+  # ---------------------------------------------------------------------------
+  # attentive probe. build_probe -> src/models/attentive_pooler.AttentiveClassifier.
+  # num_probe_blocks: 4 = self-attention Block 3개를 1024개 토큰 위에 돌린 뒤,
+  # 맨 끝에서 query token 1개가 CrossAttentionBlock 으로 pooling 한다
+  # (cross-attention 은 마지막 한 번뿐이다).
+  #
+  # !! 과적합 경고 !!
+  #   depth 4 = 49.3M 파라미터인데 학습 샘플은 146개다. linear probe(8K 파라미터)와
+  #   비교하면 규모가 완전히 다르다. train_acc 는 거의 확실히 1.0 이 되고, val 이
+  #   linear 보다 낮게 나와도 "attentive 가 나쁘다" 가 아니라 "이 데이터 크기에서
+  #   attentive 는 못 쓴다" 로 읽어야 한다.
+  #   아래 lr/wd 는 근거 있는 값이 아니라 출발점이다. LR / EPOCHS 환경변수로 스윕할 것.
+  #
+  # attentive 를 쓰는 이유: mean pooling 은 24px 공을 256개 spatial token 으로 희석시킨다
+  # (같은 feature 에서 배경 바닥색은 0.88, 물체색은 0.25). cross-attention pooler 는
+  # 물체가 있는 토큰에 가중치를 몰아줄 수 있으므로, 특히 color 가 올라가는지가 관전 포인트.
+  - name: attentive_visible8f
+    title: "같은 1~8 프레임, attentive probe (self-attn 3 + cross-attn 1)"
+    question: >
+      mean pooling 이 물체를 배경에 희석시켜서 color 가 안 읽히는 것이라면,
+      토큰을 골라서 pooling 하는 attentive head 는 그걸 회복할 수 있는가.
+    expect: >
+      color 가 linear(mean pool) 대비 크게 오르면 희석 가설이 맞는 것이다.
+      안 오르면 인코더 표현 자체에 물체 색이 선형 분리 가능한 형태로 없다는 뜻이다.
+      단 파라미터 49.3M vs 샘플 146개라 과적합이 지배할 수 있다.
+    read_as: >
+      train_acc 와 val 의 격차를 먼저 볼 것. train 1.0 / val 이 linear 보다 낮으면
+      과적합이므로 lr 을 낮추거나(LR=1e-5) weight_decay 를 올려 다시 볼 것.
+      linear 결과(quick_visible8f)와 같은 split·같은 feature 이므로 직접 비교 가능하다.
+    fit_on: tgt8__visible
+    fit_labels: before
+    fit_variants: [possible]
+    apply_to: [tgt8__visible, ctx8__visible]
+    probe: {type: attentive, num_heads: 16, num_probe_blocks: 4}
+    optimization: {num_epochs: 50, batch_size: 16, lr: 0.0001, weight_decay: 0.05}
+    independent_probes: true
+
+report:
+  save_features: false

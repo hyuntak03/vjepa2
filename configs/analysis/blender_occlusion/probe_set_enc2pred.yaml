@@ -1,0 +1,140 @@
+# =============================================================================
+# BLENDER PROBE SET — predictor 가 예측한 미래에 shape/color 정보가 있는가
+#                     (정지 vs 이동 · 물체 크기별)
+#
+# 이 데이터셋은 앞선 occlusion 셋들의 교란을 걷어낸 통제 셋이다:
+#   * 가림 없음 (occluder = 0, 768개 전부)          -> occlusion 효과 분리
+#   * shape 8종 x 96개, color 8종 x 96개 완전 균등  -> chance = 최빈 baseline = 0.125
+#   * obj_px 4단계 24/32/48/64 (= patch16 기준 토큰 2.25 / 4 / 9 / 16)
+#   * is_static: 정지 128 / 이동 640 (speed_px_f 0.5~4.0)
+#   * 192 row x 4 size = 768 video. 같은 row 는 shape·color·궤적이 같고 크기만 다르다.
+#
+# !! split 은 반드시 row_id 로 묶어야 한다 !!
+#   같은 row 가 4개 크기로 반복되므로, row 를 묶지 않으면 동일한 물체·궤적이 train 과
+#   val 양쪽에 들어가 크기만 다른 복제본으로 누수된다.
+#
+# 앞선 실험들과 같은 4개 source 를 attentive probe 로 비교한다:
+#   tgt8__visible  target enc 에 1~8 프레임만        (물체 완전 가시 기준점)
+#   tgt8__future   target enc 에 33~40 프레임만      (그 픽셀만의 정보)
+#   tgt40__future  target enc 40프레임 中 33~40      (predictor 의 회귀 타깃 = 천장)
+#   pred__future   predictor 가 상상한 33~40         (측정 대상)
+#
+# 리포트는 세 층위로 나온다:
+#   per_variant  = is_static (0=이동 / 1=정지)   <- group_column
+#   per_stratum  = obj_px, speed_px_f            <- strata
+#   전체         = 위 표의 indep 컬럼
+#
+# probe head 는 전체 train 으로 한 번만 학습하고 val 만 쪼개서 본다. 층별로 head 를 따로
+# 학습하면 정지(32 row)나 크기별(48 row) 표본이 너무 얇아진다.
+#
+# 실행:  bash z_scripts/blender_occlusion/run_probe_set.sh
+# =============================================================================
+
+tag: probe_set_vitl
+output_dir: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_exp/predictor_analysis/results/probe_set_enc2pred
+
+data:
+  root: /local_datasets/world/blender_probe_set
+  index_csv: index.csv
+  n_frames: 40
+  resolution: 256
+
+  # 이 셋에는 변이(shape_after/color_after)가 없다. before_column 을 생략하면
+  # column 을 그대로 쓰므로 acc_before == acc_after 로 같은 값이 찍힌다.
+  targets:
+    - name: shape
+      column: shape
+      classes: [bar, cross, cube, ell, ring, sphere, star, triangle]
+    - name: color
+      column: color
+      classes: ["#3CB44B", "#42D4F4", "#4363D8", "#911EB4",
+                "#E6194B", "#F032E6", "#F58231", "#FFE119"]
+
+  group_column: is_static          # 기본 리포트 그룹. '1'=정지, '0'=이동
+  eval_variants: ["1", "0"]
+  extra_variants: []
+  strata: [obj_px, speed_px_f]     # 추가 층화 리포트
+
+  split:
+    mode: ratio                    # split 컬럼이 없는 데이터셋
+    group_by: row_id               # ★ 같은 물체의 4개 크기가 갈라지지 않게
+    train_frac: 0.5
+    seed: 0
+
+model:
+  checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vitl-fpc64-256/snapshots/b3c1679b7c34d3255ef3547f27c7b226aefab26f/original/model.pth
+  arch_name: vit_large
+  img_size: 256
+  patch_size: 16
+  tubelet_size: 2
+  window_size: 40
+  use_rope: true
+  uniform_power: false
+  dual_encoder: true               # context=online encoder, target=EMA (train-faithful)
+  context_encoder_key: encoder
+  target_encoder_key: target_encoder
+  predictor: { embed_dim: 384, depth: 12, num_heads: 12, num_mask_tokens: 10 }
+  dtype: bfloat16
+
+features:
+  context_length: 32               # 1~32 가 context, 33~40 이 predictor 출력 구간
+  mask_index: 0
+  batch_size: 4
+  num_workers: 6
+  cache_dtype: float16
+  cache_dir: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_exp/blender_occlusion/cache
+
+  windows:                         # 이름은 1-idx, 값은 0-idx 반개구간
+    visible_f1to8:  [0, 8]
+    future_f33to40: [32, 40]
+
+  sources:
+    - {name: pred__future,  encoder: predictor,       window: future_f33to40}
+    - {name: tgt40__future, encoder: target,          window: future_f33to40}
+    - {name: tgt8__future,  encoder: isolated_target, window: future_f33to40}
+    - {name: tgt8__visible, encoder: isolated_target, window: visible_f1to8}
+
+experiments:
+
+  # GPU 0 에서 실행
+  - name: fit_tgt8visible_to_pred
+    title: "물체가 보이는 1~8프레임(target enc)에서 학습한 head -> predictor 출력"
+    question: >
+      가림이 없는 조건에서, 인코더에서 배운 readout 이 predictor 출력에서도 통하는가.
+      occlusion 24px 에서는 이 이식이 shape 0.448 / color 0.159 로 무너졌다.
+    expect: >
+      pred__future 자체 head 는 shape 0.987 / color 0.883 이다(정보는 있다).
+      이식도 그 근처면 "가림 없을 땐 표현 형식까지 호환" 이고,
+      이식만 낮으면 "정보는 있는데 predictor 가 다른 형식으로 쓴다" 는 뜻이다.
+      후자면 occlusion 결과의 해석이 바뀐다.
+    read_as: >
+      per_variant 는 is_static ('1'=정지 / '0'=이동), 층화는 obj_px / speed_px_f.
+    fit_on: tgt8__visible
+    fit_labels: before
+    fit_variants: ["1", "0"]
+    apply_to: [tgt8__visible, pred__future, tgt40__future]
+    probe: {type: attentive, num_heads: 16, num_probe_blocks: 4}
+    optimization: {num_epochs: 50, batch_size: 16, lr: 0.0001, weight_decay: 0.05}
+    independent_probes: false
+
+  # GPU 1 에서 실행
+  - name: fit_tgt8future_to_pred
+    title: "예측 대상 구간(33~40)의 인코딩에서 학습한 head -> predictor 출력"
+    question: >
+      predictor 가 맞춰야 할 바로 그 구간을 인코더가 본 표현에서 학습하면 이식이 되는가.
+      가장 직접적인 비교다.
+    expect: >
+      tgt8__future 자체 head 는 shape 0.979 / color 0.964.
+    read_as: >
+      fit_tgt8visible_to_pred 와의 차이는 'fit 구간이 1~8 이냐 33~40 이냐' 하나뿐이다.
+    fit_on: tgt8__future
+    fit_labels: before
+    fit_variants: ["1", "0"]
+    apply_to: [tgt8__future, pred__future, tgt40__future]
+    probe: {type: attentive, num_heads: 16, num_probe_blocks: 4}
+    optimization: {num_epochs: 50, batch_size: 16, lr: 0.0001, weight_decay: 0.05}
+    independent_probes: false
+
+report:
+  confusion: true
+  save_features: false

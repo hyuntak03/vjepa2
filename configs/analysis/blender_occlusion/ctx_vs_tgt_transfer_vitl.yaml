@@ -1,0 +1,153 @@
+# =============================================================================
+# CONTEXT vs TARGET encoder 로 학습한 head 를 predictor 출력에 이식 (24px occlusion)
+#
+# 질문: attentive head 를 (a) context encoder 출력, (b) target encoder 출력 에서 각각
+#       학습한 뒤 frozen 그대로 predictor 출력에 적용하면 어느 쪽이 더 잘 읽히는가.
+#
+# 왜 둘 다 보는가:
+#   target encoder (EMA)     predictor 가 L1 으로 맞추도록 학습된 회귀 타깃.
+#                            좌표계가 맞으므로 이론상 이식이 되어야 하는 쪽.
+#   context encoder (online) predictor 에 실제로 입력되는 표현.
+#                            predictor 가 이 공간에서 무엇을 받아 무엇을 내보내는지 본다.
+#
+# ⚠️ attentive head 는 49.3M 파라미터 비선형 재매핑이라, 이식이 성공해도 "판별 방향이
+#    겹친다" 는 주장은 못 한다. "이 readout 아래에서 두 표현이 호환된다" 까지다.
+#    방향 주장에는 선형 readout 이 필요하다 (README §5.2).
+#
+# pred__future 의 자체 head 성능(= 천장, 같은 데이터·같은 split seed 0):
+#     shape 0.828 / color 0.331   <- quick_predictor_future 실행에서 측정됨
+# 이식값을 이 값과 비교해서 읽을 것. independent_probes 를 끈 이유도 이것(시간 절약).
+#
+# 실행:  bash z_scripts/blender_occlusion/run_ctx_vs_tgt.sh
+# =============================================================================
+
+tag: ctx_vs_tgt_transfer_vitl
+output_dir: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_exp/predictor_analysis/results/ctx_vs_tgt
+
+data:
+  root: /local_datasets/world/blender_occlusion_dataset
+  index_csv: index.csv
+  n_frames: 40
+  resolution: 256
+
+  targets:
+    - name: shape
+      column: shape_after
+      before_column: shape
+      classes: [bar, cross, cube, ell, ring, sphere, star, triangle]
+    - name: color
+      column: color_after
+      before_column: color
+      classes: ["#3CB44B", "#42D4F4", "#4363D8", "#911EB4",
+                "#E6194B", "#F032E6", "#F58231", "#FFE119"]
+
+  eval_variants:  [possible]
+  extra_variants: []
+
+  split:                           # quick_predictor_future 와 동일 seed -> 직접 비교 가능
+    mode: ratio
+    group_by: scene_id
+    train_frac: 0.5
+    seed: 0
+
+model:
+  checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vitl-fpc64-256/snapshots/b3c1679b7c34d3255ef3547f27c7b226aefab26f/original/model.pth
+  arch_name: vit_large
+  img_size: 256
+  patch_size: 16
+  tubelet_size: 2
+  window_size: 40
+  use_rope: true
+  uniform_power: false
+  dual_encoder: true
+  context_encoder_key: encoder
+  target_encoder_key: target_encoder
+  predictor: { embed_dim: 384, depth: 12, num_heads: 12, num_mask_tokens: 10 }
+  dtype: bfloat16
+
+features:
+  context_length: 32
+  mask_index: 0
+  batch_size: 4
+  num_workers: 6
+  cache_dtype: float16
+  cache_dir: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_exp/blender_occlusion/cache
+
+  windows:                         # 이름 1-idx / 값 0-idx 반개구간
+    visible_f1to8:  [0, 8]
+    context_f1to32: [0, 32]
+    future_f33to40: [32, 40]
+
+  sources:
+    # --- 이식 대상 -----------------------------------------------------------
+    - {name: pred__future,   encoder: predictor,       window: future_f33to40}
+    - {name: tgt40__future,  encoder: target,          window: future_f33to40}
+    # --- target encoder 쪽 fit 소스 -----------------------------------------
+    - {name: tgt8__visible,  encoder: isolated_target, window: visible_f1to8}
+    - {name: tgt40__visible, encoder: target,          window: visible_f1to8}
+    # --- context encoder 쪽 fit 소스 (target 과 window/토큰수를 맞춘 짝) -------
+    - {name: ctx8__visible,  encoder: isolated_ctx,    window: visible_f1to8}
+    - {name: ctx32__visible, encoder: ctx_masked,      window: visible_f1to8}
+    # --- predictor 가 실제로 입력받는 표현 전체 (4096 tokens) -----------------
+    - {name: ctx32__context, encoder: ctx_masked,      window: context_f1to32}
+
+experiments:
+
+  - name: fit_target_to_predictor
+    title: "target encoder(EMA) 에서 학습한 head -> predictor 출력"
+    question: >
+      predictor 가 L1 으로 맞추도록 학습된 바로 그 공간(EMA target encoder)에서 head 를
+      학습하면, frozen 그대로 predictor 출력에 얹었을 때 얼마나 읽히는가.
+    expect: >
+      좌표계가 맞는 쪽이므로 context encoder 판보다 잘 나와야 자연스럽다.
+      pred__future 자체 head(shape 0.828 / color 0.331)에 가까울수록 이식이 잘 된 것.
+    read_as: >
+      tgt8__visible 행은 fit 소스 자신이므로 상한. pred__future 행이 이식 성능이다.
+      둘의 격차가 "표현 형식이 다른 정도" 다.
+    fit_on: tgt8__visible
+    fit_labels: before
+    fit_variants: [possible]
+    apply_to: [tgt8__visible, tgt40__visible, tgt40__future, pred__future]
+    probe: {type: attentive, num_heads: 16, num_probe_blocks: 4}
+    optimization: {num_epochs: 50, batch_size: 16, lr: 0.0001, weight_decay: 0.05}
+    independent_probes: false
+
+  - name: fit_context_to_predictor
+    title: "context encoder(online) 에서 학습한 head -> predictor 출력"
+    question: >
+      predictor 에 실제로 입력되는 표현에서 head 를 학습하면 predictor 출력에서도 읽히는가.
+      predictor 가 입력 공간의 좌표를 그대로 유지하는지를 본다.
+    expect: >
+      predictor 는 입력(context 공간)을 받아 출력(target 공간)으로 내보내도록 학습됐으므로,
+      target 판보다 낮게 나오는 것이 이론과 맞는다. 오히려 높다면 두 인코더 공간이
+      실질적으로 구분되지 않는다는 뜻이라 그 자체로 보고할 만하다.
+    read_as: >
+      window·토큰 수를 target 판과 동일하게 맞춘 ctx8__visible 을 fit 소스로 쓴다.
+      따라서 exp1 과의 차이는 '어느 인코더에서 배웠는가' 하나뿐이다.
+    fit_on: ctx8__visible
+    fit_labels: before
+    fit_variants: [possible]
+    apply_to: [ctx8__visible, ctx32__visible, ctx32__context, pred__future]
+    probe: {type: attentive, num_heads: 16, num_probe_blocks: 4}
+    optimization: {num_epochs: 50, batch_size: 16, lr: 0.0001, weight_decay: 0.05}
+    independent_probes: false
+
+  - name: fit_full_context_to_predictor
+    title: "predictor 입력 전체(1~32, 4096 tokens) 에서 학습한 head -> predictor 출력"
+    question: >
+      8프레임이 아니라 predictor 가 실제로 소비하는 context 전체에서 학습하면 어떤가.
+    expect: >
+      토큰 수가 4096 -> 1024 로 바뀌지만 attentive pooler 는 토큰 개수에 무관하게 동작한다.
+    read_as: >
+      ctx32__context 행이 fit 소스 자신(상한), pred__future 행이 이식 성능.
+    fit_on: ctx32__context
+    fit_labels: before
+    fit_variants: [possible]
+    apply_to: [ctx32__context, pred__future, tgt40__future]
+    probe: {type: attentive, num_heads: 16, num_probe_blocks: 4}
+    optimization: {num_epochs: 50, batch_size: 16, lr: 0.0001, weight_decay: 0.05}
+    independent_probes: false
+
+report:
+  confusion: true
+  save_features: false

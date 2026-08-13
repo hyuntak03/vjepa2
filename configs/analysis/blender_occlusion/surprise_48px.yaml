@@ -1,0 +1,84 @@
+# =============================================================================
+# PREDICTOR SURPRISE — Blender occlusion (48px), V-JEPA 2 ViT-L, zero-shot
+#
+# 24px 판과 동일한 설정. 물체 면적이 4배(프레임당 토큰 2.25 -> ~9)이므로,
+# 24px 에서 신호가 약했던 이유가 "물체가 1024개 타깃 토큰 중 극히 일부라 전역
+# 평균 L1 에서 묻힌다" 는 희석 때문이라면 여기서는 더 강하게 나와야 한다.
+# 주의: 이 데이터셋은 obj_px 뿐 아니라 speed(4~7.5 -> 1~3), accel(~0 -> +0.2~0.3),
+#       가림 길이도 함께 다르므로 순수한 크기 통제 실험은 아니다.
+#
+# 학습이 없다. V-JEPA 2 의 학습 손실을 그대로 "surprise" 로 쓴다
+# (app/vjepa/train.py:431-456 와 동일한 계산):
+#
+#   z_ctx    = context_encoder(clip, masks=[ctx_idx])      # online encoder, 마스킹된 context
+#   z_pred   = predictor(z_ctx, ctx_idx, tgt_idx)          # 상상한 미래 (frames 33~40)
+#   h        = LayerNorm(target_encoder(clip))[tgt_idx]     # EMA teacher, 실제 렌더된 것
+#   surprise = mean(|z_pred - h|)                           # 원소별 L1
+#
+# 기대: impossible 의 surprise 가 possible 보다 높아야 한다.
+#
+# 이 데이터셋의 좋은 성질: context(1~32 프레임)가 4개 variant 에서 완전히 동일하다
+# (predictor 출력 편차 0.0 으로 확인). 따라서 z_pred 는 scene 당 하나뿐이고, surprise
+# 차이는 전부 target encode 에서만 나온다. IntPhys 처럼 impossible 이 자기만의 context 를
+# 갖는 경우보다 훨씬 통제된 비교다.
+#
+# scene 당 variant 는 4개다 (possible 1 + impossible 3):
+#   possible    none              물체가 그대로 다시 나온다
+#   imp_shape   identity_shape    모양이 바뀌어 나온다
+#   imp_color   identity_colour   색이 바뀌어 나온다
+#   imp_vanish  permanence        아예 다시 나오지 않는다
+#
+# 실행:  bash z_scripts/blender_occlusion/run_surprise.sh
+# =============================================================================
+
+tag: surprise_vitl_48px
+output_dir: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_exp/predictor_analysis/results/surprise_48px
+
+data:
+  root: /local_datasets/world/blender_occlusion_48px
+  index_csv: index.csv
+  n_frames: 40
+  variants: [possible, imp_shape, imp_color, imp_vanish]
+  context_variant: possible        # 이 variant 의 context 를 모든 variant 에 붙인다
+  splice_context: true             # 디코드된 context 를 강제로 동일하게 (이 셋에선 no-op,
+                                   # 이미 동일함이 확인됨. lossy decode 대비 안전장치)
+  split:                           # null = 전체 291 scene. 학습이 없으므로 split 불필요.
+                                   # 'test' 로 두면 228 scene 만 쓴다.
+
+model:                             # schema = analysis.intphys2.model.build_from_config
+  checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vitl-fpc64-256/snapshots/b3c1679b7c34d3255ef3547f27c7b226aefab26f/original/model.pth
+  arch_name: vit_large
+  img_size: 256
+  patch_size: 16
+  tubelet_size: 2
+  window_size: 40                  # = data.n_frames
+  use_rope: true
+  uniform_power: false
+  # TRAIN-FAITHFUL 역할 분리 (app/vjepa/train.py 와 동일):
+  #   context -> ONLINE encoder     (predictor 가 학습 때 실제로 먹던 것)
+  #   target  -> EMA target_encoder (predictor 가 맞추도록 학습된 것)
+  dual_encoder: true
+  context_encoder_key: encoder
+  target_encoder_key: target_encoder
+  predictor: { embed_dim: 384, depth: 12, num_heads: 12, num_mask_tokens: 10 }
+  dtype: bfloat16
+
+eval:
+  context_length: 32               # frames 1~32 가 context, 33~40 이 예측 대상
+  distance: l1                     # l1 | smoothl1 | l2 | cosine
+  loss_exp: 1.0                    # 1.0 -> 순수 L1 (V-JEPA 학습 손실과 동일)
+  target_layer_norm: true          # 타깃에 per-token affine-free LN. train-faithful.
+  mask_index: 0                    # 릴리즈 체크포인트에서 학습된 mask token 은 [0] 뿐
+
+scoring:
+  argmin_correct: possible
+  argmin_sets:                     # 이름 -> 후보 집합. surprise 최소가 possible 이면 정답
+    all4: [possible, imp_shape, imp_color, imp_vanish]        # chance 0.25
+    identity3: [possible, imp_shape, imp_color]               # chance 0.333
+    shape2: [possible, imp_shape]                             # chance 0.5
+    color2: [possible, imp_color]                             # chance 0.5
+    vanish2: [possible, imp_vanish]                           # chance 0.5
+  pairwise_pairs:                  # surprise(impossible) > surprise(possible) 이면 정답
+    - [possible, imp_shape]
+    - [possible, imp_color]
+    - [possible, imp_vanish]

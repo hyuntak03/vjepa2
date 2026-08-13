@@ -83,7 +83,13 @@ def process_main(args, rank, fname, world_size, devices):
         pprint.PrettyPrinter(indent=4).pprint(params)
 
     # Init distributed (access to comm between GPUS on same machine)
-    world_size, rank = init_distributed(rank_and_world_size=(rank, world_size))
+    # init_distributed 의 포트는 기본 37129 고정이다. 한 노드에서 eval 을 두 개 이상
+    # 돌리면(예: 대화형으로 하나 + sbatch 로 하나) 뒤에 뜬 쪽의 rank0 이 bind 에 실패하고
+    # 조용히 world_size=1 로 폴백하는데, 나머지 rank 는 먼저 뜬 job 의 store 에 붙어버려
+    # 두 job 이 섞인다. EVAL_DDP_PORT 로 job 마다 다른 포트를 쓸 수 있게 한다.
+    # 안 주면 기존과 똑같이 37129 다.
+    _port = int(os.environ.get("EVAL_DDP_PORT", 37129))
+    world_size, rank = init_distributed(port=_port, rank_and_world_size=(rank, world_size))
     logger.info(f"Running... (rank: {rank}/{world_size})")
 
     # Launch the eval with loaded config

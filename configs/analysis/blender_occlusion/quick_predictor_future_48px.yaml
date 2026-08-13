@@ -1,0 +1,130 @@
+# =============================================================================
+# QUICK CHECK (48px) — predictor 가 예측한 미래(33~40)에 물체 COLOR 정보가 있는가
+#
+# 왜 48px 인가: 24px 에서 predictor 의 color 가 0.331 로 무너졌다(천장 0.883). 가설은
+# "물체가 프레임당 토큰 256개 중 2.25개뿐이라, L1 손실의 ~1% 밖에 기여하지 않아 predictor
+# 가 물체 토큰을 제대로 예측하도록 최적화되지 않았다" 는 것이다. 48px 는 면적이 4배
+# (토큰 ~9개) 이므로, 크기가 원인이면 여기서 회복되어야 한다.
+#
+# 결과의 비대칭성에 주의:
+#   color 가 여전히 낮다  -> 강한 결론. 4배로 키워도 안 되면 크기 가설은 힘을 잃는다.
+#                            24px 로 돌아가 분석을 계속하면 된다.
+#   color 가 회복된다     -> 약한 결론. 이 데이터셋은 obj_px 말고 speed(4~7.5 -> 1~3),
+#                            accel(~0 -> +0.2~0.3), 가림 길이도 함께 바뀌었으므로 크기
+#                            때문이라고 단정할 수 없다. 그때 통제된 데이터를 다시 만들 것.
+#
+# 24px 실행과 비교 가능하도록 probe 스펙 / optimization / split seed 를 동일하게 유지했다.
+# 라벨 분포가 다르므로(24px color 최빈 0.164 / 48px 0.164) raw acc 와 함께 리포트되는
+# macro 평균(bacc)과 최빈 baseline 을 같이 볼 것.
+#
+# 존재 유무만 본다. "인코더와 같은 방향으로 encoding 되어 있는가" 는 여기서 다루지 않는다
+# (그건 head 를 이식해야 하고, 이식이 의미를 가지려면 선형 readout 이어야 한다).
+#
+# readout 은 attentive 를 쓴다. mean pooling 은 24px 공을 256개 spatial token 으로
+# 희석시켜서 신호를 죽인다는 것이 확인됐다 — 같은 1~8 프레임에서
+#     linear(mean pool)  shape 0.752 / color 0.248
+#     attentive d4       shape 1.000 / color 0.883
+# 즉 mean pooling 으로 잰 값은 표현이 아니라 readout 의 한계를 잰 것이었다.
+#
+# 비교 대상 3개 (전부 같은 split, 같은 probe 설정):
+#   pred__future          predictor 가 상상한 33~40      <- 이번 측정 대상
+#   tgt40__future         target encoder(40f 입력)의 33~40 토큰
+#                         = predictor 가 L1 으로 맞추도록 학습된 바로 그 회귀 타깃. 천장.
+#   tgt8__future          target encoder 에 33~40 프레임'만' 입력
+#                         = 그 8프레임 픽셀에만 있는 정보 (문맥 없이)
+#   tgt8__visible         target encoder 에 1~8 프레임만 입력
+#                         = 물체가 완전히 보일 때의 기준점 (앞선 실험에서 1.000 / 0.883)
+#
+# 주의: predictor 는 공유 context(1~32프레임)만 보므로 한 scene 의 4개 variant 에서
+#       출력이 완전히 동일하다(편차 0.0 확인). 그래서 possible 만 쓰고 라벨은 before 다.
+#
+# 실행:  bash z_scripts/blender_occlusion/run_quick_predictor.sh
+# =============================================================================
+
+tag: quick_predictor_future_48px
+output_dir: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_exp/blender_occlusion/results/quick_predictor_future_48px
+
+data:
+  root: /local_datasets/world/blender_occlusion_48px
+  index_csv: index.csv
+  n_frames: 40
+  resolution: 256
+
+  targets:                           # color 만. 48px 의 shape(before)은 7종이고
+                                     # ring 이 10/280 이라 이번 질문에 안 쓴다.
+    - name: color
+      column: color_after
+      before_column: color
+      classes: ["#3CB44B", "#42D4F4", "#4363D8", "#911EB4",
+                "#E6194B", "#F032E6", "#F58231", "#FFE119"]
+
+  eval_variants:  [possible]
+  extra_variants: []
+
+  split:
+    mode: ratio                      # index.csv 의 train/test 를 합쳐 scene 기준 재분할
+    group_by: scene_id               # 같은 scene 이 train/val 에 동시에 들어가지 않게
+    train_frac: 0.5
+    seed: 0                          # quick_visible8f 와 동일 seed -> split 이 같아서 직접 비교 가능
+
+model:
+  checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vitl-fpc64-256/snapshots/b3c1679b7c34d3255ef3547f27c7b226aefab26f/original/model.pth
+  arch_name: vit_large
+  img_size: 256
+  patch_size: 16
+  tubelet_size: 2
+  window_size: 40
+  use_rope: true
+  uniform_power: false
+  dual_encoder: true                 # context=online encoder, target=EMA (train-faithful)
+  context_encoder_key: encoder
+  target_encoder_key: target_encoder
+  predictor: { embed_dim: 384, depth: 12, num_heads: 12, num_mask_tokens: 10 }
+  dtype: bfloat16
+
+features:
+  context_length: 32                 # 1~32 프레임이 context, 33~40 이 predictor 출력 구간
+  mask_index: 0                      # 릴리즈 체크포인트에서 학습된 mask token 은 [0] 뿐
+  batch_size: 4
+  num_workers: 6
+  cache_dtype: float16
+  cache_dir: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_exp/blender_occlusion/cache
+
+  windows:                           # 이름은 1-idx, 값은 0-idx 반개구간
+    visible_f1to8:  [0, 8]
+    future_f33to40: [32, 40]
+
+  sources:
+    - {name: pred__future,  encoder: predictor,       window: future_f33to40}
+    - {name: tgt40__future, encoder: target,          window: future_f33to40}
+    - {name: tgt8__future,  encoder: isolated_target, window: future_f33to40}
+    - {name: tgt8__visible, encoder: isolated_target, window: visible_f1to8}
+
+experiments:
+  - name: predictor_future_presence
+    title: "predictor 가 상상한 미래(33~40)에 shape/color 정보가 존재하는가"
+    question: >
+      context(1~32프레임)만 보고 predictor 가 만들어낸 미래 토큰만으로 물체의 shape 와
+      color 를 맞출 수 있는가. 존재 유무만 본다 — 인코더와 같은 방향으로 encoding 되어
+      있는지는 여기서 답하지 않는다.
+    expect: >
+      chance(0.125)보다 확실히 높아야 predictor 가 정체성을 미래로 전파한다고 말할 수 있다.
+      천장은 tgt40__future (predictor 가 L1 으로 맞추도록 학습된 회귀 타깃) 이고,
+      tgt8__visible (1.000 / 0.883) 이 "물체가 완전히 보일 때" 의 기준점이다.
+    read_as: >
+      pred__future 와 tgt40__future 의 격차 = predictor rollout 에서 잃은 정보량.
+      tgt8__future 는 그 8프레임 픽셀만의 정보라, pred__future 가 이보다 높으면
+      predictor 가 문맥에서 가져온 것이 있다는 뜻이다.
+      probe 는 source 마다 따로 학습된다(indep 컬럼과 동일) — 이식이 아니므로 방향
+      일치 주장에는 쓸 수 없다.
+    fit_on: pred__future
+    fit_labels: before
+    fit_variants: [possible]
+    apply_to: [pred__future, tgt40__future, tgt8__future, tgt8__visible]
+    probe: {type: attentive, num_heads: 16, num_probe_blocks: 4}
+    optimization: {num_epochs: 50, batch_size: 16, lr: 0.0001, weight_decay: 0.05}
+    independent_probes: true         # <- 존재 유무는 이 indep 컬럼으로 읽는다
+
+report:
+  confusion: true
+  save_features: false

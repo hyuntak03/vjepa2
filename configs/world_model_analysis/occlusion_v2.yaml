@@ -1,0 +1,245 @@
+# =============================================================================
+# OCCLUSION v2 — L1 surprise 기반 IntPhys 방식 채점
+#
+# 데이터: /local_datasets/world/world_analysis/blender_occlusion_v2
+#   1700 video = 425 block x 4 video, 각 block 은 가능 2 + 불가능 2
+#   40 frames @ 8fps, 256x256, obj 24px, ctx_end=31 / target_start=32
+#
+# block 구조 (IntPhys 와 동일한 2x2):
+#
+#                   context A            context B
+#     future A      pos_a   (가능)       imp_ba  (불가능)
+#     future B      imp_ab  (불가능)     pos_b   (가능)
+#
+#   픽셀로 확인함: pos_a vs imp_ab 는 context 차이 0(같은 문맥, 다른 미래),
+#                 pos_b vs imp_ab 는 future 차이 ~5(같은 미래, 다른 문맥).
+#   -> 앞선 v1 과 달리 block 안에서 context 가 공유되지 않는다.
+#      따라서 비디오마다 독립적으로 context encode + predictor forward 를 해야 한다.
+#
+#   block_type 3종 (425 block):
+#     presence        131 block  variants: pos_obj / pos_empty / imp_appear / imp_vanish
+#     identity_shape  151 block  variants: pos_a / pos_b / imp_ab / imp_ba
+#     identity_color  143 block  variants: pos_a / pos_b / imp_ab / imp_ba
+#
+# 채점 (IntPhys relative classification):
+#   한 block 안에서 (가능 2) x (불가능 2) = 4쌍을 모두 비교하고,
+#   surprise(가능) < surprise(불가능) 인 쌍의 개수 / 4 = 그 block 의 정확도.
+#   전체 정확도 = 모든 block 의 평균. chance = 0.5.
+#   pair 단위로도 집계한다 (전체 425 x 4 = 1700 쌍).
+#
+# surprise (학습 없음, V-JEPA 2 학습 손실 그대로):
+#   z_ctx    = context_encoder(clip, masks=[ctx_idx])       # online encoder
+#   z_pred   = predictor(z_ctx, ctx_idx, tgt_idx)           # 상상한 33~40
+#   h        = LayerNorm(target_encoder(clip))[tgt_idx]     # 실제 렌더된 33~40
+#   surprise = mean(|z_pred - h|)                           # 원소별 L1
+#
+# ⚠️ 알려진 함정 (v1 에서 확인됨)
+#   1) 물체가 사라지는 변이(imp_vanish / pos_empty)는 미래 프레임이 정적 배경만 남아
+#      저복잡도가 된다. raw L1 은 그런 클립을 항상 "덜 놀랍다" 고 판정한다
+#      (v1 에서 571 scene 전부 반대로 나옴, effect size -2.8~-4.2).
+#      -> presence block 은 이 교란에 직접 노출된다. block_type 별로 반드시 나눠서 볼 것.
+#   2) 물체가 24px(프레임당 토큰 2.25/256)라 바뀐 부분이 1024개 타깃 토큰의 ~0.7% 다.
+#      전역 평균 L1 은 그만큼 희석된다 (v1 에서 shape 0.574 / color 0.516).
+#      -> scoring.token_subset 으로 희석 제거를 실험할 수 있다.
+#
+# 실행:  bash z_scripts/world_model_analysis/run_occlusion_v2.sh
+# =============================================================================
+
+eval_name: world_model_analysis   # evals/main.py 가 이 이름으로
+                                  # evals/world_model_analysis/eval.py::main 을 호출한다
+tag: occlusion_v2_surprise_vitl
+output_dir: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_exp/world_model_analysis/results/occlusion_v2_surprise
+
+data:
+  root: /local_datasets/world/world_analysis/blender_occlusion_v2
+  index_csv: index.csv
+  n_frames: 40
+  block_column: block_id            # 이 값이 같은 4개 비디오가 한 block
+  variant_column: variant
+  plausible_column: plausible       # '1' = 가능, '0' = 불가능
+  type_column: block_type           # presence / identity_shape / identity_color
+  split: null                       # null = 전체 425 block. 학습이 없으므로 split 불필요.
+                                    # 'test' 로 두면 test split 만.
+  # block 마다 정확히 가능 2 / 불가능 2 여야 한다. 아니면 에러로 잡는다.
+  expect_per_block: { plausible: 2, implausible: 2 }
+
+model:                              # schema = analysis.intphys2.model.build_from_config
+  checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vitl-fpc64-256/snapshots/b3c1679b7c34d3255ef3547f27c7b226aefab26f/original/model.pth
+  arch_name: vit_large
+  img_size: 256
+  patch_size: 16
+  tubelet_size: 2
+  window_size: 40                   # = data.n_frames
+  use_rope: true
+  uniform_power: false
+  # train-faithful 역할 분리 (app/vjepa/train.py 와 동일)
+  dual_encoder: true
+  context_encoder_key: encoder          # online -> predictor 입력
+  target_encoder_key: target_encoder    # EMA    -> predictor 가 맞추도록 학습된 타깃
+  predictor: { embed_dim: 384, depth: 12, num_heads: 12, num_mask_tokens: 10 }
+  dtype: bfloat16
+
+surprise:
+  context_length: 32                # 1~32 가 context, 33~40 이 채점 구간
+  distance: l1                      # l1 | smoothl1 | l2 | cosine
+  loss_exp: 1.0                     # 1.0 -> 순수 L1 (학습 손실과 동일)
+  target_layer_norm: true           # 타깃에 affine-free LN. train-faithful.
+  mask_index: 0                     # 릴리즈에서 학습된 mask token 은 [0] 뿐
+  batch_size: 4                     # 비디오 단위 배치 (block 내 context 가 다르므로
+
+# probing 의 토큰 추출 설정. 이 블록이 없으면 eval.py 의 extract() 가
+# cfg["surprise"] 로 폴백하는데 거기엔 cache_dir 이 없어서 KeyError 로 죽는다
+# (surprise 채점을 다 끝낸 뒤에 죽으므로 더 아깝다).
+features:
+  context_length: 32                # surprise.context_length 와 반드시 같아야 한다
+  mask_index: 0
+  batch_size: 4
+  cache_dtype: float16
+  cache_dir: /local_datasets/world/world_analysis/cache
+                                    # ⚠️ 반드시 로컬 디스크. /data2(xfs, 여유 328G) symlink 다.
+                                    # 이 셋은 1700 video x 21MB = 35.7GB 를 쓴다.
+                                    # NFS(/data)는 쓰기 57MB/s 라 여기 두면 10분을 그냥 버린다.
+
+scoring:
+  # 지표 (metrics) 와 쪼개보기 (breakdown) 는 다른 것이다.
+  #
+  # metrics — 실제로 계산하는 정확도
+  #   block_pairwise : block 안에서 (가능 2) x (불가능 2) = 4쌍을 전부 비교하고
+  #                    surprise(가능) < surprise(불가능) 인 쌍의 수 / 4 = 그 block 의 점수.
+  #                    전체 정확도 = 425 block 의 평균. chance 0.5.
+  #                    IntPhys relative classification 과 동일하다. 이게 주 지표.
+  #   block_distribution : 위 block 점수의 분포(0 / .25 / .5 / .75 / 1.0)를 같이 낸다.
+  #                    "4쌍 전부 맞은 block 비율" = 엄격 판정(chance 1/6)이 여기서 읽힌다.
+  #
+  # breakdown — 위 지표를 어떤 축으로 쪼개서 볼 것인가 (지표가 아니다)
+  #   block_type : presence / identity_shape / identity_color 로 나눈다.
+  #                presence 는 아래 ⚠️1 교란에 직접 노출되므로 반드시 분리해서 볼 것.
+  metrics:   [block_pairwise, block_distribution]
+  breakdown: [block_type]
+
+  # NOTE: 'argmin'(block 에서 surprise 최소가 가능인가)은 넣지 않았다.
+  #   가능이 2개라 chance 가 0.25 가 아니라 0.5 로 block_pairwise 와 같은데,
+  #   4쌍 중 사실상 하나만 보는 셈이라 분해능만 떨어진다. 필요하면
+  #   block_distribution 의 1.0 비율(4쌍 전부 정답)을 보는 편이 낫다.
+
+  # ---- 희석 제거 실험 (기본 off). 켜면 채점에 쓰는 토큰을 좁힌다 ----------------
+  token_subset:
+    mode: all                       # all | post_divergence | object
+    # post_divergence : divergence_frame 이전 tubelet 을 뺀다.
+    #   그 구간은 가능/불가능이 픽셀상 동일하다(v1 에서 확인). 다만 인코더가
+    #   bidirectional 이라 그 토큰도 뒤쪽 갈라진 프레임을 attend 하므로 '빈 토큰' 은
+    #   아니다 -> 효과는 실험으로 확인해야 한다.
+    # object : frames.csv 의 x_px,y_px 를 patch 격자로 바꿔 물체 주변 토큰만 쓴다.
+    #   희석 ~114배가 사라진다. 아래 radius 는 patch 단위 반경(k x k).
+    object_radius: 1                # 1 -> 3x3 patch, 2 -> 5x5
+
+# =============================================================================
+# PROBING — attentive/linear probe 로 "그 표현에 정보가 있는가 / 이식이 되는가"
+#
+# 표현을 세 축으로 지정한다. source 이름을 외울 필요 없다.
+#
+#   model    context | target | predictor      어느 모델의 출력을 볼 것인가
+#              context   = context_encoder (online). predictor 에 입력되는 쪽
+#              target    = target_encoder (EMA). predictor 가 맞추도록 학습된 쪽
+#              predictor = predictor 출력. frames 는 항상 33~40 으로 자동 고정
+#
+#   input    full | window                      모델에 몇 프레임을 넣을 것인가
+#              full   = 40프레임 클립 전체를 넣고 frames 구간 토큰만 읽는다
+#                       (인코더가 bidirectional 이라 그 토큰도 나머지 전 구간을 attend 한다)
+#              window = frames 구간 프레임'만' 독립 클립으로 넣는다
+#                       (문맥 경로를 끊은 대조군)
+#              predictor 는 항상 context 32프레임을 소비하므로 이 옵션이 없다
+#
+#   frames   [시작, 끝]  사람이 세는 1-idx, 양끝 포함
+#              [1,32]  context 전체        -> 16 tubelet x 256 = 4096 tokens (16N, D)
+#              [33,40] predictor 예측 구간 -> 4 tubelet x 256 = 1024 tokens (4N, D)
+#              [1,8]   앞 가시 구간        -> 1024 tokens
+#              [23,30] 가림 구간           -> 1024 tokens
+#            tubelet(2) 정렬 필수. context 모델은 [*,32] 이내여야 한다.
+#
+#   train    ind | {model/input/frames}
+#              ind  = 그 표현 자체로 head 를 학습하고 평가한다 (= 정보 존재 여부)
+#              스펙 = 거기서 학습한 head 를 frozen 그대로 이 표현에 적용한다 (= 이식)
+#
+# 읽는 법: ind 값이 "정보가 있는가", 이식값이 "인코더에서 배운 readout 이 통하는가".
+#          둘의 격차가 표현 형식 차이의 크기다.
+#          ⚠️ attentive 는 49.3M 파라미터 비선형 재매핑이라, 이식이 되어도
+#             "판별 방향이 겹친다" 는 주장은 못 한다. 그건 linear 가 필요하다.
+# =============================================================================
+probing:
+  enabled: true
+  probe: attentive          # attentive | linear   (probes 프리셋 이름)
+  optim:  attn_default
+
+  probes:
+    attentive: { type: attentive, num_heads: 16, num_probe_blocks: 4 }   # 49.3M
+    linear:    { type: linear, pooling: mean, pre_norm: true }           # 8K
+  optims:
+    attn_default: { num_epochs: 50,  batch_size: 16, lr: 0.0001, weight_decay: 0.05 }
+    linear_conv:  { num_epochs: 400, batch_size: 16, lr: 0.001,  weight_decay: 0.01 }
+
+  # probe 가 맞출 라벨. 가림 이전 정체성(shape_before/color_before)을 정답으로 쓴다.
+  targets:
+    shape: { column: shape_before,
+             classes: [bar, cross, cube, ell, ring, sphere, star, triangle] }
+    color: { column: color_before,
+             classes: ["#3CB44B","#42D4F4","#4363D8","#911EB4",
+                       "#E6194B","#F032E6","#F58231","#FFE119"] }
+
+  # ── presence block 제외 ────────────────────────────────────────────────────
+  # presence block(131개)은 물체가 없는 변이(pos_empty / imp_appear)를 포함하고,
+  # 그 클립의 shape_before / color_before 는 'none' 이다 (524개 중 262개).
+  # 물체가 없는 클립에 "물체 정체성" 라벨을 붙이는 것은 의미가 없으므로 probing 에서 뺀다.
+  # identity block 만 쓴다: identity_shape 151 + identity_color 143 = 294 block, 1176 video.
+  # (presence 는 surprise 채점 쪽에서 다룬다.)
+  block_types: [identity_shape, identity_color]
+
+  # ── split 은 반드시 block 단위 ─────────────────────────────────────────────
+  # block 안의 4개는 2x2 로 context/future 를 공유한다. 예: block 1(identity_shape)
+  #     pos_a   ctxA+futA  shape_before=star   shape_after=star
+  #     imp_ab  ctxA+futB  shape_before=star   shape_after=cross
+  #     imp_ba  ctxB+futA  shape_before=cross  shape_after=star
+  #     pos_b   ctxB+futB  shape_before=cross  shape_after=cross
+  # -> pos_a 와 imp_ab 는 context 가 픽셀 차이 0 이고 shape_before 도 같다.
+  #    pos_a 와 imp_ba 는 future 가 픽셀 차이 ~5 이고 shape_after 도 같다.
+  #    block 을 안 묶으면 train 과 val 에 사실상 같은 입력·같은 라벨이 들어간다.
+  split: { mode: ratio, group_by: block_id, train_frac: 0.5, seed: 0,
+           stratify_by: block_type }
+
+  # ── probing 은 학습·평가 모두 '가능' 변이만 쓴다 ───────────────────────────
+  # 불가능 변이를 평가에 넣으면 세 표현이 전부 오염된다:
+  #   contextF  ctx_masked 는 미래 토큰을 transformer 이전에 떨궈 프레임 1~32 만 본다.
+  #             imp_ab 는 pos_a 와 context 픽셀 차이 0 이므로 표현이 비트 단위로 같다.
+  #             -> 같은 텐서를 평가셋에 두 번 넣는 것일 뿐이다.
+  #   pred      predictor 입력은 context 뿐이라 같은 이유로 imp_ab == pos_a.
+  #   targetF   imp_ab 는 shape_before=star / shape_after=cross 인데 라벨이 before 다.
+  #             인코더가 렌더를 정확히 담을수록 0 점이 되는 구조라 측정이 안 된다.
+  # 불가능 변이는 surprise 채점 쪽에서 다룬다. probing 에서는 뺀다.
+  #
+  # ⚠️ 예전에 여기 eval_groups 키가 있었는데 코드가 읽지 않는 죽은 키였다
+  #    (평가는 실제로 4변이 584개 전부에 대해 돌고 있었다). eval_variants 가 진짜다.
+  fit_variants:  [pos_a, pos_b]              # 학습에 쓸 변이
+  eval_variants: [pos_a, pos_b]              # 평가에 쓸 변이. 지우면 4변이 전부로 돌아간다.
+
+  # ── runs — train 1개당 head 1개, eval 목록만큼 평가 ─────────────────────────
+  # ★ head 는 train 스펙마다 딱 한 번만 학습되고, eval 에 나열한 모든 표현에
+  #   frozen 상태로 적용된다. 같은 표현에서 학습한 head 를 두 번 만들지 않는다.
+  #   ('self' = train 표현 자기 자신에서의 성능 = 정보 존재 여부 = 상한)
+  # 학습은 항상 fit_variants(가능 변이)로만 하고, 평가는 eval_groups 전체로 낸다.
+  runs:
+    # 1. context encoder 출력 (16N, D)
+    - train: { model: context, input: full, frames: [1, 32] }
+      eval:  [ self ]
+
+    # 2. target encoder 예측 구간 (4N, D) 에서 학습한 head 하나로
+    #    자기 자신(상한)과 predictor 이식을 동시에
+    - train: { model: target, input: full, frames: [33, 40] }
+      eval:  [ self, { model: predictor } ]
+
+    # 3. predictor 출력 (4N, D) 자체 학습
+    - train: { model: predictor }
+      eval:  [ self ]
+
+    # (선택) 대조군 — window 입력
+    # - train: { model: target, input: window, frames: [33, 40] }
+    #   eval:  [ self, { model: predictor } ]
