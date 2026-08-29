@@ -12,7 +12,7 @@
   sensitivity = (acc_사라짐 + acc_나타남)/2 - 50
   bias        = |acc_사라짐 - acc_나타남|/2
 
-  python z_research/scripts/intphys1_direction_audit.py \
+  python z_research/scripts/analysis/intphys1_direction_audit.py \
       --result-dir z_exp/world_model_analysis/results/intphys1_ourproto_vith
 """
 from __future__ import annotations

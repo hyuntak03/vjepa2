@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """프로토콜 yaml + 데이터셋/모델 레지스트리(md) -> 실행 가능한 최종 config 하나.
 
-  python z_research/scripts/resolve.py <프로토콜> <데이터셋> [모델] -o out.yaml
+  python z_research/scripts/harness/resolve.py <프로토콜> <데이터셋> [모델] -o out.yaml
 
 프로토콜 yaml 은 **데이터셋과 모델에 무관한 것만** 담는다 (프레임 배치, 채점 규칙,
 probe 정의, dtype 관례). 경로·컬럼 이름·체크포인트는 configs/protocols/{datasets,models}.md

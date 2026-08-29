@@ -13,7 +13,7 @@ IntPhysGen 판(plot_violation_bars.py)과 같은 그림을 IntPhys1 dev 에 대�
 ⚠️ 셀 크기가 고르지 않다 — moving 20쌍 / static 10쌍. static 은 1쌍이 10%p 다.
    그래서 막대마다 n 을 함께 찍는다.
 
-  python z_research/scripts/plot_intphys1_bars.py \
+  python z_research/scripts/figures/plot_intphys1_bars.py \
       --result-dir z_exp/world_model_analysis/results/intphys1_vith \
       --pairs /local_datasets/world/world_analysis/IntPhys1_dev_by_scene/pairs.csv \
       --combo skip2_w32/avg \

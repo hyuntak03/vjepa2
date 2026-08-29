@@ -24,7 +24,7 @@ vanish 는 뺀다 — imp_ab 는 shape_post 가 'none'(물체가 사라짐), imp
    서명을 만들기 때문에, 한 줄이라도 빼면 160 GiB 를 다시 뽑는다. probing 대상은
    probe_kind + block_types 로 고르고, 나머지 행은 'skip' 으로 남겨 둔다.
 
-  python z_research/scripts/build_probe_imp_index.py --root data_csv/intphysgen_v10
+  python z_research/scripts/data/build_probe_imp_index.py --root data_csv/intphysgen_v10
 """
 from __future__ import annotations
 

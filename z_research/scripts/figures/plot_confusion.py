@@ -12,10 +12,10 @@ eval.py 가 probing 을 마치면 <output_dir>/predictions.json 에 val 행별 �
 §5-4c 의 confusion 표는 이 파일이 없던 시절 head 를 5분씩 재학습해 뽑았다. 이제 불필요하다.
 
   # 뭐가 들어 있는지
-  python z_research/scripts/plot_confusion.py --predictions <dir>/predictions.json --list
+  python z_research/scripts/figures/plot_confusion.py --predictions <dir>/predictions.json --list
 
   # p self-probe 의 shape confusion, 조건별로 쪼개서
-  python z_research/scripts/plot_confusion.py \
+  python z_research/scripts/figures/plot_confusion.py \
       --predictions z_research/IntPhysGenV10/exp_results/attn_probe__v10_vith/predictions.json \
       --fit pred__f17to32 --target shape --by-condition \
       --output z_research/IntPhysGenV10/figures/fig4_p_self_confusion.pdf

@@ -97,7 +97,7 @@ GPUS=4 bash z_research/scripts/run.sh <프로토콜> <데이터셋> [모델]   #
 DRYRUN=1 bash z_research/scripts/run.sh attn_probe v8                # 병합 결과만, GPU 안 씀
 ```
 
-**세 조각이 실행 직전에 합쳐진다** (`z_research/scripts/resolve.py`). 이게 이 레포의 핵심 구조다:
+**세 조각이 실행 직전에 합쳐진다** (`z_research/scripts/harness/resolve.py`). 이게 이 레포의 핵심 구조다:
 
 | 조각 | 담는 것 | 파일 |
 |---|---|---|
@@ -611,7 +611,7 @@ color  blue 44  cyan 55  green 68  magenta 55  orange 36  purple 51  red 52  yel
 | 위치 | 역할 |
 |---|---|
 | `configs/protocols/` | **프로토콜 yaml + `datasets.md` / `models.md` 레지스트리.** git 추적됨 |
-| `z_research/scripts/` | `run.sh` · `resolve.py` · `sbatch.sh`. **git 추적됨** |
+| `z_research/scripts/` | 최상위엔 **직접 치는 것만** (`run.sh`·`sbatch.sh`·`monitor.sh`). 나머지는 `harness/`·`data/`·`figures/`·`analysis/`. **git 추적됨** — §8-4 |
 | `z_research/IntPhys/`, `z_research/IntPhysGenV8/`, `z_research/IntPhysGenV10/` | 데이터셋별 결과 아카이브 (2026-08-28 신설) |
 | `z_findings/*.md` | run 스크립트가 자동 생성하는 결과 카드 + 수기 종합 노트 |
 | `z_world_model_analysis/` | 심층 분석. **파일명에 날짜**: `TOPIC_YYYY-MM-DD.md`. 분석 `.py`를 나란히 둔다 |
@@ -623,6 +623,42 @@ color  blue 44  cyan 55  green 68  magenta 55  orange 36  purple 51  red 52  yel
 > 전부 사라졌다. **git 추적이 0개였기 때문에 복구가 불가능했다.** 그래서 새 스크립트·config 는
 > 추적되는 자리(`configs/`, `z_research/scripts/`)에 두고 커밋한다.
 > 원시 산출물(`z_exp`)·분석 스크립트(`z_world_model_analysis`)는 무사해서 리포트·그림은 재생성 가능하다.
+
+### 8-4. 새 파일을 만들 때 (2026-08-29 정리에서 굳어진 것)
+
+⚠️ **레포 루트나 폴더 최상위에 파일을 흘리지 않는다.** 하루 만에 `z_research/scripts/` 에
+py 20개가 평평하게 쌓였고 루트에 `.diag.txt` 류 임시 출력 13개가 남았다. 둘 다 정리했다.
+
+**스크립트** → `z_research/scripts/` 의 역할 폴더 중 하나. 최상위엔 **사람이 직접 치는 것만**.
+
+| 폴더 | 무엇 |
+|---|---|
+| (최상위) | `run.sh` · `sbatch.sh` · `monitor.sh` |
+| `harness/` | `run.sh` 가 부르는 것 (`resolve.py`) |
+| `data/` | 인덱스·데이터 준비 |
+| `figures/` | 논문 그림. **전부 산출물에서 재계산해 `summary.json` 과 대조 검증** |
+| `analysis/` | 토큰 캐시 기반 분석. **GPU 불필요** |
+
+맞는 폴더가 없으면 **폴더를 새로 만들고 `z_research/scripts/README.md` 에 한 줄 추가**한다.
+
+**임시 출력** → 레포에 쓰지 말고 `/tmp` 나 스크래치패드로. 문서화할 값이면 먼저
+`z_research/<셋>/Archive/` 의 md 로 옮기고 원본을 지운다.
+
+**분석 문서** → `z_research/<셋>/Archive/TOPIC_YYYY-MM-DD.md`.
+`z_world_model_analysis/` 는 레포 전역 분석용으로 남긴다.
+
+**⚠️ 실험 케이스마다 프로토콜 yaml 을 만들지 않는다.** 새 yaml 의 기준은 하나다 —
+**재는 방식 자체가 다른가?** (다른 index, 다른 표현 지점, 다른 라벨 의미)
+그 밖은 전부 아래 셋으로 처리한다 (`configs/protocols/README.md`):
+
+| 장치 | 쓸 때 |
+|---|---|
+| `fit_groups_sweep: auto` | 데이터셋마다 조건 구성이 다를 때. group 을 읽어 sweep 자동 생성 |
+| `SET="a.b=1 c.d=null"` | 일회성 변형 (epoch, target 하나만, sweep 지정). `null` = 키 삭제 |
+| `extends:` | 구조가 진짜 다른 실험 |
+
+실제로 `attn_probe_flat.yaml`(sweep 만 다름) · `attn_probe_e50_staticocc.yaml`(optim/runs/targets 만
+다름)을 이렇게 없앴다. 프로토콜은 4개로 유지된다.
 
 ### 8-2. 문서 규칙
 - 하단에 반드시 **`## 재현`** 절: 정확한 명령줄 + config 경로

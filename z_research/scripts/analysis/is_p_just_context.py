@@ -14,7 +14,7 @@ p = predictor(context) 라 물체 정보의 출처는 문맥뿐이다(정의상)
    문맥 시점, p 는 미래 시점이라 토큰끼리 시각이 다르다. 그래서 alpha(z) 는
    "문맥 표현을 그대로 미래 자리에 놓았을 때" 라는 가상 실험이지 공정한 대조군이 아니다.
 
-  python z_research/scripts/is_p_just_context.py --game shape
+  python z_research/scripts/analysis/is_p_just_context.py --game shape
 """
 from __future__ import annotations
 import argparse, collections, csv, json

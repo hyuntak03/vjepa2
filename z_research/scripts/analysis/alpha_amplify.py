@@ -20,7 +20,7 @@ alpha 는 p 에 대해 아핀이라 p' = mu + gamma*(p - mu) 를 넣으면
 ⚠️ 라벨을 안 쓰므로 둘 다 정당한 채점 규칙 수정이다. shape 개념 방향만 골라 키우는
    개입(steering)은 별개다 — held-out 가능 영상에서 부분공간을 배우면 그것도 정당하다.
 
-  python z_research/scripts/alpha_amplify.py --game shape
+  python z_research/scripts/analysis/alpha_amplify.py --game shape
 """
 from __future__ import annotations
 

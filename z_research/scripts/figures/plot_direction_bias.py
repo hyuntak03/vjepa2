@@ -14,7 +14,7 @@
 그래야 같은 전이가 네 패널에서 같은 색을 유지해 패널 간 비교가 성립한다.
 ⚠️ 이 순서는 데이터에서 정한 기술적(descriptive) 규칙이지 사전 가설이 아니다.
 
-  python z_research/scripts/plot_direction_bias.py \
+  python z_research/scripts/figures/plot_direction_bias.py \
       --result-dir z_research/IntPhysGenV10/exp_results/surprise_c16t32__v10_vith \
       --index data_csv/intphysgen_v10/index_probe.csv \
       --output z_research/IntPhysGenV10/figures/fig3_direction_bias.pdf

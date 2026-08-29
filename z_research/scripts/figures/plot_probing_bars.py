@@ -12,7 +12,7 @@
 ⚠️ 이 실행의 protocol 은 `eval: [self]` 뿐이라 h->p 이식(정렬손실)이 없다.
    CLAUDE.md §5-4 의 분해를 다시 하려면 runs[].eval 에 이식 대상을 넣고 다시 돌려야 한다.
 
-  python z_research/scripts/plot_probing_bars.py \
+  python z_research/scripts/figures/plot_probing_bars.py \
       --summary z_research/IntPhysGenV10/exp_results/attn_probe__v10_vith/summary.json \
       --output z_research/IntPhysGenV10/figures/fig4_probing.pdf
 """

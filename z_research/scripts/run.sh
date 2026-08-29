@@ -76,7 +76,7 @@ CFG=$(mktemp /tmp/wma_XXXXXX.yaml); trap 'rm -f "$CFG"' EXIT
 echo "=================================================="
 SET_ARGS=()
 for kv in ${SET:-}; do SET_ARGS+=(--set "$kv"); done
-"$PY" z_research/scripts/resolve.py "$PROTOCOL" "$DATASET" "$MODEL" -o "$CFG" "${SET_ARGS[@]}"
+"$PY" z_research/scripts/harness/resolve.py "$PROTOCOL" "$DATASET" "$MODEL" -o "$CFG" "${SET_ARGS[@]}"
 echo "  devices  : $DEVICES  (world_size=$GPUS)"
 echo "=================================================="
 

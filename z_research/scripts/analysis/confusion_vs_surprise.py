@@ -13,7 +13,7 @@ v10 은 클래스가 균형(클래스당 384)이라 그 교란 없이 다시 잰
 ⚠️ probe 와 채점은 서로 다른 질문이다 — probe 는 가능 영상만 보고 "p 에 A 가 있나",
    채점은 "p 가 h(A) 와 h(B) 중 어디에 가까운가". 어긋나는 게 모순은 아니다.
 
-  python z_research/scripts/confusion_vs_surprise.py
+  python z_research/scripts/analysis/confusion_vs_surprise.py
 """
 from __future__ import annotations
 

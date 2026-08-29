@@ -6,7 +6,7 @@ GPUS=4 bash z_research/scripts/run.sh <프로토콜> <데이터셋> [모델]
 DRYRUN=1 bash z_research/scripts/run.sh attn_probe v8    # 병합 결과만 (GPU 안 씀)
 ```
 
-세 조각이 실행 직전에 합쳐진다 (`z_research/scripts/resolve.py`):
+세 조각이 실행 직전에 합쳐진다 (`z_research/scripts/harness/resolve.py`):
 
 | 조각 | 담는 것 | 파일 |
 |---|---|---|

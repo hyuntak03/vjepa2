@@ -9,7 +9,7 @@ t-SNE 나 PCA 산점도는 **분산이 큰 축**을 먼저 보여 준다. 그런
   top-2/top-10 에서 env 만 나오고 shape 이 chance 면 -> 산점도는 배경만 보여 준다
   shape 이 상위에서 이미 나오면                      -> 그림이 실제로 쓸모 있다
 
-  python z_research/scripts/pca_spectrum.py --bases predictor target
+  python z_research/scripts/analysis/pca_spectrum.py --bases predictor target
 """
 from __future__ import annotations
 import argparse, collections, csv, json

@@ -17,7 +17,7 @@ head 는 30 epoch 동안 loss 가 ln(8)=2.079 근처(균등해)에 앉아 있다
    여기서 이미 잘 갈라지면 "정보는 있다"가 확정된다. 반대로 낮게 나와도
    attentive 가 못 읽는다는 뜻은 아니다 (풀링이 버린 것일 수 있다).
 
-  python z_research/scripts/concept_separability.py --base predictor --targets shape color
+  python z_research/scripts/analysis/concept_separability.py --base predictor --targets shape color
 """
 from __future__ import annotations
 
