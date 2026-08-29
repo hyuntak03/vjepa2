@@ -1,0 +1,1 @@
+wrote data_csv/intphysgen_v11/index.csv: 21504 clips, 5376 blocks, 10752 matched pairs; checked 172032 context-frame pairs, mismatches=0 (see data_csv/intphysgen_v11/context_integrity.json)

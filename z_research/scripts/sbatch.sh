@@ -33,8 +33,16 @@
 #   head 수만큼 시간이 든다. target 으로 쪼개면 그만큼 병렬이고 job 간 통신도 없다.
 #   실측(v10, depth=1): 1 GPU 204.7s vs 8 GPU 418.7s — GPU 를 몰면 오히려 느리다.
 #
+#   GSPLIT="static_visible,static_occlusion moving_visible,moving_occlusion" 을 더하면
+#   조건까지 쪼갠다 (job 수 = |SPLIT| x |GSPLIT|). GPUS_PROBE 로 본 job 의 GPU 수를
+#   따로 준다 (기본 1) — prep 만 GPUS 를 다 쓰고 본 job 은 1장씩이 가장 빠르다.
+#
 # ⚠️ 캐시 경쟁 — job 이 동시에 시작하면 **같은 토큰 캐시 파일에 함께 쓴다** (잠금 없음).
 #    그래서 prep job 하나가 먼저 캐시를 만들고 나머지는 --dependency=afterok 로 붙인다.
+#    **prep 은 runs 를 줄이면 안 된다** — base 를 다 안 만들면 뒤 job 이 전부 재추출한다.
+#
+# ⚠️ output_dir 충돌 — 모든 job 이 같은 경로를 계산하므로 job 마다 OUTDIR 을 따로 준다.
+#    (TAG 는 공유 — 캐시를 나눠 뽑으면 안 된다.) 끝나면 merge_probe_runs.py 로 합친다.
 #
 # ★ --gres 와 GPUS 를 반드시 맞출 것:
 #     sbatch --gres=gpu:2 --export=ALL,P=attn_probe,D=v8,GPUS=2 z_research/scripts/sbatch.sh
@@ -60,6 +68,11 @@ PROJECT=/data/hyuntak/project/2026/2027_cvpr/vjepa2
 #    SLURM_BATCH_SCRIPT 는 **sbatch 로 제출된 배치 job 에서만** 설정된다.
 if [[ -z "${SLURM_BATCH_SCRIPT:-}" ]]; then
   cd "$PROJECT"
+  # ⚠️ salloc 안에서 제출하면 부모 job 의 SLURM_* 가 --export=ALL 로 딸려가 새 job 의
+  #    노드/스텝 배치를 망친다 ("Requested node configuration is not available").
+  unset SLURM_JOB_ID SLURM_JOBID SLURM_NODELIST SLURM_JOB_NODELIST \
+        SLURM_NNODES SLURM_JOB_NUM_NODES SLURM_NTASKS SLURM_TASKS_PER_NODE \
+        SLURM_GPUS_ON_NODE SLURM_JOB_GPUS SLURM_MEM_PER_NODE SLURM_CPUS_ON_NODE
   : "${P:?P=<프로토콜> 필요}"; : "${D:?D=<데이터셋> 필요}"
   M=${M:-vith}; G=${GPUS:-4}; ME=z_research/scripts/sbatch.sh
   if [[ -z "${SPLIT:-}" ]]; then
@@ -67,19 +80,52 @@ if [[ -z "${SLURM_BATCH_SCRIPT:-}" ]]; then
            --export=ALL,P="$P",D="$D",M="$M",GPUS="$G",SET="${SET:-}" "$ME"
     exit 0
   fi
-  # prep: 캐시만 만든다 (head 1개). 첫 target 을 써서 targets 를 하나만 남긴다
-  first=$(echo $SPLIT | awk '{print $1}')
-  drop=""; for t in $SPLIT; do [[ $t == "$first" ]] || drop="$drop probing.targets.$t=null"; done
-  PREP=$(sbatch --parsable --job-name="prep_$D" --gres=gpu:"$G" \
-    --export=ALL,P="$P",D="$D",M="$M",GPUS="$G",SET="probing.fit_groups_sweep=[null] probing.runs=[{train:{model:predictor},eval:[self]}]$drop ${SET:-}" "$ME")
-  echo "prep  $PREP   토큰 캐시 생성 + head 1개   (GPUS=$G)"
+  # ── output_dir 충돌 방지 ──────────────────────────────────────────────────
+  # ⚠️ 모든 job 이 같은 output_dir 을 계산한다 (resolve.py: results_root/<P>__<D>_<M>).
+  #    그대로 두면 동시에 끝난 job 들이 summary.json / predictions.json 을 서로
+  #    덮어써서 **마지막 하나만 남는다.** job 마다 OUTDIR 을 따로 준다.
+  #    TAG 는 건드리지 않는다 — 토큰 캐시는 공유해야 한다.
+  BASE=$(DRYRUN=1 bash z_research/scripts/run.sh "$P" "$D" "$M" 2>/dev/null \
+         | awk '$1=="output_dir:"{print $2}' | tail -1)
+  [[ -n "$BASE" ]] || { echo "output_dir 을 못 구했다 (DRYRUN 실패)"; exit 1; }
+  echo "base  $BASE"
+
+  # ── prep: 토큰 캐시를 만든다 ──────────────────────────────────────────────
+  # ⚠️ **runs 를 줄이면 안 된다.** schema.expand 가 runs 에서 source 를 만들고
+  #    extract() 가 그 source 의 base 만 캐시한다. predictor 만 남기면
+  #    predictor.npy 하나만 쓰고 meta.json 에도 그것만 적힌다. 그러면 뒤따르는
+  #    job 들이 ctx_masked/target 이 없다고 판단해(TokenCache.matches) **전부
+  #    동시에 재추출**하고 같은 파일에 함께 쓴다 (잠금 없음). 캐시가 깨진다.
+  #    싸게 만드는 건 epoch 로 한다 — head 자체는 버리는 값이다.
+  # ⚠️ 사용자 SET 을 **앞**에 둔다. drop(=targets.X=null)이 뒤에 와야 한다 —
+  #    순서가 반대면 SET 안의 probing.targets.shape.* 가 지워진 target 을 빈 dict 로
+  #    되살려 column 키가 없는 채로 죽는다 (resolve.py 는 점 경로를 만들며 내려간다).
+  drop=""; first=$(echo $SPLIT | awk '{print $1}')
+  for t in $SPLIT; do [[ $t == "$first" ]] || drop="$drop probing.targets.$t=null"; done
+  PREP=$(OUTDIR="$BASE/_prep" sbatch --parsable --job-name="prep_$D" --gres=gpu:"$G" \
+    --export=ALL,P="$P",D="$D",M="$M",GPUS="$G",OUTDIR="$BASE/_prep",SET="${SET:-} probing.fit_groups_sweep=[null] probing.optims.attn_30.num_epochs=1$drop" "$ME")
+  echo "prep  $PREP   토큰 캐시 전체(base 3종) + 버리는 head 3개 1ep   (GPUS=$G)"
+
+  # ── 본 job: target x (조건 그룹) ──────────────────────────────────────────
+  # GSPLIT="a,b,c d,e,f" 를 주면 조건까지 쪼갠다 (job 수 = |SPLIT| x |GSPLIT|).
+  # head 는 job 안에서 **순차** 학습이라 job 을 늘리는 게 GPU 를 몰아주는 것보다 빠르다.
+  # 조건으로 쪼개면 runs 는 그대로라 base 3종을 다 요구한다 -> 위 하자가 안 생긴다.
+  PG=${GPUS_PROBE:-1}
   for t in $SPLIT; do
     drop=""; for o in $SPLIT; do [[ $o == "$t" ]] || drop="$drop probing.targets.$o=null"; done
-    ID=$(sbatch --parsable --job-name="prb_${D}_$t" --gres=gpu:"$G" --dependency=afterok:"$PREP" \
-      --export=ALL,P="$P",D="$D",M="$M",GPUS="$G",SET="${drop# } ${SET:-}" "$ME")
-    echo "  $t   $ID"
+    gi=0
+    for gs in ${GSPLIT:-__all__}; do
+      if [[ $gs == "__all__" ]]; then gset=""; sfx="$t"
+      else gset="probing.fit_groups_sweep=[[${gs//,/],[}]]"; sfx="${t}_g${gi}"; fi
+      ID=$(sbatch --parsable --job-name="prb_${D}_$sfx" --gres=gpu:"$PG" --dependency=afterok:"$PREP" \
+        --export=ALL,P="$P",D="$D",M="$M",GPUS="$PG",OUTDIR="$BASE/$sfx",SET="${SET:-} ${drop# } $gset" "$ME")
+      echo "  $sfx   $ID   (GPUS=$PG)  -> $BASE/$sfx"
+      gi=$((gi+1))
+    done
   done
-  echo; echo "watch -n 1 bash z_research/scripts/monitor.sh"
+  echo
+  echo "합치기:  python z_research/scripts/analysis/merge_probe_runs.py $BASE"
+  echo "진행:    watch -n 1 bash z_research/scripts/monitor.sh"
   exit 0
 fi
 

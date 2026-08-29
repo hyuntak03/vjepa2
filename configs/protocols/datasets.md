@@ -89,6 +89,52 @@ variant_column: variant
 plausible_column: plausible
 type_column: condition
 
+## v11
+
+**본 실험 세트.** 21,504 clip / 5,376 block / 10,752 matched pair.
+`시나리오 6 x 위반 3 x k 4 x 84 block` — **k 를 데이터셋 내부 축으로** 가져간 것이 v10 과의
+가장 큰 차이다 (v10 은 k=4 고정, `v10_occ_low` 가 k=1 을 별도 셋으로 뒀다).
+
+| 축 | 값 |
+|---|---|
+| `condition` | `static/moving_flat/moving` x `visible/occlusion` — **6개, k 를 접지 않았다** |
+| `sym_k` | 0(가림 없음) / 1 / 2 / 3 / 4 — 가려지는 **샘플 프레임 수**(한쪽당) |
+| `violation_type` | vanish / shape / color |
+| shape | 7종, **21쌍 전부** 커버 (v10 은 8종 중 4쌍뿐이었다) |
+| color | 8종, **28쌍 전부** |
+
+⚠️ **`condition` 에 k 를 접어 넣지 않은 것이 중요하다.** `attn_probe` 의 `fit_groups_sweep: auto`
+가 `group_column` 값을 읽으므로, k 를 접었다면 24 그룹 x 3 target x 3 run = 216 head 가 됐다.
+지금은 7 x 3 x 3 = 63 이다.
+
+**속도 고정, 가림막 폭이 k 와 함께 변한다** (v0 116 cm/s 고정, 폭 17.5% -> 36.9%).
+"가림 시간"을 늘리려면 고정 속도에서는 폭을 늘릴 수밖에 없다 — 조작의 구현이지 교란이 아니다.
+
+**silhouette 을 7종 전부 동일하게 맞췄다** (렌더된 픽셀 기준, `shape_scale_fix`). v10 에서는
+모양이 폭과 교락돼 clean frame 수로 샜다 (cone 5 vs cylinder 8). 보정은 메시에만 걸고
+`EXTENTS`(가림막을 푸는 기준)에는 걸지 않는다 — 그러면 모양마다 다른 가림막이 생겨
+가시성 단서를 되돌려준다.
+
+⚠️ `visible` 은 가림막이 장면에 없다. "가림 유무" 대비의 정의는 CLAUDE.md §8-5 를 볼 것.
+프레임은 34장이 저장돼 있고 프로토콜은 32장(0,3,..,93)만 읽는다. 96·99 는 창 밖이다.
+
+설계 문서: `/data/hyuntak/project/2026/2027_cvpr/UnrealEngine/gen/V11_DESIGN.md`
+
+raw_frames: 100
+cache_tag: v11
+results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/IntPhysGenV11/exp_results
+root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/intphysgen_v11
+index_csv: index.csv
+frames_root: /local_datasets/world/world_analysis/IntPhysGen_v11
+frames_pattern: "{file_name}/{frame:06d}.png"
+frames_start: 0
+frames_stride: 3
+block_column: block_id
+pair_column: pair_id
+variant_column: variant
+plausible_column: plausible
+type_column: condition
+
 ## v10_flat
 
 **v10 의 flat 팔.** 2026-08-28 에 v10 에 `moving_occlusion_flat` / `moving_visible_flat`

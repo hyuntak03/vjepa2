@@ -187,7 +187,7 @@ def main():
     # 이게 없으면 조건 구성이 다른 데이터셋마다 프로토콜 yaml 을 새로 떠야 한다
     # (실제로 attn_probe_flat.yaml 이 그 이유로 존재했다).
     P = cfg.get("probing") or {}
-    if P.get("enabled") and P.get("fit_groups_sweep") == "auto":
+    if P.get("enabled") and P.get("fit_groups_sweep") in ("auto", "auto_conditions"):
         dd = cfg["data"]
         ipath = os.path.join(dd["root"], dd.get("index_csv", "index.csv"))
         gcol = dd.get("group_column") or dd.get("variant_column") or "variant"
@@ -199,7 +199,12 @@ def main():
                     continue                       # probing 대상이 없는 group 은 학습셋 0 -> 죽는다
                 if r[gcol] not in seen:
                     seen.append(r[gcol])
-        P["fit_groups_sweep"] = [None] + [[g] for g in sorted(seen)]
+        # auto            = pooled(None) + 조건별
+        # auto_conditions  = 조건별만. pooled 는 조건 간 타협이라 "이 조건에서 얼마나
+        #                    읽히나" 의 답이 아니다. 수렴 대조가 필요하면 최적화가 없는
+        #                    닫힌 해 ridge 를 쓴다 (analysis/concept_separability.py).
+        cond = [[g] for g in sorted(seen)]
+        P["fit_groups_sweep"] = cond if P["fit_groups_sweep"] == "auto_conditions" else [None] + cond
 
     # ── 모델 로드 전에 실물 검사 ────────────────────────────────────────────────
     d, m = cfg["data"], cfg["model"]

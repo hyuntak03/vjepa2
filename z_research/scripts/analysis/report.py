@@ -22,6 +22,8 @@ v10_flat / occ_low 에는 없다). v11 처럼 k 가 내부 축이면 자동으�
     dose[]      k 별 집계 (violation 별과 전체)
   probing
     cells[]     (point, target, groups) x condition
+    by_axis[]   --probe-index 를 주면 생긴다. head 마다 임의 축(k / surface / …)과
+                condition x sym_k 교차까지 쪼갠 정확도
   confusion
     <fit>/<target>/<condition> : {classes, matrix}   행=정답 열=예측
 """
@@ -107,6 +109,12 @@ def main():
                     help="attn_probe 결과 디렉토리 (여러 번 가능)")
     ap.add_argument("--confusion", nargs="*", default=["pred__f17to32/shape", "pred__f17to32/color"],
                     metavar="FIT/TARGET")
+    ap.add_argument("--probe-index", type=Path, default=None,
+                    help="predictions.json 의 val_video_ids 와 조인할 index_probe.csv. "
+                         "이걸 주면 **임의의 축(k, surface, direction …)으로 head 를 쪼갠다.** "
+                         "probing 의 group_column 은 condition 이라 config 만으로는 k 를 못 본다.")
+    ap.add_argument("--probe-axes", nargs="*", default=["sym_k", "condition", "surface"],
+                    metavar="COL", help="쪼갤 축. 인덱스에 있는 것만 쓴다")
     ap.add_argument("-o", "--output", type=Path, required=True)
     a = ap.parse_args()
 
@@ -151,8 +159,42 @@ def main():
                 overall=round(100 * ev["overall"], 2),
                 per_group={g: round(100 * c["acc"], 2) for g, c in ev["per_group"].items()},
                 converged=r["train_acc"] >= 0.95))
-        # ---- confusion ------------------------------------------------------
+        # ---- 임의 축으로 head 쪼개기 (k 비교가 여기서 나온다) ------------------
         pf = pd_ / "predictions.json"
+        if pf.exists() and a.probe_index:
+            M = json.loads(pf.read_text())
+            meta = {r["video_id"]: r for r in csv.DictReader(a.probe_index.open())}
+            vid = M["val_video_ids"]
+            axes = [c for c in a.probe_axes if c in next(iter(meta.values()))]
+            col = {c: np.array([meta[v].get(c) for v in vid]) for c in axes}
+            for h in M["heads"]:
+                if h["eval"] != h["fit"]:            # self 만 (이식은 의미가 다르다)
+                    continue
+                gold = np.asarray(M["targets"][h["target"]]["gold"])
+                pred = np.asarray(h["pred"])
+                rec = dict(point=POINT.get(h["fit"], h["fit"]), fit=h["fit"],
+                           target=h["target"], groups=h.get("groups"), by={})
+                for c in axes:
+                    rec["by"][c] = {}
+                    for v in sorted(set(col[c])):
+                        m = col[c] == v
+                        if m.sum():
+                            rec["by"][c][str(v)] = dict(
+                                n=int(m.sum()),
+                                acc=round(100 * float((pred[m] == gold[m]).mean()), 2))
+                    # 두 축 교차 (조건 x k) — dose-response 를 조건별로 보려면 필요
+                if "sym_k" in axes and "condition" in axes:
+                    rec["by"]["condition_x_sym_k"] = {}
+                    for cd in sorted(set(col["condition"])):
+                        for k in sorted(set(col["sym_k"])):
+                            m = (col["condition"] == cd) & (col["sym_k"] == k)
+                            if m.sum():
+                                rec["by"]["condition_x_sym_k"][f"{cd}|k{k}"] = dict(
+                                    n=int(m.sum()),
+                                    acc=round(100 * float((pred[m] == gold[m]).mean()), 2))
+                rep["probing"].setdefault("by_axis", []).append(rec)
+
+        # ---- confusion ------------------------------------------------------
         if not pf.exists():
             continue
         M = json.loads(pf.read_text())
@@ -182,7 +224,8 @@ def main():
     n = rep["scoring"]
     print(f"[saved] {a.output}")
     print(f"  scoring  run {len(n['overall'])} · cell {len(n['cells'])} · dose {len(n['dose'])}")
-    print(f"  probing  head {len(rep['probing']['cells'])}")
+    print(f"  probing  head {len(rep['probing']['cells'])}"
+          + (f" · by_axis {len(rep['probing'].get('by_axis', []))}" if rep["probing"].get("by_axis") else ""))
     print(f"  confusion {len(rep['confusion'])}")
     for o in n["overall"]:
         print(f"    {o['dataset']:<16}{o['overall']:6.2f}%  n={o['n_pair']}  검증 {'OK' if o['verified'] else '?'}")
