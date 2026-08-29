@@ -101,7 +101,15 @@ probing:
   probe: attentive
   optim:  attn_30
   probes:
-    attentive: { type: attentive, num_heads: 16, num_probe_blocks: 4 }   # 4-layer
+    # ⚠️ num_probe_blocks 는 **cross-attention 앞에 얹는 self-attention 층 수**다.
+    #    depth=1 이면 cross-attention 하나 = V-JEPA 의 attentive pooler 그대로(분야 표준).
+    #    depth=4 는 2048 토큰 self-attention 3층이 붙어 비용이 ~100배인데,
+    #    2026-08-30 실측(v10, shape, pooled)에서 **더 나빴다**:
+    #        p self   depth4 94.69 / depth1 96.35   train_acc 0.961 -> 0.998
+    #        sta+occ  depth4 82.70 / depth1 87.53
+    #        fit      depth4 418.7s(8GPU) / depth1 204.7s(1GPU)   -> 처리량 ~16배
+    #    과대용량이 수렴을 방해했다 (§7-3 의 포화 경고와 같은 뿌리).
+    attentive: { type: attentive, num_heads: 16, num_probe_blocks: 1 }
     linear:    { type: linear, pooling: mean, pre_norm: true }
   optims:
     attn_30:  { num_epochs: 35,  batch_size: 16, lr: 0.0001, weight_decay: 0.05 }
