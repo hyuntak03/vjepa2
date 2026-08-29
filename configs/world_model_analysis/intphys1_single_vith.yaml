@@ -1,0 +1,46 @@
+# IntPhys1 dev — 최고 단창(skip2_w32, start=24, C=8) 을 '고정 단창' 으로 재현한 config.
+# 기계적 분석(토큰별 지도 비교)을 IntPhysGen 과 같은 조건에서 하기 위한 것.
+#   raw 프레임 24,26,...,86  = scene_025.png 부터 stride 2 로 32장
+#   context 8 (raw 24~38) / target 24 (raw 40~86)
+eval_name: world_model_analysis
+tag: intphys1_single_vith
+output_dir: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_exp/world_model_analysis/results/intphys1_single_vith
+data:
+  root: /local_datasets/world/world_analysis/IntPhys1_dev_videos
+  index_csv: index.csv
+  frames_root: /local_datasets/world/world_analysis/IntPhys1_dev_frame_png
+  frames_pattern: "{block}/{quadruplet}/{run}/scene/scene_{frame:03d}.png"
+  frames_start: 25
+  frames_stride: 2
+  n_frames: 32
+  resolution: 256
+  block_column: block_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: block_type
+  split: null
+model:
+  checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vith-fpc64-256/snapshots/b5eac8703e3efdc1547fbb6ddfbeb133dc0bdee5/original/model.pth
+  arch_name: vit_huge
+  img_size: 256
+  patch_size: 16
+  tubelet_size: 2
+  window_size: 32
+  use_rope: true
+  uniform_power: false
+  dual_encoder: true
+  context_encoder_key: encoder
+  target_encoder_key: target_encoder
+  predictor: { embed_dim: 384, depth: 12, num_heads: 12, num_mask_tokens: 10 }
+  dtype: bfloat16
+surprise:
+  context_length: 8
+  distance: l1
+  loss_exp: 1.0
+  target_layer_norm: true
+  mask_index: 0
+  batch_size: 2
+scoring:
+  metrics: [block_pairwise, block_distribution]
+  breakdown: [block_type]
+  pairing: matched

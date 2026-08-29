@@ -1,0 +1,121 @@
+# =============================================================================
+# IntPhys 1 영상 + IntPhys 2 프로토콜 / V-JEPA 2 ViT-H
+#
+#   영상만 IntPhys(2019) 를 쓰고, 채점 절차는 전부 IntPhys 2 논문 App. D 를 따른다.
+#   IntPhys 2 논문에는 IntPhys1 전용 설정이 없으므로, 논문이 명시한 하이퍼파라미터
+#   공간 안에서 6.7초짜리 영상에 들어가는 지점을 고른다.
+#
+# 실행
+#   PYTHONPATH=$PWD torchrun --nproc-per-node=2 -m analysis.intphys2.eval \
+#       --config configs/analysis/intphys2/vjepa2_vith_intphys1_ip2proto.yaml
+#
+# -----------------------------------------------------------------------------
+# ★ window 를 48 이 아니라 32 로 쓰는 이유
+#
+#   IntPhys 2 논문 D.3
+#     "we use window sizes of 16, 32 or 48 frames with a fixed framerate of 6 fps"
+#   Table 8 (V-JEPA 2 행) : window 48 / prediction length -1 / framerate 6
+#
+#   그런데 영상 길이가 다르다.
+#     IntPhys 2 : 636~724프레임 @60fps = 10.6~12.1초 -> 6fps 에서 64~72프레임  (48 여유)
+#     IntPhys 1 : 100프레임    @15fps =  6.7초       -> 6fps 에서 **40프레임**
+#
+#   6fps 를 고정하면 (논문이 framerate 를 고정값으로 못박았다) window 별 시작점 수는
+#     window 16 -> 13 시작점
+#     window 32 ->  5 시작점
+#     window 48 ->  0 시작점   <- 영상 전체(40)보다 길어서 들어가지 않는다
+#   그래서 논문이 허용한 {16, 32, 48} 중 최대인 **32** 를 쓴다.
+#   context 도 논문 규칙 그대로 [4,6,8,10,12,14] x (M/16) = [8,12,16,20,24,28] 로 스케일된다.
+#
+#   ⚠️ 이건 "논문 설정 그대로"가 아니라 "논문이 허용한 공간 안의 최대 지점"이다.
+#      window 48 은 IntPhys1 에서 물리적으로 불가능하다. 비교할 때 반드시 밝힐 것.
+#
+# -----------------------------------------------------------------------------
+# configs/world_model_analysis/intphys1_vith.yaml (Garrido 프로토콜) 과의 차이
+#   같은 것 : 영상(IntPhys1 dev 360), 모델(V-JEPA 2 ViT-H), 역할 배치, mask_index,
+#             L1, target LN, 해상도 256, matched 2쌍 채점, fp32+fp16 autocast
+#   다른 것 : 프로토콜만
+#     Garrido : frame skip grid, window 고정 sliding, 시작점마다 C 들의 min,
+#               (skip x window) grid 를 돌아 최고값 보고
+#     이 파일 : 6fps 고정, window 를 '최대'로 보는 growing context (Fig. 8B),
+#               min 축약 없음, 전체 window 평균(AvgSurprise), C 는 최고값 보고
+#   -> 두 실행의 차이는 순수하게 프로토콜 차이다.
+# =============================================================================
+
+tag: vjepa2_vith_intphys1_ip2proto
+folder: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_exp/intphys2
+
+data:
+  # labels.csv + scene/*.mp4 를 읽는다. index.csv 도 같은 디렉터리에 있어서
+  # breaking-point 기반 pair_id 를 그대로 이어받는다 (dataset.py 가 자동으로 찾는다).
+  root: /local_datasets/world/world_analysis/IntPhys1_dev_videos
+  dataset_variant: intphys1
+
+  target_fps: 6.0                 # 논문 D.3 이 고정값으로 박은 framerate
+                                  # 100프레임 @15fps -> 40프레임. frame_step 은 15/6 이
+                                  # 정수가 아니라 못 쓰고 linspace 균등 추출을 쓴다.
+  min_frames: 8
+
+  img_size: 256                   # 원본 288x288 -> 256
+  crop_margin_ratio: 1.0          # 자르지 않고 전체 리사이즈. 공식 IntPhys2 전처리
+                                  # (random_resized_crop, scale=[1,1], ratio=[1,1]) 와 동일
+  decord_threads: 2
+
+model:
+  checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vith-fpc64-256/snapshots/b5eac8703e3efdc1547fbb6ddfbeb133dc0bdee5/original/model.pth
+  arch_name: vit_huge
+  img_size: 256
+  patch_size: 16
+  tubelet_size: 2
+  # window_size 는 surprise.window_size 에서 자동으로 채워진다 (32).
+  use_rope: true
+  uniform_power: false
+
+  # 공식 wrapper 와 같은 역할 배치 (context=online encoder, target=EMA)
+  dual_encoder: true
+  context_encoder_key: encoder
+  target_encoder_key: target_encoder
+
+  predictor: { embed_dim: 384, depth: 12, num_heads: 12, num_mask_tokens: 10 }
+  # 공식 수치 경로: 가중치 fp32 + forward 만 fp16 autocast
+  # (Garrido eval.py:437 / IntPhys2 eval.py:262 둘 다 같은 방식)
+  dtype: float32
+  autocast: float16
+
+surprise:
+  window_size: 32                 # M. 위 주석 참고 (48 은 IntPhys1 에 안 들어간다)
+  context_length_sweep: [8, 12, 16, 20, 24, 28]   # = [4,6,8,10,12,14] x (32/16)
+  context_length: 16              # sweep 이 있으면 안 쓰인다
+  stride: 2                       # 공식 config 의 stride_sliding_window
+  protocol: growing               # ★ Fig. 8B / max_context_mode
+  distance: l1
+  loss_exp: 1.0
+  target_layer_norm: true
+  aggregation: avg                # D.1 "We use average surprise unless specified otherwise"
+  mask_index: 0
+  context_forward_mode: masked
+  max_window_batch: 8             # window 당 4096 토큰. fp32 가중치라 bf16 때보다 무겁다.
+
+evaluation:
+  compute_pairwise: true
+  compute_auroc: true
+  # type_matched = (scene_index, pair_id) 안에서 가능 1 + 불가능 1.
+  # pair_id 는 index.csv 에서 오고, 그건 공식 get_breaking_points/get_matches 규칙이다.
+  pairing: type_matched
+  breakdown_by: [condition]       # IntPhys1 은 condition 에 block(O1/O2/O3) 이 들어간다
+  ddp: true                       # torchrun 으로 띄울 것
+  num_workers: 6
+  prefetch_factor: 2
+  pin_memory: true
+  verbose: true
+  log_every_videos: 25
+  limit_videos: null
+
+output:
+  save_per_video: true
+  save_per_window: true           # surprise-over-time 곡선용
+  save_config: true
+  plot_breakdowns: true
+  plot_context_sweep: true
+  plot_scene_curves: false
+  scene_curve_indices: null

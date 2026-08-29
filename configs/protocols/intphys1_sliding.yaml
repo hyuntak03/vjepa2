@@ -1,0 +1,86 @@
+# =============================================================================
+# PROTOCOL — IntPhys1 Garrido 공식 sliding-window 채점
+#
+#   bash z_research/scripts/run.sh intphys1_sliding intphys1_dev vith   -> 88.89%
+#
+# 데이터셋/모델은 configs/protocols/{datasets,models}.md 에서 온다. 여기엔 없다.
+# ⚠️ 영상 전체를 쓴다(n_frames: RAW). raw_frames 가 100 이 아닌 데이터셋에 그대로
+#    적용하면 window 그리드가 달라진다 — 비교 전에 그리드부터 확인할 것.
+#
+# 원출처
+#   Garrido et al. "Intuitive physics understanding emerges from self-supervised
+#   pretraining on natural videos" — App. A.7 / A.8 / Table S3
+#   코드 /data/hyuntak/project/2026/2027_cvpr/jepa-intuitive-physics
+#        evaluation_code/evals/intuitive_physics/{eval.py,utils.py,intphys_dataset.py}
+#
+# 프로토콜 (식 S2/S3)
+#   S_t = || p(f(V[t:t+C])) - g(V[t:t+C+M]) ||_1
+#     f = context encoder. window 전체를 넣되 mask 로 앞 C 프레임 토큰만 남긴다.
+#         (patch_embed 뒤 / transformer 앞에서 걸러져 미래는 attention 에 안 들어간다.
+#          실측: encoder(window, mask=ctx) == encoder(C프레임 클립), max|diff| = 0)
+#     g = target encoder. window 전체(C+M)를 넣고 future M 프레임 표현만 취한다.
+#   시작점 t 마다 C 들의 **최솟값**을 쓴다 (A.8: "minimal surprise over all context
+#   lengths C ... helps filter surprise spikes coming from possible events").
+#   AvgSurprise = mean over t (쌍 비교용) / MaxSurprise = max over t (단일 영상 분류용)
+#
+# 읽는 법
+#   논문 대응 수치 = summary.json.surprise["skip2_w32/avg"].by_block_type.{O1,O2,O3}
+#     O1 Object Permanence / O2 Shape Constancy / O3 Continuity
+#   overall(4중항 평균)은 논문에 없는 값이니 참고용이다.
+#   n_ties = 0 이면 우리의 동점 0.5 규칙과 공식의 strict '<' 가 완전히 같은 결과다.
+#
+# ⚠️ surprise_c16t32 의 수치와 섞지 말 것. 같은 IntPhys1 dev 에서
+#    sliding 88.89% vs fixed 66.67% — 22.2pt 차이다. sliding best 는 같은 그리드에서
+#    고른 값이라 held-out 추정치가 아니라 descriptive 이므로 그렇게 명시할 것.
+# =============================================================================
+eval_name: world_model_analysis
+
+data:
+  n_frames: RAW                   # 영상 전체 (datasets.md 의 raw_frames 로 치환된다)
+  frames_stride: 1                # sliding 이 프레임을 직접 건너뛴다 (frame_skips)
+  resolution: 256                 # model.img_size 와 반드시 같아야 한다
+  split: null                     # 채점만 하므로 split 불필요
+
+model:
+  img_size: 256
+  patch_size: 16
+  tubelet_size: 2
+  window_size: 32                 # predictor mask-token 뱅크 상한. sweep 최대 window 이상이면 된다
+  use_rope: true
+  uniform_power: false
+  dual_encoder: true              # context <- ckpt['encoder'](online) / target <- ckpt['target_encoder'](EMA)
+  context_encoder_key: encoder
+  target_encoder_key: target_encoder
+  predictor: { embed_dim: 384, depth: 12, num_heads: 12, num_mask_tokens: 10 }
+  # ★ 공식 구현과 같은 수치 경로: 가중치 fp32 + forward 만 fp16 autocast.
+  #   (공식 eval.py:437 은 플래그 이름이 use_bfloat16 인데 실제 dtype 은 float16 이다)
+  #   bf16 전체캐스팅으로 바꾸면 surprise 가 상대 0.155% 흔들리고 조합별 정확도가
+  #   -0.6 ~ +3.3%p 움직인다. 논문의 relative surprise 가 7e-3 규모라 무시 못 한다.
+  dtype: float32
+  autocast: float16
+
+surprise:
+  mode: intphys1                  # ★ 이 한 줄로 sliding-window 경로로 분기한다
+  distance: l1
+  loss_exp: 1.0
+  target_layer_norm: true         # target 에만 LN (공식 normalize_targets=True)
+  mask_index: 0                   # ckpt 에서 mask_tokens[0] 만 학습됐다 (1~9 는 전부 정확히 0)
+  intphys1:
+    frame_skips:  [2, 5, 10]      # A.8 grid. 영상 길이에 안 맞는 조합은 자동으로 빠진다
+    window_sizes: [16, 32]        # C + M
+    context_mult: [2, 4, 6, 8, 10]  # C = mult x (C+M)/16
+    stride: 2                     # 논문 s=2
+    context_reduce: min           # 시작점마다 C 들의 최솟값 (공식 all_losses.min(1))
+    frame_budget: official        # 공식 num_frames = 99//skip. 프로토콜이 아니라 방어 코드지만
+                                  # 공식 수치를 재현하려면 맞춰야 한다. full = 논문 식 S3 그대로
+    aggregate: [avg, max]
+    dump_windows: true            # per_window.json 에 window 별 원값 (사후 분석용)
+    video_batch: 6                # ⚠️ >1 이면 reduction 순서가 바뀌어 ~5e-4 흔들린다. 재현성 원하면 1
+    max_batch: 48                 # 실측 ViT-H fp32+fp16autocast 15.7/24 GiB. OOM 나면 이것만 낮출 것
+
+scoring:
+  # ★ 공식은 4중항 안에서 **문맥일치 2쌍만** 채점한다 (전수 4쌍이 아니다).
+  #   utils.py:157-175 get_breaking_points / get_matches.
+  #   cross 로 두면 (가능2)x(불가능2) 전수 4쌍이 되어 공식과 달라지고 누수를 흡수한다.
+  pairing: matched
+  breakdown: [block_type]

@@ -1,137 +1,106 @@
 # =============================================================================
-# Linear probing: IntPhys 1 (Riochet 2021), V-JEPA 2 ViT-L
+# IntPhys 1 layer-wise LINEAR PROBING — V-JEPA 2 ViT-L
+# "Interpreting Physics in Video World Models" 재현 (Appendix B 그대로)
 #
-# Paper-reproduction config (Joseph et al. 2026, Appendix B, as faithful as possible):
-#   * Layer-wise linear probe over ALL 24 ViT-L blocks (`stages: all`)
-#   * Probe form: f(h) = Wh + b   (pure linear, no LN inside the probe head)
-#   * Paper HP sweep: 5 lr × 4 wd = 20 configs (Appendix B, exact verbatim)
-#       lr ∈ {1e-4, 3e-4, 1e-3, 3e-3, 5e-3}
-#       wd ∈ {0.01, 0.1, 0.4, 0.8}
-#   * 5-fold grouped CV: not yet implemented (single 80/20 grouped split for now)
-#   * CONSTANT lr/wd during training:
-#       per-probe start_lr = final_lr = lr    (no warmup+cosine artifact)
-#       per-probe final_weight_decay = wd     (no wd-schedule silent decay away from swept value)
-#       warmup: 0.0                            (paper does not mention warmup)
-#   * resize_mode: resize     -- preserve full 288x288 FoV (round-2 audit)
-#   * uniform_sampling: true  -- sample 16 frames evenly across native 100 (Sonia: 16 frames/clip)
-#   * spatiotemporal MEAN pooling on cached features (Sonia: mean pool)
-#   * Encoder path: forward hooks on model.blocks[i] capture raw x_N (no self.norm on intermediates)
+# 논문이 명시한 것 (Appendix B, p13 전문)
+#   "For all experiments, we trained linear probes of the form f(hℓ) = W hℓ + b
+#    on spatiotemporally pooled activations from each layer ℓ ∈ {0,...,n−1} of the
+#    frozen n-layer encoder. We performed a hyperparameter sweep over 20
+#    configurations, with learning rates {10⁻⁴, 3×10⁻⁴, 10⁻³, 3×10⁻³, 5×10⁻³}
+#    and weight decay {0.01, 0.1, 0.4, 0.8}, selecting the best model based on
+#    validation performance. We used 5-fold grouped cross-validation and report
+#    results as mean ± standard deviation across folds."
+#   §3.2 : "linear probes on mean-pooled space–time patches", "probe the residual
+#           stream at every layer"
+#   §4.1 : IntPhys 에서 matched possible / impossible 쌍의 이진 분류
+#   C.11 : "IntPhys: Binary logistic regression (possible vs. impossible),
+#           trained with cross-entropy loss"
 #
-# Fields NOT specified in paper (chosen for full convergence / cheap probes):
-#   num_epochs: 20 (matches paper-friendly setting; watch train loss to verify convergence)
-#   batch_size: 8
-#   optimizer: AdamW (hardcoded in harness; implied by wd sweep in paper)
-#   dtype: fp32 (use_bfloat16: false to avoid the fp16 GradScaler bug with fused sum-of-losses)
+# 논문이 침묵하는 것 -> 아래 값으로 채웠고, 근거를 같이 적어둔다
+#   optimizer   : Appendix B 는 언급 없음. 논문에서 optimizer 를 명시한 유일한 곳이
+#                 C.11 의 "Adam" 이라 adam 을 쓴다. wd 가 0.8까지 가므로 AdamW(decoupled)
+#                 와 결과가 실제로 갈린다 -> 논문에 있는 쪽을 따른다.
+#   epochs      : Appendix B 는 언급 없음. C.11 의 IntPhys 값 50 을 쓴다.
+#   schedule    : 언급 없음 -> 상수 lr/wd, warmup 없음 (start=lr=final).
+#   frame 샘플링: 언급 없음 -> keystone(위반 프레임) 중심 16프레임.
+#                 IntPhys 는 possible/impossible 이 breakpoint 한 프레임에서만 갈리는데
+#                 tick 이 17~89 (median 52) 로 흩어져 있어, 영상 중앙을 자르면 약 60%가
+#                 breakpoint 를 놓친다. 균등 샘플링도 마찬가지다.
 #
-# What we CANNOT easily match (deferred):
-#   * 5-fold grouped CV     -> we use single 80/20 grouped split (~+2-4pt to close)
-#   * matched-pair training -> we do per-video (~+8-10pt to close per r3 audit)
-#   * encoder final LN skip -> upstream `self.norm` is applied to all intermediate layers
-#                              per z_tech; we do not touch upstream (~+10-12pt to close)
+# 데이터: /local_datasets/world/world_analysis/IntPhys1_dev_videos (360 video, 100f, 288²)
+#   z_scripts/analysis/build_intphys1_probing_data.py 가
+#   data_csv/IntPhys1_dev/{keystones.json, cv/{train,val}_fold{0..4}.csv} 를 만든다.
+#   라벨 1 = impossible. fold 는 quadruplet 단위 (90 quad -> fold 당 18 quad = 72 video).
 #
-# Task    : binary classification (possible=0 vs impossible=1)
-# Data    : 360 videos, 80/20 split grouped by quadruplet
-# Harness : evals/analysis_vlm/eval.py  (eval_name: analysis_vlm)
-# env     : vjepa2
+# 실행 (5-fold 를 돌리며 __TAG__/__TRAIN_CSV__/__VAL_CSV__ 를 치환):
+#   bash z_scripts/run_5fold.sh configs/analysis/probing/intphys1_vitl.yaml
 # =============================================================================
 eval_name: analysis_vlm
 folder: /data/hyuntak/project/2026/2027_cvpr/vjepa2/configs/analysis/probing/logs
 num_workers: 8
 resume_checkpoint: false
 val_only: false
-tag: probe_intphys1_vitl_mean_64f
+tag: __TAG__
 
 experiment:
   analysis:
     model: vjepa
     stages:
-      vision_encoder: all              # layer-wise scan across all 24 ViT-L blocks
-    plot: true                          # writes stage_val_acc.png (x=layer fraction)
-    plot_pez: [0.2, 0.4]               # Physics Emergence Zone shading (Joseph Fig 1)
+      vision_encoder: all           # 모든 layer ℓ ∈ {0..23} 의 residual stream
+    plot: true
+    plot_pez: [0.2, 0.4]            # Physics Emergence Zone 밴드 (논문 Fig 1)
 
-    # ---------- Paper Appendix B HP sweep: EXACT paper values (5 lr × 4 wd = 20) ----------
-    # Joseph 2026 Appendix B verbatim:
-    #   "learning rates {10^-4, 3×10^-4, 10^-3, 3×10^-3, 5×10^-3}
-    #    and weight decay {0.01, 0.1, 0.4, 0.8}, selecting the best model based on validation
-    #    performance. We used 5-fold grouped cross-validation and report results as
-    #    mean ± standard deviation across folds."
-    # Each probe gets EXPLICIT constant lr / wd (start=ref=final on both).
-    # warmup: 0.0 removes the harness's default 1-epoch linear warmup.
-    # NOTE: 5-fold grouped CV is not yet implemented in this harness; we use a single
-    #       80/20 grouped-by-quadruplet split. Best-of-20 selection is done by the plotter.
+    # ---- Appendix B: lr 5개 x wd 4개 = 20 configs -------------------------
+    # 전부 상수 스케줄 (start_lr = lr = final_lr, warmup 0).
     probes:
-      # lr = 1e-4
       - { type: linear, pooling: mean, optimization: { lr: 0.0001, weight_decay: 0.01, start_lr: 0.0001, final_lr: 0.0001, final_weight_decay: 0.01, warmup: 0.0 } }
       - { type: linear, pooling: mean, optimization: { lr: 0.0001, weight_decay: 0.1,  start_lr: 0.0001, final_lr: 0.0001, final_weight_decay: 0.1,  warmup: 0.0 } }
       - { type: linear, pooling: mean, optimization: { lr: 0.0001, weight_decay: 0.4,  start_lr: 0.0001, final_lr: 0.0001, final_weight_decay: 0.4,  warmup: 0.0 } }
       - { type: linear, pooling: mean, optimization: { lr: 0.0001, weight_decay: 0.8,  start_lr: 0.0001, final_lr: 0.0001, final_weight_decay: 0.8,  warmup: 0.0 } }
-      # lr = 3e-4
       - { type: linear, pooling: mean, optimization: { lr: 0.0003, weight_decay: 0.01, start_lr: 0.0003, final_lr: 0.0003, final_weight_decay: 0.01, warmup: 0.0 } }
       - { type: linear, pooling: mean, optimization: { lr: 0.0003, weight_decay: 0.1,  start_lr: 0.0003, final_lr: 0.0003, final_weight_decay: 0.1,  warmup: 0.0 } }
       - { type: linear, pooling: mean, optimization: { lr: 0.0003, weight_decay: 0.4,  start_lr: 0.0003, final_lr: 0.0003, final_weight_decay: 0.4,  warmup: 0.0 } }
       - { type: linear, pooling: mean, optimization: { lr: 0.0003, weight_decay: 0.8,  start_lr: 0.0003, final_lr: 0.0003, final_weight_decay: 0.8,  warmup: 0.0 } }
-      # lr = 1e-3
-      - { type: linear, pooling: mean, optimization: { lr: 0.001, weight_decay: 0.01, start_lr: 0.001, final_lr: 0.001, final_weight_decay: 0.01, warmup: 0.0 } }
-      - { type: linear, pooling: mean, optimization: { lr: 0.001, weight_decay: 0.1,  start_lr: 0.001, final_lr: 0.001, final_weight_decay: 0.1,  warmup: 0.0 } }
-      - { type: linear, pooling: mean, optimization: { lr: 0.001, weight_decay: 0.4,  start_lr: 0.001, final_lr: 0.001, final_weight_decay: 0.4,  warmup: 0.0 } }
-      - { type: linear, pooling: mean, optimization: { lr: 0.001, weight_decay: 0.8,  start_lr: 0.001, final_lr: 0.001, final_weight_decay: 0.8,  warmup: 0.0 } }
-      # lr = 3e-3
-      - { type: linear, pooling: mean, optimization: { lr: 0.003, weight_decay: 0.01, start_lr: 0.003, final_lr: 0.003, final_weight_decay: 0.01, warmup: 0.0 } }
-      - { type: linear, pooling: mean, optimization: { lr: 0.003, weight_decay: 0.1,  start_lr: 0.003, final_lr: 0.003, final_weight_decay: 0.1,  warmup: 0.0 } }
-      - { type: linear, pooling: mean, optimization: { lr: 0.003, weight_decay: 0.4,  start_lr: 0.003, final_lr: 0.003, final_weight_decay: 0.4,  warmup: 0.0 } }
-      - { type: linear, pooling: mean, optimization: { lr: 0.003, weight_decay: 0.8,  start_lr: 0.003, final_lr: 0.003, final_weight_decay: 0.8,  warmup: 0.0 } }
-      # lr = 5e-3
-      - { type: linear, pooling: mean, optimization: { lr: 0.005, weight_decay: 0.01, start_lr: 0.005, final_lr: 0.005, final_weight_decay: 0.01, warmup: 0.0 } }
-      - { type: linear, pooling: mean, optimization: { lr: 0.005, weight_decay: 0.1,  start_lr: 0.005, final_lr: 0.005, final_weight_decay: 0.1,  warmup: 0.0 } }
-      - { type: linear, pooling: mean, optimization: { lr: 0.005, weight_decay: 0.4,  start_lr: 0.005, final_lr: 0.005, final_weight_decay: 0.4,  warmup: 0.0 } }
-      - { type: linear, pooling: mean, optimization: { lr: 0.005, weight_decay: 0.8,  start_lr: 0.005, final_lr: 0.005, final_weight_decay: 0.8,  warmup: 0.0 } }
-      # NOTE: lr=1.6e-1 group removed to match paper spec:
-      # Joseph 2026 Appendix B lists 5 lr × 4 wd = 20 configs (Sonia email also confirms 20).
-      # Removed the highest-lr group (0.16), which is the most likely to diverge and least likely
-      # to be in the paper's actual grid. Remaining 5 × 4 = 20 configs.
+      - { type: linear, pooling: mean, optimization: { lr: 0.001,  weight_decay: 0.01, start_lr: 0.001,  final_lr: 0.001,  final_weight_decay: 0.01, warmup: 0.0 } }
+      - { type: linear, pooling: mean, optimization: { lr: 0.001,  weight_decay: 0.1,  start_lr: 0.001,  final_lr: 0.001,  final_weight_decay: 0.1,  warmup: 0.0 } }
+      - { type: linear, pooling: mean, optimization: { lr: 0.001,  weight_decay: 0.4,  start_lr: 0.001,  final_lr: 0.001,  final_weight_decay: 0.4,  warmup: 0.0 } }
+      - { type: linear, pooling: mean, optimization: { lr: 0.001,  weight_decay: 0.8,  start_lr: 0.001,  final_lr: 0.001,  final_weight_decay: 0.8,  warmup: 0.0 } }
+      - { type: linear, pooling: mean, optimization: { lr: 0.003,  weight_decay: 0.01, start_lr: 0.003,  final_lr: 0.003,  final_weight_decay: 0.01, warmup: 0.0 } }
+      - { type: linear, pooling: mean, optimization: { lr: 0.003,  weight_decay: 0.1,  start_lr: 0.003,  final_lr: 0.003,  final_weight_decay: 0.1,  warmup: 0.0 } }
+      - { type: linear, pooling: mean, optimization: { lr: 0.003,  weight_decay: 0.4,  start_lr: 0.003,  final_lr: 0.003,  final_weight_decay: 0.4,  warmup: 0.0 } }
+      - { type: linear, pooling: mean, optimization: { lr: 0.003,  weight_decay: 0.8,  start_lr: 0.003,  final_lr: 0.003,  final_weight_decay: 0.8,  warmup: 0.0 } }
+      - { type: linear, pooling: mean, optimization: { lr: 0.005,  weight_decay: 0.01, start_lr: 0.005,  final_lr: 0.005,  final_weight_decay: 0.01, warmup: 0.0 } }
+      - { type: linear, pooling: mean, optimization: { lr: 0.005,  weight_decay: 0.1,  start_lr: 0.005,  final_lr: 0.005,  final_weight_decay: 0.1,  warmup: 0.0 } }
+      - { type: linear, pooling: mean, optimization: { lr: 0.005,  weight_decay: 0.4,  start_lr: 0.005,  final_lr: 0.005,  final_weight_decay: 0.4,  warmup: 0.0 } }
+      - { type: linear, pooling: mean, optimization: { lr: 0.005,  weight_decay: 0.8,  start_lr: 0.005,  final_lr: 0.005,  final_weight_decay: 0.8,  warmup: 0.0 } }
 
   data:
     dataset_type: VideoDataset
-    dataset_train: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/IntPhys1/IntPhys1_2way_train.csv
-    dataset_val:   /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/IntPhys1/IntPhys1_2way_val.csv
-    num_classes: 2
+    dataset_train: __TRAIN_CSV__     # data_csv/IntPhys1_dev/cv/train_fold{k}.csv
+    dataset_val:   __VAL_CSV__       # data_csv/IntPhys1_dev/cv/val_fold{k}.csv
+    num_classes: 2                   # possible(0) vs impossible(1)
     resolution: 256
-    resize_mode: resize                 # no crop -- preserves full IntPhys 1 FoV (round-2 audit)
-    frames_per_clip: 64                 # paper (Sonia): 16 frames per clip, keystone-centered.
-    frame_step: 1
+    resize_mode: resize              # 288² -> 256² 직접 리사이즈 (정사각이라 왜곡 없음)
+    frames_per_clip: 16
+    frame_step: 1                    # keystone 중심 16프레임 연속
     num_segments: 1
     num_views_per_segment: 1
-    uniform_sampling: true             # disabled -- superseded by keystones_json
-    center_sampling: false              # disabled -- superseded by keystones_json
-    # keystones_json: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/IntPhys1/keystones.json
-                                        # per-video break-point index (Joseph 2026 keystone-centered).
-                                        # For each video, sample 16 consecutive frames centered on the
-                                        # break-point frame: [tick - 8 : tick + 8]. Impossible videos
-                                        # use their magic tick; possible videos inherit the tick from
-                                        # their matched impossible pair (recovered via md5(scene_001.png)).
-                                        # 2-violation impossibles use the midpoint of the two ticks.
+    uniform_sampling: false
+    center_sampling: false
+    keystones_json: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/IntPhys1_dev/keystones.json
 
   optimization:
     batch_size: 8
-    num_epochs: 20                     # cached-feature linear probe = ms/epoch.
-                                        # 20 was way too short: peak-layer train acc stuck at
-                                        # ~60% (underfitting) even though a linear probe on
-                                        # 1024-dim features over 288 samples should overfit to
-                                        # ~100% train easily. Bumping to 200 for convergence.
-    use_bfloat16: false
+    num_epochs: 50                   # C.11 (IntPhys)
+    optimizer: adam                  # C.11. 생략하면 AdamW 가 기본이라 명시한다
+    use_bfloat16: false              # 이름과 달리 fp16 autocast 로 매핑된다.
+                                     # fused sum-of-losses backward 와 겹치면 GradScaler 가
+                                     # 한 probe 만 발산해도 전체를 얼려버린다. fp32 로 둔다.
     save_optimizer: false
-    cache_features: true
-    cache_pooling: mean                 # spatiotemporal MEAN only (D). Paper (Sonia clarification)
-                                        # uses mean pool. Prev 'pooled' cached mean||max (2D) even
-                                        # though probes.pooling='mean' only used the mean half.
+    cache_features: true             # layer x HP 를 매번 forward 하지 않도록 pooled feature 캐시
+    cache_pooling: mean              # §3.2 "mean-pooled space-time patches"
     cache_max_gb: 100
-    # eval_metric: per_video (default; unchanged) | paired | quadruplet.
-    # See intphys1_vitl_5fold_appb.yaml for the full explanation. Default 'per_video'
-    # matches the paper's Fig 1 y-axis ("Test Accuracy (%)"), so leaving this unset
-    # is byte-identical to legacy runs.
-    eval_metric: per_video
-    # default_head: values here are overridden per-probe by the explicit start_lr/final_lr/final_wd
-    # above. Kept as fallback for any downstream head that omits its own schedule.
+    eval_metric: per_video           # 논문 Fig 1 기준. 영상 하나하나의 이진 분류 정확도, chance 50%
     default_head: { start_lr: 0.0, final_lr: 0.0, final_weight_decay: 0.0 }
 
 model_kwargs:
@@ -139,8 +108,8 @@ model_kwargs:
   module_name: evals.analysis.modelcustom.vit_encoder_multilayer
   pretrain_kwargs:
     encoder:
-      checkpoint_key: target_encoder    # EMA teacher (standard eval convention)
-      model_name: vit_large
+      checkpoint_key: target_encoder
+      model_name: vit_large          # 24 layer, d=1024
       patch_size: 16
       tubelet_size: 2
       uniform_power: true
@@ -149,3 +118,7 @@ model_kwargs:
   wrapper_kwargs:
     max_frames: 128
     use_pos_embed: false
+    apply_encoder_norm: false        # forward hook 으로 residual stream x_N 을 그대로 읽는다.
+                                     # true 면 intermediate 마다 self.norm 을 먹이는 stock 경로가
+                                     # 되는데, 그건 concat-wrapper 규약이지 layer-wise probing 이
+                                     # 아니다 (§3.2 "probe the residual stream at every layer").

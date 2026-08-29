@@ -1,0 +1,108 @@
+# =============================================================================
+# IntPhys 1 데이터 + IntPhys 2 프로토콜 (growing context) / V-JEPA 2 ViT-H
+#
+#   Bordes et al., "IntPhys 2", Appendix D — Fig. 8B 프로토콜을
+#   IntPhys 1 dev 360개에 적용한다.
+#
+# 실행:
+#   PYTHONPATH=$PWD torchrun --nproc-per-node=4 -m analysis.intphys2.eval \
+#       --config configs/analysis/intphys2/vjepa2_vith_intphys1_growing.yaml
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# configs/world_model_analysis/intphys1_garrido_h.yaml 과 뭐가 다른가
+#   같은 것 : 데이터(IntPhys1 dev 360개), 모델(ViT-H), 역할 배치(context=online,
+#             target=EMA), mask_index=0, L1 거리, 256 해상도
+#   다른 것 : 프로토콜
+#     garrido_h  = Fig. 8A. 고정 window 를 sliding, 시작점마다 C 들의 min 을 취함.
+#                  frame skip 2/5/10 x window 16/32 grid 를 돌고 최고값 보고.
+#     이 파일    = Fig. 8B. window M 을 '최대'로 보고, 첫 window 에서 context 를
+#                  2,4,...,C-2 로 키운 예측을 앞에 덧붙인다 (growing).
+#                  min 축약 없이 전체 window 의 평균(AvgSurprise)을 쓴다.
+#   -> 두 실행의 pairwise 숫자가 프로토콜 차이만 반영하도록 나머지를 맞춰 두었다.
+#      (논문 Table 7 은 두 프로토콜이 동등하다고 보고한다: 52.96 vs 53.75)
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# ⚠️ window 를 48 로 두면 안 된다
+#   IntPhys 1 은 100프레임 @15fps = 6.7초다. 논문대로 6fps 로 줄이면 40프레임인데
+#   window 48 이 안 들어가서 plan_windows 가 short-video fallback 으로 빠지고
+#   영상당 window 가 1개만 나온다 (기존 vjepa2_vitl_intphys1_dev.yaml 이 그 상태다).
+#   논문 D.2 도 "in both cases the best performance is achieved with a window size
+#   of 16 and 6 as framerate" 라고 적고 있으므로 여기서는 M=16 을 쓴다.
+#   context sweep 4,6,8,10,12,14 도 D.3 이 M=16 기준으로 제시한 값 그대로다.
+# =============================================================================
+
+tag: vjepa2_vith_intphys1_growing_w16
+folder: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_exp/intphys2
+
+data:
+  root: /local_datasets/world/world_analysis/IntPhys1_full
+  dataset_variant: intphys1       # labels.csv + scene/*.mp4 를 읽는다 (index.csv 는 안 쓴다)
+
+  # 100프레임 @15fps -> 6fps = 40프레임. 15/6 이 정수가 아니라 frame_step 을 못 쓰므로
+  # target_fps(linspace 균등 추출)를 쓴다.
+  target_fps: 6.0
+  min_frames: 8
+
+  img_size: 256                   # 원본 288x288 -> 256
+  # 1.0 = 자르지 않고 전체를 리사이즈. 공식 IntPhys2 전처리
+  # (random_resized_crop, scale=[1,1], ratio=[1,1]) 와 같은 동작이고,
+  # IntPhys1 은 가장자리에 운동 정보가 있어서 CenterCrop 으로 깎으면 안 된다.
+  crop_margin_ratio: 1.0
+  decord_threads: 2
+
+model:
+  checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vith-fpc64-256/snapshots/b5eac8703e3efdc1547fbb6ddfbeb133dc0bdee5/original/model.pth
+  arch_name: vit_huge
+  img_size: 256
+  patch_size: 16
+  tubelet_size: 2
+  # window_size 는 surprise.window_size 에서 자동으로 채워진다 (16).
+  use_rope: true
+  uniform_power: false
+
+  # 공식 wrapper 와 같은 역할 배치 (context=online encoder, target=EMA)
+  dual_encoder: true
+  context_encoder_key: encoder
+  target_encoder_key: target_encoder
+
+  predictor: { embed_dim: 384, depth: 12, num_heads: 12, num_mask_tokens: 10 }
+  dtype: bfloat16
+
+surprise:
+  window_size: 16                 # M — D.2 가 IntPhys 에서 최적이라고 보고한 값
+  context_length_sweep: [4, 6, 8, 10, 12, 14]   # D.3, M=16 기준
+  context_length: 8               # sweep 이 있으면 안 쓰인다
+  stride: 2                       # 공식 config 의 stride_sliding_window
+  protocol: growing               # ★ Fig. 8B / max_context_mode
+  distance: l1
+  loss_exp: 1.0
+  target_layer_norm: true
+  aggregation: avg                # D.1 "We use average surprise unless specified otherwise"
+  mask_index: 0                   # ckpt 에서 mask_tokens[0] 만 학습돼 있다
+  context_forward_mode: masked
+  max_window_batch: null          # M=16 이면 window 당 2048 토큰뿐이라 전부 한 번에
+
+evaluation:
+  compute_pairwise: true
+  compute_auroc: true
+  # cross_pair = 4중항 안에서 (가능 2) x (불가능 2) 4쌍 전수 비교.
+  # garrido 하네스의 score_blocks 와 같은 정의라 두 프로토콜 숫자를 바로 비교할 수 있다.
+  # 논문 [39] 의 matched-pair 정의로 보려면 type_matched 로 바꿀 것.
+  pairing: cross_pair
+  breakdown_by: [condition]       # IntPhys1 은 condition 에 block(O1/O2/O3) 이 들어간다
+  ddp: true                       # torchrun 으로 띄울 것
+  num_workers: 6
+  prefetch_factor: 2
+  pin_memory: true
+  verbose: true
+  log_every_videos: 25
+  limit_videos: null
+
+output:
+  save_per_video: true
+  save_per_window: true           # surprise-over-time 곡선용
+  save_config: true
+  plot_breakdowns: true
+  plot_context_sweep: true
+  plot_scene_curves: false
+  scene_curve_indices: null

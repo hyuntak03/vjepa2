@@ -1,0 +1,57 @@
+# =============================================================================
+# PROTOCOL — fixed context 16 / target 32 latent-L1 surprise 채점
+#
+#   bash z_research/scripts/run.sh surprise_c16t32 v8 vith   -> 79.10% (1024 matched pair)
+#
+#   surprise = mean | predictor(context) - LN(target_encoder(clip))[future] |
+#   surprise(impossible) > surprise(possible) 이면 정답. chance 50%.
+#
+# 프레임 배치 — sliding 없이 단창 하나로 고정한다
+#   raw 100프레임 --stride 3--> 32장 (0,3,...,93)     <- stride 는 datasets.md 에서 온다
+#     context = 첫 16장 (raw 0~45)  -> context encoder + predictor
+#     future  = 뒤 16장 (raw 48~93) -> 채점 대상
+#     target encoder 는 32장 **전부**를 넣고 future 16장 표현만 취한다
+#   v8 의 가림은 4+4 대칭: fully hidden raw 36~57 = context 끝 4장 + future 앞 4장
+#
+# ⚠️ intphys1_sliding 의 수치와 섞지 말 것. 같은 IntPhys1 dev 에서
+#    sliding 88.89% vs 이 프로토콜 66.67% — 22.2pt 차이다.
+#    v6 static+occluded shape 은 fixed 46.88% vs sliding max 90.62% 로 43.7pt 벌어진다.
+#
+# ⚠️ scoring.pairing 기본값은 "cross" 다. 아래처럼 matched 를 명시하지 않으면
+#    공식과 다른 전수 4쌍 채점이 조용히 돌아간다. matched 여야 두 후보의 context 가
+#    픽셀 단위로 같아 predictor 입력이 같고 p 가 비트 단위로 동일해진다
+#    (실측 max|p_pos - p_imp| = 0.0). 그래야 채점이 순수 기하 문제로 환원된다.
+# =============================================================================
+eval_name: world_model_analysis
+
+data:
+  n_frames: 32                    # = context 16 + future 16
+  resolution: 256                 # model.img_size 와 반드시 같아야 한다
+  split: null                     # 채점만 하므로 split 불필요
+
+model:
+  img_size: 256
+  patch_size: 16
+  tubelet_size: 2
+  window_size: 32                 # = data.n_frames. predictor RoPE grid_depth 가 여기서 정해진다
+  use_rope: true
+  uniform_power: false
+  dual_encoder: true              # 학습 때의 역할 분리를 재현한다
+  context_encoder_key: encoder    # online
+  target_encoder_key: target_encoder  # EMA
+  predictor: { embed_dim: 384, depth: 12, num_heads: 12, num_mask_tokens: 10 }
+  dtype: float32                  # ★ surprise 실행 관례. attn_probe 의 bfloat16 과 다르다 — 섞지 말 것
+  autocast: float16
+
+surprise:
+  context_length: 16              # ★ 여기가 C16. 나머지 16장이 채점 대상이 된다
+  distance: l1
+  loss_exp: 1.0
+  target_layer_norm: true         # affine-free LN, target 에만
+  mask_index: 0                   # ★ critical — 릴리즈 ckpt 에서 학습된 mask token 은 [0] 하나뿐
+  batch_size: 16                  # rank 당 (probing 의 batch_size 는 global 이라 의미가 다르다)
+  decode_workers: 8               # PNG 디코드 스레드. rank 당 CPU 를 넘기지 말 것
+
+scoring:
+  pairing: matched                # ★ 반드시 명시. 기본값 cross 는 다른 채점이다
+  breakdown: [block_type]         # -> by_block_type.{datasets.md 의 type_column 값}

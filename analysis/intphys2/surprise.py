@@ -41,6 +41,8 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
+import contextlib
+
 from analysis.intphys2.model import VJEPA2Bundle
 
 logger = logging.getLogger(__name__)
@@ -63,6 +65,33 @@ class WindowSpec:
         return self.end - self.start
 
 
+def plan_growing_prefix(context_length: int, tubelet_size: int) -> List[int]:
+    """Context lengths for the paper's growing-context prefix (Fig 8B, App. D.1).
+
+        [tubelet, 2*tubelet, ..., context_length - tubelet]
+
+    All of these run on the FIRST window (frames [0, M)) with the window size held at
+    its maximum M; only the context/target split moves. Quoting the paper:
+
+        "we propose to consider the window size M as a maximal size, and also proceed
+         with all predictions using smaller ones, by progressively growing the context
+         size. ... This ensures that every frame (apart from the first one) is predicted
+         no matter the window size."
+
+    This is exactly `max_context_mode` in the official release
+    (IntPhys2/prediction_evals/evals/intphys2/eval.py:230-233):
+
+        for ctxt in [2*i for i in range(1, CTXT_LEN//2)]:   # 2, 4, ..., CTXT_LEN-2
+            model.nb_context_frames = ctxt
+            clip_beginning = clip[:, :, :model.frames_per_clip]   # window 0, size M
+
+    where the hardcoded 2 is the V-JEPA tubelet size. The resulting per-window losses are
+    `hstack`ed BEFORE the fixed sliding-window losses, so the surprise-over-time curve is
+    extended backwards to frame `tubelet` instead of starting at frame C.
+    """
+    return list(range(tubelet_size, context_length, tubelet_size))
+
+
 def plan_windows(
     n_frames: int,
     window_size: int,
@@ -77,12 +106,15 @@ def plan_windows(
         starts = 0, S, 2S, ..., last valid start with start + M <= n_frames
         each window has context [start, start+C) and target [start+C, start+M).
 
-    protocol = "growing" (paper's Fig 8B, deferred):
-        NotImplemented -- Table 7 shows the two protocols score V-JEPA equivalently
-        (52.96 vs 53.75). Kept as a future config option.
+    protocol = "growing" (paper's Fig 8B — the protocol IntPhys 2 actually proposes):
+        the SAME sliding windows as `fixed`, plus a prefix of growing-context
+        predictions on window 0. The prefix is not part of the window LAYOUT (every
+        prefix entry starts at frame 0), so it is produced separately by
+        `plan_growing_prefix` and prepended in `score_video_batched` / `score_video`.
+        Table 7 reports the two protocols scoring V-JEPA equivalently (52.96 vs 53.75).
     """
-    if protocol != "fixed":
-        raise NotImplementedError(f"protocol {protocol!r}; only 'fixed' is wired today")
+    if protocol not in ("fixed", "growing"):
+        raise ValueError(f"protocol {protocol!r}; valid: fixed | growing")
 
     # Both C and M must be divisible by tubelet_size so context/target token grids are aligned.
     if window_size % tubelet_size != 0:
@@ -244,7 +276,18 @@ def score_video(
 
     video = video.to(device=device, dtype=dtype, non_blocking=True)
 
-    for w in windows:
+    # protocol="growing" (paper Fig 8B): prepend window 0 evaluated with every smaller
+    # context. Same window span, only the context/target boundary moves. See
+    # plan_growing_prefix() for the paper / official-code citation.
+    jobs: List[WindowSpec] = list(windows)
+    if protocol == "growing":
+        w0 = windows[0]
+        jobs = [
+            WindowSpec(start=w0.start, end=w0.end, ctx_end=w0.start + c, context_length=c)
+            for c in plan_growing_prefix(context_length, bundle.tubelet_size)
+        ] + jobs
+
+    for w in jobs:
         # slice frames [w.start, w.end) -> (3, M, H, W)
         clip = video[:, w.start:w.end]
         M_frames = clip.size(1)
@@ -332,6 +375,7 @@ def score_video_batched(
     max_window_batch: Optional[int] = None,  # cap the # windows encoded in one shot (VRAM)
     mask_index: int = 0,     # CRITICAL default — only mask_tokens[0] is trained.
     context_forward_mode: str = "masked",  # masked | sliced -- see fixes doc.
+    autocast_dtype: Optional[torch.dtype] = None,   # None -> run in bundle.dtype as-is
 ) -> Dict[int, VideoSurprise]:
     """Score all sliding windows AND all context lengths with **one encoder forward per window batch**.
 
@@ -389,11 +433,19 @@ def score_video_batched(
                 window_size=window_size, context_length=C, stride=stride,
                 distance=distance, loss_exp=loss_exp,
                 target_layer_norm=target_layer_norm, protocol=protocol,
+                mask_index=mask_index,   # else the fallback silently ignores the config
             )
             for C in context_lengths
         }
 
     video = video.to(device=device, dtype=dtype, non_blocking=True)
+
+    # Official Garrido/IntPhys2 numerics keep fp32 weights and autocast the forward
+    # (evals/intuitive_physics/eval.py:437). Pass autocast_dtype=torch.float16 together
+    # with model.dtype=float32 to match; leave None for the old whole-graph-cast path.
+    def _ac():
+        return (torch.autocast("cuda", dtype=autocast_dtype) if autocast_dtype
+                else contextlib.nullcontext())
 
     # Stack windows as a real minibatch through the encoder.
     #   clip_batch : (W, 3, M, H, W_sp)
@@ -427,9 +479,28 @@ def score_video_batched(
     else:
         chunks = [windows[i : i + max_window_batch] for i in range(0, len(windows), max_window_batch)]
 
-    # Prepare mask templates -- one per C -- ONCE outside the window-chunk loop.
+    # ---- growing-context prefix (paper Fig 8B == official `max_context_mode`) ------
+    # For every C in the sweep the paper ALSO predicts window 0 with each SMALLER
+    # context (tubelet, 2*tubelet, ..., C-tubelet), holding the window at its maximum
+    # size M, and prepends those losses to the sliding-window ones:
+    #     official evals/intphys2/eval.py:230-257
+    #         for ctxt in [2*i for i in range(1, CTXT_LEN//2)]: ... losses_beginning
+    #         loss = torch.hstack([loss_beginning, loss])
+    # Different Cs share prefix entries (C'=2 appears for every C), so each DISTINCT
+    # (window 0, C') pair is computed ONCE and assembled per C at the end.
+    prefix_of: Dict[int, List[int]] = (
+        {int(C): plan_growing_prefix(int(C), tub) for C in context_lengths}
+        if protocol == "growing"
+        else {int(C): [] for C in context_lengths}
+    )
+    prefix_Cs = sorted({c for v in prefix_of.values() for c in v})
+
+    # Mask templates -- one per context length -- built ONCE and memoized. `prefix_Cs`
+    # needs its own templates because those context lengths are not in the sweep.
     per_C_masks: Dict[int, Tuple[torch.Tensor, torch.Tensor, int, int]] = {}
-    for C in context_lengths:
+    for C in [int(c) for c in context_lengths] + prefix_Cs:
+        if C in per_C_masks:
+            continue
         ctx_tub = C // tub
         tgt_tub = (window_size - C) // tub
         n_ctx = ctx_tub * spatial_tokens
@@ -437,68 +508,92 @@ def score_video_batched(
         all_idx = torch.arange(n_ctx + n_tgt, device=device, dtype=torch.long)
         per_C_masks[C] = (all_idx[:n_ctx], all_idx[n_ctx:], n_ctx, n_tgt)
 
+    def _window_distances(clip_batch: torch.Tensor, h_all: torch.Tensor, C: int) -> torch.Tensor:
+        """Per-window surprise (Wc,) for one context length, reusing the target forward."""
+        ctx_1d, tgt_1d, _, _ = per_C_masks[C]
+        Wc = h_all.size(0)
+        ac = _ac(); ac.__enter__()
+        # Broadcast masks across the Wc-batch dim.
+        ctx_idx = ctx_1d.unsqueeze(0).expand(Wc, -1).contiguous()  # (Wc, N_ctx)
+        tgt_idx = tgt_1d.unsqueeze(0).expand(Wc, -1).contiguous()  # (Wc, N_tgt)
+
+        gather_ctx = ctx_idx.unsqueeze(-1).expand(-1, -1, embed_dim)
+        gather_tgt = tgt_idx.unsqueeze(-1).expand(-1, -1, embed_dim)
+        h_tgt = torch.gather(h_all, dim=1, index=gather_tgt)
+        if need_ctx_forward:
+            # Training-faithful path: context encoder sees ONLY the ctx_idx tokens
+            # (apply_masks filters BEFORE the blocks). Applies whenever dual_forward
+            # is on OR context_forward_mode='masked' is requested. In the EMA-only case
+            # (dual_forward=False) we still use the shared module as context_encoder --
+            # semantics match training-time train.py:435-438.
+            z_ctx = context_encoder(clip_batch, masks=[ctx_idx])  # (Wc, N_ctx, D)
+            if isinstance(z_ctx, list):
+                z_ctx = z_ctx[-1]
+        else:
+            # "sliced" mode: gather from the shared target-encoder full-clip forward.
+            # Fast but not training-faithful; kept as an escape hatch for benchmarking.
+            z_ctx = torch.gather(h_all, dim=1, index=gather_ctx)
+
+        if target_layer_norm:
+            h_tgt = F.layer_norm(h_tgt, (h_tgt.size(-1),))
+
+        z_pred = predictor(z_ctx, ctx_idx, tgt_idx, mask_index=mask_index)  # (Wc, N_tgt, D_out)
+        ac.__exit__(None, None, None)          # 거리 계산은 autocast 밖(fp32)에서
+        # Per-window distance: reduce over (N_tgt, D) only, keep batch dim (Wc,).
+        if distance == "l1":
+            return (z_pred.float() - h_tgt.float()).abs().pow(loss_exp).mean(dim=(1, 2)) / loss_exp
+        if distance == "smoothl1":
+            return F.smooth_l1_loss(z_pred.float(), h_tgt.float(), reduction="none").mean(dim=(1, 2))
+        if distance == "l2":
+            return (z_pred.float() - h_tgt.float()).pow(2).mean(dim=(1, 2))
+        if distance == "cosine":
+            cs = F.cosine_similarity(z_pred.float(), h_tgt.float(), dim=-1)  # (Wc, N_tgt)
+            return 1.0 - cs.mean(dim=1)
+        raise ValueError(f"unknown distance {distance!r}")
+
     # Accumulate per-C, per-window distances as on-device scalars; single .cpu() at the end.
-    per_C_surprise_gpu: Dict[int, List[torch.Tensor]] = {C: [] for C in context_lengths}
+    per_C_surprise_gpu: Dict[int, List[torch.Tensor]] = {int(C): [] for C in context_lengths}
 
     for chunk in chunks:
         clip_batch = _stack(chunk)  # (Wc, 3, M, H, W_sp)
         # ---- 1 target-encoder forward for the entire chunk (always) ---------------
-        h_all = target_encoder(clip_batch)  # (Wc, N_total, D)
+        with _ac():
+            h_all = target_encoder(clip_batch)  # (Wc, N_total, D)
         if isinstance(h_all, list):
             h_all = h_all[-1]
-        Wc = h_all.size(0)
 
         # ---- per-C predictor forwards ---------------------------------------------
-        for C, (ctx_1d, tgt_1d, n_ctx, n_tgt) in per_C_masks.items():
-            # Broadcast masks across the Wc-batch dim.
-            ctx_idx = ctx_1d.unsqueeze(0).expand(Wc, -1).contiguous()  # (Wc, N_ctx)
-            tgt_idx = tgt_1d.unsqueeze(0).expand(Wc, -1).contiguous()  # (Wc, N_tgt)
+        for C in context_lengths:
+            per_C_surprise_gpu[int(C)].append(_window_distances(clip_batch, h_all, int(C)))
 
-            gather_ctx = ctx_idx.unsqueeze(-1).expand(-1, -1, embed_dim)
-            gather_tgt = tgt_idx.unsqueeze(-1).expand(-1, -1, embed_dim)
-            h_tgt = torch.gather(h_all, dim=1, index=gather_tgt)
-            if need_ctx_forward:
-                # Training-faithful path: context encoder sees ONLY the ctx_idx tokens
-                # (apply_masks filters BEFORE the blocks). Applies whenever dual_forward
-                # is on OR context_forward_mode='masked' is requested. In the EMA-only case
-                # (dual_forward=False) we still use the shared module as context_encoder --
-                # semantics match training-time train.py:435-438.
-                z_ctx = context_encoder(clip_batch, masks=[ctx_idx])  # (Wc, N_ctx, D)
-                if isinstance(z_ctx, list):
-                    z_ctx = z_ctx[-1]
-            else:
-                # "sliced" mode: gather from the shared target-encoder full-clip forward.
-                # Fast but not training-faithful; kept as an escape hatch for benchmarking.
-                z_ctx = torch.gather(h_all, dim=1, index=gather_ctx)
-
-            if target_layer_norm:
-                h_tgt = F.layer_norm(h_tgt, (h_tgt.size(-1),))
-
-            z_pred = predictor(z_ctx, ctx_idx, tgt_idx, mask_index=mask_index)  # (Wc, N_tgt, D_out)
-            # Per-window distance: reduce over (N_tgt, D) only, keep batch dim (Wc,).
-            if distance == "l1":
-                d = (z_pred.float() - h_tgt.float()).abs().pow(loss_exp).mean(dim=(1, 2)) / loss_exp
-            elif distance == "smoothl1":
-                d = F.smooth_l1_loss(z_pred.float(), h_tgt.float(), reduction="none").mean(dim=(1, 2))
-            elif distance == "l2":
-                d = (z_pred.float() - h_tgt.float()).pow(2).mean(dim=(1, 2))
-            elif distance == "cosine":
-                cs = F.cosine_similarity(z_pred.float(), h_tgt.float(), dim=-1)  # (Wc, N_tgt)
-                d = 1.0 - cs.mean(dim=1)
-            else:
-                raise ValueError(f"unknown distance {distance!r}")
-
-            per_C_surprise_gpu[C].append(d)
+    # ---- growing prefix: window 0 only, one entry per distinct smaller context -----
+    prefix_gpu: Dict[int, torch.Tensor] = {}
+    if prefix_Cs:
+        clip0 = _stack(windows[:1])                      # (1, 3, M, H, W_sp)
+        with _ac():
+            h0 = target_encoder(clip0)
+        if isinstance(h0, list):
+            h0 = h0[-1]
+        for c in prefix_Cs:
+            prefix_gpu[c] = _window_distances(clip0, h0, c)   # (1,)
 
     # ---- single sync per video --------------------------------------------------
     starts_np = np.asarray([w.start for w in windows], dtype=np.int64)
     out: Dict[int, VideoSurprise] = {}
     for C in context_lengths:
-        surprise_gpu = torch.cat(per_C_surprise_gpu[C], dim=0)  # (W,)
-        surprise_np = surprise_gpu.detach().float().cpu().numpy()
+        C = int(C)
+        pre = prefix_of[C]
+        # Order matters: the growing entries come FIRST, matching the official
+        # `torch.hstack([loss_beginning, loss])`. It is irrelevant for avg/max but keeps
+        # per-window traces readable as a surprise-over-time curve.
+        parts = [prefix_gpu[c] for c in pre] + per_C_surprise_gpu[C]
+        surprise_np = torch.cat(parts, dim=0).detach().float().cpu().numpy()
         out[C] = VideoSurprise(
-            window_starts=starts_np,
-            window_context_lengths=np.full(len(windows), C, dtype=np.int64),
+            window_starts=np.concatenate([np.zeros(len(pre), dtype=np.int64), starts_np]),
+            window_context_lengths=np.concatenate([
+                np.asarray(pre, dtype=np.int64),
+                np.full(len(windows), C, dtype=np.int64),
+            ]),
             surprise=surprise_np.astype(np.float32),
             context_length=C,
         )

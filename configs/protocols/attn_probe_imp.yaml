@@ -1,0 +1,123 @@
+# =============================================================================
+# PROTOCOL — 불가능 변이에서 "바뀐 정체성"을 target encoder 가 읽는가
+#
+#   bash z_research/scripts/run.sh attn_probe_imp v10 vith
+#
+# 묻는 것
+#   채점은 p 가 h_pos 와 h_imp 중 어디에 가까운지를 본다. §5-4b 의 alpha 분해 전체가
+#   **"h_imp 가 불가능한 미래를 제대로 담고 있다"**는 가정 위에 서 있는데,
+#   그걸 한 번도 안 쟀다. 여기서 잰다.
+#
+# 왜 target run 만 있는가 (캐시로 실측 확인, 2026-08-28)
+#   문맥일치 쌍(pos_a vs imp_ab) 200개에서
+#     ctx_masked(z) : 원소의 99.5% 가 비트 동일, 평균|Δ| 0.0000  (문맥 다른 쌍은 0.5294)
+#     predictor(p)  : 같음,                  평균|Δ| 0.0000  (문맥 다른 쌍은 0.0797)
+#   z·p 는 입력이 context 뿐이고 context 픽셀이 같으니 **같은 텐서를 두 번 넣는 것**이다.
+#   반면 h 는 32프레임 전부를 보므로 위반이 클립 전체에 섞인다:
+#     h(imp_ab)[미래] vs h(pos_b)[미래]  평균|Δ| 0.427 (60%)  — 미래 렌더가 같은 픽셀인데도
+#     h(imp_ab)[문맥] vs h(pos_a)[문맥]  평균|Δ| 0.345 (48%)  — 문맥 렌더가 바이트 동일인데도
+#     (참조) pos_a vs pos_b 의 미래끼리     평균|Δ| 0.589 (82%)
+#   -> h 에서만 불가능 변이가 새 정보를 준다. 그래서 runs 에 target 둘만 둔다.
+#
+# 설계 — 가능 변이로 학습, 불가능 변이에서 평가 (이식 논리와 같다)
+#   fit_variants 가 obj|* 넷이라 head 는 **정상 영상으로만** 학습된다.
+#   평가는 12 그룹 전부(obj / imp_shape / imp_color x 4조건)를 돈다.
+#   그래서 per_group 표가 곧 답이다:
+#     shape_future @ imp_shape|<조건>   = 바뀐 뒤 shape 을 읽는가   <- 핵심
+#     shape_ctx    @ imp_shape|<조건>   = 바뀌기 전 shape 이 남아 있는가 (순방향 잔존)
+#   문맥 절반 run(f1to16)은 역방향 오염을 잰다 — 미래의 위반이 문맥 표현까지 흔드는가.
+#
+# 읽는 법 (shape 기준, imp_shape 행에서)
+#   shape_future 높고 shape_ctx 낮음 -> h_imp 는 실제 렌더를 충실히 담는다.
+#                                        alpha 분해의 가정이 서고, 실패는 p 위치 문제.
+#   shape_future 낮고 shape_ctx 높음 -> 인코더가 전환을 뭉갠다. 두 후보 미래가
+#                                        생각만큼 안 갈라져 있다는 뜻이고, 방향 편향의
+#                                        일부가 h 자체에서 나온다.
+#   둘 다 중간              -> 표현이 두 정체성을 섞어 들고 있다.
+#
+# 데이터 요구
+#   index_probe_imp.csv:  python z_research/scripts/build_probe_imp_index.py --root <셋>
+#   컬럼 probe_kind(obj/imp_shape/imp_color/skip) · pk_cond(<종류>|<condition>)
+#   ⚠️ 행 개수·순서가 index_probe.csv 와 같아야 토큰 캐시(160 GiB)를 재사용한다.
+#
+# ⚠️ vanish 는 없다 — imp_ab 는 shape_post='none', imp_ba 는 shape_pre='none' 이라
+#    8-way 클래스에 안 들어간다. "사라짐"은 이 실험이 아니라 alpha 쪽에서 봐야 한다.
+# ⚠️ obj 행에는 vanish 게임의 pos_a 도 들어 있다 (shape/color 가 안 바뀌므로 유효한 학습 표본).
+# ⚠️ split 은 block 단위. block 안 4개가 context/future 를 2x2 로 공유한다.
+# =============================================================================
+eval_name: world_model_analysis
+
+data:
+  n_frames: 32
+  resolution: 256
+  index_csv: index_probe_imp.csv   # ★ datasets.md 의 index.csv 를 덮어쓴다
+  type_column: probe_kind          # ★ obj / imp_shape / imp_color / skip
+  group_column: pk_cond            # ★ <종류>|<condition> — fit/eval variants 를 걸려면 필요
+  split:
+    mode: ratio
+    group_by: block_id
+    train_frac: 0.5
+    seed: 0
+    stratify_by: condition         # block 단위라 condition 은 상수, pk_cond 는 아니다
+
+model:
+  img_size: 256
+  patch_size: 16
+  tubelet_size: 2
+  window_size: 32
+  use_rope: true
+  uniform_power: false
+  dual_encoder: true
+  context_encoder_key: encoder
+  target_encoder_key: target_encoder
+  predictor: { embed_dim: 384, depth: 12, num_heads: 12, num_mask_tokens: 10 }
+  dtype: bfloat16
+
+features:
+  context_length: 16
+  mask_index: 0
+  batch_size: 4
+  decode_workers: 0
+  prefetch_batches: 2
+  cache_dtype: float16
+  cache_dir: /local_datasets/world/world_analysis/cache
+
+probing:
+  enabled: true
+  probe: attentive
+  optim:  attn_35
+  probes:
+    attentive: { type: attentive, num_heads: 16, num_probe_blocks: 4 }
+  optims:
+    attn_35:  { num_epochs: 35,  batch_size: 16, lr: 0.0001, weight_decay: 0.05 }
+
+  targets:
+    # 미래 절반(17~32)에 실제로 렌더된 정체성
+    shape_future: { column: shape_post,
+                    classes: [capsule, cone, cube, cylinder, narrowcap, pyramid, sphere, torus] }
+    color_future: { column: color_post,
+                    classes: [blue, cyan, green, magenta, orange, purple, red, yellow] }
+    # 문맥 절반(1~16)의 정체성 = 전환 전
+    shape_ctx:    { column: shape_pre,
+                    classes: [capsule, cone, cube, cylinder, narrowcap, pyramid, sphere, torus] }
+    color_ctx:    { column: color_pre,
+                    classes: [blue, cyan, green, magenta, orange, purple, red, yellow] }
+
+  block_types: [obj, imp_shape, imp_color]
+  # ★ 학습은 정상 영상만. 이게 이 프로토콜의 핵심이다.
+  fit_variants:
+    - obj|static_visible
+    - obj|moving_visible
+    - obj|moving_occlusion
+    - obj|static_occlusion
+  # eval_variants 는 생략 = 12 그룹 전부 평가
+
+  fit_groups_sweep: [null]         # pooled head 하나씩. 조건별 학습은 n 이 얇아 수렴 안 한다
+
+  runs:
+    # 미래 절반 — "바뀐 정체성을 읽는가"
+    - train: { model: target, input: full, frames: [17, 32] }
+      eval:  [ self ]
+    # 문맥 절반 — "미래의 위반이 문맥 표현까지 흔드는가" (역방향 오염)
+    - train: { model: target, input: full, frames: [1, 16] }
+      eval:  [ self ]

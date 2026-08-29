@@ -1,0 +1,121 @@
+# =============================================================================
+# IntPhys 2 — 논문 프로토콜 그대로 재현 (V-JEPA 2 ViT-L, Main split)
+#
+#   Bordes et al., "IntPhys 2: Benchmarking Intuitive Physics Understanding In
+#   Complex Synthetic Environments", Appendix D.
+#
+# 실행:
+#   python -m analysis.intphys2.eval --config configs/analysis/intphys2/vjepa2_vitl_intphys2_main.yaml
+#   torchrun --nproc-per-node=4 -m analysis.intphys2.eval --config <이 파일>   # evaluation.ddp: true 필요
+#
+# 논문 프로토콜 (App. D.1, 식 1/2)
+#   Surprise_w = d( p(f(V_{w:w+C})), f'(V_{w+C:w+M}) )
+#     w = window 시작 프레임, C = context 길이, M = window 크기, T = M - C = 예측 길이
+#   AvgSurprise = mean_w,  MaxSurprise = max_w
+#     -> "We use average surprise unless specified otherwise" (D.1)
+#   채점: SceneIndex 안에서 surprise(impossible) > surprise(possible) 이면 정답
+#
+# ★ 논문이 제안한 growing-context (Fig. 8B)
+#   기존 프로토콜(Fig. 8A)은 window 가 커지면 예측이 영상 뒤쪽에서야 시작돼서
+#   위반 사건을 놓친다. 그래서 M 을 "최대" window 로 보고, 첫 window 에 대해
+#   context 를 2,4,...,C-2 로 키워가며 예측을 추가한다.
+#     "we propose to consider the window size M as a maximal size, and also proceed
+#      with all predictions using smaller ones, by progressively growing the context
+#      size. This ensures that every frame (apart from the first one) is predicted"
+#   공식 구현의 max_context_mode 와 동일하다
+#     (IntPhys2/prediction_evals/evals/intphys2/eval.py:230-257,
+#      loss = torch.hstack([loss_beginning, loss]))
+#   -> surprise.protocol: growing
+#
+# 하이퍼파라미터 (App. D.3 Table 8, V-JEPA 2 행)
+#   window size 48 / prediction length -1 (window 끝까지) / framerate 6
+#   context length 는 여러 개를 돌려 최댓값을 보고한다 (D.3 마지막 문단).
+#   논문 본문의 4,6,8,10,12,14 는 M=16 기준이고, 공식 vjepa_2.yaml 은 M=48 이라
+#   3배한 12,18,24,30,36,42 를 쓴다. 여기서도 그걸 따른다.
+#
+# ⚠️ 논문 자신도 지적하듯 "report the maximal accuracy" 는 평가셋에서 하이퍼파라미터를
+#    고르는 것이라 노이즈가 있으면 성능이 부풀려진다 (D.3 마지막 문장). summary.json 의
+#    sweep.per_context_length 에 C 별 값이 전부 남으니 같이 볼 것.
+# =============================================================================
+
+tag: vjepa2_vitl_intphys2_main
+folder: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_exp/intphys2
+
+data:
+  root: /local_datasets/world/IntPhys2
+  dataset_variant: intphys2
+  split: Main                     # Debug(60) | Main(1012) | HeldOut(344, 라벨 없음)
+
+  # 프레임 샘플링. 원본은 60fps 이고 공식 config 는 frame_step 10 -> 정확히 6fps.
+  #   IntPhys2/prediction_evals/evals/intphys2/intphys2_dataset.py:112
+  #     frame_indices = np.arange(0, len(vr), self.frame_step)
+  # frame_step 이 있으면 target_fps 보다 우선한다 (공식과 인덱스가 정확히 일치).
+  frame_step: 10
+  target_fps: 6.0                 # frame_step 을 지우면 이 값으로 폴백
+
+  img_size: 256                   # 원본 512x512 -> 256 으로 리사이즈
+  # 공식 make_transforms(random_resize_aspect_ratio=[1,1], random_resize_scale=[1,1],
+  # crop_size=256) 은 512x512 전체를 256 으로 줄일 뿐 잘라내지 않는다.
+  # crop_margin_ratio: 1.0 이면 Resize(256) + CenterCrop(256) = 전체 리사이즈로 동일.
+  crop_margin_ratio: 1.0
+  min_frames: 8
+  decord_threads: 2
+
+model:
+  checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vitl-fpc64-256/snapshots/b3c1679b7c34d3255ef3547f27c7b226aefab26f/original/model.pth
+  arch_name: vit_large
+  img_size: 256
+  patch_size: 16
+  tubelet_size: 2
+  # window_size 는 surprise.window_size 에서 자동으로 채워진다 (48).
+  use_rope: true
+  uniform_power: false
+
+  # 역할 배치는 공식 wrapper 와 동일하게 맞춘다:
+  #   context <- encoder(online), target <- target_encoder(EMA)
+  #   IntPhys2/prediction_evals/app/vjepa/modelcustom/default_wrapper.py
+  #     h = self.target_encoder(x, full_mask)   # checkpoint_key: target_encoder
+  #     context = self.encoder(x, masks_enc)    # checkpoint_key: encoder
+  dual_encoder: true
+  context_encoder_key: encoder
+  target_encoder_key: target_encoder
+
+  predictor: { embed_dim: 384, depth: 12, num_heads: 12, num_mask_tokens: 10 }
+  dtype: bfloat16
+
+surprise:
+  window_size: 48                 # M — Table 8
+  # prediction length -1 (= window 끝까지) 는 T = M - C 로 이미 그 동작이다.
+  context_length_sweep: [12, 18, 24, 30, 36, 42]
+  context_length: 12              # sweep 이 있으면 안 쓰인다
+  stride: 2                       # 공식 config 의 stride_sliding_window: 2
+  protocol: growing               # ★ Fig. 8B / max_context_mode
+  distance: l1
+  loss_exp: 1.0
+  target_layer_norm: true         # 공식도 target 에만 LN 을 건다 (preds 는 주석 처리돼 있다)
+  aggregation: avg                # D.1 "We use average surprise unless specified otherwise"
+  mask_index: 0                   # ckpt 에서 mask_tokens[0] 만 학습돼 있다 (1~9 는 전부 0)
+  context_forward_mode: masked    # context encoder 가 context 토큰만 보게 한다 (train.py:435-438)
+  max_window_batch: 8             # M=48 은 window 당 6144 토큰. 24GB 카드 기준.
+
+evaluation:
+  compute_pairwise: true
+  compute_auroc: true
+  pairing: type_matched           # SceneIndex x pair_id 안에서 1 possible + 1 impossible
+  breakdown_by: [condition, difficulty, camera]
+  ddp: false                      # torchrun 으로 띄울 때 true 로
+  num_workers: 6
+  prefetch_factor: 2
+  pin_memory: true
+  verbose: true
+  log_every_videos: 25
+  limit_videos: null
+
+output:
+  save_per_video: true
+  save_per_window: true           # surprise-over-time 곡선 (Fig. 9) 을 그리려면 필요
+  save_config: true
+  plot_breakdowns: true
+  plot_context_sweep: true
+  plot_scene_curves: false
+  scene_curve_indices: null

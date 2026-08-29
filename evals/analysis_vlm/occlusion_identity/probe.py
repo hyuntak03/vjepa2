@@ -20,9 +20,33 @@ from typing import Callable, Optional
 
 import numpy as np
 import torch
+import torch.distributed as dist
 import torch.nn.functional as F
 
 from evals.analysis.probes import build_probe, probe_name  # noqa: F401  (re-exported)
+
+
+def _rank_ws(ddp: bool):
+    if ddp and dist.is_available() and dist.is_initialized():
+        return dist.get_rank(), dist.get_world_size()
+    return 0, 1
+
+
+def _allreduce_grads(head) -> None:
+    """모든 rank 의 grad 를 합친다 (평균이 아니라 SUM).
+
+    각 rank 가 자기 샤드에서 loss 를 sum 으로 구해 global batch 크기로 나눠 backward
+    하므로, 합치면 정확히 '단일 GPU 가 global batch 전체를 mean 으로 돌린' grad 가 된다.
+    샤드가 빈 rank 는 0 을 더하므로 마지막 배치가 안 나눠떨어져도 가중치가 안 틀어진다.
+    """
+    grads = [p.grad for p in head.parameters() if p.requires_grad]
+    flat = torch.cat([g.reshape(-1) for g in grads])
+    dist.all_reduce(flat)
+    i = 0
+    for g in grads:
+        k = g.numel()
+        g.copy_(flat[i : i + k].view_as(g))
+        i += k
 
 
 @dataclass
@@ -59,13 +83,22 @@ def train_probe(
     device: str = "cuda",
     verbose: bool = False,
     log: Optional[Callable[[int, int, float, float], None]] = None,
+    ddp: bool = False,
+    epoch_iter: Optional[Callable[[range], object]] = None,
 ) -> FittedProbe:
     """log(epoch, num_epochs, loss, acc) 를 주면 진행 상황을 그쪽으로 흘린다.
 
     안 주면 무음이다. 4096-token head 는 한 번 학습에 15분씩 걸려서, 무음이면
     멈춘 건지 도는 건지 구분이 안 된다. 호출부에서 rank 를 붙여 로거로 보낼 것.
+
+    ddp=True 면 head 를 모든 rank 에 올리고 미니배치를 rank 로 쪼갠다 (data-parallel).
+    ★ global batch 는 batch_size 그대로다. rank 당 batch_size/world_size 를 보고,
+      grad 를 SUM 으로 합치므로 단일 GPU 가 batch_size 로 돌린 것과 같은 계산이다
+      (permutation seed 도 rank 마다 같다). allreduce 순서 때문에 비트 단위로 같진 않다.
+      effective batch 가 world_size 배로 늘어나는 흔한 함정을 피하려고 이렇게 했다.
     """
     torch.manual_seed(seed)
+    rank, ws = _rank_ws(ddp)
     n, _, embed_dim = X.shape
     if n == 0:
         raise ValueError("train_probe: 학습 샘플이 0개다 (fit_groups/split 이 빈 집합을 만든다)")
@@ -73,22 +106,39 @@ def train_probe(
     opt = torch.optim.AdamW(head.parameters(), lr=lr, weight_decay=weight_decay)
     y = y.to(device)
 
+    # 빈 샤드를 받은 rank 도 allreduce 에 참여해야 하므로 grad 를 미리 만들어 둔다
+    # (set_to_none=True 면 grad 가 None 이라 합칠 게 없어진다).
+    for p in head.parameters():
+        if p.requires_grad:
+            p.grad = torch.zeros_like(p)
+
     g = torch.Generator().manual_seed(seed)
     last_loss, last_acc = float("nan"), float("nan")
     head.train()
-    for ep in range(num_epochs):
-        perm = torch.randperm(n, generator=g)
+    # epoch_iter 를 주면 그걸로 감싼다 (호출부가 tqdm 을 씌우는 자리). 안 주면 그냥 range.
+    epochs = range(num_epochs)
+    for ep in (epoch_iter(epochs) if epoch_iter else epochs):
+        perm = torch.randperm(n, generator=g)      # rank 마다 동일 (같은 seed)
         tot_loss, tot_correct = 0.0, 0
         for s in range(0, n, batch_size):
-            b = perm[s : s + batch_size]
-            logits = head(_batch(X, b.numpy(), device))
-            yb = y[b.to(device)]
-            loss = F.cross_entropy(logits, yb)
-            opt.zero_grad(set_to_none=True)
-            loss.backward()
+            b = perm[s : s + batch_size]           # global 미니배치
+            gb = len(b)
+            loc = b[rank::ws]                      # 이 rank 가 맡을 부분
+            opt.zero_grad(set_to_none=False)
+            if len(loc):
+                logits = head(_batch(X, loc.numpy(), device))
+                yb = y[loc.to(device)]
+                loss = F.cross_entropy(logits, yb, reduction="sum") / gb
+                loss.backward()
+                tot_loss += float(loss.detach()) * gb
+                tot_correct += int((logits.argmax(-1) == yb).sum())
+            if ws > 1:
+                _allreduce_grads(head)
             opt.step()
-            tot_loss += float(loss.detach()) * len(b)
-            tot_correct += int((logits.argmax(-1) == yb).sum())
+        if ws > 1:                                 # 지표는 전체 rank 를 합쳐야 맞다
+            t = torch.tensor([tot_loss, tot_correct], device=device, dtype=torch.float64)
+            dist.all_reduce(t)
+            tot_loss, tot_correct = float(t[0]), int(t[1])
         last_loss, last_acc = tot_loss / n, tot_correct / n
         if (ep + 1) % max(1, num_epochs // 10) == 0 or ep + 1 == num_epochs:
             if verbose:
@@ -102,18 +152,30 @@ def train_probe(
 
 
 @torch.no_grad()
-def predict(probe: FittedProbe, X, batch_size: int = 64, rows: Optional[np.ndarray] = None
-            ) -> torch.Tensor:
+def predict(probe: FittedProbe, X, batch_size: int = 64, rows: Optional[np.ndarray] = None,
+            ddp: bool = False) -> torch.Tensor:
     """-> (len(rows),) long predicted class indices (cpu). rows=None 이면 전체.
 
     `rows` 를 주면 그 행만 forward 한다. 평가에 val 절반만 쓰면서 전체를 밀면
     그대로 2배 낭비다 (4096-token 표현에서는 이게 제일 큰 낭비다).
+
+    ddp=True 면 행을 rank 로 쪼개 각자 forward 하고 모아서 원래 순서로 되돌린다.
     """
     idx_all = np.arange(X.shape[0]) if rows is None else np.asarray(rows)
+    rank, ws = _rank_ws(ddp)
+    mine = idx_all[rank::ws]
     out = []
-    for s in range(0, len(idx_all), batch_size):
-        out.append(probe.head(_batch(X, idx_all[s : s + batch_size], probe.device)).argmax(-1).cpu())
-    return torch.cat(out) if out else torch.zeros(0, dtype=torch.long)
+    for s in range(0, len(mine), batch_size):
+        out.append(probe.head(_batch(X, mine[s : s + batch_size], probe.device)).argmax(-1).cpu())
+    local = torch.cat(out) if out else torch.zeros(0, dtype=torch.long)
+    if ws == 1:
+        return local
+    parts = [None] * ws
+    dist.all_gather_object(parts, local)
+    res = torch.empty(len(idx_all), dtype=torch.long)
+    for r in range(ws):                    # mine = idx_all[r::ws] 였으므로 그대로 되꽂는다
+        res[r::ws] = parts[r]
+    return res
 
 
 def accuracy(pred: torch.Tensor, y: torch.Tensor) -> float:

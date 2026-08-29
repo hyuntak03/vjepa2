@@ -88,8 +88,14 @@ def process_main(args, rank, fname, world_size, devices):
     # 조용히 world_size=1 로 폴백하는데, 나머지 rank 는 먼저 뜬 job 의 store 에 붙어버려
     # 두 job 이 섞인다. EVAL_DDP_PORT 로 job 마다 다른 포트를 쓸 수 있게 한다.
     # 안 주면 기존과 똑같이 37129 다.
+    # NCCL collective timeout 기본값은 10분이다. rank 마다 하는 일의 양이 다른 eval 에서는
+    # 배리어 대기가 그걸 넘겨 job 이 통째로 죽는다 (실제로 겪었다). 넉넉히 잡는다.
+    import datetime as _dt
+
     _port = int(os.environ.get("EVAL_DDP_PORT", 37129))
-    world_size, rank = init_distributed(port=_port, rank_and_world_size=(rank, world_size))
+    _to = _dt.timedelta(seconds=int(os.environ.get("EVAL_DDP_TIMEOUT_S", 7200)))
+    world_size, rank = init_distributed(port=_port, timeout=_to,
+                                        rank_and_world_size=(rank, world_size))
     logger.info(f"Running... (rank: {rank}/{world_size})")
 
     # Launch the eval with loaded config

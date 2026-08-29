@@ -89,6 +89,10 @@ def _setup_logging(rank: int, verbose: bool = True):
 
 logger = logging.getLogger("analysis.intphys2.eval")
 
+# model.autocast: 공식은 fp32 가중치 + fp16 autocast 다 (Garrido eval.py:437).
+_AC_DTYPE = {"float16": torch.float16, "fp16": torch.float16,
+             "bfloat16": torch.bfloat16, "bf16": torch.bfloat16, "none": None, "": None}
+
 
 # --------------------------- DDP helpers -------------------------------------
 
@@ -345,6 +349,7 @@ def _score_all_videos(
                 max_window_batch=max_wb,
                 mask_index=int(s_cfg.get("mask_index", 0)),
                 context_forward_mode=str(s_cfg.get("context_forward_mode", "masked")),
+                autocast_dtype=_AC_DTYPE[str(cfg["model"].get("autocast", "none")).lower()],
             )
         except Exception as e:  # noqa: BLE001
             logger.warning(f"video row={meta.row_index}: score failed ({e}); emitting NaN rows")

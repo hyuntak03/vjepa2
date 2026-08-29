@@ -1,13 +1,24 @@
 # =============================================================================
 # PROBE SET — 표현 probing (정보가 존재하는가 / 인코더 head 가 predictor 에서도 통하는가)
 #
-# 데이터: /local_datasets/world/world_analysis/blender_probe_set
+# 데이터: /local_datasets/world/world_analysis/blender_probe_set  (2026-08-15 재렌더본)
 #   1024 video, 40 frames @ 8fps, 256x256, obj 24px (프레임당 토큰 2.25/256)
 #   가림 없음 (occluder = 0 전부)  <- occlusion 셋과의 핵심 차이
 #   정지 512 / 이동 512 (speed_px_f 0 / 2 / 3 / 4)
 #   shape 8종 x128, color 8종 x128, floor_color 8종 x128 완전 균등
 #   라벨 상호정보량 확인: shape-color 0.000 / shape-floor 0.000 / color-floor 0.000
 #     -> 배경 바닥색을 읽어서 물체 라벨을 맞히는 교란이 없다. chance = 최빈 = 0.125.
+#   위 값은 재렌더본에서 전부 다시 검증했다 (스키마·분포 모두 이전과 동일).
+#   dataset_info.json 도 같은 값을 명시한다:
+#     context_frames [0,31] / target_frames [32,39] / obj_px 24 / speeds [2,3,4]
+#
+# ⚠️ 이전 렌더(2026-08-13)로 낸 결과와 토큰 캐시는 아래로 보관해 두었다.
+#     결과  z_exp/world_model_analysis/results/_previous_probe_set_20260813/
+#     캐시  /local_datasets/world/world_analysis/cache/_previous_20260813/probe_set_v2_vitl
+#     문서  z_world_model_analysis/probe_set_2026-08-13_PREVIOUS-DATA.md
+#   video_id 1024개가 옛/새 완전히 같아서 TokenCache.matches() 가 그냥 통과한다
+#   (video_ids / 토큰 수 / dtype 만 비교한다). 캐시를 치우지 않으면 재렌더 후에도
+#   옛 feature 를 조용히 재사용하므로, 데이터를 다시 만들면 캐시도 반드시 같이 치울 것.
 #
 # ⚠️ row_id 가 비디오당 고유하다 (1024개). 같은 물체를 여러 크기로 렌더한 반복이 없으므로
 #    split.group_by 는 row_id 로 충분하다. 만약 나중에 크기 반복이 생기면 그때 묶어야 한다.

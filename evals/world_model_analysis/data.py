@@ -10,6 +10,7 @@ feature 캐시는 항상 **전체 비디오**에 대해 만든다. probing 은 �
 from __future__ import annotations
 
 import csv
+import logging
 import os
 import random
 from collections import defaultdict
@@ -24,6 +25,11 @@ try:
 except ImportError:  # pragma: no cover
     decord = None
 
+try:
+    from PIL import Image
+except ImportError:  # pragma: no cover
+    Image = None
+
 MEAN = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1, 1)
 STD = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1, 1)
 
@@ -36,10 +42,12 @@ class Rec:
     plausible: str = "1"
     block_id: str = ""
     block_type: str = ""
+    pair_id: str = ""             # block 안에서 문맥이 일치하는 (가능, 불가능) 쌍 (Garrido get_matches)
     split: str = "train"
     in_probe: bool = True         # probing 대상인가 (occlusion 의 presence block 제외 등)
     labels: Dict[str, int] = field(default_factory=dict)
     strata: Dict[str, str] = field(default_factory=dict)
+    raw: Dict[str, str] = field(default_factory=dict)   # index.csv 원본 행. PNG 경로 조립에 쓴다
 
 
 class WMADataset:
@@ -48,6 +56,46 @@ class WMADataset:
         d, P = cfg["data"], cfg.get("probing") or {}
         self.root = d["root"]
         self.n_frames = int(d.get("n_frames", 40))
+
+        # ---- data.resolution ------------------------------------------------------
+        # 모델에 넣을 한 변의 크기. 원본이 이 크기가 아니면 clip() 에서 리사이즈한다.
+        #
+        # 왜 검사까지 하는가: surprise 경로는 context/target 토큰을 **인덱스로** 나눈다
+        # (_context_target_indices 가 spatial_tokens = (model.img_size/patch)^2 를 쓴다).
+        # 그런데 encoder 는 입력 해상도에 맞춰 토큰 수가 달라지고, predictor 는
+        # 빌드 시점 grid(=model.img_size/patch)로 flat index -> (t,h,w) 를 되돌린다.
+        # 그래서 실제 영상 크기 != model.img_size 면
+        #   영상이 더 작으면  -> 인덱스가 실제 토큰 수를 넘어 CUDA assert 로 죽고
+        #   영상이 더 크면    -> 인덱스가 전부 범위 안이라 **에러 없이 엉뚱한 구간**을
+        #                        context/target 으로 잘라 쓴다 (조용히 틀린 수치).
+        # 실제로 IntPhys1_full 원본은 288x288 이고 model.img_size 는 256 이다.
+        self.resolution = int(d["resolution"]) if d.get("resolution") else None
+        img_size = (cfg.get("model") or {}).get("img_size")
+        if self.resolution and img_size and int(img_size) != self.resolution:
+            raise ValueError(
+                f"data.resolution({self.resolution}) != model.img_size({int(img_size)}). "
+                "두 값은 반드시 같아야 한다 — 토큰 인덱스가 model.img_size 기준으로 만들어지고, "
+                "predictor 의 RoPE grid 도 거기서 고정된다.")
+        self._resized_note = False
+
+        # ---- 프레임 소스: mp4 디코딩 대신 원본 PNG 를 직접 읽을 수 있다 --------------
+        # frames_root 를 주면 PNG 경로로 간다. 인코더는 프레임 단위로 받으므로 컨테이너를
+        # 거칠 이유가 없고, 코덱 손실과 yuv420 크로마 서브샘플링을 피할 수 있다.
+        # 경로는 index.csv 의 컬럼으로 조립한다. scene/ 만 쓴다 (masks, depth 는 안 읽는다).
+        #   frames_root:    /local_datasets/world/world_analysis/IntPhys1_dev_frame_png
+        #   frames_pattern: "{block}/{quadruplet}/{run}/scene/scene_{frame:03d}.png"
+        #   frames_start:   1        파일 번호가 1부터면 1 (scene_001.png)
+        self._frames_root = d.get("frames_root")
+        self._frames_pattern = d.get("frames_pattern",
+                                     "{block}/{quadruplet}/{run}/scene/scene_{frame:03d}.png")
+        self._frames_start = int(d.get("frames_start", 1))
+        # frames_stride: 원본에서 몇 프레임마다 하나씩 뽑을지. 1 = 연속(기본, 기존 동작).
+        #   예) 100프레임 @16fps 를 stride 3 으로 32장 -> raw 0,3,...,93 (실효 5.33fps)
+        self._frames_stride = int(d.get("frames_stride", 1))
+        if self._frames_stride < 1:
+            raise ValueError(f"data.frames_stride 는 1 이상이어야 한다: {self._frames_stride}")
+        if self._frames_root and not os.path.isdir(self._frames_root):
+            raise FileNotFoundError(f"data.frames_root 가 없다: {self._frames_root}")
         rows = list(csv.DictReader(open(os.path.join(self.root, d.get("index_csv", "index.csv")))))
 
         self.block_col = d.get("block_column")
@@ -94,8 +142,9 @@ class WMADataset:
                 plausible=r.get(pcol, "1"),
                 block_id=r.get(self.block_col, "") if self.block_col else "",
                 block_type=r.get(tcol, "") if tcol else "",
+                pair_id=r.get(d.get("pair_column", "pair_id"), ""),
                 split=split_of.get(r["video_id"], "train"), in_probe=in_probe, labels=lab,
-                strata={c: r[c] for c in strata_cols if c in r}))
+                strata={c: r[c] for c in strata_cols if c in r}, raw=dict(r)))
 
         self._probe = np.array([x.in_probe for x in self.records])
         fitv = P.get("fit_variants")
@@ -145,10 +194,52 @@ class WMADataset:
     def __len__(self):
         return len(self.records)
 
+    def _read_frames(self, i) -> torch.Tensor:
+        """-> (T, H, W, 3) uint8. mp4 를 디코딩하거나 원본 PNG 를 직접 읽는다.
+
+        data.frames_root 를 주면 PNG 경로로 간다. 인코더는 어차피 프레임 단위로 받으므로
+        컨테이너를 거칠 이유가 없고, 코덱 손실·크로마 서브샘플링을 피할 수 있다.
+        경로는 index.csv 의 컬럼으로 조립한다 (frames_pattern).
+        """
+        rec = self.records[i]
+        if self._frames_root:
+            assert Image is not None, "PNG 프레임을 읽으려면 Pillow 가 필요하다"
+            fr = []
+            for f in range(self._frames_start,
+                           self._frames_start + self.n_frames * self._frames_stride,
+                           self._frames_stride):
+                p = os.path.join(self._frames_root,
+                                 self._frames_pattern.format(frame=f, **rec.raw))
+                fr.append(np.asarray(Image.open(p).convert("RGB")))
+            return torch.from_numpy(np.stack(fr))
+        vr = decord.VideoReader(os.path.join(self.root, rec.file), num_threads=1)
+        return torch.from_numpy(vr.get_batch(list(range(self.n_frames))).asnumpy())
+
     def clip(self, i) -> torch.Tensor:
-        vr = decord.VideoReader(os.path.join(self.root, self.records[i].file), num_threads=1)
-        a = torch.from_numpy(vr.get_batch(list(range(self.n_frames))).asnumpy())
-        return ((a.permute(3, 0, 1, 2).float() / 255.0) - MEAN) / STD
+        a = self._read_frames(i)
+        x = a.permute(3, 0, 1, 2).float() / 255.0                # (3, T, H, W), 0..1
+        r = self.resolution
+        if r and tuple(x.shape[-2:]) != (r, r):
+            # 정사각 원본(IntPhys 288x288)이라 shorter-side resize + center crop 과 결과가 같다.
+            #
+            # antialias=False 인 이유: 공식 Garrido eval 과 V-JEPA 계열 전처리가 전부
+            # antialias 없는 bilinear 다.
+            #   jepa-intuitive-physics/evaluation_code/src/utils/video/transforms.py:572
+            #     torch.nn.functional.interpolate(cropped, size=(h,w),
+            #                                     mode='bilinear', align_corners=False)
+            # 다운샘플 품질만 보면 antialias=True 가 낫지만, 사전학습·공식평가와 같은
+            # 커널을 쓰는 쪽이 분포가 맞다.
+            if not self._resized_note:
+                self._resized_note = True
+                # debug 로 둔다 (기본 INFO 라 안 찍힌다). 리사이즈 여부는 config 의
+                # data.resolution 으로 이미 명시돼 있고 summary.json 에도 남는다.
+                logging.getLogger("wma").debug(
+                    f"[data] {tuple(x.shape[-2:])} -> ({r}, {r}) 리사이즈 "
+                    f"(data.resolution, bilinear/antialias off = 공식과 동일)")
+            x = torch.nn.functional.interpolate(
+                x.transpose(0, 1), size=(r, r), mode="bilinear",
+                align_corners=False).transpose(0, 1).contiguous()
+        return (x - MEAN) / STD
 
     def labels(self, t) -> torch.Tensor:
         return torch.tensor([x.labels.get(t, 0) for x in self.records], dtype=torch.long)

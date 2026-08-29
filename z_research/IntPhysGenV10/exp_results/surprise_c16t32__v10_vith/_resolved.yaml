@@ -1,0 +1,49 @@
+eval_name: world_model_analysis
+data:
+  root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/intphysgen_v10
+  index_csv: index.csv
+  frames_root: /local_datasets/world/world_analysis/IntPhysGen_v10
+  frames_pattern: '{file_name}/{frame:06d}.png'
+  frames_start: 0
+  frames_stride: 3
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: condition
+  n_frames: 32
+  resolution: 256
+  split: null
+model:
+  arch_name: vit_huge
+  checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vith-fpc64-256/snapshots/b5eac8703e3efdc1547fbb6ddfbeb133dc0bdee5/original/model.pth
+  img_size: 256
+  patch_size: 16
+  tubelet_size: 2
+  window_size: 32
+  use_rope: true
+  uniform_power: false
+  dual_encoder: true
+  context_encoder_key: encoder
+  target_encoder_key: target_encoder
+  predictor:
+    embed_dim: 384
+    depth: 12
+    num_heads: 12
+    num_mask_tokens: 10
+  dtype: float32
+  autocast: float16
+surprise:
+  context_length: 16
+  distance: l1
+  loss_exp: 1.0
+  target_layer_norm: true
+  mask_index: 0
+  batch_size: 16
+  decode_workers: 10
+scoring:
+  pairing: matched
+  breakdown:
+  - block_type
+tag: v10_vith
+output_dir: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/IntPhysGenV10/exp_results/surprise_c16t32__v10_vith

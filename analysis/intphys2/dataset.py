@@ -144,6 +144,20 @@ def uniform_frame_indices(n_video_frames: int, target_frames: int) -> np.ndarray
     return np.clip(idx, 0, n_video_frames - 1)
 
 
+def frame_step_indices(vr: VideoReader, frame_step: int) -> np.ndarray:
+    """Official IntPhys2 sampling: keep every `frame_step`-th frame.
+
+        IntPhys2/prediction_evals/evals/intphys2/intphys2_dataset.py:112
+            frame_indices = np.arange(0, len(vr), self.frame_step)
+
+    Their released config uses frame_step=10 on the 60 fps IntPhys2 videos, i.e. the
+    paper's 6 fps (App. D.3 Table 8). Prefer this over `target_fps` when reproducing the
+    paper exactly: `target_fps` uses np.linspace, which lands on slightly different
+    indices near the end of a video whose length is not a multiple of the step.
+    """
+    return np.arange(0, len(vr), int(frame_step), dtype=np.int64)
+
+
 def framerate_frame_indices(vr: VideoReader, target_fps: float) -> np.ndarray:
     """Evenly sample so the effective framerate is `target_fps`.
 
@@ -182,6 +196,7 @@ class IntPhys2FlatDataset(Dataset):
         decord_threads: int = 2,
         indices: Optional[List[int]] = None,
         crop_margin_ratio: Optional[float] = None,
+        frame_step: Optional[int] = None,
     ):
         self.root = root
         self.split = split
@@ -189,6 +204,8 @@ class IntPhys2FlatDataset(Dataset):
         self.target_fps = float(target_fps)
         self.min_frames = int(min_frames)
         self.decord_threads = decord_threads
+        # frame_step wins over target_fps when set (exact official sampling).
+        self.frame_step = int(frame_step) if frame_step else None
 
         self.df = load_metadata(root, split)
         if indices is not None:
@@ -223,7 +240,8 @@ class IntPhys2FlatDataset(Dataset):
 
     def _load_video(self, abs_path: str) -> torch.Tensor:
         vr = VideoReader(abs_path, num_threads=self.decord_threads, ctx=cpu(0))
-        idx = framerate_frame_indices(vr, self.target_fps)
+        idx = (frame_step_indices(vr, self.frame_step) if self.frame_step
+               else framerate_frame_indices(vr, self.target_fps))
         if len(idx) < self.min_frames:
             raise RuntimeError(
                 f"{abs_path}: too few frames after fps resample: {len(idx)} < {self.min_frames}"
@@ -285,10 +303,26 @@ def load_intphys1_metadata(root: str) -> pd.DataFrame:
     # We therefore assign pair_id by SORTING within each quadruplet: the smaller-run
     # possible video is paired with the smaller-run impossible video (-> pair_id=1),
     # and likewise for the larger-run pair (-> pair_id=2). This yields 180 clean
-    # matched pairs (each with exactly 1 pos + 1 imp), and while the specific pairing
-    # is not guaranteed to match Riochet's occluder-side pairing, every one of the 4
-    # possible pos/imp matchings within a quadruplet gets consumed by the two-pair
-    # cover -- so this is an unbiased approximation of the intended protocol.
+    # matched pairs (each with exactly 1 pos + 1 imp).
+    #
+    # !!! THIS IS NOT THE OFFICIAL PAIRING. An earlier version of this comment called it
+    # "an unbiased approximation of the intended protocol" -- that was wrong. Garrido's
+    # released code pairs by PIXEL DIVERGENCE, not by run index:
+    #     jepa-intuitive-physics/evaluation_code/evals/intuitive_physics/utils.py:157-175
+    #       get_breaking_points(clip) -> first frame where video 0 differs from video k
+    #       get_matches(bps)          -> the LATEST-diverging video is video 0's partner
+    # i.e. a video is paired with the one that shares its context longest, because an
+    # IntPhys quadruplet is (setup A: possible/impossible) + (setup B: possible/impossible)
+    # and same-setup videos are pixel-identical until the violation (paper A.4: "pairs of
+    # videos being aligned at the pixel level").
+    #
+    # The correct pair ids for our copy of the data are precomputed into index.csv by
+    #     z_scripts/world_model_analysis/build_intphys1_pairs.py
+    # (which uses prefix similarity rather than exact equality, because our mp4 copy is
+    #  lossily re-encoded; 90/90 quadruplets validate as 1 possible + 1 impossible).
+    # Sorting by run index disagrees with that pairing on a substantial fraction of
+    # quadruplets, so numbers from this loader are NOT comparable to the paper's.
+    # TODO: read pair_id from index.csv here instead of re-deriving it.
     def _assign_pair_ids(sub):
         sub = sub.sort_values("run").copy()
         poss = sub[~sub["is_impossible"]].index.tolist()  # 2 indices
@@ -299,7 +333,25 @@ def load_intphys1_metadata(root: str) -> pd.DataFrame:
             out[p_i] = k
             out[i_i] = k
         return out
-    df["pair_id"] = df.groupby("scene_index", group_keys=False).apply(_assign_pair_ids)
+
+    # PREFERRED: read the breaking-point-derived pair_id from index.csv if it is there.
+    # That file is produced by z_scripts/world_model_analysis/build_intphys1_pairs.py and
+    # implements the official rule; the run-sorting fallback below does NOT.
+    idx_path = os.path.join(root, "index.csv")
+    pair_from_index = None
+    if os.path.exists(idx_path):
+        idx = pd.read_csv(idx_path)
+        if "pair_id" in idx.columns and idx["pair_id"].notna().all():
+            pair_from_index = dict(zip(idx["video_id"].astype(str), idx["pair_id"].astype(int)))
+    if pair_from_index and set(df["scene_id"].astype(str)) <= set(pair_from_index):
+        df["pair_id"] = df["scene_id"].astype(str).map(pair_from_index)
+        logger.info(f"IntPhys1 pair_id: {idx_path} 에서 읽음 (breaking-point 기반, 공식 규칙)")
+    else:
+        df["pair_id"] = df.groupby("scene_index", group_keys=False).apply(_assign_pair_ids)
+        logger.warning(
+            "IntPhys1 pair_id 를 run 번호 정렬로 만들었다. 이건 공식 get_matches 와 다르다. "
+            "z_scripts/world_model_analysis/build_intphys1_pairs.py 로 index.csv 를 만들고 "
+            "data.root 를 그 디렉터리로 잡을 것.")
     # Fill IntPhys2-compatible metadata columns so eval.py's breakdown code just works.
     #   condition   -> IntPhys1 block (O1/O2/O3)  (analogous to IntPhys2's physical principle)
     #   difficulty  -> "dev" (this split is dev; test is unlabeled)
@@ -344,6 +396,7 @@ class IntPhys1FlatDataset(Dataset):
         indices: Optional[List[int]] = None,
         split: str = "dev",  # kept for API symmetry with IntPhys2FlatDataset
         crop_margin_ratio: Optional[float] = 1.0,  # NO-CROP by default (see build_video_transform)
+        frame_step: Optional[int] = None,
     ):
         self.root = root
         self.split = split
@@ -351,6 +404,7 @@ class IntPhys1FlatDataset(Dataset):
         self.target_fps = float(target_fps)
         self.min_frames = int(min_frames)
         self.decord_threads = decord_threads
+        self.frame_step = int(frame_step) if frame_step else None
 
         self.df = load_intphys1_metadata(root)
         if indices is not None:
@@ -379,7 +433,8 @@ class IntPhys1FlatDataset(Dataset):
 
     def _load_video(self, abs_path: str) -> torch.Tensor:
         vr = VideoReader(abs_path, num_threads=self.decord_threads, ctx=cpu(0))
-        idx = framerate_frame_indices(vr, self.target_fps)
+        idx = (frame_step_indices(vr, self.frame_step) if self.frame_step
+               else framerate_frame_indices(vr, self.target_fps))
         if len(idx) < self.min_frames:
             raise RuntimeError(
                 f"{abs_path}: too few frames after fps resample: {len(idx)} < {self.min_frames}"
@@ -415,6 +470,7 @@ def build_dataset(cfg_data: dict) -> Dataset:
             min_frames=int(cfg_data.get("min_frames", 8)),
             decord_threads=int(cfg_data.get("decord_threads", 2)),
             crop_margin_ratio=(float(crop_ratio) if crop_ratio is not None else None),
+            frame_step=cfg_data.get("frame_step"),
         )
     if variant == "intphys1":
         return IntPhys1FlatDataset(
@@ -424,5 +480,6 @@ def build_dataset(cfg_data: dict) -> Dataset:
             min_frames=int(cfg_data.get("min_frames", 8)),
             decord_threads=int(cfg_data.get("decord_threads", 2)),
             crop_margin_ratio=(float(crop_ratio) if crop_ratio is not None else 1.0),
+            frame_step=cfg_data.get("frame_step"),
         )
     raise ValueError(f"unknown data.dataset_variant={variant!r}; valid: intphys1 | intphys2")

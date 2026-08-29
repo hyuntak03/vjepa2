@@ -14,7 +14,12 @@ from src.utils.logging import get_logger
 logger = get_logger()
 
 
-def init_distributed(port=37129, rank_and_world_size=(None, None)):
+def init_distributed(port=37129, rank_and_world_size=(None, None), timeout=None):
+    """timeout: datetime.timedelta. 안 주면 torch 기본값(NCCL 10분)을 그대로 쓴다.
+
+    10분은 rank 마다 하는 일의 양이 다른 eval 에서는 너무 짧다. 한 rank 가 배리어에서
+    10분 넘게 기다리면 watchdog 이 job 을 통째로 죽인다.
+    """
     # try to set all environment variables to avoid triggering a segfault
     # environment variables can be reallocated during the execution of torch.distributed.init_process_group
     # the idea is a race condition may trigger if init_progress_group is modifying an environment variable at
@@ -43,7 +48,8 @@ def init_distributed(port=37129, rank_and_world_size=(None, None)):
 
     try:
         os.environ["MASTER_PORT"] = str(port)
-        torch.distributed.init_process_group(backend="nccl", world_size=world_size, rank=rank)
+        kw = {"timeout": timeout} if timeout is not None else {}
+        torch.distributed.init_process_group(backend="nccl", world_size=world_size, rank=rank, **kw)
     except Exception as e:
         world_size, rank = 1, 0
         logger.info(f"Rank: {rank}. Distributed training not available {e}")
