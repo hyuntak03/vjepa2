@@ -1,0 +1,107 @@
+eval_name: world_model_analysis
+data:
+  root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/intphysgen_v11
+  index_csv: index_probe.csv
+  frames_root: /local_datasets/world/world_analysis/IntPhysGen_v11
+  frames_pattern: '{file_name}/{frame:06d}.png'
+  frames_start: 0
+  frames_stride: 3
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: probe_type
+  n_frames: 32
+  resolution: 256
+  group_column: condition
+  split:
+    mode: ratio
+    group_by: block_id
+    train_frac: 0.5
+    seed: 0
+    stratify_by: condition
+model:
+  arch_name: vit_huge
+  checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vith-fpc64-256/snapshots/b5eac8703e3efdc1547fbb6ddfbeb133dc0bdee5/original/model.pth
+  img_size: 256
+  patch_size: 16
+  tubelet_size: 2
+  window_size: 32
+  use_rope: true
+  uniform_power: false
+  dual_encoder: true
+  context_encoder_key: encoder
+  target_encoder_key: target_encoder
+  predictor:
+    embed_dim: 384
+    depth: 12
+    num_heads: 12
+    num_mask_tokens: 10
+  dtype: bfloat16
+features:
+  context_length: 16
+  mask_index: 0
+  batch_size: 4
+  decode_workers: 0
+  prefetch_batches: 2
+  cache_dtype: float16
+  cache_dir: /local_datasets/world/world_analysis/cache
+probing:
+  enabled: true
+  probe: attentive
+  optim: attn_30
+  probes:
+    attentive:
+      type: attentive
+      num_heads: 16
+      num_probe_blocks: 1
+    linear:
+      type: linear
+      pooling: mean
+      pre_norm: true
+  optims:
+    attn_30:
+      num_epochs: 35
+      batch_size: 16
+      lr: 0.0001
+      weight_decay: 0.05
+  targets:
+    shape:
+      column: shape_pre
+      classes:
+      - capsule
+      - cone
+      - cube
+      - cylinder
+      - pyramid
+      - sphere
+      - torus
+  block_types:
+  - obj
+  fit_groups_sweep:
+  - - static_visible
+  - - static_occlusion
+  - - moving_visible
+  runs:
+  - train:
+      model: context
+      input: full
+      frames:
+      - 1
+      - 16
+    eval:
+    - self
+  - train:
+      model: target
+      input: full
+      frames:
+      - 17
+      - 32
+    eval:
+    - self
+  - train:
+      model: predictor
+    eval:
+    - self
+tag: v11_vith
+output_dir: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/IntPhysGenV11/exp_results/attn_probe__v11_vith/shape_g0

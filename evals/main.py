@@ -6,6 +6,7 @@
 import argparse
 import multiprocessing as mp
 import os
+import sys
 import pprint
 
 import yaml
@@ -120,5 +121,21 @@ if __name__ == "__main__":
     else:
         num_gpus = len(args.devices)
         mp.set_start_method("spawn")
+        # ⚠️ join + exitcode 를 반드시 본다. 예전에는 start() 만 하고 끝나서 rank 가
+        #    예외로 죽어도 부모가 **exit 0** 을 냈다. SLURM 이 COMPLETED 로 보고,
+        #    --dependency=afterok 로 매달아 둔 후속 job 이 전부 풀려 같이 죽었다
+        #    (2026-08-30, v11 probing 7 job). 실패는 실패로 보고해야 한다.
+        procs = []
         for rank in range(num_gpus):
-            mp.Process(target=process_main, args=(args, rank, args.fname, num_gpus, args.devices)).start()
+            p = mp.Process(target=process_main,
+                           args=(args, rank, args.fname, num_gpus, args.devices))
+            p.start()
+            procs.append(p)
+        codes = []
+        for p in procs:
+            p.join()
+            codes.append(p.exitcode)
+        bad = [(i, c) for i, c in enumerate(codes) if c != 0]
+        if bad:
+            print(f"[main] rank 실패: {bad} (rank, exitcode)", file=sys.stderr)
+            sys.exit(1)

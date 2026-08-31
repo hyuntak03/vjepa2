@@ -15,14 +15,28 @@
 #   sbatch ... z_research/scripts/sbatch.sh      SLURM 이 실행 -> run.sh 를 돈다
 #   bash     ... z_research/scripts/sbatch.sh    사람이 실행   -> 스스로를 제출한다
 #
-# `SLURM_BATCH_SCRIPT` 유무로 갈린다 (SLURM_JOB_ID 는 salloc 안에서도 설정되므로 못 쓴다).
-# 제출용 wrapper 를 따로 두지 않는다.
+# **우리가 직접 붙이는 `WMA_RUN=1`** 로 갈린다. 제출용 wrapper 를 따로 두지 않는다.
 #
-#   sbatch --job-name=ip1 --export=ALL,P=intphys1_sliding,D=intphys1_dev z_research/scripts/sbatch.sh
-#   sbatch --job-name=prb --export=ALL,P=attn_probe,D=v8,M=vith         z_research/scripts/sbatch.sh
+# ⚠️ 2026-08-30: 여기에 `SLURM_BATCH_SCRIPT` 를 썼다가 job 9,924 개가 생겼다.
+#    이 클러스터의 batch job 에서 그 변수가 비어 있어서 **모든 job 이 제출 분기를
+#    다시 탔고**, 세대마다 자기를 7개씩 더 제출했다 (x7 지수 증가).
+#    --export=ALL 로 OUTDIR 까지 물려받아 경로가 한 겹씩 깊어진 게 증거였다:
+#      base .../attn_probe__v11_vith/color_g1/shape_g0/color_g0/color_g0
+#    prep 은 추출을 하지 않고 제출만 하고 exit 0 -> afterok 가 만족돼 자식이 다 풀렸다.
+#    **SLURM 이 무엇을 넣어 주는지에 기대지 말 것.** 표시는 우리가 붙인다.
+#
+#   sbatch --job-name=ip1 --export=ALL,WMA_RUN=1,P=intphys1_sliding,D=intphys1_dev z_research/scripts/sbatch.sh
+#   sbatch --job-name=prb --export=ALL,WMA_RUN=1,P=attn_probe,D=v8,M=vith         z_research/scripts/sbatch.sh
+#   ★ 직접 sbatch 할 때도 WMA_RUN=1 을 반드시 붙일 것. 없으면 본체가 안 돌고 제출만 한다.
 #
 #   P=프로토콜 (필수) / D=데이터셋 (필수) / M=모델 (기본 vith) / GPUS=N (기본 4)
 #   SET="a.b=1 c.d=null"   병합 config 를 점 경로로 덮어씀 (run.sh 와 같다)
+#
+# ⚠️ **`--export` 는 콤마가 구분자다.** SET 안에 콤마가 있으면 (YAML 리스트!) 거기서
+#    잘려 나간다. 2026-08-30 에 `probing.targets.shape.classes=[capsule,cone,...]` 이
+#    `'[capsule'` 이라는 **문자열**로 도착해, enumerate 가 글자를 클래스로 세면서
+#    `shape_pre='sphere' 가 클래스 목록에 없다` 로 7개 job 이 전부 죽었다.
+#    그래서 SET 은 base64(SET_B64)로 싣고 본체에서 푼다. base64 에는 콤마가 없다.
 #
 # ── SPLIT: probing 을 target 별 job 으로 쪼개기 ───────────────────────────────
 #
@@ -66,8 +80,16 @@ PROJECT=/data/hyuntak/project/2026/2027_cvpr/vjepa2
 # ── 사람이 bash 로 직접 부른 경우: 제출만 하고 끝낸다 ────────────────────────
 # ⚠️ SLURM_JOB_ID 로 가르면 안 된다 — 인터랙티브 salloc 안에서도 설정돼 있다.
 #    SLURM_BATCH_SCRIPT 는 **sbatch 로 제출된 배치 job 에서만** 설정된다.
-if [[ -z "${SLURM_BATCH_SCRIPT:-}" ]]; then
+if [[ -z "${WMA_RUN:-}" ]]; then
   cd "$PROJECT"
+  # 2차 방어선 — 폭주의 지문은 "SLURM job 안인데 OUTDIR 을 물려받았다" 이다.
+  # WMA_RUN 이 어떤 이유로든 전달되지 않아도 여기서 멈춘다. 재귀는 죽어서 끝나야지
+  # 번식해서 끝나면 안 된다. 사람이 일부러 OUTDIR 을 줄 때만 WMA_FORCE=1.
+  if [[ -n "${SLURM_JOB_ID:-}" && -n "${OUTDIR:-}" && -z "${WMA_FORCE:-}" ]]; then
+    echo "거부: SLURM job($SLURM_JOB_ID) 안에서 OUTDIR=$OUTDIR 을 들고 제출 분기에 들어왔다." >&2
+    echo "      WMA_RUN 이 전달되지 않았다는 뜻이다 (자기 제출 폭주 신호). 중단한다." >&2
+    exit 1
+  fi
   # ⚠️ salloc 안에서 제출하면 부모 job 의 SLURM_* 가 --export=ALL 로 딸려가 새 job 의
   #    노드/스텝 배치를 망친다 ("Requested node configuration is not available").
   unset SLURM_JOB_ID SLURM_JOBID SLURM_NODELIST SLURM_JOB_NODELIST \
@@ -75,9 +97,11 @@ if [[ -z "${SLURM_BATCH_SCRIPT:-}" ]]; then
         SLURM_GPUS_ON_NODE SLURM_JOB_GPUS SLURM_MEM_PER_NODE SLURM_CPUS_ON_NODE
   : "${P:?P=<프로토콜> 필요}"; : "${D:?D=<데이터셋> 필요}"
   M=${M:-vith}; G=${GPUS:-4}; ME=z_research/scripts/sbatch.sh
+  # SET 은 콤마를 담을 수 있으므로 base64 로 싣는다 (위 경고 참고)
+  _b64() { printf %s "$1" | base64 -w0; }
   if [[ -z "${SPLIT:-}" ]]; then
     sbatch --job-name="${JOBNAME:-${P%%_*}_$D}" --gres=gpu:"$G" \
-           --export=ALL,P="$P",D="$D",M="$M",GPUS="$G",SET="${SET:-}" "$ME"
+           --export=ALL,WMA_RUN=1,P="$P",D="$D",M="$M",GPUS="$G",SET_B64="$(_b64 "${SET:-}")" "$ME"
     exit 0
   fi
   # ── output_dir 충돌 방지 ──────────────────────────────────────────────────
@@ -103,7 +127,7 @@ if [[ -z "${SLURM_BATCH_SCRIPT:-}" ]]; then
   drop=""; first=$(echo $SPLIT | awk '{print $1}')
   for t in $SPLIT; do [[ $t == "$first" ]] || drop="$drop probing.targets.$t=null"; done
   PREP=$(OUTDIR="$BASE/_prep" sbatch --parsable --job-name="prep_$D" --gres=gpu:"$G" \
-    --export=ALL,P="$P",D="$D",M="$M",GPUS="$G",OUTDIR="$BASE/_prep",SET="${SET:-} probing.fit_groups_sweep=[null] probing.optims.attn_30.num_epochs=1$drop" "$ME")
+    --export=ALL,WMA_RUN=1,P="$P",D="$D",M="$M",GPUS="$G",OUTDIR="$BASE/_prep",SET_B64="$(_b64 "${SET:-} probing.fit_groups_sweep=[null] probing.optims.attn_30.num_epochs=1$drop")" "$ME")
   echo "prep  $PREP   토큰 캐시 전체(base 3종) + 버리는 head 3개 1ep   (GPUS=$G)"
 
   # ── 본 job: target x (조건 그룹) ──────────────────────────────────────────
@@ -118,7 +142,7 @@ if [[ -z "${SLURM_BATCH_SCRIPT:-}" ]]; then
       if [[ $gs == "__all__" ]]; then gset=""; sfx="$t"
       else gset="probing.fit_groups_sweep=[[${gs//,/],[}]]"; sfx="${t}_g${gi}"; fi
       ID=$(sbatch --parsable --job-name="prb_${D}_$sfx" --gres=gpu:"$PG" --dependency=afterok:"$PREP" \
-        --export=ALL,P="$P",D="$D",M="$M",GPUS="$PG",OUTDIR="$BASE/$sfx",SET="${SET:-} ${drop# } $gset" "$ME")
+        --export=ALL,WMA_RUN=1,P="$P",D="$D",M="$M",GPUS="$PG",OUTDIR="$BASE/$sfx",SET_B64="$(_b64 "${SET:-} ${drop# } $gset")" "$ME")
       echo "  $sfx   $ID   (GPUS=$PG)  -> $BASE/$sfx"
       gi=$((gi+1))
     done
@@ -137,5 +161,8 @@ source /data/hyuntak/anaconda3/bin/activate vjepa2
 cd "$PROJECT"; export PYTHONPATH="$PROJECT:${PYTHONPATH:-}"
 mkdir -p "$PROJECT/z_research/scripts/slurm_logs"
 
-echo "node $(hostname) | gres gpus=${SLURM_GPUS_ON_NODE:-?} | $P / $D / $M | GPUS=${GPUS:-4}"
+# SET 은 base64 로 왔다 (콤마 때문에). 여기서 푼다.
+[[ -n "${SET_B64:-}" ]] && SET=$(printf %s "$SET_B64" | base64 -d)
+echo "node $(hostname) | gres gpus=${SLURM_GPUS_ON_NODE:-?} | $P / $D / $M | GPUS=${GPUS:-4} | WMA_RUN=${WMA_RUN} | OUTDIR=${OUTDIR:-auto}"
+echo "SET: ${SET:-(없음)}"
 GPUS=${GPUS:-4} SET="${SET:-}" bash z_research/scripts/run.sh "$P" "$D" "$M"
