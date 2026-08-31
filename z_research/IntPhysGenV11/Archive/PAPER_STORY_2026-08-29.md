@@ -1,3 +1,6 @@
+> ⚠️ **대체됨 (2026-08-31).** 정본은 `z_research/IntPhysGenV11/Archive/PAPER_STORY_2026-08-31.md` (진단형 8 beat) 다.
+> 아래 12 beat 의 근거 수치는 여전히 유효하며 새 beat 로 재배치됐다. 기록으로 남긴다.
+
 # How Far is V-JEPA2 from a World Model?
 
 논문 흐름 (2026-08-29). 고수준 논리만. 수치·단서는 `V10_2026-08-28.md` 를 볼 것.

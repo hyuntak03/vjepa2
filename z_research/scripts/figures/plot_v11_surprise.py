@@ -92,7 +92,31 @@ def stack_labels(vals, pad=1.6, sep=4.2, ymax=104.5):
     return out
 
 
+# 그림을 논문 beat 순서대로 폴더에 나눈다 (PAPER_STORY_2026-08-31.md).
+# 여기 없는 이름은 outdir 최상위에 떨어진다 — 새 그림이 눈에 띄라고 일부러 그렇게 뒀다.
+FIGDIR = {
+    "fig_occlusion":            "01_condition",      # beat 1-2  가림 유무
+    "fig_ramp_vs_flat":         "01_condition",      # beat 2    등속 vs 등가속
+    "fig_k_dose":               "02_occlusion_k",    # beat 2-4  k 평균
+    "fig_k_dose_arm":           "02_occlusion_k",    # beat 2-4  k x 운동
+    "fig_k_sensitivity":        "02_occlusion_k",
+    "fig_vanish_direction":     "03_direction",      # beat 4    100 / 0
+    "fig_direction_split":      "03_direction",
+    "fig_direction_gap":        "03_direction",
+    "fig_predictor_vote":       "04_object_order",   # beat 4    무엇을 만드나 (2지선다, 원자료)
+    "fig_make_prob":            "_superseded",       # 7지선다 변환 — 최저 상대 하나가 지배한다
+    "fig_make_prob_grid_shape": "_superseded",
+    "fig_make_prob_grid_color": "_superseded",
+    "fig_vote_grid_shape":      "04_object_order",
+    "fig_vote_grid_color":      "04_object_order",
+    "fig_keep_matrix":          "_superseded",       # 04 의 "지켜냈나" 판. 틀이 뒤집혔다
+    "fig_keep_matrix_visible":  "_superseded",
+    "fig_keep_dose":            "_superseded",
+}
+
+
 def save(fig, out: Path, name):
+    out = out / FIGDIR.get(name, "")
     out.mkdir(parents=True, exist_ok=True)
     for ext in (".pdf", ".png"):
         fig.savefig((out / name).with_suffix(ext), dpi=400, bbox_inches="tight", facecolor="white")
@@ -829,11 +853,358 @@ def fig_keep_dose(R, out, width=9.2):
                 print(f"      {'':14s} k={kk}      " + " ".join(f"{Kk[o]:5.0f}" for o in order))
 
 
+
+def _sided_with(cells, cond, viol, k=None):
+    """-> (M, objs).  모든 칸 = **predictor 가 열 물체 쪽으로 간 비율(%)**.
+    비대각 M[A,B] = 문맥 A, 도전자 B 경기에서 B 편을 든 비율 (= 100 - acc(A→B)).
+    대각   M[A,A] = 그 행 도전자 전체 평균으로 **자기 자신에 남은** 비율 (= mean acc).
+
+    의미가 한 방향으로 통일된다 — "출력이 이 물체 쪽으로 갔다".
+    그래서 **완벽한 predictor 는 대각만 진하다.** 비대각이 진하면 그쪽으로 샌 것이다.
+
+    ⚠️ 세 번 갈아엎었다.
+       (1) 행 합 100% 정규화 — 비대각 상한이 100/(K-1)=16.7 이라 "16.7" 이 정확도 20% 로 오독됨.
+       (2) 모든 칸을 acc(지킴)로 — 완벽한 predictor 면 판 전체가 진해져서 "무엇을 만드나" 가 안 보임.
+       (3) 지금: 모든 칸이 "열 물체 쪽으로 갔나". 대각만 진한 것이 좋은 상태다.
+    """
+    ag = collections.defaultdict(lambda: [0, 0, 0, 0])
+    for (cd, v, kk), cs in cells.items():
+        if cd != cond or v != viol or (k is not None and kk != k):
+            continue
+        for cell in cs:
+            for q in cell["pairs"]:
+                x = ag[(q["a"], q["b"])]
+                x[0] += q["fwd"] * q["n_fwd"]; x[1] += q["n_fwd"]
+                x[2] += q["rev"] * q["n_rev"]; x[3] += q["n_rev"]
+    D = {}
+    for (a, b), v in ag.items():
+        D[(a, b)] = (v[0] / v[1], v[1]); D[(b, a)] = (v[2] / v[3], v[3])
+    objs = sorted({x for kk2 in D for x in kk2})
+    ix = {o: i for i, o in enumerate(objs)}
+    M = np.zeros((len(objs), len(objs)))
+    for a in objs:
+        tot = sum(D[(a, b)][1] for b in objs if b != a)
+        M[ix[a], ix[a]] = 100 * sum(D[(a, b)][0] / 100 * D[(a, b)][1]
+                                    for b in objs if b != a) / tot
+        for b in objs:
+            if b != a:
+                M[ix[a], ix[b]] = 100 - D[(a, b)][0]
+    return M, objs
+
+
+# ------------- 문맥이 A 일 때 predictor 는 누구 편을 들었나
+# 한 시행 = matched pair 하나. 문맥이 A 이고 도전자가 B 일 때
+#     |p - h(A)| < |p - h(B)|  이면 A 에 표를 준 것,  아니면 B 에 준 것이다.
+# A 의 모든 시행(도전자 6~7명 x 각 n)을 모아 **행 합 100%** 로 정규화한다:
+#     대각   = 도전자 전체 평균으로 A 를 지킨 비율
+#     (A,B) = **A 대 B 경기에서** B 쪽으로 간 비율 (= 100 - acc(A→B))
+#    모든 칸이 같은 0~100 정확도 척도다. 100 이면 그 경기 전패.
+#
+# ⚠️ "predictor 가 B 를 예측했다" 로 읽으면 안 된다. 각 경기는 A 와 B **둘만** 후보로
+#    주므로 B 표는 "B 가 후보였을 때" 조건부다. 실제로 torus 행은 여섯 도전자에게
+#    거의 균등하게(14.6~16.7) 샌다 — 특정 물체로 가는 것이 아니라 자기에게서 멀어진다.
+#
+# ⚠️ block 밖의 후보로 7-way retrieval 을 하면 안 된다. 실측(등가속+가림, shape):
+#       같은 block 다른 모양 0.5438 / 다른 block 같은 모양 0.7602  (신호/잡음 0.715)
+#    h 를 질의로 쓴 대조군조차 프로토타입 retrieval 40.3% (chance 14.3) 다.
+#    -> z_research/scripts/analysis/retrieval_confusion.py 최상단. 다시 시도하지 말 것.
+def fig_predictor_vote(R, out, width=9.4, arm="moving_visible", cond="occluded"):
+    cells = collections.defaultdict(list)
+    for c in R["scoring"]["cells"]:
+        cells[(c["condition"], c["violation_type"], c["sym_k"])].append(c)
+    vis, occ, mname = next(a for a in ARMS_K if a[0] == arm)
+    use = occ if cond == "occluded" else vis
+
+    def votes(viol):
+        M, objs = _sided_with(cells, use, viol)
+        order = sorted(range(len(objs)), key=lambda i2: -M[i2, i2])
+        return M[np.ix_(order, order)], [objs[i2] for i2 in order]
+
+    panels = [("shape", "Shape"), ("color", "Colour")]
+    fig, axes = plt.subplots(1, 2, figsize=(width, 4.3),
+                             gridspec_kw=dict(width_ratios=[7, 8]))
+    for ci, (viol, vl) in enumerate(panels):
+        ax = axes[ci]
+        M, nm = votes(viol)
+        K = len(nm)
+        # 모든 칸이 "이 물체 쪽으로 갔다" 로 의미가 같으므로 단색이 맞다.
+        cm = LinearSegmentedColormap.from_list("v", ["#ffffff", tint(VCOL[viol], 0.0)])
+        ax.imshow(M, cmap=cm, vmin=0, vmax=100, aspect="equal")
+        for a2 in range(K):
+            for b2 in range(K):
+                v = M[a2, b2]
+                ax.text(b2, a2, f"{v:.0f}",
+                        ha="center", va="center",
+                        fontsize=7.0 if a2 == b2 else 6.1,
+                        fontweight="bold" if a2 == b2 else "normal",
+                        color="white" if v > 62 else INK2, zorder=5)
+                if a2 == b2:
+                    ax.add_patch(plt.Rectangle((b2 - .5, a2 - .5), 1, 1, fill=False,
+                                               edgecolor=INK, lw=1.4, zorder=6))
+                elif v > 99.5:           # 그 경기 전패
+                    ax.add_patch(plt.Rectangle((b2 - .5, a2 - .5), 1, 1, fill=False,
+                                               edgecolor=INK, lw=0.9, ls=(0, (2, 1.5)),
+                                               zorder=6))
+        ax.set_xticks(range(K)); ax.set_yticks(range(K))
+        ax.set_xticklabels(nm, rotation=45, ha="right", fontsize=6.6, color=INK2)
+        ax.set_yticklabels(nm, fontsize=6.6, color=INK2)
+        ax.tick_params(length=0, pad=1.5)
+        for sp in ax.spines.values():
+            sp.set_color(MUTED); sp.set_linewidth(0.5); sp.set_zorder(30)
+        ax.set_title(vl, fontsize=9.5, color=INK, pad=6)
+        if ci == 0:
+            ax.set_ylabel("context object", fontsize=8.4, color=INK, labelpad=2)
+        ax.set_xlabel("which object the output went to", fontsize=8.4, color=INK,
+                      labelpad=1.5)
+    fig.subplots_adjust(left=0.085, right=0.995, top=0.90, bottom=0.175, wspace=0.20)
+    fig.canvas.draw(); rend = fig.canvas.get_renderer(); inv = fig.transFigure.inverted()
+    for ax, lab in zip(axes, PANEL):
+        bb = ax.get_tightbbox(rend).transformed(inv)
+        fig.text(bb.x0 + bb.width / 2, bb.y0 - 0.02, lab, ha="center", va="top",
+                 fontsize=9.5, color=INK)
+    # 서술 문장은 그림에 넣지 않는다 — 캡션으로 뺀다 (CLAUDE.md §8-3)
+    save(fig, out, "fig_predictor_vote")
+    for viol, vl in panels:
+        M, nm = votes(viol); K = len(nm)
+        print(f"    {vl}")
+        for i2, o in enumerate(nm):
+            off = np.delete(M[i2], i2)
+            print(f"      {o:10s} 지킴 {M[i2,i2]:5.1f}   전패한 상대 "
+                  f"{int((off > 99.5).sum())}/{K-1}   최대 이탈 {off.max():5.1f}")
+
+
+# ------------- 같은 투표 행렬을 운동 타입 x k 로 (small multiples)
+# ⚠️ (조건, k) 로 쪼개면 비대각 칸이 **방향당 n=4** 다 (shape). 개별 칸을 읽으면 안 된다.
+#    그래서 숫자를 빼고 색만 쓴다 — **대각선이 어떻게 옅어지는가** 만 읽는 그림이다.
+#    대각선은 도전자 6~7명을 합치므로 n=24~28 (SE ~10pp) 로 그나마 읽을 수 있다.
+# ⚠️ 행·열 순서를 **모든 패널에서 고정**한다 (등가속+가림 순위). 그래야 패널끼리 비교된다.
+def fig_vote_grid(R, out, target="shape", width=8.6):
+    cells = collections.defaultdict(list)
+    for c in R["scoring"]["cells"]:
+        cells[(c["condition"], c["violation_type"], c["sym_k"])].append(c)
+
+    def votes(cond, viol, k=None):
+        return _sided_with(cells, cond, viol, k)
+
+    Mref, objs = votes("moving_occlusion", target)
+    order = sorted(range(len(objs)), key=lambda i2: -Mref[i2, i2])
+    nm = [objs[i2] for i2 in order]                      # 모든 패널 공통 순서
+    K = len(nm)
+    cm = LinearSegmentedColormap.from_list("v", ["#ffffff", tint(VCOL[target], 0.0)])
+    ks = ["0", "1", "2", "3", "4"]
+    fig, axes = plt.subplots(3, 5, figsize=(width, 6.3), squeeze=False)
+    for ri, (vis, occ, title) in enumerate(ARMS_K):
+        for ci, k in enumerate(ks):
+            ax = axes[ri][ci]
+            M, o2 = votes(vis if k == "0" else occ, target, None if k == "0" else k)
+            M = M[np.ix_(order, order)]
+            ax.imshow(M, cmap=cm, vmin=0, vmax=100, aspect="equal")
+            for d2 in range(K):
+                ax.add_patch(plt.Rectangle((d2 - .5, d2 - .5), 1, 1, fill=False,
+                                           edgecolor=INK, lw=0.8, zorder=6))
+                # 대각선은 칸마다 값을 적는다 (평균 하나로 뭉치지 않는다)
+                ax.text(d2, d2, f"{M[d2, d2]:.0f}", ha="center", va="center",
+                        fontsize=4.8, color="white" if M[d2, d2] > 62 else INK2,
+                        zorder=7)
+            ax.set_xticks(range(K)); ax.set_yticks(range(K))
+            ax.set_xticklabels(nm if ri == 2 else [], rotation=45, ha="right",
+                               fontsize=5.6, color=INK2)
+            ax.set_yticklabels(nm if ci == 0 else [], fontsize=5.6, color=INK2)
+            ax.tick_params(length=0, pad=1.2)
+            for sp in ax.spines.values():
+                sp.set_color(MUTED); sp.set_linewidth(0.4)
+            if ri == 0:
+                ax.set_title("no occluder" if k == "0" else f"k={k}", fontsize=8.4,
+                             color=INK, pad=4)
+            if ci == 0:
+                ax.set_ylabel(title, fontsize=8.4, color=INK, labelpad=10)
+    fig.subplots_adjust(left=0.115, right=0.905, top=0.945, bottom=0.105,
+                        wspace=0.10, hspace=0.10)
+    cax = fig.add_axes([0.925, 0.105, 0.018, 0.840])      # 색막대는 맨 오른쪽
+    cax.imshow(np.linspace(1, 0, 256)[:, None], cmap=cm, aspect="auto")
+    cax.set_xticks([]); cax.yaxis.tick_right()
+    cax.set_yticks([0, 127.5, 255])
+    cax.set_yticklabels(["100", "50", "0"], fontsize=6.6, color=INK2)
+    cax.tick_params(length=0, pad=2)
+    for sp in cax.spines.values():
+        sp.set_color(MUTED); sp.set_linewidth(0.5)
+    cax.set_ylabel("output went to this object (%)", fontsize=7.0, color=INK2, labelpad=3)
+    cax.yaxis.set_label_position("right")
+    # 서술 문장은 그림에 넣지 않는다 — 캡션으로 뺀다 (CLAUDE.md §8-3)
+    save(fig, out, f"fig_vote_grid_{target}")
+    print(f"  투표 행렬 대각선 평균 — {target}")
+    for vis, occ, title in ARMS_K:
+        row = []
+        for k in ks:
+            M, _ = votes(vis if k == "0" else occ, target, None if k == "0" else k)
+            row.append(np.trace(M) / K)
+        print(f"    {title:14s} " + "  ".join(f"k{k}={v:5.1f}" for k, v in zip(ks, row)))
+
+
+# ------------- "문맥이 A 일 때 predictor 가 각 물체를 만들 확률"
+# ⚠️ **2026-08-31 물러남 (_superseded).** 수식은 맞지만 요약치로 못 쓴다.
+#    s = (1-p)/p 가 p 가 작을 때 폭발해서 **최저 상대 하나가 행 전체를 지배한다.**
+#    실측(등가속·비가림, shape): cube 는 짝평균 83.3 인데 cylinder 에게만 6% 라
+#    7지선다 P 가 8.7 로 내려앉는다. capsule 69.8 -> 2.8, pyramid 64.6 -> 9.4.
+#    스무딩 탓이 아니다 (Jeffreys vs add-1 차이 0.1~6.0pt).
+#    그리고 k 별 판은 비대각이 **방향당 n=4** 인데 대각이 그 6칸 전부의 함수라
+#    "개별 칸을 읽지 말라" 던 잡음을 대각선이 통째로 물려받는다.
+#    IIA(무관한 대안의 독립) 가정도 행 안에서 검정 불가능하다.
+#    -> 논문 그림은 fig_predictor_vote (2지선다 원자료) 를 쓴다.
+# 한 경기는 2지선다다 — 문맥 A, 후보 {A, B}. 거기서 나오는 것은 P(A | {A,B}) 뿐이라
+# 7지선다 확률이 그대로 나오지 않는다. Luce 선택 공리를 쓰면 후보마다 척도 s 가 있고
+#     P(A | {A,B}) = s_A / (s_A + s_B)
+# 이므로 s_A = 1 로 두면 s_B = (1 - p) / p 로 **정확히** 풀린다 (행마다 미지수 6, 식 6).
+#     P(X | 문맥 A) = s_X / sum_Y s_Y      <- 행 합 100%, chance = 100/K
+#
+# ⚠️ 이건 새 주장이 아니라 **같은 수의 재표현**이다. 행이 정확히 결정되므로
+#    행 안에서는 적합도 검정이 불가능하다. Luce 가정(무관한 대안의 독립)이 들어간다.
+#    가정의 검정은 "행이 달라도 s 가 같은가" 이고 그게 beat 4 의 1차원 순서다.
+# ⚠️ 앞서 기각된 '행 합 100% 정규화'와 다르다. 그건 원 횟수를 그냥 나눠서 대각 상한이
+#    1/K 로 눌렸다. 여기선 전승이면 대각이 100 으로 간다 (s_B -> 0).
+# ⚠️ 스무딩은 Jeffreys (x+0.5)/(n+1). n 이 작을 때 p=0/1 이 무한대로 튀는 것을 막는다.
+def _make_prob(cells, cond, viol, k=None):
+    ag = collections.defaultdict(lambda: [0.0, 0, 0.0, 0])
+    for (cd, v, kk), cs in cells.items():
+        if cd != cond or v != viol or (k is not None and kk != k):
+            continue
+        for cell in cs:
+            for q in cell["pairs"]:
+                x = ag[(q["a"], q["b"])]
+                x[0] += q["fwd"] / 100 * q["n_fwd"]; x[1] += q["n_fwd"]
+                x[2] += q["rev"] / 100 * q["n_rev"]; x[3] += q["n_rev"]
+    P = {}
+    for (a, b), v in ag.items():
+        P[(a, b)] = (v[0] + 0.5) / (v[1] + 1)          # 문맥 a 가 자기를 지킨 비율
+        P[(b, a)] = (v[2] + 0.5) / (v[3] + 1)
+    objs = sorted({x for kk2 in P for x in kk2}); ix = {o: i for i, o in enumerate(objs)}
+    M = np.zeros((len(objs), len(objs)))
+    for a in objs:
+        s = {a: 1.0}
+        for b in objs:
+            if b != a:
+                pa = min(max(P[(a, b)], 1e-6), 1 - 1e-6)
+                s[b] = (1 - pa) / pa
+        tot = sum(s.values())
+        for b in objs:
+            M[ix[a], ix[b]] = 100 * s[b] / tot
+    return M, objs
+
+
+def fig_make_prob(R, out, width=9.4, arm="moving_visible", cond="occluded"):
+    cells = collections.defaultdict(list)
+    for c in R["scoring"]["cells"]:
+        cells[(c["condition"], c["violation_type"], c["sym_k"])].append(c)
+    vis, occ, mname = next(a for a in ARMS_K if a[0] == arm)
+    use = occ if cond == "occluded" else vis
+    panels = [("shape", "Shape"), ("color", "Colour")]
+    fig, axes = plt.subplots(1, 2, figsize=(width, 4.3),
+                             gridspec_kw=dict(width_ratios=[7, 8]))
+    for ci, (viol, vl) in enumerate(panels):
+        ax = axes[ci]
+        M0, objs = _make_prob(cells, use, viol)
+        order = sorted(range(len(objs)), key=lambda i2: -M0[i2, i2])
+        M = M0[np.ix_(order, order)]; nm = [objs[i2] for i2 in order]; K = len(nm)
+        ch = 100 / K
+        cm = LinearSegmentedColormap.from_list("v", ["#ffffff", tint(VCOL[viol], 0.0)])
+        ax.imshow(M, cmap=cm, vmin=0, vmax=100, aspect="equal")
+        for a2 in range(K):
+            for b2 in range(K):
+                v = M[a2, b2]
+                ax.text(b2, a2, f"{v:.0f}", ha="center", va="center",
+                        fontsize=7.0 if a2 == b2 else 6.1,
+                        fontweight="bold" if a2 == b2 else "normal",
+                        color="white" if v > 62 else INK2, zorder=5)
+            ax.add_patch(plt.Rectangle((a2 - .5, a2 - .5), 1, 1, fill=False,
+                                       edgecolor=INK, lw=1.4, zorder=6))
+        ax.set_xticks(range(K)); ax.set_yticks(range(K))
+        ax.set_xticklabels(nm, rotation=45, ha="right", fontsize=6.6, color=INK2)
+        ax.set_yticklabels(nm, fontsize=6.6, color=INK2)
+        ax.tick_params(length=0, pad=1.5)
+        for sp in ax.spines.values():
+            sp.set_color(MUTED); sp.set_linewidth(0.5); sp.set_zorder(30)
+        ax.set_title(f"{vl}    (chance {ch:.1f})", fontsize=9.5, color=INK, pad=6)
+        if ci == 0:
+            ax.set_ylabel("context object", fontsize=8.4, color=INK, labelpad=2)
+        ax.set_xlabel("P(predictor makes this object)  %", fontsize=8.4, color=INK,
+                      labelpad=1.5)
+    fig.subplots_adjust(left=0.085, right=0.995, top=0.90, bottom=0.175, wspace=0.20)
+    fig.canvas.draw(); rend = fig.canvas.get_renderer(); inv = fig.transFigure.inverted()
+    for ax, lab in zip(axes, PANEL):
+        bb = ax.get_tightbbox(rend).transformed(inv)
+        fig.text(bb.x0 + bb.width / 2, bb.y0 - 0.02, lab, ha="center", va="top",
+                 fontsize=9.5, color=INK)
+    save(fig, out, "fig_make_prob")
+    for viol, vl in panels:
+        M0, objs = _make_prob(cells, use, viol)
+        order = sorted(range(len(objs)), key=lambda i2: -M0[i2, i2])
+        print(f"    {vl:8s} P(자기 자신) — " + "  ".join(
+            f"{objs[i2]} {M0[i2, i2]:.0f}" for i2 in order))
+
+
+def fig_make_prob_grid(R, out, target="shape", width=8.6):
+    cells = collections.defaultdict(list)
+    for c in R["scoring"]["cells"]:
+        cells[(c["condition"], c["violation_type"], c["sym_k"])].append(c)
+    Mref, objs = _make_prob(cells, "moving_occlusion", target)
+    order = sorted(range(len(objs)), key=lambda i2: -Mref[i2, i2])
+    nm = [objs[i2] for i2 in order]; K = len(nm)
+    cm = LinearSegmentedColormap.from_list("v", ["#ffffff", tint(VCOL[target], 0.0)])
+    ks = ["0", "1", "2", "3", "4"]
+    fig, axes = plt.subplots(3, 5, figsize=(width, 6.3), squeeze=False)
+    for ri, (vis, occ, title) in enumerate(ARMS_K):
+        for ci, k in enumerate(ks):
+            ax = axes[ri][ci]
+            M, _ = _make_prob(cells, vis if k == "0" else occ, target,
+                              None if k == "0" else k)
+            M = M[np.ix_(order, order)]
+            ax.imshow(M, cmap=cm, vmin=0, vmax=100, aspect="equal")
+            for d2 in range(K):
+                ax.add_patch(plt.Rectangle((d2 - .5, d2 - .5), 1, 1, fill=False,
+                                           edgecolor=INK, lw=0.8, zorder=6))
+                ax.text(d2, d2, f"{M[d2, d2]:.0f}", ha="center", va="center",
+                        fontsize=4.8, color="white" if M[d2, d2] > 62 else INK2, zorder=7)
+            ax.set_xticks(range(K)); ax.set_yticks(range(K))
+            ax.set_xticklabels(nm if ri == 2 else [], rotation=45, ha="right",
+                               fontsize=5.6, color=INK2)
+            ax.set_yticklabels(nm if ci == 0 else [], fontsize=5.6, color=INK2)
+            ax.tick_params(length=0, pad=1.2)
+            for sp in ax.spines.values():
+                sp.set_color(MUTED); sp.set_linewidth(0.4)
+            if ri == 0:
+                ax.set_title("no occluder" if k == "0" else f"k={k}", fontsize=8.4,
+                             color=INK, pad=4)
+            if ci == 0:
+                ax.set_ylabel(title, fontsize=8.4, color=INK, labelpad=10)
+    fig.subplots_adjust(left=0.115, right=0.905, top=0.945, bottom=0.105,
+                        wspace=0.10, hspace=0.10)
+    cax = fig.add_axes([0.925, 0.105, 0.018, 0.840])
+    cax.imshow(np.linspace(1, 0, 256)[:, None], cmap=cm, aspect="auto")
+    cax.set_xticks([]); cax.yaxis.tick_right()
+    ch = 100 / K
+    cax.set_yticks([0, 255 * (1 - ch / 100), 255])
+    cax.set_yticklabels(["100", f"{ch:.0f} (chance)", "0"], fontsize=6.6, color=INK2)
+    cax.tick_params(length=0, pad=2)
+    for sp in cax.spines.values():
+        sp.set_color(MUTED); sp.set_linewidth(0.5)
+    cax.set_ylabel("P(predictor makes this object)  %", fontsize=7.0, color=INK2, labelpad=3)
+    cax.yaxis.set_label_position("right")
+    save(fig, out, f"fig_make_prob_grid_{target}")
+    print(f"  P(자기 자신) 대각 평균 — {target}")
+    for vis, occ, title in ARMS_K:
+        row = []
+        for k in ks:
+            M, _ = _make_prob(cells, vis if k == "0" else occ, target,
+                              None if k == "0" else k)
+            row.append(f"k{k}={np.mean(np.diag(M)):5.1f}")
+        print(f"    {title:14s} " + "  ".join(row))
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--report", type=Path, required=True)
     ap.add_argument("--outdir", type=Path, required=True)
-    ap.add_argument("--which", nargs="*", default=["k", "karm", "sens", "rampflat", "occlusion", "vandir", "dirsplit", "dirgap", "keep", "keepvis", "keepdose"])
+    ap.add_argument("--which", nargs="*", default=["k", "karm", "sens", "rampflat", "occlusion", "vandir", "dirsplit", "dirgap", "keep", "keepvis", "keepdose", "vote", "votegrid", "prob", "probgrid"])
     a = ap.parse_args()
     R = json.loads(a.report.read_text())
 
@@ -852,7 +1223,12 @@ def main():
          "dirsplit": fig_direction_split, "dirgap": fig_direction_gap, "keep": fig_keep_matrix,
          "keepvis": lambda R2, o2: fig_keep_matrix(R2, o2, cond="visible",
                                                    name="fig_keep_matrix_visible"),
-         "keepdose": fig_keep_dose}[w](R, a.outdir)
+         "keepdose": fig_keep_dose, "vote": fig_predictor_vote,
+         "prob": fig_make_prob,
+         "probgrid": lambda R2, o2: [fig_make_prob_grid(R2, o2, t)
+                                     for t in ("shape", "color")],
+         "votegrid": lambda R2, o2: [fig_vote_grid(R2, o2, t)
+                                     for t in ("shape", "color")]}[w](R, a.outdir)
 
 
 if __name__ == "__main__":

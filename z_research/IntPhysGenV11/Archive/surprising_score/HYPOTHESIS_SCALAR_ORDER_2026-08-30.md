@@ -1,5 +1,6 @@
 # 가설 — 편향은 21개가 아니라 1차원 순서다 (2026-08-30)
 
+
 > 상태: **일부 확인, 대부분 미검증.** probing 결과가 나온 뒤 §5 순서대로 검증한다.
 > 대상 산출물: `z_research/IntPhysGenV11/exp_results/surprise_c16t32__v11_vith/`
 > 근거 문서: `RESULTS_2026-08-30.md` 표 E(shape 21쌍) · 표 F(color 28쌍)

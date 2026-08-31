@@ -193,6 +193,8 @@ def main():
         gcol = dd.get("group_column") or dd.get("variant_column") or "variant"
         tcol, want = dd.get("type_column"), set(P.get("block_types") or [])
         seen = []
+        if not os.path.isfile(ipath):
+            die(f"index 가 없다 -> {ipath}\n  build_probe_index.py 를 먼저 돌려야 한다")
         with open(ipath, newline="", encoding="utf-8") as f:
             for r in csv.DictReader(f):
                 if want and tcol and r.get(tcol) not in want:

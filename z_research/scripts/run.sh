@@ -51,7 +51,7 @@ if [[ "${1:-}" == "--list" || $# -eq 0 ]]; then
   echo "프로토콜:";  ls "$P"/*.yaml | xargs -n1 basename | sed 's/\.yaml$//;s/^/  /'
   echo "데이터셋:";  "$PY" - "$P/datasets.md" <<'L'
 import sys
-sys.path.insert(0, "/data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/scripts")
+sys.path.insert(0, "/data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/scripts/harness")
 from resolve import parse_registry
 for k, v in sorted(parse_registry(sys.argv[1], "root").items()):
     bad = v.get("available") is False
