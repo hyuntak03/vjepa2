@@ -30,6 +30,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass
 from typing import Optional
 
@@ -200,6 +201,7 @@ def build_from_config(cfg: dict, device: torch.device) -> VJEPA2Bundle:
 
     model:
       checkpoint: /abs/path/to/model.pth                # required
+      predictor_checkpoint: /abs/path/to/run/latest.pt  # optional: predictor 만 여기서 (app/vjepa_frozen)
       arch_name: vit_large                              # vit_large | vit_huge | vit_giant
       img_size: 256                                     # ViT-L pretrain: 256
       patch_size: 16
@@ -283,7 +285,29 @@ def build_from_config(cfg: dict, device: torch.device) -> VJEPA2Bundle:
         num_mask_tokens=int(predictor_cfg.get("num_mask_tokens", 10)),
         use_rope=use_rope, uniform_power=uniform_power,
     )
-    _load_state_dict(predictor, state["predictor"], tag="predictor")
+    # model.predictor_checkpoint — predictor 만 다른 파일에서 읽는다 (app/vjepa_frozen 학습 run 의
+    # latest.pt / e{N}.pt). encoder 는 위 `checkpoint` 그대로. 통짜 파일을 만들 필요가 없다.
+    #   z_training/eval.sh 가 SET="model.predictor_checkpoint=<run>/latest.pt" 로 넣는다.
+    # 학습 run 의 predictor 는 구조가 같아야 하므로 빠진 키를 허용하지 않는다 (strict 검사).
+    pc_path = cfg.get("predictor_checkpoint")
+    if pc_path:
+        logger.info(f"predictor <- {pc_path} (model.predictor_checkpoint); encoder <- {ckpt_path}")
+        pstate = _load_checkpoint(pc_path)
+        if "predictor" not in pstate:
+            raise KeyError(f"{pc_path}: 'predictor' 키가 없다 (keys={list(pstate)[:8]})")
+        psd = _clean_backbone_key(pstate["predictor"])
+        msd = predictor.state_dict()
+        missing = sorted(set(msd) - set(psd))
+        if missing:
+            raise RuntimeError(f"predictor_checkpoint 에 없는 파라미터 {len(missing)}개: {missing[:5]} — 구조가 다르다")
+        bad = [(k, tuple(psd[k].shape), tuple(msd[k].shape)) for k in msd if psd[k].shape != msd[k].shape]
+        if bad:   # _load_state_dict 는 모양이 다른 키를 경고만 하고 버린다 — 여기서는 죽인다
+            raise RuntimeError(f"predictor_checkpoint 모양 불일치 {len(bad)}개 (key, ckpt, model): {bad[:3]} — "
+                               "protocol yaml 의 model.predictor 와 학습 run 의 predictor 구조가 다르다")
+        _load_state_dict(predictor, pstate["predictor"], tag=f"predictor<-{os.path.basename(pc_path)}")
+        del pstate
+    else:
+        _load_state_dict(predictor, state["predictor"], tag="predictor")
     predictor = predictor.to(device=device, dtype=dtype).eval()
     for p in predictor.parameters():
         p.requires_grad_(False)

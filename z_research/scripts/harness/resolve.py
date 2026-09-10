@@ -211,6 +211,7 @@ def main():
     # ── 모델 로드 전에 실물 검사 ────────────────────────────────────────────────
     d, m = cfg["data"], cfg["model"]
     for label, p in (("model.checkpoint", m.get("checkpoint")),
+                     ("model.predictor_checkpoint", m.get("predictor_checkpoint")),   # z_training/eval.sh
                      ("data.root", d.get("root")),
                      ("data.frames_root", d.get("frames_root"))):
         if p and not os.path.exists(p):

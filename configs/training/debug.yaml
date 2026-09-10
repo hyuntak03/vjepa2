@@ -1,0 +1,27 @@
+# =============================================================================
+# 배관 점검 — 1 GPU, 몇 step. ViT-H 로딩(~2분) 빼고 1분 안에 끝난다.
+#   LIMIT=16 SET="data.datasets=[<이름>]" DEBUG=1 bash z_training/train.sh debug    # 단일 프로세스 (--debugmode)
+#   LIMIT=16 SET="data.datasets=[<이름>]" GPUS=2  bash z_training/train.sh debug    # DDP 2장
+#   LIMIT=16 SET="data.datasets=[<이름>] model.load_predictor=true" DEBUG=1 bash z_training/train.sh debug   # post-FT 경로
+# <이름> 은 configs/training/datasets.md 의 섹션 (학습 데이터는 아직 미정이라 비워 뒀다).
+# =============================================================================
+extends: frozen_predictor_scratch
+
+meta:
+  log_freq: 1
+  save_every_freq: 1
+
+data:
+  batch_size: 2
+  num_workers: 2
+  persistent_workers: false
+  datasets: []               # 돌릴 때 준다: LIMIT=16 SET="data.datasets=[<이름>]" DEBUG=1 bash z_training/train.sh debug
+
+optimization:
+  epochs: 2
+  ipe: 4
+  warmup: 0
+
+val:
+  n_blocks_per_type: 2       # intphys1_dev: 3 type x 2 block = 24 clip, 12 쌍
+  batch_size: 4

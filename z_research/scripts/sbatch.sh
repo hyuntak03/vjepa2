@@ -124,11 +124,18 @@ if [[ -z "${WMA_RUN:-}" ]]; then
   # ⚠️ 사용자 SET 을 **앞**에 둔다. drop(=targets.X=null)이 뒤에 와야 한다 —
   #    순서가 반대면 SET 안의 probing.targets.shape.* 가 지워진 target 을 빈 dict 로
   #    되살려 column 키가 없는 채로 죽는다 (resolve.py 는 점 경로를 만들며 내려간다).
+  # PREP_JID 를 주면 prep 을 새로 띄우지 않고 **그 job 에 의존**시킨다.
+  # 캐시를 다른 방식으로(예: 캐시 병합) 이미 만들어 두는 파이프라인용이다.
+  if [[ -n "${PREP_JID:-}" ]]; then
+    PREP="$PREP_JID"
+    echo "prep  (건너뜀) 기존 job $PREP 에 의존한다 — 캐시가 그 job 뒤에 준비된다고 본다"
+  else
   drop=""; first=$(echo $SPLIT | awk '{print $1}')
   for t in $SPLIT; do [[ $t == "$first" ]] || drop="$drop probing.targets.$t=null"; done
   PREP=$(OUTDIR="$BASE/_prep" sbatch --parsable --job-name="prep_$D" --gres=gpu:"$G" \
     --export=ALL,WMA_RUN=1,P="$P",D="$D",M="$M",GPUS="$G",OUTDIR="$BASE/_prep",SET_B64="$(_b64 "${SET:-} probing.fit_groups_sweep=[null] probing.optims.attn_30.num_epochs=1$drop")" "$ME")
   echo "prep  $PREP   토큰 캐시 전체(base 3종) + 버리는 head 3개 1ep   (GPUS=$G)"
+  fi
 
   # ── 본 job: target x (조건 그룹) ──────────────────────────────────────────
   # GSPLIT="a,b,c d,e,f" 를 주면 조건까지 쪼갠다 (job 수 = |SPLIT| x |GSPLIT|).

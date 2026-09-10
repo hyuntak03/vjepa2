@@ -32,7 +32,7 @@ import argparse, collections, csv, json, sys
 from pathlib import Path
 import numpy as np
 
-AXES = ["condition", "violation_type", "sym_k"]      # 있는 것만 쓴다
+AXES = ["condition", "violation_type", "sym_k", "occ_timing"]   # 있는 것만 쓴다
 POINT = {"contextF__f1to16": "z", "targetF__f17to32": "h", "pred__f17to32": "p"}
 
 
@@ -113,7 +113,7 @@ def main():
                     help="predictions.json 의 val_video_ids 와 조인할 index_probe.csv. "
                          "이걸 주면 **임의의 축(k, surface, direction …)으로 head 를 쪼갠다.** "
                          "probing 의 group_column 은 condition 이라 config 만으로는 k 를 못 본다.")
-    ap.add_argument("--probe-axes", nargs="*", default=["sym_k", "condition", "surface"],
+    ap.add_argument("--probe-axes", nargs="*", default=["sym_k", "condition", "surface", "occ_timing"],
                     metavar="COL", help="쪼갤 축. 인덱스에 있는 것만 쓴다")
     ap.add_argument("-o", "--output", type=Path, required=True)
     a = ap.parse_args()

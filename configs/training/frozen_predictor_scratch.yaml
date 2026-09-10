@@ -1,0 +1,17 @@
+# =============================================================================
+# frozen encoder + predictor **from scratch**
+#   GPUS=8 bash z_training/train.sh frozen_predictor_scratch
+#   GPUS=8 NAME=scratch_v11pos SET="data.datasets=[v11_possible]" bash z_training/train.sh frozen_predictor_scratch
+#
+# 릴리즈 predictor 와 같은 구조(384/12/12, mask token 10)를 새로 초기화해 학습한다.
+# 그래서 채점기(surprise_c16t32 / intphys1_sliding)가 그대로 읽는다.
+# =============================================================================
+extends: _base_frozen_predictor
+
+model:
+  load_predictor: false
+
+optimization:
+  epochs: 30
+  lr: 3.0e-4
+  warmup: 2

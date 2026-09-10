@@ -24,3 +24,10 @@ checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--faceb
 
 arch_name: vit_large
 checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vitl-fpc64-256/snapshots/b3c1679b7c34d3255ef3547f27c7b226aefab26f/original/model.pth
+
+---
+
+**학습한 predictor 로 채점하기** — 여기 등록하지 않아도 된다. `bash z_training/eval.sh <run>` 이 base 모델(`vith`)의
+encoder 에 `model.predictor_checkpoint=<run>/latest.pt` 를 얹어 `run.sh` 를 부른다
+(`analysis/intphys2/model.py`, 2026-09-10). 통짜 파일로 등록하려면 `z_training/harness/export_ckpt.py` 가 만든
+파일을 새 섹션에 적는다 (⚠️ 이 파일의 파서는 `key: value` 줄을 전부 읽으므로 예시를 코드 블록에 쓰지 말 것).

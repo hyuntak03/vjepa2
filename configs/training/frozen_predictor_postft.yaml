@@ -1,0 +1,21 @@
+# =============================================================================
+# frozen encoder + 릴리즈 predictor **post fine-tuning**
+#   GPUS=8 bash z_training/train.sh frozen_predictor_postft
+#
+# 릴리즈 predictor(model.pth 의 `predictor`)를 통째로 로드해 이어 학습한다.
+# 옵티마이저 상태는 새로 만든다 (릴리즈 ckpt 의 opt 는 world_size 256 encoder+predictor 것이라 못 쓴다).
+# val.at_start 가 켜져 있어 epoch 0 에 릴리즈 predictor 의 점수가 먼저 찍힌다 — 그게 출발선이다.
+# =============================================================================
+extends: _base_frozen_predictor
+
+model:
+  load_predictor: true
+
+optimization:
+  epochs: 10
+  lr: 5.0e-5                 # ★ 미검증. 사전학습 lr 의 1/10 부근에서 시작
+  start_lr: 1.0e-6
+  final_lr: 1.0e-6
+  warmup: 1
+  weight_decay: 0.04
+  final_weight_decay: 0.04

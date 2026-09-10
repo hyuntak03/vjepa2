@@ -103,6 +103,8 @@ FIGDIR = {
     "fig_vanish_direction":     "03_direction",      # beat 4    100 / 0
     "fig_direction_split":      "03_direction",
     "fig_direction_gap":        "03_direction",
+    "fig_precision_recall_shape": "04_object_order", # beat 4  능력 차이인가 편향인가
+    "fig_precision_recall_color": "04_object_order",
     "fig_predictor_vote":       "04_object_order",   # beat 4    무엇을 만드나 (2지선다, 원자료)
     "fig_make_prob":            "_superseded",       # 7지선다 변환 — 최저 상대 하나가 지배한다
     "fig_make_prob_grid_shape": "_superseded",
@@ -1200,11 +1202,97 @@ def fig_make_prob_grid(R, out, target="shape", width=8.6):
         print(f"    {title:14s} " + "  ".join(row))
 
 
+# ------------- 물체별 precision / recall
+# 한 경기 = 문맥 A, 후보 {A, B}. 출력은 A 아니면 B 로 확정된다. 그래서 검출 문제로 읽힌다:
+#     TP(X) = 문맥이 X 이고 출력도 X          (= 그 행의 지킴)
+#     FN(X) = 문맥이 X 인데 출력이 상대
+#     FP(X) = 문맥이 Y(!=X) 인데 출력이 X     (= X 가 도전자일 때 상대가 X 로 샌 것)
+#   recall(X)    = TP/(TP+FN)   "X 가 문맥일 때 X 를 지켜내나"      <- 투표 행렬의 대각
+#   precision(X) = TP/(TP+FP)   "X 를 만들었을 때 정말 X 였나"
+# 2지선다이므로 **chance 는 둘 다 50** 이다.
+#
+# 왜 이걸 보나 — 능력 차이와 편향을 가른다.
+#   능력 차이라면 잘하는 물체는 recall 과 precision 이 **같이** 높다.
+#   편향이라면 recall 만 벌어지고 precision 은 50 에 눌린다
+#   (순수한 1차원 편향의 예측값이 정확히 precision = 50 이다).
+# ⚠️ 모든 FN 은 상대의 FP 다. 그래서 둘의 음의 상관 자체는 구조적이다.
+#    정보는 상관 부호가 아니라 **퍼짐의 크기 대비**에 있다.
+def fig_precision_recall(R, out, target="shape", width=7.6):
+    cells = collections.defaultdict(list)
+    for c in R["scoring"]["cells"]:
+        cells[(c["condition"], c["violation_type"], c["sym_k"])].append(c)
+
+    def pr(cond):
+        tp = collections.Counter(); fn = collections.Counter(); fp = collections.Counter()
+        for (cd, v, kk), cs in cells.items():
+            if cd != cond or v != target:
+                continue
+            for cell in cs:
+                for q in cell["pairs"]:
+                    a, b = q["a"], q["b"]
+                    for ctx, cha, acc, n in ((a, b, q["fwd"], q["n_fwd"]),
+                                             (b, a, q["rev"], q["n_rev"])):
+                        hit = acc / 100 * n
+                        tp[ctx] += hit; fn[ctx] += n - hit; fp[cha] += n - hit
+        D = {}
+        for o in sorted(set(tp) | set(fp)):
+            D[o] = (100 * tp[o] / (tp[o] + fp[o]) if tp[o] + fp[o] else 0.0,
+                    100 * tp[o] / (tp[o] + fn[o]) if tp[o] + fn[o] else 0.0)
+        return D
+
+    panels = [("static_visible", "Static, no occluder"),
+              ("moving_visible", "Ramp, no occluder"),
+              ("moving_occlusion", "Ramp, occluded")]
+    fig, axes = plt.subplots(1, 3, figsize=(width, 2.95), sharex=True, sharey=True)
+    col = VCOL[target]
+    for ci, (cond, lab) in enumerate(panels):
+        ax = axes[ci]; D = pr(cond)
+        for f in (0.4, 0.6, 0.8):                       # iso-F1
+            r = np.linspace(f / (2 - f) + 1e-3, 1, 200)
+            ax.plot(100 * r, 100 * f * r / (2 * r - f), color=MUTED, lw=0.5,
+                    ls=(0, (1, 2)), zorder=1)
+        ax.axhline(50, color=MUTED, lw=0.6, ls="--", zorder=1)
+        ax.axvline(50, color=MUTED, lw=0.6, ls="--", zorder=1)
+        for o, (P, Rc) in D.items():
+            ax.scatter(Rc, P, s=26, color=col, edgecolor="white", lw=0.7, zorder=4)
+            ax.annotate(o, (Rc, P), textcoords="offset points", xytext=(0, 7),
+                        ha="center", fontsize=5.9, color=INK2, zorder=5)
+        rr = [v[1] for v in D.values()]; pp = [v[0] for v in D.values()]
+        ax.set_title(lab, fontsize=8.6, color=INK, pad=4)
+        ax.annotate(f"recall spread {max(rr)-min(rr):.0f}\nprecision spread {max(pp)-min(pp):.0f}",
+                    (0.035, 0.03), xycoords="axes fraction", ha="left", va="bottom",
+                    fontsize=6.2, color=INK2, linespacing=1.5)
+        ax.set_xlim(-4, 104); ax.set_ylim(38, 104)
+        ax.set_xticks([0, 25, 50, 75, 100]); ax.set_yticks([40, 50, 60, 70, 80, 90, 100])
+        ax.tick_params(labelsize=6.6, colors=INK2, length=2)
+        for sp in ("top", "right"):
+            ax.spines[sp].set_visible(False)
+        for sp in ("left", "bottom"):
+            ax.spines[sp].set_color(MUTED); ax.spines[sp].set_linewidth(0.6)
+        ax.set_xlabel("recall  (kept when it was the context)", fontsize=7.4, color=INK)
+        if ci == 0:
+            ax.set_ylabel("precision\n(really it, when produced)", fontsize=7.4, color=INK)
+    fig.subplots_adjust(left=0.105, right=0.995, top=0.885, bottom=0.245, wspace=0.10)
+    fig.canvas.draw(); rend = fig.canvas.get_renderer(); inv = fig.transFigure.inverted()
+    for ax, lab in zip(axes, PANEL):
+        bb = ax.get_tightbbox(rend).transformed(inv)
+        fig.text(bb.x0 + bb.width / 2, bb.y0 - 0.015, lab, ha="center", va="top",
+                 fontsize=9.0, color=INK)
+    save(fig, out, f"fig_precision_recall_{target}")
+    print(f"  precision / recall — {target}")
+    for cond, lab in panels:
+        D = pr(cond)
+        print(f"    {lab}")
+        for o, (P, Rc) in sorted(D.items(), key=lambda x: -x[1][1]):
+            print(f"      {o:10s} R {Rc:5.1f}   P {P:5.1f}   "
+                  f"F1 {(2*P*Rc/(P+Rc) if P+Rc else 0):5.1f}")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--report", type=Path, required=True)
     ap.add_argument("--outdir", type=Path, required=True)
-    ap.add_argument("--which", nargs="*", default=["k", "karm", "sens", "rampflat", "occlusion", "vandir", "dirsplit", "dirgap", "keep", "keepvis", "keepdose", "vote", "votegrid", "prob", "probgrid"])
+    ap.add_argument("--which", nargs="*", default=["k", "karm", "sens", "rampflat", "occlusion", "vandir", "dirsplit", "dirgap", "keep", "keepvis", "keepdose", "vote", "votegrid", "pr"])
     a = ap.parse_args()
     R = json.loads(a.report.read_text())
 
@@ -1224,6 +1312,7 @@ def main():
          "keepvis": lambda R2, o2: fig_keep_matrix(R2, o2, cond="visible",
                                                    name="fig_keep_matrix_visible"),
          "keepdose": fig_keep_dose, "vote": fig_predictor_vote,
+         "pr": lambda R2, o2: [fig_precision_recall(R2, o2, t) for t in ("shape", "color")],
          "prob": fig_make_prob,
          "probgrid": lambda R2, o2: [fig_make_prob_grid(R2, o2, t)
                                      for t in ("shape", "color")],

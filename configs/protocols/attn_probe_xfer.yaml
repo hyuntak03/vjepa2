@@ -1,0 +1,40 @@
+# =============================================================================
+# PROTOCOL — GT 미래(h) 와 예측 미래(p) 사이의 **양방향 이식**
+#
+#   bash z_research/scripts/run.sh attn_probe_xfer v11_full vith
+#
+# 묻는 것
+#   `attn_probe` 는 세 지점(z·h·p)에서 **각각** head 를 학습하고 자기 자신만 평가한다
+#   (`eval: [self]`). 그래서 "조건을 가로지르는 이식"(비가림 -> 가림)은 보이지만
+#   **"표현을 가로지르는 이식"**(GT 미래 <-> 예측 미래)은 안 보인다.
+#
+#   h 와 p 는 **같은 미래 자리의 같은 shape (2048, 1280)** 이다. 그러니 h 에서 배운
+#   readout 을 p 에 그대로 걸 수 있다. 그 정확도가 곧
+#       "predictor 가 만든 미래가 **진짜 미래와 같은 좌표계**에 있는가"
+#   다. 채점(|p - h| 대소)이 성립하려면 그게 참이어야 한다.
+#
+#   양방향을 다 본다:
+#     h -> p   GT 미래에서 배운 자리로 예측 미래를 읽는다   (채점이 실제로 하는 일)
+#     p -> h   그 반대. 비대칭이면 한쪽이 더 좁은 표현이라는 뜻이다
+#
+# 부모와 다른 것은 `probing.runs` 의 eval 목록뿐이다. 학습 자체는 그대로다 —
+# head 는 (fit, groups) 마다 한 번 학습되고 eval 목록 전체에 frozen 으로 적용된다.
+# 따라서 **head 수는 부모와 같고**(12조건 x 3지점 x 3target = 108) 평가만 늘어난다.
+#
+# ⚠️ z 는 이식 대상에서 뺐다. z 는 **문맥 구간**(frames 1-16) 이고 h·p 는 **미래 구간**
+#    (17-32) 이라 토큰의 시각이 다르다. 자리를 비교하는 실험이므로 시각이 다른 것을
+#    섞으면 결과를 못 읽는다 (CLAUDE.md §7-3 의 "위치 특이적" 과 같은 이유).
+# =============================================================================
+extends: attn_probe
+
+probing:
+  runs:
+    # 1. context encoder (z) — 자기 자신만. 이식은 안 한다 (위 ⚠️)
+    - train: { model: context, input: full, frames: [1, 16] }
+      eval:  [ self ]
+    # 2. GT 미래(h) 에서 배운 head 로 자기 자신과 **예측 미래(p)** 를 읽는다
+    - train: { model: target, input: full, frames: [17, 32] }
+      eval:  [ self, { model: predictor } ]
+    # 3. 예측 미래(p) 에서 배운 head 로 자기 자신과 **GT 미래(h)** 를 읽는다
+    - train: { model: predictor }
+      eval:  [ self, { model: target, input: full, frames: [17, 32] } ]

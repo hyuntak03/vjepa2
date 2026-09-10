@@ -1,0 +1,93 @@
+# =============================================================================
+# BASE — frozen encoder + predictor-only 학습의 공통 설정. 직접 돌리지 않는다.
+#   자식: frozen_predictor_scratch.yaml / frozen_predictor_postft.yaml / debug.yaml
+#   병합: z_training/harness/resolve_train.py (extends 재귀, 자식이 이김, null 은 키 삭제)
+#
+# 이 파일의 채점 관련 값은 configs/protocols/surprise_c16t32.yaml 과 맞춰 둔 것이다:
+#   32 프레임(raw stride 3) / context 16 / target LN / L1 / mask_index 0 /
+#   context <- encoder(online), target <- target_encoder(EMA)
+# =============================================================================
+app: vjepa_frozen
+nodes: 1
+tasks_per_node: 8
+
+meta:
+  seed: 0
+  dtype: bfloat16            # autocast (predictor 마스터 가중치는 fp32). float16 이면 GradScaler 를 쓴다
+  encoder_dtype: bfloat16    # 동결 encoder 가중치. 채점은 fp32+fp16 autocast 라 수치가 아주 조금 다를 수 있다
+  use_sdpa: true
+  log_freq: 10
+  save_every_freq: 5         # epoch 단위로 e{N}.pt 를 추가 저장 (-1 = latest.pt 만)
+  auto_resume: true          # folder 에 latest.pt 가 있으면 이어서 돈다
+
+model:
+  base: vith                 # configs/protocols/models.md 의 이름 -> checkpoint / arch_name 이 채워진다
+  img_size: 256
+  patch_size: 16
+  tubelet_size: 2
+  use_rope: true
+  uniform_power: false
+  context_encoder_key: encoder          # surprise_c16t32 와 같은 역할 분리
+  target_encoder_key: target_encoder
+  load_predictor: false                 # true = 릴리즈 predictor 에서 시작 (post-FT)
+  mask_index: 0                         # 릴리즈 ckpt 에서 학습된 mask token 은 [0] 뿐
+  predictor:
+    embed_dim: 384
+    depth: 12
+    num_heads: 12
+    num_mask_tokens: 10                 # 릴리즈와 같게 (채점기 기본값 10)
+    use_activation_checkpointing: false
+    zero_init_mask_tokens: true
+
+data:
+  n_frames: 32               # = context 16 + future 16 (raw 100 프레임 stride 3)
+  resolution: 256            # model.img_size 와 같아야 한다
+  batch_size: 8              # ★ rank 당. 8 GPU 면 global 64
+  num_workers: 6
+  pin_mem: true
+  persistent_workers: true
+  datasets: []               # ★ 미정 — 학습 데이터는 아직 안 정했다. 돌릴 때 준다:
+                             #   SET="data.datasets=[<datasets.md 이름>]"  (후보와 주의는 configs/training/datasets.md)
+                             # 이름 | {name: 이름, limit: N, weight: w, include: {...}, exclude: {...}} | 완전한 dict
+  aug:
+    hflip_p: 0.5
+    random_resized_crop: null           # 예) {scale: [0.7, 1.0], ratio: [0.9, 1.1]}
+
+mask:                        # 배치마다 weight 로 하나를 고른다
+  - type: temporal_prefix    # 앞 C 프레임 -> 뒤 (32-C) 프레임. 채점과 같은 토폴로지
+    context_frames: [16]
+    weight: 1.0
+  # - type: block3d          # 릴리즈 사전학습 마스크 (공간 블록, 시간 전체). 섞고 싶으면 주석 해제
+  #   spatial_scale: [0.15, 0.15]
+  #   temporal_scale: [1.0, 1.0]
+  #   aspect_ratio: [0.75, 1.5]
+  #   num_blocks: 8
+  #   max_temporal_keep: 1.0
+  #   weight: 0.5
+
+loss:
+  loss_exp: 1.0              # L1 (채점과 같다)
+  target_layer_norm: true    # affine-free LN, target 에만
+
+optimization:
+  epochs: 30
+  ipe: null                  # null = len(loader)
+  ipe_scale: 1.0
+  lr: 3.0e-4                 # ★ 미검증. 릴리즈 사전학습은 5.25e-4 @ global batch 3072 (encoder 포함)
+  start_lr: 1.0e-5
+  final_lr: 1.0e-6
+  warmup: 2                  # epoch
+  weight_decay: 0.04
+  final_weight_decay: 0.04
+  betas: [0.9, 0.999]
+  eps: 1.0e-8
+  clip_grad: null            # 예) 1.0
+
+val:                         # in-loop 수렴 감시. 정식 수치는 z_training/eval.sh 로 낸다
+  dataset: intphys1_dev      # configs/protocols/datasets.md 이름 (v11 도 된다 — 단 v11 은 본 채점 세트다)
+  n_blocks_per_type: 10      # type_column 값마다 block 수 (intphys1_dev: O1/O2/O3 -> 30 block, 60 쌍)
+  context_length: 16
+  batch_size: 8
+  every_epochs: 1
+  at_start: true             # epoch 0 (학습 전) 에도 한 번 잰다 — post-FT 의 출발점 확인용
+  seed: 0

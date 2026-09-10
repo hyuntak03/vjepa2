@@ -20,9 +20,12 @@ DRYRUN=1 bash z_research/scripts/run.sh attn_probe v8    # 병합 결과만 (GPU
 
 | 이름 | 무엇을 재나 | 확립된 수치 |
 |---|---|---|
+| `surprise_c16t32` | fixed context16 / target32 latent-L1 | **73.37%** (v11, 10752 pair) · 79.10% (v8) |
 | `intphys1_sliding` | IntPhys1 Garrido 공식 sliding | **88.89%** (intphys1_dev, vith, 180 pair) |
-| `surprise_c16t32` | fixed context16 / target32 latent-L1 | **79.10%** (v8, vith, 1024 pair) |
-| `attn_probe` | z / p / h 세 지점 attentive probing | z·h 100%, p 90.2%, h→p 48.0% (v8, shape) |
+| `attn_probe` | z / p / h 세 지점 attentive probing | v11 54 항목 (fit 3 × group 6 × target 3) |
+| `attn_probe_imp` | 불가능 변이에서 target encoder 가 바뀐 정체성을 읽는가 | — |
+
+**본 실험 세트는 `v11` 이다.** 그 세트의 시작점은 `z_research/IntPhysGenV11/README.md`.
 
 ## 병합 규칙 — 프로토콜이 이긴다
 
@@ -46,9 +49,10 @@ output_dir = <데이터셋.results_root>/<프로토콜>__<데이터셋>_<모델>
 
 | 데이터셋 | 결과가 쌓이는 곳 |
 |---|---|
+| **`v11`** | **`z_research/IntPhysGenV11/exp_results/`** |
 | `intphys1_dev` | `z_research/IntPhys/exp_results/` |
 | `v8`, `v8_halfsize` | `z_research/IntPhysGenV8/exp_results/` |
-| `v10` | `z_research/IntPhysGenV10/exp_results/` |
+| `v10`, `v10_flat`, `v10_occ_low` | `z_research/IntPhysGenV10/exp_results/` |
 | 그 밖 | `z_exp/world_model_analysis/results/` (기본값) |
 
 `tag` 는 **토큰 캐시의 이름**이다. 프로토콜이 달라도 (데이터셋, 모델)이 같으면 같은
@@ -137,6 +141,10 @@ SET="probing.optim=attn_50      probing.optims.attn_50={num_epochs:50,batch_size
 | `intphys1_sliding` | IntPhys1 Garrido 공식 sliding |
 | `attn_probe` | z / p / h 세 지점 attentive probing |
 | `attn_probe_imp` | 불가능 변이에서 target encoder 가 바뀐 정체성을 읽는가 |
+
+v11 을 붙일 때도 **새 yaml 을 만들지 않았다.** `condition` 이 6개로 늘고 `sym_k` 축이
+생겼지만 `fit_groups_sweep: auto` 가 group 을 읽어 sweep 을 만들고, `datasets.md` 에
+섹션 하나를 추가한 것이 전부다. **재는 방식은 v8·v10 과 같기 때문이다.**
 
 2026-08-29 에 `attn_probe_flat`(sweep 만 다름)과 `attn_probe_e50_staticocc`(optim/runs/targets 만 다름)를
 지웠다. 둘 다 위 1·2 번으로 재현된다.
