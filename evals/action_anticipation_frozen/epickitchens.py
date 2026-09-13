@@ -88,6 +88,8 @@ class decode_videos_to_clips(wds.PipelineStage):
         transform=None,
         anticipation_time_sec=[0.0, 0.0],
         anticipation_point=[0.25, 0.75],
+        anticipation_point_mode="released",
+        time_source="frame",
     ):
         self.annotations = annotations
         self.frames_per_clip = frames_per_clip
@@ -95,6 +97,21 @@ class decode_videos_to_clips(wds.PipelineStage):
         self.transform = transform
         self.anticipation_time = anticipation_time_sec
         self.anticipation_point = anticipation_point
+        # -- ap=0 이 action 의 어느 끝인가 (§README 차이 2)
+        #    "released": af = sf*ap + (1-ap)*ef  (공식 구현 그대로. ap=0 -> action 의 끝)
+        #    "paper"   : af = sf*(1-ap) + ap*ef  (논문 본문 그대로. ap=0 -> action 의 첫 프레임)
+        assert anticipation_point_mode in ("released", "paper"), anticipation_point_mode
+        self.anticipation_point_mode = anticipation_point_mode
+        # -- 구간 경계를 무엇으로 잡나 (§README 차이 3)
+        #    "frame"    : csv 의 start_frame/stop_frame 을 비디오 프레임 번호로 그대로 (공식 구현)
+        #    "timestamp": start_timestamp/stop_timestamp x 실제 fps 로 환산 (fps 불일치 8개 비디오 교정)
+        assert time_source in ("frame", "timestamp"), time_source
+        self.time_source = time_source
+
+    @staticmethod
+    def _ts_to_sec(ts):
+        h, m, rest = str(ts).split(":")
+        return int(h) * 3600 + int(m) * 60 + float(rest)
 
     def run(self, src):
         for path in src:
@@ -105,6 +122,8 @@ class decode_videos_to_clips(wds.PipelineStage):
             # -- get action annotations and frame stamps
             start_frames = ano["start_frame"].values
             stop_frames = ano["stop_frame"].values
+            start_ts = ano["start_timestamp"].values if "start_timestamp" in ano else None
+            stop_ts = ano["stop_timestamp"].values if "stop_timestamp" in ano else None
 
             # -- load clips corresponding to action annotations
             try:
@@ -123,13 +142,22 @@ class decode_videos_to_clips(wds.PipelineStage):
                 labels_verb = int(ano["verb_class"].values[i])
                 labels_noun = int(ano["noun_class"].values[i])
 
+                # -- 구간 경계를 timestamp 에서 다시 잡는다 (annotation 프레임 번호와 실제
+                #    비디오 fps 가 어긋나는 비디오가 있다 — 29.97/47.95 fps 8개)
+                if self.time_source == "timestamp" and start_ts is not None:
+                    sf = int(round(self._ts_to_sec(start_ts[i]) * vfps))
+                    ef = int(round(self._ts_to_sec(stop_ts[i]) * vfps))
+
                 # sample an anticipation time
                 at = random.uniform(*self.anticipation_time)
                 aframes = int(at * vfps)
 
                 # sample an anticipation frame b/w start and end of action
                 ap = random.uniform(*self.anticipation_point)
-                af = int(sf * ap + (1 - ap) * ef - aframes)
+                if self.anticipation_point_mode == "released":
+                    af = int(sf * ap + (1 - ap) * ef - aframes)
+                else:  # "paper": ap=0 -> action 의 첫 프레임
+                    af = int(sf * (1 - ap) + ap * ef - aframes)
 
                 indices = np.arange(af - nframes, af, fstp).astype(np.int64)
                 # If not enough frames in video for anticipation, just pad with
@@ -289,6 +317,8 @@ def make_webvid(
     pin_memory=True,
     training=True,
     anticipation_point=[0.1, 0.1],
+    anticipation_point_mode="released",
+    time_source="frame",
     **kwargs,
 ):
 
@@ -302,6 +332,8 @@ def make_webvid(
         transform=transform,
         anticipation_time_sec=anticipation_time_sec,
         anticipation_point=anticipation_point,
+        anticipation_point_mode=anticipation_point_mode,
+        time_source=time_source,
     )
 
     dataset, datainfo = get_video_wds_dataset(

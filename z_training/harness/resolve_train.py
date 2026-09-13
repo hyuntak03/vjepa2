@@ -27,7 +27,7 @@ TRAIN_CFG = f"{ROOT}/configs/training"
 sys.path.insert(0, f"{ROOT}/z_research/scripts/harness")
 from resolve import parse_registry  # noqa: E402  (protocols 레지스트리와 같은 파서)
 
-META_KEYS = ("raw_frames", "available", "note")
+META_KEYS = ("available", "note")          # raw_frames 는 window_grid 의 frame_budget 이 쓰므로 남긴다
 
 
 def die(msg):
@@ -212,6 +212,28 @@ def main():
             if rf and last >= int(rf) + int(spec.get("frames_start", 0) == 1):
                 die(f"{label}: 마지막 프레임 {last} 가 raw_frames {rf} 를 넘는다")
 
+    grid = d.get("window_grid")
+    if grid:
+        sys.path.insert(0, ROOT)
+        from app.vjepa_frozen.data import WindowGridSampler   # 검증 로직을 한 곳에 둔다 (torch import 만, 모델 없음)
+        for i, spec in enumerate(d["datasets"]):
+            if spec.get("type") != "frames_index":
+                die(f"data.window_grid 는 frames_index 데이터셋에서만 된다 (datasets[{i}] type={spec.get('type')})")
+            if spec.get("raw_frames") and int(grid["raw_span"]) > int(spec["raw_frames"]):
+                die(f"window_grid.raw_span({grid['raw_span']}) > datasets[{i}].raw_frames({spec['raw_frames']})")
+            grid.setdefault("raw_frames", int(spec.get("raw_frames", 100)))
+            st = int(spec.get("frames_start", 0))
+            row = next(csv.DictReader(open(os.path.join(spec["root"], spec.get("index_csv", "index.csv")), newline="", encoding="utf-8")))
+            last = os.path.join(spec["frames_root"], spec.get("frames_pattern", "{file_name}/{frame:06d}.png").format(frame=st + int(grid["raw_span"]) - 1, **row))
+            if not os.path.isfile(last):
+                die(f"datasets[{i}]: raw_span 마지막 프레임이 없다 -> {last}")
+        try:
+            gs = WindowGridSampler(grid, tub)
+        except Exception as e:
+            die(f"data.window_grid: {e}")
+        if max(c["n_frames"] for c in gs.cells) > n:
+            die(f"window_grid n_frames 최대 {max(c['n_frames'] for c in gs.cells)} > data.n_frames {n}")
+        grid["_resolved"] = gs.describe()
     for i, spec in enumerate(d["datasets"]):
         if spec.get("type") == "frames_index":
             check_frames(spec, f"data.datasets[{i}]({spec.get('name', '?')})")
@@ -241,7 +263,7 @@ def main():
                   + (f"  limit={s['limit']}" if s.get("limit") else "")
                   + (f"  starts={s.get('frames_start_choices')}" if s.get("frames_start_choices") else ""))
         print(f"  frames   : n={n} res={res} | batch/rank {d['batch_size']} | workers {d.get('num_workers')} | aug {d.get('aug')}")
-        print(f"  masks    : {cfg['mask']}")
+        print(f"  masks    : {cfg['mask']}" if not d.get("window_grid") else f"  grid     : {d['window_grid'].get('_resolved')}  (mask.context_frames 는 무시된다)")
         print(f"  optim    : epochs {O['epochs']} ipe {O.get('ipe') or 'auto'} lr {O['lr']} warmup {O.get('warmup')} wd {O.get('weight_decay')}")
         v = cfg.get("val")
         print(f"  val      : {v['dataset']} n_blocks_per_type={v.get('n_blocks_per_type')} C={v.get('context_length')} every {v.get('every_epochs')} ep"

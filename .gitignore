@@ -76,3 +76,7 @@ z_training/slurm_logs/
 *.sh
 
 *.log
+
+*.gif
+
+*.npz

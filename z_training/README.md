@@ -1,7 +1,17 @@
 # z_training — frozen encoder 위에서 predictor 학습
 
-> **학습 데이터는 아직 정하지 않았다 (2026-09-10).** config 의 `data.datasets` 는 비어 있고, 돌릴 때
-> `SET="data.datasets=[이름]"` 으로 준다. 로컬 후보 목록은 `configs/training/datasets.md` (§3).
+> **2026-09-10 결정: 릴리즈 ViT-H predictor 에서 post-FT, 데이터는 IntPhysGen v11 의 block 단위 train 절반(가능만),
+> 채점은 test 절반(가능+불가능, 10,752 쌍).** 그게 `v11_postft` 다. 대조군 `v11_scratch`. 분할은 §3.
+
+```bash
+# 출발선은 다시 돌리지 않는다 — 기존 v11 채점의 per_block.json 에서 test 절반만 골라 낸 값: **75.83%** (10,752 쌍)
+#   z_training/runs/release_vith/eval/v11_split_test_from_existing_runs.json  (같은 C16/T32 프로토콜)
+GPUS=8 bash z_training/train.sh v11_postft                      # post-FT (epoch 마다 e{N}.pt, predictor 만)
+GPUS=8 bash z_training/eval.sh v11_postft v11_split_test        # held-out 채점 (CKPT=e3.pt 로 epoch 선택)
+GPUS=8 bash z_training/train.sh v11_scratch                     # 대조군
+```
+
+그 밖의 일반 명령 (다른 데이터를 쓸 때는 `SET="data.datasets=[이름]"` 으로 준다):
 
 ```bash
 bash z_training/train.sh --list                                  # config · 데이터셋 후보 · run 목록
@@ -22,6 +32,8 @@ GPUS=8 bash z_training/eval.sh frozen_predictor_scratch v11      # 채점 (= run
 | `eval.sh` | 학습한 predictor 를 **기존 채점 하네스** 로 잰다 (`model.predictor_checkpoint`) |
 | `harness/resolve_train.py` | config 병합기 (`extends`, 레지스트리, `--set`, 실물 검사) |
 | `harness/export_ckpt.py` | predictor-only ckpt → 릴리즈 형식 통짜 파일 (models.md 등록·공유용, 평소 불필요) |
+| `harness/extract_predictor.py` | 릴리즈 model.pth 의 predictor 만 떼어 `runs/release_vith/latest.pt` 로 (출발선 채점용, 89 MB) |
+| `data/build_v11_split_index.py` | v11 block 단위 train/test 분할 (§3) |
 | `data/build_intphys1_train_index.py` | IntPhys1 train 인덱스 (`data_csv/intphys1_train/index.csv`) |
 | `runs/<NAME>/` | `config.yaml` `latest.pt` `e{N}.pt` `train.log` `metrics.jsonl` `log_r*.csv` `eval/` (gitignore) |
 
@@ -60,7 +72,15 @@ clip (32f, stride 3)  ─► target_encoder ─► LN ─► h[future]        �
 
 ## 3. 데이터
 
-**미정.** `configs/training/datasets.md` 에 로컬에 있는 후보를 파악해 적어 뒀다 (기본값 없음):
+**v11 block split** (`z_training/data/build_v11_split_index.py`, `data_csv/intphysgen_v11_split/`):
+v11_full 12조건 10,752 block 을 (condition × violation_type × sym_k) 117 셀에서 층화해 seed 0 으로 50/50.
+train 절반은 가능 변이만(`index_train.csv`, 10,752 clip) → `v11_split_train`; test 절반은 4 변이 전부
+(`index_test.csv`, 21,504 clip = 10,752 matched pair) → `configs/protocols/datasets.md ## v11_split_test`.
+검증: block 4행 같은 split, pair 1+1, train/test block 겹침 0 (`split_report.json`). `--holdout-shape/--holdout-color` 로
+안 본 외형 block 을 통째로 test 에 보낼 수 있다 (`index_test_holdout.csv`).
+⚠️ 여전히 v11/v11_full **전체** 채점과는 문맥을 공유한다. 학습 후 점수는 `v11_split_test` 로만 읽는다.
+
+그 밖의 후보 (`configs/training/datasets.md`):
 
 | 이름 | clip | 주의 |
 |---|---:|---|
@@ -100,6 +120,10 @@ CKPT=e10.pt GPUS=8 bash z_training/eval.sh <run> v11
 - `latest.pt` 는 `.tmp` 에 쓰고 rename 한다. 같은 NAME 으로 다시 부르면 이어서 돈다.
 - **rank 당 CPU 스레드** 를 `OMP_NUM_THREADS = min(12, nproc/GPUS)` 로 제한한다 (CLAUDE.md §7-1).
 - 인덱스 csv 는 `.gitignore` 대상 (`*csv`) — `build_intphys1_train_index.py` 로 다시 만든다.
+- **멈추기: `pkill -f "launch.py --fname .*<run 이름>"`** — 런처가 SIGTERM 을 받으면 rank 8개를 같이 정리한다.
+  rank 프로세스는 cmdline 이 `python -c from multiprocessing.spawn ...` 이라 폴더 이름으로는 안 잡힌다.
+  `<run>/pids.txt` 에 런처+rank PID 가 있다. 런처가 SIGKILL 로 죽어도 rank 는 PR_SET_PDEATHSIG 로 따라 죽는다.
+  (2026-09-10 사고: 런처만 죽여 rank 8개가 고아로 GPU 를 잡고 같은 폴더에 계속 썼다. 항상 `nvidia-smi` 로 확인할 것.)
 - 배관 실측 (2026-09-10, 16 clip · 2 epoch × 4 step · GPU 1장, 산출물은 지웠다): ViT-H 로딩 ~2분, step 당
   GPU 1.1 s (batch 2, 아직 워밍업), 최대 메모리 4.7 GB, loss 0.78 → 0.69, latest.pt/e{N}.pt 저장·val 정상.
   `--smoke-ddp` 로 런처(spawn/포트/join)만 따로 점검할 수 있다.

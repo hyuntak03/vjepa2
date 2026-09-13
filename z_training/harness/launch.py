@@ -46,7 +46,25 @@ def _init(rank, world_size):
     return ws, rk
 
 
+def _die_with_parent():
+    """런처가 죽으면(SIGKILL 포함) 자식 rank 도 SIGTERM 을 받게 한다 (Linux prctl PR_SET_PDEATHSIG).
+
+    2026-09-10: 런처만 pkill 했더니 rank 8개가 고아로 남아 GPU 를 계속 쓰고 같은 run 폴더에 로그·체크포인트를
+    썼다. 사람이 pkill -f 로 잡을 때 자식 cmdline 은 `python -c from multiprocessing.spawn ...` 이라 안 잡힌다.
+    """
+    try:
+        import ctypes
+        import signal as _sig
+        libc = ctypes.CDLL("libc.so.6", use_errno=True)
+        libc.prctl(1, _sig.SIGTERM)          # PR_SET_PDEATHSIG = 1
+        if os.getppid() == 1:                 # 이미 부모가 죽은 뒤 붙었으면 바로 나간다
+            os._exit(1)
+    except Exception:
+        pass
+
+
 def process_main(rank, fname, world_size, devices, smoke):
+    _die_with_parent()
     os.environ["CUDA_VISIBLE_DEVICES"] = str(devices[rank].split(":")[-1])
     import logging
     from src.utils.logging import get_logger
@@ -94,6 +112,29 @@ if __name__ == "__main__":
         p = mp.Process(target=process_main, args=(rank, args.fname, n, args.devices, args.smoke_ddp))
         p.start()
         procs.append(p)
+
+    # 런처가 SIGTERM/SIGINT 를 받으면 자식을 먼저 정리한다 (pkill -f launch.py 한 방으로 전부 죽게)
+    import signal
+
+    def _term(signum, frame):
+        print(f"[launch] signal {signum} — rank {n}개 종료", file=sys.stderr, flush=True)
+        for p in procs:
+            if p.is_alive():
+                p.terminate()
+        for p in procs:
+            p.join(timeout=30)
+            if p.exitcode is None:
+                p.kill()
+        sys.exit(128 + signum)
+
+    signal.signal(signal.SIGTERM, _term)
+    signal.signal(signal.SIGINT, _term)
+    if args.fname:
+        try:
+            with open(os.path.join(os.path.dirname(args.fname), "pids.txt"), "w") as f:
+                f.write(" ".join(str(x) for x in [os.getpid()] + [p.pid for p in procs]) + "\n")
+        except OSError:
+            pass
     # rank 하나가 죽으면(nan, OOM, 예외) 나머지는 collective 에서 NCCL timeout(기본 2h)까지 기다린다.
     # 그래서 blocking join 대신 폴링하고, 실패를 보는 즉시 살아 있는 형제를 terminate 한다.
     bad = []

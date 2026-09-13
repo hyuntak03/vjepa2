@@ -126,6 +126,10 @@ class FramesIndexDataset(torch.utils.data.Dataset):
         self.pattern = spec.get("frames_pattern", "{file_name}/{frame:06d}.png")
         self.stride = int(spec.get("frames_stride", 1))
         self.starts = [int(s) for s in (spec.get("frames_start_choices") or [spec.get("frames_start", 0)])]
+        # raw_span 모드: 연속 raw 프레임 raw_span 장을 통째로 읽어 (T_raw, H, W, 3) uint8 로 돌려준다.
+        # 창 자르기·리사이즈·마스크는 collate(WindowGridCollator) 가 배치마다 한다 (data.window_grid).
+        self.raw_span = int(spec["raw_span"]) if spec.get("raw_span") else None
+        self.raw_start = int(spec.get("frames_start", 0))
         if not os.path.isdir(self.frames_root):
             raise FileNotFoundError(f"frames_root 가 없다: {self.frames_root}")
         ipath = os.path.join(self.root, spec.get("index_csv", "index.csv"))
@@ -142,8 +146,9 @@ class FramesIndexDataset(torch.utils.data.Dataset):
             rows = rows[: int(lim)]
         self.rows = rows
         # 첫 클립의 마지막 프레임이 실재하는지 확인 (예산 초과를 모델 로드 전에 잡는다)
-        for st in self.starts:
-            p = self._path(rows[0], st + (self.n_frames - 1) * self.stride)
+        for st in ([self.raw_start] if self.raw_span else self.starts):
+            last = st + self.raw_span - 1 if self.raw_span else st + (self.n_frames - 1) * self.stride
+            p = self._path(rows[0], last)
             if not os.path.isfile(p):
                 raise FileNotFoundError(
                     f"프레임 예산 초과 또는 패턴 오류: {p} 가 없다 "
@@ -167,7 +172,17 @@ class FramesIndexDataset(torch.utils.data.Dataset):
             fr.append(np.asarray(Image.open(self._path(row, f)).convert("RGB")))
         return torch.from_numpy(np.stack(fr))
 
+    def read_raw(self, i: int) -> torch.Tensor:
+        """raw_span 모드: (raw_span, H, W, 3) uint8, frames_start 부터 연속."""
+        from PIL import Image
+        row = self.rows[i]
+        fr = [np.asarray(Image.open(self._path(row, f)).convert("RGB"))
+              for f in range(self.raw_start, self.raw_start + self.raw_span)]
+        return torch.from_numpy(np.stack(fr))
+
     def __getitem__(self, i: int):
+        if self.raw_span:
+            return self.read_raw(i), 0, [np.arange(self.raw_start, self.raw_start + self.raw_span, dtype=np.int64)]
         st = random.choice(self.starts)
         x = self.transform(self.read_uint8(i, st))
         # VideoDataset 과 같은 구조: ([clip], label, [frame indices])
@@ -222,14 +237,19 @@ def build_dataset(cfg_data: dict, n_frames: int, resolution: int) -> WeightedCon
     specs = cfg_data["datasets"]
     if not specs:
         raise ValueError("data.datasets 가 비어 있다")
+    grid = cfg_data.get("window_grid")
     dsets, weights = [], []
     for s in specs:
         if not isinstance(s, dict) or "type" not in s:
             raise ValueError(f"data.datasets 항목은 dict(type=...) 여야 한다 (resolve_train.py 가 이름을 풀어 준다): {s}")
         t = s["type"]
         if t == "frames_index":
+            if grid:
+                s = dict(s, raw_span=int(grid["raw_span"]))
             dsets.append(FramesIndexDataset(s, n_frames, tf))
         elif t == "video_csv":
+            if grid:
+                raise ValueError("data.window_grid 는 frames_index 데이터셋에서만 된다 (video_csv 는 raw_span 을 못 읽는다)")
             dsets.append(make_video_csv_dataset(s, n_frames, tf))
         else:
             raise ValueError(f"data.datasets[].type={t!r}; frames_index | video_csv")
@@ -237,7 +257,9 @@ def build_dataset(cfg_data: dict, n_frames: int, resolution: int) -> WeightedCon
     use_w = any(w is not None for w in weights)
     if use_w:
         weights = [1.0 if w is None else float(w) for w in weights]
-    return WeightedConcat(dsets, weights if use_w else None)
+    out = WeightedConcat(dsets, weights if use_w else None)
+    out.transform = tf                     # window_grid collate 가 쓴다
+    return out
 
 
 # ----------------------------------------------------------------------------- masks
@@ -282,17 +304,106 @@ class MaskSampler:
         z = sum(self.weights)
         self.weights = [w / z for w in self.weights]
 
+    def temporal_prefix(self, B: int, n_frames: int, C: int):
+        """앞 C 프레임 -> 뒤 (n_frames−C) 프레임. 토큰 = tubelet-major (surprise._context_target_indices 와 동일)."""
+        N = n_frames // self.tub * self.S
+        n_ctx = C // self.tub * self.S
+        enc = torch.arange(n_ctx, dtype=torch.long).unsqueeze(0).expand(B, -1).contiguous()
+        pred = torch.arange(n_ctx, N, dtype=torch.long).unsqueeze(0).expand(B, -1).contiguous()
+        return enc, pred
+
     def __call__(self, B: int):
         k = random.choices(range(len(self.specs)), weights=self.weights, k=1)[0]
         s = self.specs[k]
         if s["type"] == "temporal_prefix":
             C = random.choice(s["context_frames"])
-            n_ctx = C // self.tub * self.S
-            enc = torch.arange(n_ctx, dtype=torch.long).unsqueeze(0).expand(B, -1).contiguous()
-            pred = torch.arange(n_ctx, self.N, dtype=torch.long).unsqueeze(0).expand(B, -1).contiguous()
+            enc, pred = self.temporal_prefix(B, self.n_frames, C)
             return enc, pred, {"type": "temporal_prefix", "context_frames": C}
         enc, pred = s["gen"](B)
         return enc.long(), pred.long(), {"type": "block3d", "context_frames": -1}
+
+
+class WindowGridSampler:
+    """채점 그리드(intphys1_sliding 의 skip × window × 시작점 × C)를 학습 샘플 공간으로 쓴다. 배치마다 하나.
+
+    config `data.window_grid`
+      raw_span     : 데이터셋이 읽어 둘 연속 raw 프레임 수 (모든 셀의 stride×(n_frames−1)+1 이상)
+      raw_frames   : 원본 영상 프레임 수 (frame_budget 계산용, 기본 100)
+      start_step   : 시작점 간격, **샘플 프레임 단위** (채점 stride, 기본 2)
+      frame_budget : official = (raw_frames−1)//stride 장만 쓴다 (공식 num_frames = 99//skip) | full = raw_span//stride
+      cells        : [{stride, n_frames, context_frames: [..], starts: [raw 오프셋..](선택), weight(선택)}]
+      weights      : auto = 셀마다 (시작점 수 × C 수) 비례 (= 채점 창 빈도) | [w, ...]
+      jitter_raw   : 시작점에 더할 raw 프레임 무작위 오프셋 상한 (0 = 채점과 같은 자리)
+    시작점: starts 를 안 주면 sampled index 0, start_step, 2·start_step, … 중 창이 budget 안에 드는 것 → raw 오프셋 = idx × stride.
+    """
+
+    def __init__(self, grid: dict, tubelet_size: int):
+        self.raw_span = int(grid["raw_span"])
+        raw_frames = int(grid.get("raw_frames", 100))
+        step = int(grid.get("start_step", 2))
+        budget_mode = str(grid.get("frame_budget", "official"))
+        self.jitter = int(grid.get("jitter_raw", 0))
+        self.cells = []
+        for c in grid["cells"]:
+            stride, n = int(c["stride"]), int(c["n_frames"])
+            if n % tubelet_size:
+                raise ValueError(f"window_grid cell n_frames={n} 가 tubelet({tubelet_size}) 배수가 아니다")
+            cf = [int(x) for x in c["context_frames"]]
+            for x in cf:
+                if x % tubelet_size or not (0 < x < n):
+                    raise ValueError(f"window_grid cell context_frames={x}: tubelet 정렬이고 0<C<{n} 여야 한다")
+            if c.get("starts") is not None:
+                starts = [int(s) for s in c["starts"]]
+            else:
+                budget = (raw_frames - 1) // stride if budget_mode == "official" else self.raw_span // stride
+                starts = [i * stride for i in range(0, budget - n + 1, step)]
+            if not starts:
+                raise ValueError(f"window_grid cell stride={stride} n_frames={n}: 창이 하나도 안 들어간다")
+            need = max(starts) + (n - 1) * stride + self.jitter
+            if need >= self.raw_span:
+                raise ValueError(f"window_grid cell stride={stride} n_frames={n}: 마지막 raw 오프셋 {need} >= raw_span {self.raw_span}")
+            self.cells.append({"stride": stride, "n_frames": n, "context_frames": cf, "starts": starts,
+                               "n_windows": len(starts) * len(cf), "weight": c.get("weight")})
+        w = grid.get("weights", "auto")
+        if w == "auto" or w is None:
+            self.weights = [float(c["weight"]) if c["weight"] is not None else float(c["n_windows"]) for c in self.cells]
+        else:
+            if len(w) != len(self.cells):
+                raise ValueError("window_grid.weights 길이가 cells 와 다르다")
+            self.weights = [float(x) for x in w]
+        z = sum(self.weights)
+        if z <= 0:
+            raise ValueError("window_grid.weights 합이 0 이다")
+        self.weights = [x / z for x in self.weights]
+
+    def describe(self) -> str:
+        return " | ".join(f"s{c['stride']}_w{c['n_frames']}: {len(c['starts'])} starts x C{c['context_frames']} "
+                          f"= {c['n_windows']} (p={p:.2f})" for c, p in zip(self.cells, self.weights))
+
+    def sample(self):
+        k = random.choices(range(len(self.cells)), weights=self.weights, k=1)[0]
+        c = self.cells[k]
+        o = random.choice(c["starts"]) + (random.randint(0, self.jitter) if self.jitter else 0)
+        C = random.choice(c["context_frames"])
+        return {"cell": k, "stride": c["stride"], "n_frames": c["n_frames"], "offset": o, "context_frames": C}
+
+
+class WindowGridCollator:
+    """raw 버퍼 배치 -> 배치마다 (stride, n_frames, 시작점, C) 하나로 잘라 transform 하고 temporal_prefix 마스크를 만든다.
+    DataLoader worker 안에서 돈다 (num_workers>0 이면 collate_fn 은 worker 가 실행한다)."""
+
+    def __init__(self, grid_sampler: WindowGridSampler, mask_sampler: MaskSampler, transform: ClipTransform):
+        self.grid = grid_sampler
+        self.masks = mask_sampler
+        self.transform = transform
+
+    def __call__(self, batch):
+        w = self.grid.sample()
+        o, s, n = w["offset"], w["stride"], w["n_frames"]
+        clips = torch.stack([self.transform(b[0][o: o + n * s: s]) for b in batch])   # (B, 3, n, H, W)
+        enc, pred = self.masks.temporal_prefix(len(batch), n, w["context_frames"])
+        info = {"type": f"grid s{s}_w{n}", "context_frames": w["context_frames"], "n_frames": n, "stride": s, "offset": o}
+        return clips, enc, pred, info
 
 
 class TrainCollator:

@@ -24,12 +24,15 @@
 
 ## intphys1_train
 
-IntPhys 2019 **train 분할** (가능 영상만, 4중항 없음). **인덱스는 아직 안 만들었다** —
-쓰기로 하면 `python z_training/data/build_intphys1_train_index.py` (몇 초). 로컬에 3,750 scene
+IntPhys 2019 **train 분할** (가능 영상만, 4중항 없음). 로컬에 3,750 scene
 (`/local_datasets/world/IntPhys1/<id>/scene/scene_001..100.png`, 288×288). 원 train 은 15,000 인데
 그중 3,750 만 받아 뒀다 (id 가 띄엄띄엄). 인덱스는 `z_training/data/build_intphys1_train_index.py`.
 **IntPhys1 dev (intphys1_dev) 와 분할이 다르므로 dev 채점이 오염되지 않는다.** v11 과도 무관.
 파일 번호가 1부터라 start 1..7 이 전부 예산(100) 안이다 (7 + 31×3 = 100).
+
+**sliding 채점(`intphys1_sliding`, 보고 지표 `skip2_w32/avg`)에 맞춘 값이다**: raw 프레임 2칸 간격 32장 창을 영상
+어디서든(시작 1~38) 자르고, 문맥 길이는 config 의 `mask.context_frames: [4, 8, 12, 16, 20]` (채점의 C 집합) 으로 준다.
+v11 류(stride 3, 문맥 16 고정) 와 다르니 섞어 쓸 때 주의. 인덱스: `python z_training/data/build_intphys1_train_index.py`.
 
 type: frames_index
 root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/intphys1_train
@@ -37,8 +40,8 @@ index_csv: index.csv
 frames_root: /local_datasets/world/IntPhys1
 frames_pattern: "{file_name}/scene/scene_{frame:03d}.png"
 frames_start: 1
-frames_stride: 3
-frames_start_choices: [1, 2, 3, 4, 5, 6, 7]
+frames_stride: 2
+frames_start_choices: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38]
 raw_frames: 100
 
 ## rollout_v2_training
@@ -95,3 +98,20 @@ IntPhys 2 Main 의 mp4 (808 clip, 2way train 분할, 가능·불가능 섞임). 
 type: video_csv
 csv: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/IntPhys2/IntPhys2_2way_train.csv
 frame_step: 3
+
+## v11_split_train
+
+**IntPhysGen v11 (12조건) 의 block 단위 train 절반, 가능 변이만** — 10,752 clip / 5,376 block.
+`z_training/data/build_v11_split_index.py` 산출 (`data_csv/intphysgen_v11_split/`, seed 0, 50/50,
+(condition × violation_type × sym_k) 117 셀 층화). 짝인 test 절반은 `configs/protocols/datasets.md ## v11_split_test`.
+⚠️ **v11 / v11_full 전체 채점과는 여전히 문맥을 공유한다** — 학습 후 점수는 `v11_split_test` 로만 읽는다.
+
+type: frames_index
+root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/intphysgen_v11_split
+index_csv: index_train.csv
+frames_root: /local_datasets/world/world_analysis/IntPhysGen_v11
+frames_pattern: "{file_name}/{frame:06d}.png"
+frames_start: 0
+frames_stride: 3
+frames_start_choices: [0, 3, 6]
+raw_frames: 100

@@ -1,0 +1,16 @@
+# =============================================================================
+# 같은 데이터로 predictor 를 새로 초기화해 학습 — v11_postft 의 대조군
+# ("릴리즈 predictor 가 무엇을 갖고 있었나" 를 가르는 ablation)
+#   GPUS=8 bash z_training/train.sh v11_scratch
+# =============================================================================
+extends: frozen_predictor_scratch
+
+meta:
+  save_every_freq: 5
+
+data:
+  datasets: [v11_split_train]
+
+val:
+  dataset: v11_split_test
+  n_blocks_per_type: 8

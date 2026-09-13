@@ -55,6 +55,12 @@ mask:                                     # 배치마다 weight 로 하나를 �
   - {type: temporal_prefix, context_frames: [16], weight: 1.0}   # 앞 C -> 뒤 32-C. C 를 여러 개 주면 배치마다 무작위
   - {type: block3d, spatial_scale: [0.15, 0.15], temporal_scale: [1.0, 1.0], aspect_ratio: [0.75, 1.5],
      num_blocks: 8, max_temporal_keep: 1.0, weight: 0.5}          # 릴리즈 사전학습 마스크
+  window_grid:                            # (선택) 채점 sliding 그리드를 학습 샘플 공간으로. 있으면 mask.context_frames 는 무시
+    raw_span: 99                          # 데이터셋이 읽어 둘 연속 raw 프레임 수 (마지막 창 끝 이상. resolve 가 검사)
+    start_step: 2  frame_budget: official  jitter_raw: 0  weights: auto     # auto = 셀의 (시작점 x C) 수 비례 | [w, ...]
+    cells:                                # 배치마다 셀 -> 시작점 -> C 를 뽑아 raw 버퍼를 자른다 (worker 안에서)
+      - {stride: 2, n_frames: 32, context_frames: [4, 8, 12, 16, 20]}
+      - {stride: 2, n_frames: 16, context_frames: [2, 4, 6, 8, 10], starts: [0, 4, 8]}   # starts 를 주면 raw 오프셋 고정
 loss: {loss_exp: 1.0, target_layer_norm: true}
 optimization:
   epochs: 30  ipe: null  ipe_scale: 1.0

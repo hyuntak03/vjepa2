@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """v11_full — predictor 가 만든 미래 8슬롯에서 물체 위치가 읽히는가, 그 기울기가 속도인가.
-RollOut_v1 의 측정(`rollout_position.py`, METHOD_POSITION_READOUT §9)을 v11 로 옮긴 것.
+(원형은 삭제된 RollOut_v1 측정 — `scripts/_superseded/rollout_position.py`. 현행 위치 readout 은 `RollOutV2/`.)
 
   x̂(t) = a + b·t (+ c·t²)   t = 0..7 미래 튜블릿
   b̂ ≈ v  ->  슬롯마다 그 시점 위치가 있다      b̂ ≈ 0 -> 마지막 관측을 8칸에 들고 있을 뿐

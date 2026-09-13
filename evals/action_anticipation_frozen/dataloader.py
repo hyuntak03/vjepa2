@@ -13,6 +13,7 @@ import src.datasets.utils.video.transforms as video_transforms
 import src.datasets.utils.video.volume_transforms as volume_transforms
 from evals.action_anticipation_frozen.epickitchens import filter_annotations as ek100_filter_annotations
 from evals.action_anticipation_frozen.epickitchens import make_webvid as ek100_make_webvid
+from evals.action_anticipation_frozen.spatial import build_eval_spatial
 from src.datasets.utils.video.randerase import RandomErasing
 
 _GLOBAL_SEED = 0
@@ -42,6 +43,12 @@ def init_data(
     auto_augment=False,
     motion_shift=False,
     anticipation_point=[0.1, 0.1],
+    # -- 추가 인자 (기본값은 전부 공식 구현과 동일한 동작이다)
+    spatial_mode="center_crop",
+    crop_width=None,
+    train_spatial_mode="rrc",
+    anticipation_point_mode="released",
+    time_source="frame",
 ):
     # -- make video transformations
     transform = make_transforms(
@@ -53,6 +60,9 @@ def init_data(
         auto_augment=auto_augment,
         motion_shift=motion_shift,
         crop_size=crop_size,
+        spatial_mode=spatial_mode,
+        crop_width=crop_width,
+        train_spatial_mode=train_spatial_mode,
     )
 
     make_webvid = None
@@ -76,6 +86,8 @@ def init_data(
         persistent_workers=persistent_workers,
         pin_memory=pin_mem,
         anticipation_point=anticipation_point,
+        anticipation_point_mode=anticipation_point_mode,
+        time_source=time_source,
     )
 
     return dataset, data_loader, data_info
@@ -110,6 +122,9 @@ def make_transforms(
     motion_shift=False,
     crop_size=224,
     normalize=((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+    spatial_mode="center_crop",
+    crop_width=None,
+    train_spatial_mode="rrc",
 ):
 
     transform = VideoTransform(
@@ -122,6 +137,9 @@ def make_transforms(
         motion_shift=motion_shift,
         crop_size=crop_size,
         normalize=normalize,
+        spatial_mode=spatial_mode,
+        crop_width=crop_width,
+        train_spatial_mode=train_spatial_mode,
     )
 
     return transform
@@ -140,15 +158,22 @@ class VideoTransform(object):
         motion_shift=False,
         crop_size=224,
         normalize=((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+        spatial_mode="center_crop",
+        crop_width=None,
+        train_spatial_mode="rrc",
     ):
 
         self.training = training
 
-        short_side_size = int(crop_size * 256 / 224)
+        # crop_size 는 높이, crop_width 는 폭. crop_width=None 이면 정사각 (= 공식 구현).
+        self.crop_height = crop_size
+        self.crop_width = crop_size if crop_width is None else int(crop_width)
+        self.spatial_mode = spatial_mode
+        self.train_spatial_mode = train_spatial_mode
+
         self.eval_transform = video_transforms.Compose(
-            [
-                video_transforms.Resize(short_side_size, interpolation="bilinear"),
-                video_transforms.CenterCrop(size=(crop_size, crop_size)),
+            build_eval_spatial(spatial_mode, self.crop_height, self.crop_width)
+            + [
                 volume_transforms.ClipToTensor(),
                 video_transforms.Normalize(mean=normalize[0], std=normalize[1]),
             ]
@@ -163,7 +188,7 @@ class VideoTransform(object):
         self.normalize = torch.tensor(normalize)
 
         self.autoaug_transform = video_transforms.create_random_augment(
-            input_size=(crop_size, crop_size),
+            input_size=(self.crop_height, self.crop_width),
             auto_augment="rand-m7-n4-mstd0.5-inc1",
             interpolation="bicubic",
         )
@@ -186,6 +211,13 @@ class VideoTransform(object):
         if not self.training:
             return self.eval_transform(buffer)
 
+        if self.train_spatial_mode == "same_as_eval":
+            # 증강 없이 eval 과 같은 결정적 spatial 변환만 (flip 만 유지)
+            out = self.eval_transform(buffer)
+            if self.random_horizontal_flip:
+                out, _ = video_transforms.horizontal_flip(0.5, out)
+            return out
+
         buffer = [transforms.ToPILImage()(frame) for frame in buffer]
 
         if self.auto_augment:
@@ -200,8 +232,8 @@ class VideoTransform(object):
 
         buffer = self.spatial_transform(
             images=buffer,
-            target_height=self.crop_size,
-            target_width=self.crop_size,
+            target_height=self.crop_height,
+            target_width=self.crop_width,
             scale=self.random_resize_scale,
             ratio=self.random_resize_aspect_ratio,
         )

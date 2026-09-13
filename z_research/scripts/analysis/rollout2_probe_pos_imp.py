@@ -13,6 +13,7 @@ probe: 질의 1개 cross-attention (16 head) → LayerNorm → Linear(2). 하네
 학습 문맥 소스도 두 가지: h_ctx (기본) / z (문맥 소스를 평가와 맞춘 변형).
 
   python z_research/scripts/analysis/rollout2_probe_pos_imp.py --device cuda:0
+저장: exp_results/probe_pos_imp/probe_pos_imp.json, figures/probe_pos_imp/fig_confusion_{h,zp}.png (train ctx = h_ctx 기준)
 """
 from __future__ import annotations
 import argparse, csv, json, time
@@ -20,9 +21,11 @@ from pathlib import Path
 import numpy as np, torch, torch.nn as nn, torch.nn.functional as Fn
 
 ROOT = Path("/data/hyuntak/project/2026/2027_cvpr/vjepa2")
-CACHE = Path("/local_datasets/world/world_analysis/cache/rollout_v2_vith")
+CACHE = Path("/local_datasets/world/world_analysis/cache/rollout_v2_vith")           # target.npy, predictor.npy (2026-09-11 재추출, ctx_masked 없음)
+CACHE_Z = Path("/local_datasets/world/world_analysis/cache/rollout_v2_z16_vith")      # ctx_masked.npy 만 (context encoder, 문맥 16 frames, LN)
 INDEX = ROOT / "data_csv/rollout_v2/index_probe.csv"
-OUT = ROOT / "z_research/RollOutV2/exp_results/probe_pos_imp.json"
+OUT = ROOT / "z_research/RollOutV2/exp_results/probe_pos_imp/probe_pos_imp.json"
+FIG = ROOT / "z_research/RollOutV2/figures/probe_pos_imp"
 S, D = 256, 1280
 
 
@@ -43,9 +46,10 @@ def main():
     a = ap.parse_args(); dev = torch.device(a.device); torch.manual_seed(a.seed)
     idx = list(csv.DictReader(INDEX.open())); vids = [r["video_id"] for r in idx]
     meta = json.loads((CACHE / "meta.json").read_text()); row_of = {v: i for i, v in enumerate(meta["video_ids"])}; rows = np.array([row_of[v] for v in vids])
+    assert json.loads((CACHE_Z / "meta.json").read_text())["video_ids"] == meta["video_ids"], "z16 캐시와 p/h 캐시의 video_ids 가 다르다"
     sc = np.array([r["scenario"] for r in idx]); plaus = np.array([int(r["plausible"]) for r in idx]); blk = np.array([r["block_id"] for r in idx])
     prim = np.array([float(r["primary"]) for r in idx])
-    Z = np.load(CACHE / "ctx_masked.npy", mmap_mode="r"); H = np.load(CACHE / "target.npy", mmap_mode="r"); P = np.load(CACHE / "predictor.npy", mmap_mode="r")
+    Z = np.load(CACHE_Z / "ctx_masked.npy", mmap_mode="r"); H = np.load(CACHE / "target.npy", mmap_mode="r"); P = np.load(CACHE / "predictor.npy", mmap_mode="r")
 
     def load(M, ids, sl=slice(None)):
         o = np.argsort(rows[ids]); out = np.empty((len(ids),) + M[rows[ids[0]], sl].shape, np.float16)
@@ -53,6 +57,7 @@ def main():
             sel = o[k:k + 32]; out[sel] = np.asarray(M[rows[ids[sel]], sl])
         return out
 
+    CM = {}
     R = {"meta": dict(probe="1-query cross-attention (16 heads) + LN + Linear(2); trained on target-encoder 32-frame tokens", epochs=a.epochs, lr=a.lr, seed=a.seed), "scenarios": {}}
     for scn in ("ledge", "wall"):
         ids = np.where(sc == scn)[0]; blocks = np.unique(blk[ids]); rng = np.random.RandomState(a.seed)
@@ -91,9 +96,9 @@ def main():
             tests = {"[h_ctx ; h_fut]": Hte, "[z ; h_fut]": np.concatenate([Zte, Hte[:, S * 8:]], 1),
                      "[z ; p]": np.concatenate([Zte, Pte], 1), "[z ; LN(p)]": np.concatenate([Zte, Pln.astype(np.float16)], 1),
                      "[h_ctx ; p]": np.concatenate([Hte[:, :S * 8], Pte], 1)}
-            yte = (1 - plaus[te]); rec = {}
+            yte = (1 - plaus[te]); rec = {}; PI = {}
             for name, X in tests.items():
-                pi = predict(X); pred = (pi > 0.5).astype(int)
+                pi = predict(X); pred = (pi > 0.5).astype(int); PI[name] = pi
                 acc = float((pred == yte).mean()); acc_pos = float((pred[yte == 0] == 0).mean()); acc_imp = float((pred[yte == 1] == 1).mean())
                 # p 는 pos/imp 쌍에서 동일 → block 단위로 "possible 이라 부른 비율"
                 pos_ids = te[yte == 0]; frac_pos = float((pred[yte == 0] == 0).mean()); conf = float(np.abs(pi[yte == 0] - 0.5).mean() * 2)
@@ -101,7 +106,28 @@ def main():
                                  mean_P_impossible_on_pos_clips=float(pi[yte == 0].mean()), mean_P_impossible_on_imp_clips=float(pi[yte == 1].mean()), confidence=conf)
                 print(f"    train ctx={ctx_src:<6} test {name:<16} acc {100*acc:5.1f}  (pos {100*acc_pos:5.1f} / imp {100*acc_imp:5.1f})   P(imp): pos클립 {pi[yte==0].mean():.3f}  imp클립 {pi[yte==1].mean():.3f}")
             R["scenarios"][scn]["runs"][f"train_ctx={ctx_src}"] = rec
+            if ctx_src == "h_ctx":
+                CM[scn] = {name: np.array([[((PI[name] <= 0.5) & (yte == 0)).sum(), ((PI[name] > 0.5) & (yte == 0)).sum()],
+                                           [((PI[name] <= 0.5) & (yte == 1)).sum(), ((PI[name] > 0.5) & (yte == 1)).sum()]]) for name in ("[h_ctx ; h_fut]", "[z ; p]")}
     a.out.parent.mkdir(parents=True, exist_ok=True); a.out.write_text(json.dumps(R, indent=1, ensure_ascii=False)); print(f"\n-> {a.out}")
+    # ── confusion 그림 2장: 학습 분포 (h) / predictor 미래 ([z ; p]) ──
+    import matplotlib; matplotlib.use("Agg"); import matplotlib.pyplot as plt
+    FIG.mkdir(parents=True, exist_ok=True); plt.rcParams.update({"font.family": "Nimbus Roman", "pdf.fonttype": 42, "font.size": 8})
+    for name, tag, ttl in (("[h_ctx ; h_fut]", "h", "target encoder h (train distribution)"), ("[z ; p]", "zp", "[context z ; predictor p]")):
+        fig, axes = plt.subplots(1, 2, figsize=(4.6, 2.3))
+        for ax, scn in zip(axes, ("ledge", "wall")):
+            cm = CM[scn][name]; ax.imshow(cm, cmap="Blues", vmin=0, vmax=cm.sum() / 2)
+            lab = {"ledge": ["falls (possible)", "floats (impossible)"], "wall": ["stops (possible)", "passes (impossible)"]}[scn]
+            for i in range(2):
+                for j in range(2):
+                    ax.text(j, i, f"{cm[i, j]}\n({100 * cm[i, j] / cm[i].sum():.0f}%)", ha="center", va="center", fontsize=8, color="white" if cm[i, j] > cm.sum() / 4 else "black")
+            ax.set_xticks([0, 1]); ax.set_xticklabels(["→ possible", "→ impossible"], fontsize=7); ax.set_yticks([0, 1]); ax.set_yticklabels(lab, fontsize=7)
+            ax.set_title(scn, fontsize=9); ax.set_xlabel("probe output", fontsize=7)
+            if scn == "ledge":
+                ax.set_ylabel("true clip", fontsize=7)
+        fig.suptitle(f"pos/imp probe trained on h, tested on {ttl}", fontsize=8.5); fig.tight_layout()
+        fig.savefig(FIG / f"fig_confusion_{tag}.png", dpi=200); fig.savefig(FIG / f"fig_confusion_{tag}.pdf"); plt.close(fig)
+    print(f"-> {FIG}/fig_confusion_{{h,zp}}.png")
 
 
 if __name__ == "__main__":

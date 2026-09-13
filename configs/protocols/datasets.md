@@ -211,68 +211,6 @@ variant_column: variant
 plausible_column: plausible
 type_column: condition
 
-## rollout_v1
-
-**등속 직선 운동만 있는 세트.** 7,392 clip / 7,392 block. **위반도 쌍도 없다** (클립 하나가 block 하나,
-`is_possible` 전부 1, `violation_type` 전부 none). 물리는 한 가지 법칙뿐이다 — 평지 등속.
-
-| 축 | 값 |
-|---|---|
-| 속도 | 11 레벨 (부호 포함): -160 -135 -110 -85 -60 **0** 60 85 110 135 160 (cm/s) |
-| anchor | -100 / 0 / +100 (cm) = **문맥 마지막 프레임(45)에서의 위치** |
-| condition | `roll_v{속도}_a{anchor}` — **33종** (11 x 3), 셀당 정확히 224 |
-| shape | **7종** (v11 과 같음, `narrowcap` 없음) · color 8종 · env 4종 |
-
-**왜 만들었나** — `PAPER_STORY_2026-09-06.md` beat 4(a): *미래 토큰에서 물체 위치를 튜블릿별로
-읽으면 진전하는가.* 미래 8칸에서 위치를 읽어 `x(t) = a + b*t` 를 적합하고 **`b` 가 실제 속도인지**
-본다. 수평선이면 "조회기", 대각선이면 "이어간다".
-
-**설계의 핵심은 속도와 anchor 의 직교다.** 같은 마지막 관측 위치에서 11개의 다른 미래가 나오므로
-**"마지막 프레임 복사" 가설이 데이터 수준에서 차단된다.** `v=0` 은 별도 조건이 아니라 속도 레벨의
-하나로 들어가 있어 회귀 안에 대조군이 내장된다.
-
-**위치 라벨은 해석식이다** (렌더 메타데이터만 쓰고 픽셀 측정이 없다):
-
-```
-x_cm(raw f) = flat_anchor_x_cm + flat_v_cm_s * (f - 45) / 16
-x_norm      = x_cm / 769.0909          # frame_half_width_cm, 정규화 이미지 좌표
-```
-
-`obj_depth_cm`(1410) · 카메라 · fov 가 전부 상수라 cm -> 정규화 좌표가 **선형**이다.
-예측 끝 `x_norm` 범위는 [-0.754, +0.754] 로 물체가 항상 화면 안에 있다.
-전수 검증: `python z_research/scripts/data/build_rollout_index.py` (라벨 공식이 metadata 를
-`max|Δ| = 0` 으로 재현, 프레임 실물 표본 200클립 x 32장).
-
-⚠️ **`surprise_c16t32` 는 못 돌린다** — matched pair 가 없다. 이 세트는 토큰 캐시 위의 회귀 전용이다.
-⚠️ **`attn_probe` 는 캐시 추출용으로만 쓴다.** `condition` 이 33종이라 `fit_groups_sweep: auto` 를
-   그대로 두면 33 x 3 target x 3 run = **297 head** 가 된다. `[null]` + `num_epochs=1` 로 접을 것
-   (`runs` 는 절대 줄이지 말 것 — z/p/h base 3종이 다 필요하다, CLAUDE.md §7-1).
-⚠️ **`shape` 이 7종**이라 `probing.targets.shape.classes` 를 덮어써야 죽지 않는다 (v11 과 같다).
-⚠️ **원본이 288px** 이라 256 으로 리사이즈된다 (crop 아님, bilinear/antialias off — IntPhys1 과 같은 경로).
-   v11 도 288 렌더라 같은 경로를 탄다. 정규화 좌표가 보존된다.
-⚠️ **프레임과 캐시가 vll6 로컬(`/data2`)이다.** vll5 에서는 안 보인다. `-w vll6` 로 제출할 것.
-   `/local_datasets/world/world_analysis/{cache,RollOut_v1}` 는 vll6 에서 `/data2` 로 가는 심볼릭이다
-   (vll5 의 관례를 그대로 만들어 둬서 프로토콜 yaml 을 안 고쳐도 된다).
-   토큰 캐시 **약 145 GiB** — 실측 클립당 20.97 MB = (2048 ctx + 4096 target + 2048 pred) x 1280 x 2byte.
-   ⚠️ base 3종의 **토큰 수 합**이 8192 이지 각각이 8192 가 아니다 (`target` 만 32프레임 전부라 4096).
-
-설계 문서: `<원본>/dataset.json` · `provenance.json`. 결과: `z_research/RollOutV1/`.
-
-raw_frames: 100
-cache_tag: rollout_v1
-results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/RollOutV1/exp_results
-root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/rollout_v1
-index_csv: index.csv
-frames_root: /local_datasets/world/world_analysis/RollOut_v1
-frames_pattern: "{file_name}/{frame:06d}.png"
-frames_start: 0
-frames_stride: 3
-block_column: block_id
-pair_column: pair_id
-variant_column: variant
-plausible_column: plausible
-type_column: condition
-
 ## rollout_v2
 
 **운동 법칙 7종, 위치 readout 전용.** 5,488 clip / 4,704 block. `flat_v`(등속) `flat_a`(등가속) `ramp_a`(경사)
@@ -280,9 +218,10 @@ type_column: condition
 시나리오마다 primary 7 × secondary 2 셀, 셀당 56 (ledge/wall 은 28 × 2 변이). `holdout` = primary 2·6번째 레벨.
 가림 없음. 프레임·캐시 **vll5 로컬** (`/data2`).
 
-⚠️ **metadata 의 `object_*_by_sample` 은 믿지 말 것.** 09-09 17:17 수정본도 wall 불가능 클립(통과)에 정지 궤적을 쓴다.
-   라벨은 `build_rollout2_index.py` 가 plan(`UnrealEngine/gen/plans/blocks_rollout2.json`)에서 가져와 index 에 싣는다
-   (`x_cm_by_sample` 등 32 샘플). 검증 14항목 (flat 에서 metadata 와 일치, 투영식 0.07 px, 예측 16장 in_frame).
+⚠️ **2026-09-10 재생성 (plan 14:14, 프레임 14:44, metadata 15:19).** metadata `object_*_by_sample` 이 가능·불가능 모두 plan 과
+   일치한다 (불가능 1 px 안). 라벨은 그래도 `build_rollout2_index.py` 가 plan(`UnrealEngine/gen/plans/blocks_rollout2.json`)에서
+   만들고 metadata 와 대조한다. `in_frame` 은 metadata ("물체 전체가 화면 안", 가장자리 ~20 px 부터 0). arc 정점이 y 25 px 로
+   내려와 가능 변이의 미래 슬롯 off-screen 은 0. (기록: 09-09 판은 wall 불가능이 정지 궤적을 복사하고 있었다.)
 ⚠️ `surprise_c16t32` 는 ledge/wall 에서만 의미가 있고 pairing 이 v11 과 다르다 (block 당 pos 1 + imp 1). 이 세트는 캐시 회귀 전용.
 ⚠️ `attn_probe` 는 캐시 추출용. v1 과 같은 SET (`fit_groups_sweep=[null]`, `num_epochs=1`, shape 7종) 으로 돌린다.
    캐시 약 115 GiB (5,488 × 20.97 MB).
@@ -302,25 +241,19 @@ variant_column: variant
 plausible_column: plausible
 type_column: condition
 
-## rollout_v2_training
+## rollout_v2_training_v5
 
-**RollOut_v2 위치 readout 의 학습셋. 그것 말고는 용도가 없다.** 896 clip / 896 block (`line_x` 448 + `line_z` 448).
-무중력 직선 운동 — x 축 또는 z 축 하나만 움직이고 아무것도 받치지 않는다 (물체는 떠 있다). primary 8 × secondary 8 셀,
-7 shape × 8 color × 4 env 를 완전 교차. `holdout` 전부 0, 불가능 변이 없음. 가림 없음. 32 샘플 전부 in_frame.
-readout 은 여기서 fit 하고 `rollout_v2` 에는 **test 로만** 건다 (`rollout_v2` 의 p 를 fitting 에 쓰지 않는다).
-카메라·물체 크기·깊이·env·shape·color 는 `rollout_v2` 와 동일 (2026-09-10 실측). 프레임·캐시 **vll5 로컬** (`/data2`).
-
-⚠️ 라벨 커버는 x 25~267 px, **y 24~149 px** — `rollout_v2` 의 바닥 (151.7 px, flat_a/flat_v/wall) 은 3 px 바깥이고
-   "바닥에 놓인 물체" 외형은 학습셋에 없다. 그 세 시나리오의 y 는 따로 적을 것.
-⚠️ 그림자는 물체 바로 아래 바닥에 떨어진다 — x 의 두 번째 단서, y 에는 정보가 없다 (line_z 가 y 를 물체에서 읽게 강제).
-   metadata `object_*_by_sample` 은 plan 과 0.05 cm 안에서 일치하지만 라벨은 v2 와 같은 경로(plan) 로 만든다
-   (`build_rollout2_index.py --set training`).
-⚠️ `attn_probe` 는 캐시 추출용 (v2 와 같은 SET). 캐시 약 19 GiB (896 × 20.97 MB).
+**RollOut_v2 위치 readout 의 학습셋 (v5, 2026-09-11 19:34, 폴더 `RollOut_v2_training`).** 8,064 clip
+= `rollout2_training_v5` (사물 없음: line_x 1,344 / line_z 896 / line_xz 896 / still 1,344) + `rollout2_training_props` (사물 1개: prop_x 1,792 / prop_still 1,792, 절반은 가림).
+무중력 등속. 위치 커버 544/544 셀 (x 19~269, y 20~152). **`in_frame_by_sample` 0 인 샘플 (19.6%) 은 라벨에서 뺀다** (화면 밖).
+사물은 `prop_*` 컬럼 (전부 0 = 사물 없음). 클립 폴더는 두 소스로의 심볼릭 링크. README: `/data2/.../RollOut_v2_training/README.md`.
+스크립트는 `ROLLOUT2_TRAIN=v5`, 결과 `RollOutV2/exp_results/v5`, `figures/v5`. index: `build_rollout2_index.py --set training_v5 --write` (plan 두 개 합침).
+이전 학습셋 v1~v4 (직선만 / kink·고속 / 바닥 셀) 는 2026-09-11 에 프레임·캐시·index·결과를 전부 지웠다. 왜 v5 가 필요했는지는 `RollOutV2/figures/v5/summary/POSITION_READOUT_2026-09-12.md` §6·§8 에만 남긴다.
 
 raw_frames: 100
-cache_tag: rollout_v2_training
-results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/RollOutV2/exp_results
-root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/rollout_v2_training
+cache_tag: rollout_v2_training_v5
+results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/RollOutV2/exp_results/v5
+root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/rollout_v2_training_v5
 index_csv: index.csv
 frames_root: /local_datasets/world/world_analysis/RollOut_v2_training
 frames_pattern: "{file_name}/{frame:06d}.png"
@@ -331,6 +264,28 @@ pair_column: pair_id
 variant_column: variant
 plausible_column: plausible
 type_column: condition
+
+## v11_vanish_all
+
+**v11 vanish 의 가능(pos_a) 클립 전부 — 위치 readout 의 v11 전수 검증용.** 2,688 clip = visible 3 조건 × 224 (k=0)
++ occlusion {late, early, mid} × {flat, ramp, static} × k=1..4 × 56. `data_csv/intphysgen_v11_full/index_probe.csv` 에서 그대로 골라낸 행이라 라벨·순서 규약이 같다.
+용도는 **context encoder 32 frames (`isolated_ctx:0_32`) 캐시 추출뿐** — p/h 는 `v11_full_vith` 캐시를 그대로 쓴다.
+캐시 tag `v11_vanish_all_ctx32_vith` (28 GiB). 만든 곳: `plot_v11_vanish_readout.py` docstring (2026-09-11).
+
+raw_frames: 100
+frames_root: /local_datasets/world/world_analysis/IntPhysGen_v11
+frames_pattern: "{file_name}/{frame:06d}.png"
+frames_start: 0
+frames_stride: 3
+block_column: block_id
+pair_column: pair_id
+variant_column: variant
+plausible_column: plausible
+type_column: condition
+cache_tag: v11_vanish_all
+results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/RollOutV2/exp_results/v11_vanish_all
+root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/intphysgen_v11_vanish_all
+index_csv: index.csv
 
 ## v11_full
 
@@ -596,6 +551,29 @@ results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/IntPhysGenV
 root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/intphysgen_v10
 index_csv: index.csv
 frames_root: /local_datasets/world/world_analysis/IntPhysGen_v10
+frames_pattern: "{file_name}/{frame:06d}.png"
+frames_start: 0
+frames_stride: 3
+block_column: block_id
+pair_column: pair_id
+variant_column: variant
+plausible_column: plausible
+type_column: condition
+
+## v11_split_test
+
+**v11 (12조건) 의 block 단위 test 절반** — 21,504 clip / 5,376 block / **10,752 matched pair**, 가능·불가능 전부.
+predictor 학습(`z_training/`)의 held-out 채점용. 짝인 train 절반(가능만)은 `configs/training/datasets.md ## v11_split_train`.
+분할은 `z_training/data/build_v11_split_index.py` (seed 0, 50/50, condition × violation_type × sym_k 층화, `split_report.json`).
+프레임은 v11 과 같고 채점은 캐시를 안 쓴다. 릴리즈 predictor 기준선: `bash z_training/eval.sh release_vith v11_split_test`.
+⚠️ `attn_probe` 를 여기 걸면 캐시(`v11_split_test_<모델>`)를 새로 뽑는다 — v11_full 캐시의 부분집합 재사용은 안 된다 (§7-1).
+
+raw_frames: 100
+cache_tag: v11_split_test
+results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/IntPhysGenV11/exp_results
+root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/intphysgen_v11_split
+index_csv: index_test.csv
+frames_root: /local_datasets/world/world_analysis/IntPhysGen_v11
 frames_pattern: "{file_name}/{frame:06d}.png"
 frames_start: 0
 frames_stride: 3

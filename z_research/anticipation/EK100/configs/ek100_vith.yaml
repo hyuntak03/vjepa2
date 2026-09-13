@@ -1,0 +1,105 @@
+# ek100_vith — 본 설정. ViT-H 256x256. spatial_mode=center_crop (공식: 짧은변 292 -> 가운데 256). anticipation_point_mode=paper 이므로 문맥이 action segment 시작 1초 전에서 끝난다
+# 생성물이다. 고칠 때는 z_research/anticipation/EK100/make_configs.py 를 고치고 다시 돌린다.
+# 실행:  GPUS=8 bash z_research/anticipation/EK100/run.sh ek100_vith
+#
+# nodes/tasks_per_node 는 공식 submitit 경로(evals/main_distributed.py)용 필드다.
+# 우리는 한 노드에서 evals/main.py 로 돌리므로 실제 world_size 는 GPUS 가 정한다.
+nodes: 1
+tasks_per_node: 8
+cpus_per_task: 12
+tag: ek100_vith
+eval_name: action_anticipation_frozen
+folder: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/anticipation/EK100/exp_results
+resume_checkpoint: true
+experiment:
+  classifier:
+    num_probe_blocks: 4
+    num_heads: 16
+  data:
+    dataset: EK100
+    # $base_path/$participant_id/videos/$video_id.MP4  -> file_format 0 (실측 확인)
+    file_format: 0
+    base_path: /data/dataset/EPIC-KITCHENS
+    dataset_train: /data/hyuntak/project/2026/2027_cvpr/epic-kitchens-100-annotations/EPIC_100_train.csv
+    dataset_val: /data/hyuntak/project/2026/2027_cvpr/epic-kitchens-100-annotations/EPIC_100_validation.csv
+    frames_per_clip: 32
+    frames_per_second: 8
+    resolution: 256
+    # -- spatial (추가 인자). center_crop = 공식, cover = 짧은변 맞추고 긴변만 자름
+    spatial_mode: center_crop
+    width: null
+    train_spatial_mode: rrc
+    # -- 프로토콜 변형 (README 차이 2·3). released/frame = 공식 구현 그대로
+    anticipation_point_mode: paper
+    time_source: frame
+    # -- anticipation 시점
+    train_anticipation_time_sec:
+    - 0.25
+    - 1.75
+    train_anticipation_point:
+    - 0.0
+    - 0.25
+    anticipation_time_sec:        # val. eval.py 가 val_anticipation_time_sec 로 읽는다
+    - 1.0
+    - 1.0
+    val_anticipation_point:
+    - 0.0
+    - 0.0
+    # -- 증강 (train 만)
+    auto_augment: true
+    motion_shift: false
+    reprob: 0.25
+    random_resize_scale:
+    - 0.08
+    - 1.0
+    # -- 로더
+    num_workers: 6
+    pin_memory: true
+    limit_videos: null
+  evaluation:
+    # 보고 지표 = mean class recall@5 (verb / noun / action). 논문·EK100 공식 지표
+    topk: 5
+    # val 을 rank 별로 정확히 한 번 끝까지 돌고 all_reduce 한 번 (evals/action_anticipation_frozen/exact_val.py).
+    # false 면 공식 validate 루프 — ipe 로 잘라 다시 감으므로 clip 이 중복·누락된다
+    exact_val_pass: true
+  optimization:
+    num_epochs: 20
+    batch_size: 16          # rank 당. global = batch_size x GPUS
+    use_bfloat16: true
+    use_focal_loss: true              # alpha 0.25 / gamma 2.0 (losses.py 고정)
+    multihead_kwargs:
+      - weight_decay: 0.01
+        final_weight_decay: 0.01
+        lr: 0.001
+        start_lr: 0.001
+        final_lr: 0.0
+        warmup: 0.
+model_kwargs:
+  checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vith-fpc64-256/snapshots/b5eac8703e3efdc1547fbb6ddfbeb133dc0bdee5/original/model.pth
+  module_name: evals.action_anticipation_frozen.modelcustom.vit_encoder_predictor_concat_ar
+  wrapper_kwargs:
+    no_predictor: false
+    num_output_frames: 2
+    num_steps: 1
+  pretrain_kwargs:
+    encoder:
+      model_name: vit_huge
+      checkpoint_key: target_encoder
+      tubelet_size: 2
+      patch_size: 16
+      uniform_power: true
+      use_rope: true
+    predictor:
+      model_name: vit_predictor
+      checkpoint_key: predictor
+      num_frames: 64
+      depth: 12
+      num_heads: 12
+      predictor_embed_dim: 384
+      num_mask_tokens: 10
+      uniform_power: true
+      use_mask_tokens: true
+      use_sdpa: true
+      use_silu: false
+      wide_silu: false
+      use_rope: true

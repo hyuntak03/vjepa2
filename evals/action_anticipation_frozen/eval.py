@@ -30,6 +30,7 @@ from evals.action_anticipation_frozen.losses import sigmoid_focal_loss
 from evals.action_anticipation_frozen.metrics import ClassMeanRecall
 from evals.action_anticipation_frozen.models import init_classifier, init_module
 from evals.action_anticipation_frozen.utils import init_opt
+from evals.action_anticipation_frozen.exact_val import validate_exact
 from src.utils.checkpoint_loader import robust_checkpoint_loader
 from src.utils.distributed import init_distributed
 from src.utils.logging import AverageMeter, CSVLogger
@@ -90,6 +91,24 @@ def main(args_eval, resume_preempt=False):
     frames_per_clip = args_data.get("frames_per_clip")
     frames_per_second = args_data.get("frames_per_second")
     resolution = args_data.get("resolution", 224)
+    # -- / spatial 처리 (추가 인자. 기본값은 전부 공식 구현과 같은 동작이다)
+    #    spatial_mode: center_crop(공식) | cover(짧은변 맞추고 긴변만 자름) | letterbox(안 자름)
+    #    width: 모델 입력 폭. None 이면 정사각(=resolution). 비정사각을 쓰면
+    #           module_name 을 ..._nonsquare 로 바꿔야 한다 (spatial.py docstring)
+    spatial_mode = args_data.get("spatial_mode", "center_crop")
+    width = args_data.get("width", None)
+    train_spatial_mode = args_data.get("train_spatial_mode", "rrc")
+    # -- / 프로토콜 변형 (README 차이 2·3)
+    anticipation_point_mode = args_data.get("anticipation_point_mode", "released")
+    time_source = args_data.get("time_source", "frame")
+    # -- / 배관 점검용: 비디오 개수 제한 (None 이면 전부)
+    limit_videos = args_data.get("limit_videos", None)
+
+    # -- EVALUATION (추가 블록. 없으면 공식 validate 그대로)
+    #    exact_val_pass: val 을 rank 별로 정확히 한 번 끝까지 돌고 all_reduce 한 번 (exact_val.py docstring)
+    args_evaluation = args_exp.get("evaluation", None) or {}
+    exact_val_pass = bool(args_evaluation.get("exact_val_pass", False))
+    val_topk = int(args_evaluation.get("topk", 5))
     # -- / anticipation details
     train_anticipation_time_sec = args_data.get("train_anticipation_time_sec")
     train_anticipation_point = args_data.get("train_anticipation_point")
@@ -141,6 +160,17 @@ def main(args_eval, resume_preempt=False):
     world_size, rank = init_distributed()
     logger.info(f"Initialized (rank/world-size) {rank}/{world_size}")
 
+    # -- split-brain 가드 (CLAUDE.md §7-1). init_distributed 는 bind 실패를 삼키고 조용히
+    #    world_size=1 로 폴백하는데, 그러면 뒤에 뜬 job 의 rank0 만 폴백하고 나머지 rank 는
+    #    먼저 뜬 job 의 store 에 붙어 두 job 이 섞인다. run.sh 가 ANT_EXPECT_WS 를 export 한다.
+    #    환경변수가 없으면 아무 일도 안 한다 (공식 경로와 동일).
+    _want = os.environ.get("ANT_EXPECT_WS")
+    if _want is not None and int(_want) != world_size:
+        raise RuntimeError(
+            f"DDP world_size 불일치: 기대 {_want}, 실제 {world_size}. "
+            f"포트 충돌로 조용히 폴백했을 가능성이 크다 (EVAL_DDP_PORT 를 바꿔볼 것)"
+        )
+
     # -- log/checkpointing paths
     folder = os.path.join(pretrain_folder, "action_anticipation_frozen/")
     if eval_tag is not None:
@@ -149,6 +179,7 @@ def main(args_eval, resume_preempt=False):
         os.makedirs(folder, exist_ok=True)
     log_file = os.path.join(folder, f"log_r{rank}.csv")
     latest_path = os.path.join(folder, "latest.pt")
+    val_report_path = os.path.join(folder, "val_metrics.jsonl")  # epoch 마다 한 줄 (exact_val_pass 일 때)
 
     action_is_verb_noun = True
     if dataset in ["COIN_anticipation"]:
@@ -208,12 +239,30 @@ def main(args_eval, resume_preempt=False):
     train_annotations = _annotations["train"]
     val_annotations = _annotations["val"]
 
+    if limit_videos is not None:
+        # (video_paths, {video_id: df}) 튜플을 앞쪽 N 개 비디오로 자른다. 라벨 공간은
+        # 전체 train 에서 이미 정해졌으므로 건드리지 않는다 (클래스 수가 바뀌면 안 된다).
+        def _limit(ann, n):
+            paths, anos = ann
+            paths = paths[:n]
+            keep = {p.split("/")[-1].split(".")[0] for p in paths}
+            return paths, {k: v for k, v in anos.items() if k in keep}
+
+        train_annotations = _limit(train_annotations, int(limit_videos))
+        val_annotations = _limit(val_annotations, int(limit_videos))
+        logger.info(
+            f"LIMIT_VIDEOS={limit_videos}: train {len(train_annotations[0])} videos "
+            f"/ {sum(len(a) for a in train_annotations[1].values())} clips, "
+            f"val {len(val_annotations[0])} videos "
+            f"/ {sum(len(a) for a in val_annotations[1].values())} clips"
+        )
+
     # -- init models
     model = init_module(
         module_name=module_name,
         frames_per_clip=frames_per_clip,
         frames_per_second=frames_per_second,
-        resolution=resolution,
+        resolution=resolution if width in (None, resolution) else [resolution, width],
         checkpoint=checkpoint,
         model_kwargs=args_model,
         wrapper_kwargs=args_wrapper,
@@ -248,6 +297,11 @@ def main(args_eval, resume_preempt=False):
         motion_shift=motion_shift,
         # --
         crop_size=resolution,
+        crop_width=width,
+        spatial_mode=spatial_mode,
+        train_spatial_mode=train_spatial_mode,
+        anticipation_point_mode=anticipation_point_mode,
+        time_source=time_source,
         world_size=world_size,
         rank=rank,
         num_workers=num_workers,
@@ -267,6 +321,10 @@ def main(args_eval, resume_preempt=False):
         anticipation_time_sec=val_anticipation_time_sec,
         anticipation_point=val_anticipation_point,
         crop_size=resolution,
+        crop_width=width,
+        spatial_mode=spatial_mode,
+        anticipation_point_mode=anticipation_point_mode,
+        time_source=time_source,
         world_size=world_size,
         rank=rank,
         num_workers=num_workers,
@@ -344,22 +402,70 @@ def main(args_eval, resume_preempt=False):
             )
 
         # report val action anticipation (AA)
-        val_metrics = validate(
-            action_is_verb_noun=action_is_verb_noun,
-            ipe=val_ipe,
-            device=device,
-            model=model,
-            classifiers=classifiers,
-            data_loader=val_loader,
-            use_bfloat16=use_bfloat16,
-            valid_verbs=val_verbs,
-            valid_nouns=val_nouns,
-            valid_actions=val_actions,
-            verb_classes=verb_classes,
-            noun_classes=noun_classes,
-            action_classes=action_classes,
-            criterion=criterion,
-        )
+        if exact_val_pass:
+            val_metrics = validate_exact(
+                model=model,
+                classifiers=classifiers,
+                data_loader=val_loader,
+                device=device,
+                use_bfloat16=use_bfloat16,
+                verb_classes=verb_classes,
+                noun_classes=noun_classes,
+                action_classes=action_classes,
+                k=val_topk,
+                expected_clips=getattr(val_loader, "num_samples", None),
+            )
+            logger.info(
+                "[exact val] epoch %d  n_clips %d/%s  mean class recall@%d  "
+                "action %.2f  verb %.2f  noun %.2f"
+                % (
+                    epoch + (0 if val_only else 1),
+                    val_metrics["n_clips"],
+                    val_metrics["expected_clips"],
+                    val_topk,
+                    val_metrics["action"]["recall"],
+                    val_metrics["verb"]["recall"],
+                    val_metrics["noun"]["recall"],
+                )
+            )
+            if rank == 0:
+                import json as _json
+
+                with open(val_report_path, "a") as _fh:
+                    _fh.write(
+                        _json.dumps(
+                            dict(
+                                epoch=epoch + (0 if val_only else 1),
+                                val_only=bool(val_only),
+                                metric=f"mean_class_recall@{val_topk}",
+                                action=val_metrics["action"],
+                                verb=val_metrics["verb"],
+                                noun=val_metrics["noun"],
+                                n_clips=val_metrics["n_clips"],
+                                expected_clips=val_metrics["expected_clips"],
+                                per_head=val_metrics["per_head"],
+                                heads=[dict(lr=k["ref_lr"], wd=k["ref_wd"]) for k in opt_kwargs],
+                            )
+                        )
+                        + "\n"
+                    )
+        else:
+            val_metrics = validate(
+                action_is_verb_noun=action_is_verb_noun,
+                ipe=val_ipe,
+                device=device,
+                model=model,
+                classifiers=classifiers,
+                data_loader=val_loader,
+                use_bfloat16=use_bfloat16,
+                valid_verbs=val_verbs,
+                valid_nouns=val_nouns,
+                valid_actions=val_actions,
+                verb_classes=verb_classes,
+                noun_classes=noun_classes,
+                action_classes=action_classes,
+                criterion=criterion,
+            )
         if val_only:
             logger.info(
                 "val acc (v/n): %.1f%% (%.1f%% %.1f%%) "

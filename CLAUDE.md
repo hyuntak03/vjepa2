@@ -153,9 +153,9 @@ output_dir = <데이터셋.results_root>/<프로토콜>__<데이터셋>_<모델>
 | `attn_probe` | z / p / h 세 지점 attentive probing | v11 54 항목 (fit 3 × group 6 × target 3) |
 | `attn_probe_imp` | 불가능 변이에서 target encoder 가 바뀐 정체성을 읽는가 | — |
 
-등록된 데이터셋: `intphys1_dev`, `v8`, `v8_halfsize`, **`v11`**, `v11_earlymid`, `v11_timing`,
-`v10`, `v10_flat`, `v10_occ_low`, `jongseo_physv3`
-(+ `available: false` 인 `2d_v8_transit`, `v11_occtiming`). 모델: `vith`, `vitl`.
+등록된 데이터셋: `intphys1_dev`, `v8`, `v8_halfsize`, **`v11`**, `v11_earlymid`, `v11_timing`, `v11_full`, `v11_split_test`, `v13_black`,
+`v10`, `v10_flat`, `v10_occ_low`, `jongseo_physv3`, **`rollout_v2`**, **`rollout_v2_training_v5`**, **`v11_vanish_all`** (위치 readout, §5-5)
+(+ `available: false` 인 `2d_v8_transit`, `v11_occtiming`). 모델: `vith`, `vitl`. 지운 데이터셋 (RollOut_v1, 학습셋 v1~v4) 은 레지스트리에서도 뺐다 — 기록은 각 세트 문서.
 
 ⚠️ **v11 은 2026-09-01 에 43,008 clip 으로 커졌다** (`*_early`/`*_mid` 6조건 추가).
 기존 6조건은 프레임이 그대로라 재채점하지 않는다. 새 팔만 담은 것이 `v11_earlymid`,
@@ -223,8 +223,11 @@ GPUS=8 SET="data.datasets=[<이름>]" bash z_training/sbatch.sh frozen_predictor
 GPUS=8 bash z_training/eval.sh <run> v11                      # 채점 = run.sh 에 model.predictor_checkpoint
 ```
 
-- **학습 데이터는 미정** (2026-09-10). `data.datasets` 가 비어 있고 후보는 `configs/training/datasets.md`.
-  **채점 세트와 문맥을 공유하는 데이터(`v11_possible`)로 학습하면 그 세트 점수는 학습셋 점수다**
+- **결정 (2026-09-10): 릴리즈 predictor post-FT, 데이터 = v11 block split.** `v11_postft` config.
+  train 절반(가능만) `v11_split_train` / test 절반(가능+불가능 10,752 쌍) `v11_split_test`
+  (`z_training/data/build_v11_split_index.py`). 출발선은 기존 채점 per_block.json 에서 골라낸 **75.83%** (재실행 불필요,
+  `z_training/runs/release_vith/eval/v11_split_test_from_existing_runs.json`).
+  **v11/v11_full 전체 채점은 문맥을 공유하므로 학습 후 점수로 읽지 말 것**
 - 손실·토큰 배치·역할 분리(context<-`encoder`, target<-`target_encoder`)가 `surprise_c16t32` 와 같다
 - 체크포인트는 predictor 만 (`<run>/latest.pt`). 채점기는 `model.predictor_checkpoint` 로 그것만 바꿔 읽는다
 - 기존 코드는 안 고쳤다. 런처는 `z_training/harness/launch.py` (app/main.py 무수정). 기존 파일 수정은
@@ -456,6 +459,25 @@ v8 의 정보손실/정렬손실 분해, 2D 대조는 `z_research/IntPhysGenV8/`
 ⚠️ **α 분해 관련 수치는 인용 금지다** (지시 전까지). `z_world_model_analysis/PREDICTOR_HEDGING_*`,
 `MECHANISM_*` 및 옛 문서의 α·보정 값 전부 해당.
 
+### 5-5. 위치 readout — RollOut_v2 학습셋 v5 자 (2026-09-12) · `z_research/RollOutV2/`
+
+**정본**: `RollOutV2/figures/v5/summary/POSITION_READOUT_2026-09-12.md` (수치·정정·재현 전부). 시작점 `RollOutV2/README.md`.
+별도 학습셋 (무중력 등속 8,064 clip, `visible_by_sample` 마스크) 에서 attentive 위치 자 (3,842 파라미터) 를 p / z / h 각각에 정하고
+`RollOut_v2` (7 시나리오, 가능 4,704 clip) 와 v11 가림 셀 (2,688 clip) 에 test 로만 건다. 1 칸 = 18 px = 물체 반폭.
+
+| 무엇 | 수치 |
+|---|---|
+| 자 검증 | held-out 0.87 칸 (학습 0.83); encoder 자 v2 전 시나리오 ≤ 0.61 칸, v11 가림 타이밍 무관 추적; 자 없는 검사 (r = \|p−h_imp\|/\|p−h_pos\|, 파라미터 0) 와 슬롯 단위 일치 |
+| p, v2 | flat_v **0.71 칸** gain 0.85 / flat_a 1.07 · 0.57 / ramp·arc·fall 0.9~1.4 칸 · gain 0.4~0.5 / ledge 2.06 / wall 1.78 |
+| ledge | p 는 선반 높이 유지 (슬롯 3~4 부유 궤적 attention 0.43 / 0.39, 기본값은 낙하 쪽), 392 쌍 100 %; pos/imp probe P(imp) 0.91~0.96 |
+| wall | p 는 **2 슬롯 통과 뒤 물체를 잃는다** (통과 질량 0.61 / 0.48 → ≤ 0.18). "벽 속 +29 px 에서 멈춤" 은 **정정** (기본값). probe P(imp) 0.70~0.90 |
+| v11 | 물체다운 토큰이 남는 길이: late **0** 슬롯 < early/mid **3** < 가림막 없음 **4~5**. ramp late 만 k 에 따라 악화 (ratio 0.21→0.04). static 도 late 만 1 칸 넘게 이탈 |
+| 채점 vs 위치 | vanish 채점 early 97.8 / mid 95.8 / late 57.5 인데 위치는 셋 다 3 슬롯 안 소실 — **별개 축** |
+
+⚠️ **읽는 규칙** — 자는 물체가 없어도 위치를 낸다 (attention 이 퍼지면 토큰 평균 읽기 = 기본값). v11 은 기본값 ≈ 마지막 관측 위치, wall 은 ≈ 정지점.
+**위치 주장은 그 슬롯의 3×3 attention 질량이 균등 (0.035) 을 넘을 때만** 하고, 8 슬롯 평균 지표는 슬롯별 표 (`attn_diag.md`, `two_futures_attn.md`) 와 같이 읽는다.
+"predictor 가 물체를 마지막 자리에 둔다" 는 **철회** (기본값이었다). 맞는 문장: "가림이 경계에 걸리면 p 의 미래에는 처음부터 물체다운 토큰이 없다."
+
 ---
 
 ## 6. 이미 기각된 가설 — **다시 시도하지 말 것**
@@ -478,6 +500,11 @@ v8 의 정보손실/정렬손실 분해, 2D 대조는 `z_research/IntPhysGenV8/`
 | **Luce 로 7지선다 확률 변환** | `s=(1-p)/p` 가 **최저 상대 하나에 지배**된다. **등가속·비가림**에서 cube 짝평균 83.3 → 7지선다 8.7 (cylinder 에게만 6%). `k` 별은 비대각 n=4 라 더 나쁘다. `_superseded/` |
 | **"가림막이 색면이라 색 채점을 죽인다"** | `v13_black`(검정 가림막)에서 색의 `visible→early` 하락이 −14.1 → **−13.5** 로 같다. **기각.** 대신 모양이 −6.2 → **0.0** — 나뭇결이 모양을 깎고 있었다. `z_research/IntPhysGenV13_Black_occluder/` |
 | **"가림막은 있는데 물체를 안 가리는" 조건 신설** | "가림 유무" 는 곧 "물체가 가려지는가" 이고 가림막 존재는 그 구현이다. §8-5 |
+| **"predictor 가 (v11 가림에서) 물체를 마지막 관측 자리에 둔 채 머문다"** | 자의 기본값 (토큰 평균 읽기 ≈ 화면 중심 ≈ 마지막 관측). 마지막 관측 칸 attention 0.01~0.03. **철회** (§5-5) |
+| **"wall 에서 벽 속 한 칸 반 파고들어 멈춘다"** | 슬롯 1~2 통과 + 슬롯 3~7 기본값의 평균. 멈춤은 한 번도 없다. **정정** |
+| v11 k=0 p 만으로 위치 자 학습 | 자리 prior 를 외움 (오차 3 px, 물체 attention 0.1; early 슬롯 0~2 에서 47~63 px). 위치를 고루 덮는 학습셋 필요 |
+| 위치 자 학습셋에 kink·고속 (v3) | 자가 학습 분포 안에서도 흐려짐. 삭제, 재시도 금지 |
+| 슬롯 7 진행 비율 하나로 v11 요약 | 물체가 사라진 뒤의 기본값을 섞어 조건 차이 (early/mid 슬롯 0~2 는 정확) 를 지운다. 슬롯별 질량과 함께만 |
 
 ---
 
@@ -521,6 +548,7 @@ v8 의 정보손실/정렬손실 분해, 2D 대조는 `z_research/IntPhysGenV8/`
   **천장에 안 닿은 건 이식 줄뿐이므로 대조는 이식 줄에 한해 읽을 것**
 - **팔을 가로지르는 이식 실패는 증거가 아니다** — 기대값이다 (attention query 가 위치 특이적)
 - **교란: 가림막 존재 자체** — occluded 조건에만 가림막이 장면에 있다. §8-5 를 볼 것
+- **학습된 readout(자) 은 대상이 없어도 값을 낸다** — attentive 자는 attention 이 퍼지면 토큰 평균 읽기 (기본값) 를 내고, 그 기본값이 데이터의 의미 있는 자리 (v11 마지막 관측, wall 정지점) 와 겹치면 하루를 잘못 읽는다 (2026-09-12). 자로 읽은 값에는 **attention 질량·기본값 거리·파라미터 없는 교차검증** 을 붙인다 (§5-5)
 
 ### 7-4. 필수 검증 루틴
 - **byte-identical context 감사** — 모든 matched pair 의 16 context 프레임이 픽셀 단위로
@@ -540,6 +568,7 @@ v8 의 정보손실/정렬손실 분해, 2D 대조는 `z_research/IntPhysGenV8/`
 | `configs/protocols/` | 프로토콜 yaml + `datasets.md`/`models.md` 레지스트리 | ✅ |
 | `z_research/scripts/` | 최상위엔 **직접 치는 것만**. 나머지는 `harness/`·`data/`·`figures/`·`analysis/` | ✅ |
 | **`z_research/IntPhysGenV11/`** | **본 실험 세트.** `README.md` 가 시작점 | 부분 |
+| **`z_research/RollOutV2/`** | **위치 readout 세트** (p 가 물체를 어디에 두나). `README.md` → `figures/v5/summary/POSITION_READOUT_2026-09-12.md` | 부분 |
 | `z_research/IntPhysGen{V8,V10}/`, `IntPhys/` | 아카이브 | 부분 |
 | `z_research/<셋>/Archive/*.md` | 분석 문서. **파일명에 날짜** `TOPIC_YYYY-MM-DD.md` | ✅ |
 | `z_research/<셋>/exp_results/` | 원시 산출물 (`summary.json`, `_resolved.yaml`) | ❌ |
@@ -628,7 +657,7 @@ SLURM 스크립트는 `source /data/hyuntak/anaconda3/bin/activate vjepa2`.
 | 순 | 실험 | beat | 비용 |
 |---|---|---|---|
 | **1** | **부분공간 겹침 / Procrustes** (`p`·`z`·`h`, 조건별) | **5** | 캐시만, SVD 두 번 |
-| 2 | `p` 문맥 잔상 검정 (위치 디코딩) | 3 | 캐시만 |
+| 2 | ~~`p` 문맥 잔상 검정 (위치 디코딩)~~ **✅ 2026-09-12 완료** — `RollOutV2/` §5-5. 가림이 경계에 걸리면 p 미래에 물체 토큰 없음, ledge 부유 / wall 2 슬롯 통과 | 3 | 캐시만 |
 | 3 | IntPhys 2 의 V-JEPA 2 실측치 확인 | 1 | 문헌 |
 | 4 | 정렬 사상 `W: p → h` (Procrustes, 가능 변이로만) | 6·7 | 소량 |
 | 5 | 채점 층 개입 (`distance: pooled_l2` 구현 · 순서 보정) | 6·7 | 구현 |
@@ -683,6 +712,7 @@ SLURM 스크립트는 `source /data/hyuntak/anaconda3/bin/activate vjepa2`.
   `extends:`, `fit_groups_sweep: auto` 로 되는지 확인할 것
 - **모델 로딩이 필요 없는 검증은 따로 떼서 몇 초에 한다** (`DRYRUN=1`)
 - **수치는 문서가 아니라 산출물에서 재확인**하고 그렇게 했다고 밝힌다
+- **학습된 자(readout) 로 predictor 의 세계를 말하기 전에 자 검증부터 보인다** — held-out 정밀도 · encoder 대조 · 파라미터 없는 교차검증 (2026-09-12 사용자 지시: "decoder 문제 없다를 보여야 predictor 가 만드는 세상에 대해서 주장할 수 있지"). 한 슬롯 요약 숫자 하나로 결론 내지 않는다
 - **모순되는 결과를 발견하면 한쪽을 지우지 말고 조건 차이를 표로 명시한다**
 - **단서를 결론과 같은 비중으로 쓴다**
 - **`sed -i` 를 쓰지 않는다.** 여러 줄짜리 md/yaml 은 Python 으로 고친다

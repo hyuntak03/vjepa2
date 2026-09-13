@@ -1,0 +1,8 @@
+# intphys1_postft 의 대조군 — 보고 지표 칸(skip2_w32)만 학습 분포로 쓴다.
+#   GPUS=8 bash z_training/train.sh intphys1_postft_w32
+# 그리드 run 과 세 채점 칸을 나란히 놓으면 "다른 창 크기·프레임 속도로 일반화되는가" 가 갈린다.
+extends: intphys1_postft
+
+data:
+  window_grid:
+    weights: [1, 0, 0]

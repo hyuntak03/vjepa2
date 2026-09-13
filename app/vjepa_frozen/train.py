@@ -32,7 +32,7 @@ import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel
 
 from app.vjepa_frozen import utils as U
-from app.vjepa_frozen.data import MaskSampler, TrainCollator, build_dataset, build_loader
+from app.vjepa_frozen.data import MaskSampler, TrainCollator, WindowGridCollator, WindowGridSampler, build_dataset, build_loader
 from app.vjepa_frozen.val import ValSet, format_val, run_val
 from src.utils.distributed import init_distributed
 from src.utils.logging import AverageMeter, CSVLogger, get_logger, gpu_timer
@@ -103,7 +103,16 @@ def main(args, resume_preempt=False):
     # ---- 데이터 -------------------------------------------------------------------
     dataset = build_dataset(D, n_frames, res)
     sampler_masks = MaskSampler(cfg["mask"], n_frames, res, patch, tubelet)
-    loader, sampler = build_loader(dataset, TrainCollator(sampler_masks), batch_size, rank, world_size,
+    if D.get("window_grid"):
+        # 채점 그리드(skip × window × 시작점 × C)에서 배치마다 하나를 뽑는다. data.n_frames 는 최대 창(RoPE 상한)
+        grid = WindowGridSampler(D["window_grid"], tubelet)
+        if max(c["n_frames"] for c in grid.cells) > n_frames:
+            raise ValueError(f"window_grid 의 n_frames 최대가 data.n_frames({n_frames}) 보다 크다")
+        collator = WindowGridCollator(grid, sampler_masks, dataset.transform)
+        logger.info(f"window_grid: {grid.describe()} | raw_span {grid.raw_span} jitter {grid.jitter}")
+    else:
+        collator = TrainCollator(sampler_masks)
+    loader, sampler = build_loader(dataset, collator, batch_size, rank, world_size,
                                    num_workers=int(D.get("num_workers", 8)), pin_mem=bool(D.get("pin_mem", True)),
                                    persistent=bool(D.get("persistent_workers", True)), seed=seed)
     ipe = int(O.get("ipe") or len(loader))
@@ -111,7 +120,7 @@ def main(args, resume_preempt=False):
         raise RuntimeError(f"loader 가 비었다 (ipe={ipe}, loader {len(loader)}): {len(dataset)} clips / ws {world_size} / "
                            f"batch {batch_size} (drop_last) — LIMIT 이나 batch_size 를 조정할 것")
     logger.info(f"dataset {len(dataset)} clips | rank batch {batch_size} x ws {world_size} = {batch_size*world_size} | "
-                f"ipe {ipe} (loader {len(loader)}) | masks {[m.get('type','temporal_prefix') for m in cfg['mask']]}")
+                f"ipe {ipe} (loader {len(loader)}) | masks {'window_grid' if D.get('window_grid') else [m.get('type','temporal_prefix') for m in cfg['mask']]}")
 
     # ---- 옵티마이저 ---------------------------------------------------------------
     num_epochs = int(O["epochs"])

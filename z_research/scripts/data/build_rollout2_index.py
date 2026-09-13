@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """RollOut_v2 (운동 법칙 7종) 의 metadata.csv + plan -> index.csv / index_probe.csv.
 
-⚠️ **2026-09-09 17:17 에 metadata 가 수정됐다** — 가능 클립은 전 시나리오에서 plan 과 0.05 cm 안으로 일치한다.
-   그러나 **wall 의 불가능 클립(통과)은 여전히 가능(정지) 궤적을 복사**하고 있다 (픽셀 대조: 물체는 벽을 통과한다,
-   scratch `wall_label_check.png`). 그래서 라벨은 계속 plan 을 쓴다. 아래는 수정 전 기록.
+⚠️ **2026-09-10 15:19 metadata (재생성 데이터) 부터 불가능 변이도 자기 궤적을 싣는다** (plan pair 와 1 px 안) 그리고 in_frame 은
+   "물체 전체가 화면 안" 기준으로 가능/불가능 모두 metadata 를 쓴다. 라벨(px)은 계속 plan 에서 만든다 (metadata 와 대조 검증).
+⚠️ (기록) 2026-09-09 17:17 판 — 가능 클립은 plan 과 0.05 cm 안으로 일치했지만 **wall 불가능 클립(통과)은 가능(정지) 궤적을 복사**하고
+   있었다 (픽셀 대조: 물체는 벽을 통과한다). 그때는 불가능 변이의 in_frame 을 투영으로 다시 쟀다. 아래는 그 전 기록.
 ⚠️ **(수정 전) metadata 의 `object_*_by_sample` 은 flat 두 시나리오에서만 맞았다.** arc / fall / ledge / wall / ramp_a 는
    assemble 이 block 별 인자(primary/secondary/fixed) 없이 track_cm 을 불러 **같은 배열**을 써 넣었다
    (2026-09-09 실측: primary 가 달라도 by_sample 이 동일, 몽타주에서 물체 위에 안 놓임).
@@ -19,10 +20,9 @@
 
   python z_research/scripts/data/build_rollout2_index.py            # 검증만
   python z_research/scripts/data/build_rollout2_index.py --write
-  python z_research/scripts/data/build_rollout2_index.py --set training --write   # RollOut_v2_training (readout 학습셋)
+  python z_research/scripts/data/build_rollout2_index.py --set training_v5 --write   # RollOut_v2_training (v5 사물 없음 + props 사물; plan 2개 합침)
 
---set training (2026-09-10): 무중력 직선 line_x / line_z 896 clip, pos 만, holdout 없음. metadata by_sample 이 plan 과
-0.05 cm 안에서 일치하지만 v2 와 같은 경로(plan)로 라벨을 만든다.
+학습셋 v1~v4 는 2026-09-11 삭제 — `training_v5` 만 남았다.
 """
 from __future__ import annotations
 import argparse, collections, csv, json, math, os, random, re, sys
@@ -36,11 +36,12 @@ SETS = {
                out=f"{ROOT}/data_csv/rollout_v2",
                n=5488, scen={s: 784 for s in ("arc", "fall", "flat_a", "flat_v", "ledge", "ramp_a", "wall")},
                imp={"ledge": 392, "wall": 392}, holdout=224, flat=("flat_v", "flat_a")),
-    "training": dict(src="/data2/local_datasets/world/world_analysis/RollOut_v2_training",
-                     frames_root="/local_datasets/world/world_analysis/RollOut_v2_training",
-                     plan="/data/hyuntak/project/2026/2027_cvpr/UnrealEngine/gen/plans/blocks_rollout2_training.json",
-                     out=f"{ROOT}/data_csv/rollout_v2_training",
-                     n=896, scen={"line_x": 448, "line_z": 448}, imp={}, holdout=0, flat=("line_x", "line_z")),
+    "training_v5": dict(src="/data2/local_datasets/world/world_analysis/RollOut_v2_training",
+                        frames_root="/local_datasets/world/world_analysis/RollOut_v2_training",
+                        plan=["/data/hyuntak/project/2026/2027_cvpr/UnrealEngine/gen/plans/blocks_rollout2_training_v5.json",
+                              "/data/hyuntak/project/2026/2027_cvpr/UnrealEngine/gen/plans/blocks_rollout2_training_props.json"],
+                        out=f"{ROOT}/data_csv/rollout_v2_training_v5",
+                        n=None, scen=None, imp={}, holdout=0, flat=None),      # 09-11 19:34 합본: 사물 없음 4,480 + 사물 3,584. plan 두 개
 }
 SRC = FRAMES_ROOT = PLAN = OUT = None      # main() 이 --set 으로 채운다
 PROTOCOL_FRAMES = list(range(0, 94, 3))
@@ -56,8 +57,12 @@ COLS = [
     "scenario", "primary_name", "primary", "secondary_name", "secondary", "holdout",
     # ── 위치 라벨 (32 샘플, 공백 구분) ──
     "sample_frames", "x_cm_by_sample", "z_cm_by_sample", "px_x_by_sample", "px_y_by_sample",
-    "in_frame_by_sample", "frame_half_width_cm", "fps", "resolution",
+    "in_frame_by_sample", "visible_by_sample", "frame_half_width_cm", "fps", "resolution",
 ]
+# visible_by_sample (2026-09-11, training_v5 부터): in_frame 이고 **사물에 가려지지 않은** 샘플. 학습 라벨은 이것만 쓴다.
+#   props 셋은 metadata 에 hidden 표시가 없다 (has_occlusion 0). prop_y == 260 (물체와 같은 깊이, 얇은 판) 이면 물체가 판을 관통하며
+#   일부/전부 가려지므로, 물체 x 가 판의 화면 x 범위 ± 물체 반폭 안이면 가려진 것으로 본다. prop_y == 400 (뒤) 는 가림 없음.
+OBJ_HALF_PX = 18.0
 
 
 def die(m):
@@ -75,6 +80,16 @@ def screen(x, z, r):
     fw = fwd * math.cos(th) + up * math.sin(th); uu = -fwd * math.sin(th) + up * math.cos(th)
     half = float(r["resolution"]) / 2
     return half - (x - float(r["cam_x"])) / (fw * tanh) * half, half - uu / (fw * tanh) * half
+
+
+def visible(r, px):
+    """in_frame 이고 사물(같은 깊이의 판) 에 가려지지 않은 샘플 → '1', 아니면 '0'. 사물 컬럼이 없거나 전부 0 이면 in_frame 그대로."""
+    inf = [v for v in r["in_frame_by_sample"].split()]
+    if not r.get("prop_w") or float(r.get("prop_w") or 0) == 0 or float(r.get("prop_y") or 0) != OBJ_Y:
+        return " ".join(inf)
+    px_x, _ = screen(float(r["prop_x"]), 0.0, r)                                   # 판의 화면 x (물체 평면과 같은 깊이)
+    half = float(r["prop_w"]) / 2 / float(r["frame_half_width_cm"]) * float(r["resolution"]) / 2 + OBJ_HALF_PX
+    return " ".join("1" if v == "1" and abs(p[0] - px_x) > half else "0" for v, p in zip(inf, px))
 
 
 def build(rows, plan):
@@ -110,9 +125,10 @@ def build(rows, plan):
             "sample_frames": " ".join(str(f) for f in PROTOCOL_FRAMES),
             "x_cm_by_sample": j(xs), "z_cm_by_sample": j(zs),
             "px_x_by_sample": j(p[0] for p in px), "px_y_by_sample": j(p[1] for p in px),
-            # metadata 의 in_frame 은 가능 변이 기준이다. 불가능 변이(wall pass 는 화면 밖으로 나간다)는 투영값으로 다시 잰다
-            "in_frame_by_sample": (" ".join("1" if -18 < p[0] < 306 and -18 < p[1] < 306 else "0" for p in px)
-                                   if imp else r["in_frame_by_sample"]),
+            # 09-10 15:19 metadata 부터 불가능 변이도 자기 궤적(plan pair 와 1 px 안) 기준 in_frame 이다 — 전부 metadata 를 쓴다.
+            # 기준은 "물체 전체가 화면 안" (가장자리 ~20 px 안쪽부터 0). 그 전 판은 wall 불가능이 정지 궤적을 복사해 투영으로 다시 쟀었다
+            "in_frame_by_sample": r["in_frame_by_sample"],
+            "visible_by_sample": visible(r, px),
             "frame_half_width_cm": r["frame_half_width_cm"], "fps": r["fps"], "resolution": r["resolution"],
         })
     return out
@@ -159,11 +175,14 @@ def verify(rows, out, n_frame_check, S):
         a = [r for r in rows if r["scenario"] == "arc"]
         same = np.allclose(arr(a[0]["object_x_cm_by_sample"]), arr(a[-1]["object_x_cm_by_sample"]))
         chk("(기록) metadata arc by_sample 이 primary 와 무관하게 동일한가 (09-09 16:14 판의 버그; 이후 판은 고쳐짐)", True, f"동일={same}")
-    if "wall" in S["imp"]:
-        # wall 불가능 클립은 어느 판이든 정지 궤적을 쓴다 — plan 의 pair 궤적과 갈리는지 기록만
-        w = [r for r in out if r["scenario"] == "wall" and r["plausible"] == 0][0]; mw = mrow[w["video_id"]]
-        chk("(기록) wall 불가능: metadata by_sample 이 plan pair 궤적과 갈리는가", True,
-            f"max|Δ| {np.abs(arr(w['x_cm_by_sample']) - arr(mw['object_x_cm_by_sample'])).max():.0f} cm (plan 이 정본)")
+    if S["imp"]:
+        # 불가능 변이: metadata by_sample 이 plan 의 pair 궤적을 따르는가 (09-10 15:19 판부터 그렇다; 그 전엔 wall 이 정지 궤적을 복사했다)
+        wi = 0.0
+        for r in out:
+            if r["plausible"] == 0:
+                mr = mrow[r["video_id"]]
+                wi = max(wi, np.abs(arr(r["px_x_by_sample"]) - arr(mr["object_px_x_by_sample"])).max(), np.abs(arr(r["px_y_by_sample"]) - arr(mr["object_px_y_by_sample"])).max())
+        chk("불가능 변이: plan pair 궤적 투영 == metadata px", wi < 1.0, f"max|Δ| {wi:.2f} px")
     # 예측 16 샘플은 전부 화면 안, px 도 [0, 288] 안
     pos = [r for r in out if r["plausible"] == 1]
     inf = np.stack([arr(r["in_frame_by_sample"]) for r in pos])
@@ -172,12 +191,17 @@ def verify(rows, out, n_frame_check, S):
     part = collections.Counter(r["scenario"] for r, i in zip(pos, inf) if not i[16:].all())
     chk("(기록) 가능 변이: 예측 16 샘플 중 일부 off-screen 인 clip", True, str(dict(part)) if part else "없음")
     pxs = np.stack([arr(r["px_x_by_sample"]) for r in pos])[:, 16:]; pys = np.stack([arr(r["px_y_by_sample"]) for r in pos])[:, 16:]
-    chk("가능 변이: 예측 px 가 화면 안 (물체 반폭 18px 여유)", pxs.min() > -18 and pxs.max() < 306 and pys.min() > -18 and pys.max() < 306,
-        f"x [{pxs.min():.0f},{pxs.max():.0f}] y [{pys.min():.0f},{pys.max():.0f}]")
+    if inf[:, 16:].all():
+        chk("가능 변이: 예측 px 가 화면 안 (물체 반폭 18px 여유)", pxs.min() > -18 and pxs.max() < 306 and pys.min() > -18 and pys.max() < 306,
+            f"x [{pxs.min():.0f},{pxs.max():.0f}] y [{pys.min():.0f},{pys.max():.0f}]")
+    else:   # 화면 밖 샘플을 일부러 둔 세트 (training_v5): in_frame 이 0 인 샘플만 화면 밖이어야 한다
+        m = inf[:, 16:] > 0
+        chk("가능 변이: in_frame=1 인 예측 샘플은 화면 안", pxs[m].min() > -18 and pxs[m].max() < 306 and pys[m].min() > -18 and pys[m].max() < 306,
+            f"in_frame 샘플 x [{pxs[m].min():.0f},{pxs[m].max():.0f}] y [{pys[m].min():.0f},{pys[m].max():.0f}] / off-frame {100*(~m).mean():.1f}%")
     if "wall" in S["imp"]:
         impw = [r for r in out if r["plausible"] == 0 and r["scenario"] == "wall"]
         offs = sum(1 for r in impw if "0" in r["in_frame_by_sample"].split()[16:])
-        chk("(기록) wall 불가능 변이는 미래에 화면 밖으로 나간다 (in_frame 을 투영으로 다시 잼)", True, f"{offs}/{len(impw)} clip 이 일부 슬롯 off-screen")
+        chk("(기록) wall 불가능 변이는 미래에 화면 밖으로 나간다", True, f"{offs}/{len(impw)} clip 이 일부 슬롯 off-screen")
     hold = collections.Counter((r["scenario"], r["holdout"]) for r in out)
     chk(f"holdout 이 시나리오마다 {S['holdout']}", all(hold[(s, "1")] == S["holdout"] for s in sc))
     for k, n in (("shape_pre", 7), ("color_pre", 8), ("env", 4)):
@@ -201,8 +225,14 @@ def main():
     a = ap.parse_args()
     global SRC, FRAMES_ROOT, PLAN, OUT
     S = SETS[a.set]; SRC, FRAMES_ROOT, PLAN, OUT = S["src"], S["frames_root"], S["plan"], S["out"]
+    if S["n"] is None:                                     # 구성을 metadata 에서 읽는 세트 (training_v3)
+        _rows = list(csv.DictReader(open(f"{SRC}/metadata.csv", encoding="utf-8")))
+        S = dict(S, n=len(_rows), scen=dict(collections.Counter(r["scenario"] for r in _rows)), flat=tuple(sorted(set(r["scenario"] for r in _rows))))
+        print(f"[{a.set}] 구성 (metadata): n={S['n']} scen={S['scen']}")
     rows = list(csv.DictReader(open(f"{SRC}/metadata.csv", encoding="utf-8")))
-    J = json.load(open(PLAN)); plan = {b["id"]: b for b in (J["blocks"] if isinstance(J, dict) else J)}
+    plan = {}
+    for pf in (PLAN if isinstance(PLAN, list) else [PLAN]):
+        J = json.load(open(pf)); plan.update({b["id"]: b for b in (J["blocks"] if isinstance(J, dict) else J)})
     print(f"metadata {len(rows)} rows, plan {len(plan)} blocks\n검증:")
     out = build(rows, plan)
     if not verify(rows, out, a.frame_check, S):

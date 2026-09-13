@@ -1,98 +1,96 @@
-# RollOut V2 — 운동 법칙 7종: predictor 는 어떤 미래를 만들었나 (2026-09-09)
+# RollOutV2 — predictor 의 미래 8 tubelet 에서 물체 위치를 읽는다 (시작점)
 
-> V1 은 등속 하나였고 (`../RollOutV1/`), v11 위치 readout 은 조건당 궤적이 하나라 지름길을 못 막았다 (`../v11_roll_out/`).
-> V2 는 법칙 7종 × primary 7 레벨 × secondary 2, 그리고 **미래가 두 갈래인 ledge(낙하/부유)·wall(정지/통과)** 를 갖는다.
-> 데이터 `/data2/local_datasets/world/world_analysis/RollOut_v2` (5,488 clip, 가림 없음), 레지스트리 `datasets.md ## rollout_v2`.
+> **정본 결과 문서: [`figures/v5/summary/POSITION_READOUT_2026-09-12.md`](figures/v5/summary/POSITION_READOUT_2026-09-12.md)** — 모든 수치·정정·재현 명령이 거기 있다.
+> 이 README 는 세트의 구조와 **읽는 규칙**, 결론 요약만 담는다. 2026-09-12 저녁 판 (decoder 검증 · 정정 반영).
 
----
+## 0. 한 줄
 
-## 한 줄
+별도 학습셋 (`RollOut_v2_training` v5, 무중력 등속 8,064 clip) 에서 **위치 자 (attentive readout, 3,842 파라미터)** 를 p / z / h 각각에 정하고,
+운동 법칙 7종의 test 셋 `RollOut_v2` (가능 4,704 clip) 와 IntPhysGen v11 가림 셀 (2,688 clip) 에 **test 로만** 건다.
+encoder 자는 어디서나 물체를 읽고 (≤ 0.6 칸), p 는 등속에서만 물체 위에 있으며, ledge 에서는 선반 높이를 유지하고, wall 은 2 슬롯 통과한 뒤 물체를 잃고,
+v11 가림이 경계에 걸리면 p 의 미래에는 처음부터 물체다운 토큰이 없다.
 
-**자를 `h` 에서 정하면(토큰 단위 decoder) `h` 는 1.5 px 로 읽히지만 `p` 는 못 읽는다 (R² ≤ 0.36). 자를 `p` 에서 정하면 단일 미래
-법칙은 전부 읽히고(위치 R² 0.78~0.92, 속도 β 0.75~1.2, 안 본 레벨에서), ledge 의 `p` 는 낙하를 만들었으며, wall 은 판정 보류다.**
-`p` 의 위치 코드는 `h`·`z` 어느 것과도 같은 자리에 있지 않다 — pooled 도, 토큰 단위도, LN 을 걸어도.
+## 1. 읽는 규칙 (반드시)
 
----
+1. **자는 물체가 없어도 위치를 낸다.** attention 이 퍼지면 Linear(토큰 평균) = 기본값이 나온다. v11 은 기본값 ≈ 마지막 관측 위치 (화면 중심), wall 은 기본값 ≈ 정지 자리 옆.
+   → **위치 주장은 그 슬롯의 진실/후보 3×3 attention 질량이 균등 (9/256 = 0.035) 을 넘을 때만** 한다. `attn_diag.md`, `two_futures_attn.md` 가 그 표다.
+2. **8 슬롯 평균 지표 (L2, 두 미래 비율, 슬롯 7 ratio) 는 기본값을 섞는다.** 슬롯별 표와 같이 읽는다.
+3. **decoder 검증을 먼저 보인다** (§2-3): held-out 0.87 칸 (학습 0.83), encoder 대조 ≤ 0.6 칸, 자 없는 검사 (v11 h_pos/h_imp 토큰 L1 비율) 와 일치. 이 셋이 있어야 "p 의 세계" 를 말할 수 있다.
+4. **"p 가 물체를 X 에 둔다" 와 "p 에 물체가 없다" 는 다른 도구로 말한다.** 전자 = 자의 위치 (질량 조건 하), 후자 = 질량·기본값 거리·자 없는 검사.
+5. 학습셋에 "물체 없는 p" 는 없다 (화면 밖·판 뒤는 손실에서 뺌). presence head 는 보류 (2026-09-12, 사용자 결정).
 
-## 1. 라벨 — plan 이 정본이다
+## 2. 데이터와 캐시
 
-- 궤적은 생성기 plan `UnrealEngine/gen/plans/blocks_rollout2.json` 의 `x_sampled/z_sampled` (불가능 변이는 `*_pair`).
-  `build_rollout2_index.py` 가 카메라 투영식으로 화면 좌표를 만들어 index 에 싣는다 (flat 에서 metadata 픽셀과 0.09 px 일치, 검증 15항목).
-- **metadata 의 `object_*_by_sample` 은 믿지 않는다.** 09-09 16:14 판은 flat 외 시나리오가 primary 와 무관한 같은 배열이었고,
-  17:17 수정판도 **wall 불가능 클립(통과)에 정지 궤적**을 쓴다 (픽셀 대조로 확인).
-- 화면 밖 튜블릿은 라벨에서 뺀다. ledge/wall 은 문맥 초반에 물체가 화면 밖에서 들어오고, wall 통과는 미래에 화면 밖으로 나간다.
-- 좌표는 화면 정규화 (x, y) = px/144 − 1. 세로 운동(fall, arc, ledge)이 있으므로 (T, 2) 로 읽는다.
+| 이름 | 용도 | clip | 프레임 | 캐시 (`/local_datasets/world/world_analysis/cache/`) |
+|---|---|---|---|---|
+| `rollout_v2` | test (7 시나리오: flat_v, flat_a, ramp_a, arc, fall, ledge, wall; pos/imp 쌍) | 5,488 | `RollOut_v2` | `rollout_v2_vith` (p, h) · `rollout_v2_ctx32_vith` (z = context encoder 32 frames) · `rollout_v2_z16_vith` (ctx_masked 16 frames, probe 용) |
+| `rollout_v2_training_v5` | 자 학습 (line_x/z/xz, still, prop_x, prop_still; `visible_by_sample` 마스크) | 8,064 | `RollOut_v2_training` | `rollout_v2_training_v5_vith` (p, h) · `rollout_v2_training_v5_ctx32_vith` (z) |
+| `v11_vanish_all` | v11 pos_a 전부 (visible k=0 + late/early/mid × flat/ramp/static × k=1..4) | 2,688 | `IntPhysGen_v11` | `v11_vanish_all_ctx32_vith` (z 만; p/h 는 `v11_full_vith`) |
 
-## 2. 자(readout) 세 가지와 split
+1 토큰 칸 = 18 px = 물체 반폭. (이전 학습셋 v1~v4 와 late 만의 v11 부분집합은 삭제됐다 — 기록은 정본 §6·§8.)
 
-| 자 | 어디서 정하나 | 형태 |
-|---|---|---|
-| `p_A` / `p_B` | `p` 미래 8 슬롯, 7 시나리오 풀링 / ledge·wall 제외 | 256토큰 공간평균 → 좌표당 `w` 하나(8슬롯 공유) 최소제곱 |
-| `h`, `z` | `h` 미래 / `z` 문맥 | 같은 형태 → `p` 에 이식 |
-| **token** | `h` 의 16 튜블릿 전부, pos+imp | **토큰마다 선형 점수 하나 → 16×16 softmax → 격자 기대값** (1,281 파라미터, MSE 뿐) |
+## 3. 폴더
 
-split: 클립 30% 학습 / 70% held-out (셀 층화), plan 의 holdout primary 레벨(2/7)은 평가 전용. `p` 의 판정 대상(ledge·wall)은 `p_B` 와 token 자에서 학습에 없다.
-
-## 3. 결과
-
-### 3-1. 토큰 decoder — `h` 에서는 완벽, `p` 로는 안 옮겨진다 (holdout 레벨)
-
-| | peak 가 물체 안 | 위치 R² | MAE px | 속도 β |
-|---|---:|---:|---:|---:|
-| `h` 미래 (self) | 0.99~1.00 | 0.95~0.996 | 1.4~2.0 | 1.00~1.05 |
-| `h` 문맥 (학습과 다른 시각) | 0.98~1.00 | 0.86~0.996 | 1.4~2.9 | 0.93~1.03 |
-| **`p` (이식)** | **0.38~0.84** | **0.03~0.36** | 13~28 | 0.01~0.26 |
-| `p` + 토큰 LN | 0.43~0.87 | 0.01~0.56 | 10~25 | 0.08~0.40 |
-
-`h` 의 decoder 는 물체 칸을 정확히 가리키고(peak 99.9%), 시각을 옮겨도, 안 본 레벨에서도 그대로다 — 외운 게 아니다.
-그 자를 `p` 에 걸면 peak 가 물체 위에 있는 비율이 flat 84% 에서 arc·ledge·wall 40% 로 떨어지고 softmax 가 퍼진다(peak 확률 0.10~0.17 vs `h` 0.25).
-pooled 선형의 `h→p`, `z→p` 도 전부 실패 (R² 음수). **`p` 의 위치 코드는 `h` 의 토큰 코드와 다른 자리에 있다.**
-
-### 3-2. `p` 자기 자(`p_A`, 7 시나리오 풀링) — 단일 미래 법칙은 읽힌다 (holdout 레벨)
-
-| | 위치 R² | 속도 β | 가속 (읽음 / 정답) |
-|---|---:|---:|---|
-| flat_v | 0.78 | 1.21 | — |
-| flat_a | 0.85 | 0.94 | −3 / 0 |
-| ramp_a | 0.92 | 0.55 (정답 범위 좁음, `h` 0.89) | −27 / −22 |
-| arc | x 0.92 · y 0.85 | 0.75 | y −32 / −23 |
-| **fall** | **y 0.35** | 0.63 | 56 / 101 |
-
-null(튜블릿 셔플 / 8칸 동일 / 라벨 셔플) |β| < 0.1. 시나리오별 자로 30% 학습하면 flat_v 0.83 까지 오른다(풀링 비용 0.1, 표본 비용은 ridge 로 해결됨).
-**fall 만 `p` 가 못 담는다** — `h` 는 0.87. 순수 수직 낙하가 predictor 의 첫 실패 후보다 (arc 는 0.85 라 "공중" 탓이 아니다).
-
-### 3-3. 두 미래 — `p` 는 어느 쪽을 만들었나 (pos 클립, 슬롯 0 제외, 불가능 궤적이 화면 안인 슬롯만)
-
-| | `p_A` (판정 대상 학습 포함) | **`p_B` (제외)** | `h` 천장 (imp 클립) |
-|---|---|---|---|
-| **ledge** 낙하 vs 부유 | 낙하 100%, y가속 58 (정답 67 / 부유 0) | **낙하 99%, y가속 82** | 부유 100% |
-| **wall** 정지 vs 통과 | 정지 100%, x속도 14 (정지 0 / 통과 361) | **47% = chance, x속도 90** | 통과 100% |
-
-- **ledge: predictor 는 낙하를 만들었다.** 선반을 학습에서 뺀 자로 읽어도 같다. 낙하는 경계 뒤에서 시작하는 사건이라 문맥에 없다 (`figures/overlay/ledge_*`: 부유하는 불가능 영상 위에서 주황 마커가 아래로 떨어진다).
-- **wall: 판정 보류.** `p_A` 의 정지 100% 는 wall 의 상수 라벨을 흡수한 것이고(A/B 가 갈린다 = 라벨 흡수의 실증), 벽을 안 본 자로는 정지도 통과도 아니다. 벽 장면의 오프셋(−38 px)도 겹친다.
-
-## 4. 말할 수 있는 것 / 없는 것
-
-✅ 등속·등가속·경사·포물선에서 `p` 의 8슬롯에 위치·속도·가속이 있다 (안 본 레벨, null 0).
-✅ ledge 에서 `p` 는 낙하를 만들었다 (판정 대상을 학습에서 뺀 자로).
-✅ `h` 의 토큰 위치 코드는 `p` 에 없다 — 토큰 단위·LN·pooled 전부. 위치는 `p` 자기 좌표에만 있다.
-❌ wall 은 이 자로 판정 못 한다. "정지" 와 "물체 표현이 흐려짐" 을 못 가른다 (사용자 지적 2번). 부재 판정이 필요하다.
-❌ `p` 로 정한 자는 "판정 대상이 학습에 없다" 는 조건에서만 유효하다. A/B 가 갈리면 A 를 버린다.
-❌ fall 의 낮은 R² 가 predictor 의 실패인지 readout 의 한계인지는 토큰 단위 `p` 자(아직 없음)로 다시 봐야 한다.
-
-## 5. 그림
-
-`figures/overlay/<scenario>_<clip>.png` — 미래 튜블릿 8개 첫 프레임 위에 정답(흰 링) / `p` 읽음(주황) / `h` 읽음(파랑).
-ledge·wall 은 pos 프레임 / imp 프레임 두 줄, `p` 마커는 두 줄에서 같다 (문맥이 같다).
-
-## 재현
-
-```bash
-python z_research/scripts/data/build_rollout2_index.py --write                       # plan 기반 인덱스 (검증 15항목)
-SET="probing.fit_groups_sweep=[null] probing.optims.attn_30.num_epochs=1 probing.targets.shape.classes=[capsule,cone,cube,cylinder,pyramid,sphere,torus]" \
-  GPUS=8 BATCH_SIZE=8 bash z_research/scripts/run.sh attn_probe rollout_v2 vith     # 캐시 107 GiB, 4분
-python z_research/scripts/analysis/rollout2_position.py                             # pooled 자 4종 + 두 미래 + null (첫 실행 풀링 3.5분)
-python z_research/scripts/analysis/rollout2_token_decoder.py --device cuda:0        # 토큰 decoder (h 학습 → p 이식), 2분
-python z_research/scripts/figures/plot_rollout2_overlay.py                          # 프레임 위 마커
 ```
-산출물 `exp_results/position_regression.{json,log}`, `token_decoder.{json,log,pt}`, `token_decoder_preds.npz`.
+exp_results/
+  v5/attentive_pooling/{p,z,h}/     attn.pt, fit.json, test.json, preds.npz (pred·truth·attn)   ← 본체 (학습셋 v5 자)
+  v5/attentive_pooling/p_holdout50/ 학습셋 절반 held-out 검증 (holdout.json)
+  v5/spatial_pooling/{z,h}/         256 토큰 평균 → OLS 자 (대조)
+  probe_pos_imp/                    ledge/wall pos·imp attentive probe (json, log)
+  v11_vanish_all/                   v11 z 캐시 추출 기록 + readout_runs.log
+  attn_probe*__rollout_v2*_vith/    캐시 추출 실행 기록 (_resolved.yaml)
+figures/
+  v5/summary/POSITION_READOUT_2026-09-12.md   정본. fig_l2 / fig_motion_gain / fig_motion_xy, two_futures_attn.{md,json}
+  v5/attentive_pooling/{p,z,h}/{overlay,traj}/  v2 클립 overlay·궤적
+  v5/v11_vanish/{p,z}/<motion>[_early|_mid]/k<k>/  GIF·overlay·fig_gain·readout.npz
+  v5/v11_vanish/pair/                          encoder vs predictor 나란히 GIF (발표용; <motion>_<timing>/ 하위)
+  v5/v11_vanish/timing/                        fig_timing, timing_summary, attn_diag, token_test
+  probe_pos_imp/                               fig_confusion_all_{h_ctx,z}
+```
+
+## 4. 결론 요약 (수치는 정본 문서 §번호)
+
+| 주장 | 근거 | 위치 |
+|---|---|---|
+| 자는 믿을 수 있다 | held-out 0.87 칸; encoder 자 v2 전 시나리오 ≤ 0.61 칸, v11 어디서나 추적; 자 없는 검사 (r = \|p−h_imp\|/\|p−h_pos\|) 와 슬롯 단위 일치; v11 만으로 학습한 자는 자리 prior 를 외움 (기각) | §2 |
+| p 는 등속만 물체 위 | flat_v 0.71 칸 gain 0.85; flat_a 1.07 / 0.57; ramp·arc·fall 0.9~1.4 칸, gain 0.4~0.5 | §3 |
+| ledge: 선반 높이 유지 (부유) | 슬롯 3~4 부유 궤적 질량 0.43 / 0.39 (낙하 0.17 / 0.19), 기본값은 낙하 쪽, 392 쌍 100 %; probe P(imp) 0.91~0.96 | §4-1, 4-3, 4-4 |
+| wall: 2 슬롯 통과 뒤 물체 소실 (멈춤 없음) | 슬롯 1~2 통과 질량 0.61 / 0.48; 슬롯 3~7 질량 ≤ 0.18, 읽기 = 기본값; probe P(imp) 0.70~0.90. ("+29 px 에서 멈춤" 은 정정) | §4-2 → 4-3, 4-4 |
+| v11: 물체다운 토큰이 남아 있는 길이 = late 0 < early/mid 3 < 가림막 없음 4~5 슬롯 | 자 질량 (k=0 0.74→0.06, early 0.59→0.03, late 0.03), 자 없는 검사 frac r>1 (k=0 1.00→0.05 슬롯 5, early 슬롯 3 0.59, late k4 슬롯 0 0.54) | §5-3, 5-4, 2-3 C |
+| v11: "마지막 관측에 머문다" 는 기본값 | 마지막 관측 3×3 질량 0.01~0.03, 읽기−기본값 19~36 px, 기본값−마지막관측 14~25 px | §5-4 정정 |
+| ramp late 만 k 에 따라 악화, static 도 late 만 1 칸 넘게 | ratio 0.21→0.04; static p late 20~24 px vs early/mid 12~15, k=0 9.6 | §5-4 |
+| 채점과 위치는 별개 축 | vanish 채점 early 97.8 / mid 95.8 / late 57.5 vs 위치는 셋 다 3 슬롯 안 소실 | §5-4 |
+
+폐기·정정한 해석 전체 목록: 정본 §8.
+
+## 5. 스크립트 (`z_research/scripts/`)
+
+| 파일 | 역할 |
+|---|---|
+| `data/build_rollout2_index.py` | v2 / training_v5 index (plan 에서 라벨, `visible_by_sample`) |
+| `analysis/rollout2_test_readout.py` | 공통 설정 (`ROLLOUT2_TRAIN=v5`, 경로, 지표 함수) |
+| `analysis/rollout2_attn_readout.py` | p 자 학습·v2 test (`--holdout 0.5` 로 검증 A). GPU 2 장 샤딩 |
+| `analysis/rollout2_encoder_readout.py` | 같은 자를 z / h 에 (`--encoder z\|h`) |
+| `analysis/rollout2_fit_readout.py`, `rollout2_ceiling.py` | spatial OLS 자 (대조) |
+| `analysis/rollout2_two_futures_attn.py` | ledge/wall 슬롯별 attention 질량·기본값 거리 (§4-3) |
+| `analysis/rollout2_probe_pos_imp.py` | pos/imp attentive probe (§4-4) |
+| `analysis/v11_readout_attn_diag.py` | v11 슬롯별 attention 진단 (§5-4 정정) |
+| `analysis/v11_token_object_test.py` | 자 없는 검사 C (§2-3) |
+| `figures/plot_rollout2_readout.py`, `plot_rollout2_summary.py` | v2 overlay·궤적, fig_l2 등 |
+| `figures/plot_v11_vanish_readout.py` | v11 자 적용 (`--rep --motion --timing --k`), GIF·readout.npz |
+| `figures/plot_v11_vanish_timing.py` | timing × k 표·그림 |
+| `figures/plot_v11_vanish_pair_gif.py` | encoder vs predictor 나란히 GIF (`--dataset v11\|v2`, `--timing`) |
+| `figures/plot_probe_pos_imp_confusion.py` | probe confusion 2×4 |
+
+## 6. 재현
+
+정본 문서 `## 재현` 절 (캐시 추출 → 자 학습 → test → v11 → 검증 → 그림, 전부 명령줄). 데이터셋 등록: `configs/protocols/datasets.md` `## rollout_v2`, `## rollout_v2_training_v5`, `## v11_vanish_all`.
+
+## 7. 이 세트에서 걸렸던 함정
+
+- 자의 기본값이 데이터의 "의미 있는 자리" (v11 마지막 관측, wall 정지점) 와 겹쳐 하루 동안 잘못 읽었다 (§8). → 규칙 1·2.
+- v11 k=0 p 만으로 자를 학습하면 자리 prior 를 외운다 (오차 3 px 인데 물체 질량 0.1). 위치를 고루 덮는 학습셋이 필요하다.
+- 학습셋 판 뒤 튜블릿을 자가 16~20 px 로 읽는 것은 판 자리를 읽는 것과 구분이 안 된다 — 증거로 쓰지 말 것.
+- v3 (kink·고속) 학습셋은 자를 흐리게 했다 — 재시도 금지. v11 속도 (18 px/tubelet) 는 학습셋 상한 (12) 밖이지만 k=0 슬롯 0~4 는 12 px 로 읽힌다.
+- 캐시는 `video_ids` 완전 일치 — 부분집합으로 먼저 뽑은 캐시를 전체에 재사용 못 해 v11 z 를 두 번 뽑았다. **묶어서 뽑을 범위를 index 를 만들 때 정한다.**
+- `datasets.md` 에 같은 섹션이 두 번 들어간 적이 있다 (2026-09-12 제거). `sed -i` 금지 — Python 으로 고친다.

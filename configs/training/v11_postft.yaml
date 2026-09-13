@@ -1,0 +1,21 @@
+# =============================================================================
+# 릴리즈 ViT-H predictor 에서 시작하는 post fine-tuning — IntPhysGen v11 block split
+#   GPUS=8 bash z_training/train.sh v11_postft
+#   GPUS=8 bash z_training/eval.sh v11_postft v11_split_test          # held-out 채점
+#   CKPT=e3.pt GPUS=8 bash z_training/eval.sh v11_postft v11_split_test
+#
+# 데이터: v11_split_train (train 절반의 가능 변이 10,752 clip). 채점: v11_split_test (test 절반 10,752 쌍).
+# 출발선: 릴리즈 predictor 의 test 절반 점수 75.83% (기존 v11 채점 per_block.json 에서 추출, 재실행 불필요).
+# epoch 마다 e{N}.pt 를 따로 남긴다 (predictor 만, ~270 MB).
+# =============================================================================
+extends: frozen_predictor_postft
+
+meta:
+  save_every_freq: 1
+
+data:
+  datasets: [v11_split_train]
+
+val:
+  dataset: v11_split_test
+  n_blocks_per_type: 8       # 12 조건 x 8 block = 384 clip, 192 쌍 (감시용)

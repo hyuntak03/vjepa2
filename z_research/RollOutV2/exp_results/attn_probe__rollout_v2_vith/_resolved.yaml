@@ -77,37 +77,11 @@ probing:
       - pyramid
       - sphere
       - torus
-    color:
-      column: color_pre
-      classes:
-      - blue
-      - cyan
-      - green
-      - magenta
-      - orange
-      - purple
-      - red
-      - yellow
-    env:
-      column: env
-      classes:
-      - checker_steel
-      - concrete_brick
-      - grass_hewn
-      - hex_rust
   block_types:
   - obj
   fit_groups_sweep:
   - null
   runs:
-  - train:
-      model: context
-      input: full
-      frames:
-      - 1
-      - 16
-    eval:
-    - self
   - train:
       model: target
       input: full

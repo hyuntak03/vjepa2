@@ -1,0 +1,52 @@
+# =============================================================================
+# 릴리즈 ViT-H predictor post-FT — IntPhys1 train (가능 영상 3,750), sliding 채점 분포에 맞춤
+#   GPUS=8 bash z_training/train.sh intphys1_postft
+#   CKPT=e10.pt GPUS=8 bash z_training/eval.sh intphys1_postft intphys1_dev intphys1_sliding
+#
+# 채점 그리드 = skip{2,5} x window{16,32} x 시작점(2칸) x C 배수{2..10} 중 100프레임에 드는 세 칸:
+#   skip2_w32 45창 · skip2_w16 85창 · skip5_w16 10창 (영상당 140 (창,C) 조합).
+# 학습은 data.window_grid 가 **같은 조합 공간**에서 배치마다 하나를 빈도대로 뽑는다 (= 채점 분포).
+#   skip2_w32 만 쓰려면: SET="data.window_grid.weights=[1,0,0]"   (intphys1_postft_w32.yaml)
+#   그리드를 끄고 예전 방식(고정 stride + mask.context_frames): SET="data.window_grid=null"
+# 릴리즈 기준선 88.89% (z_exp/world_model_analysis/results/intphys1_vith). dev 와 train 은 분할이 다르다.
+# 3,750 clip / 64 = epoch 당 58 step. 영상당 140 조합을 평균 한 번씩 보려면 8,200 step (≈140 epoch) 이 필요하다 —
+# epochs 로 조절한다 (기본 40 = 2,320 step, ~45분).
+# =============================================================================
+extends: frozen_predictor_postft
+
+meta:
+  save_every_freq: 5
+
+data:
+  n_frames: 32                       # 최대 창 (RoPE 상한). 셀의 n_frames 는 이 이하
+  datasets: [intphys1_train]
+  window_grid:                       # ★ 채점 그리드 그대로. 배치마다 (stride, 창, 시작점, C) 하나를 뽑는다
+    raw_span: 99                     # 공식 budget = 99//skip 프레임 -> raw 0..98. skip2_w32 마지막 창이 오프셋 94 까지 쓴다. 데이터셋은 raw 1..99 를 읽어 둔다
+    start_step: 2                    # 채점의 시작점 간격 (샘플 프레임 단위)
+    frame_budget: official           # 공식 num_frames = 99//skip 안의 창만
+    jitter_raw: 0                    # 0 = 채점과 같은 시작점. >0 이면 raw 프레임 무작위 오프셋
+    weights: auto                    # 셀의 창 수 비례 (45 : 85 : 10). [1,0,0] 이면 skip2_w32 만
+    cells:
+      - {stride: 2, n_frames: 32, context_frames: [4, 8, 12, 16, 20]}    # skip2_w32 (보고 지표)
+      - {stride: 2, n_frames: 16, context_frames: [2, 4, 6, 8, 10]}      # skip2_w16
+      - {stride: 5, n_frames: 16, context_frames: [2, 4, 6, 8, 10]}      # skip5_w16
+
+optimization:
+  epochs: 40
+  warmup: 2
+
+val:                                 # 감시용 고정창 (sliding 아님). 채점 창과 같은 stride 2, C 16
+  dataset: intphys1_dev
+  n_blocks_per_type: 10
+  context_length: 16
+  data:
+    root: /local_datasets/world/world_analysis/IntPhys1_dev_videos
+    index_csv: index.csv
+    frames_root: /local_datasets/world/world_analysis/IntPhys1_dev_frame_png
+    frames_pattern: "{block}/{quadruplet}/{run}/scene/scene_{frame:03d}.png"
+    frames_start: 1
+    frames_stride: 2
+    block_column: block_id
+    pair_column: pair_id
+    plausible_column: plausible
+    type_column: block_type
