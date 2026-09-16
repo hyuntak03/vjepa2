@@ -81,11 +81,17 @@ def make(setname, vid, data, rows, meta, out):
 
 
 def main():
-    ap = argparse.ArgumentParser(); ap.add_argument("--set", required=True, help="v11 | v11_shape | v11_color | rollout_v2"); ap.add_argument("--clip", nargs="*", default=[]); ap.add_argument("--n", type=int, default=0); ap.add_argument("--no-heat", action="store_true", help="attention 히트맵 끄기"); ap.add_argument("--ms", type=int, default=180, help="프레임당 ms (작을수록 빠름)"); a = ap.parse_args()
+    ap = argparse.ArgumentParser(); ap.add_argument("--set", required=True, help="v11 | v11_shape | v11_color | rollout_v2"); ap.add_argument("--clip", nargs="*", default=[]); ap.add_argument("--n", type=int, default=0); ap.add_argument("--no-heat", action="store_true", help="attention 히트맵 끄기"); ap.add_argument("--fast", action="store_true", help="rollout_v2: 시나리오마다 primary 속도가 가장 큰 clip 을 고른다"); ap.add_argument("--ms", type=int, default=180, help="프레임당 ms (작을수록 빠름)"); a = ap.parse_args()
     global HEAT, MS; HEAT, MS = not a.no_heat, a.ms
     kind = "v11" if a.set.startswith("v11") else "rollout_v2"
     data = load(a.set); rows = {r["video_id"]: r for r in csv.DictReader(INDEX[kind].open())}; meta = {r["name"]: r for r in csv.DictReader(META.open())} if kind == "v11" else {}
     vids = list(a.clip)
+    if a.fast and kind == "rollout_v2":
+        best = {}
+        for v in data["pft"]:
+            r = rows[v]; key = r["scenario"]; val = abs(float(r["primary"]))
+            if key not in best or val > best[key][0]: best[key] = (val, v)
+        vids += [v for _, v in best.values()]; print({k: (rows[v]["primary_name"], rows[v]["primary"]) for k, (_, v) in best.items()})
     if a.n:
         seen = {}
         for v in data["pft"]:
