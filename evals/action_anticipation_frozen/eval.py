@@ -373,6 +373,11 @@ def main(args_eval, resume_preempt=False):
         if rank == 0:
             torch.save(save_dict, latest_path)
 
+    # rank≠0 로그 끄기. 여기서 한다 — init_module 이 import 하는 modelcustom 모듈이 root logger 를 INFO 로 되돌리므로
+    # 그 뒤에 해야 한다 (2026-09-14: init_distributed 직후에 두었더니 GPU 수만큼 같은 줄이 계속 찍혔다)
+    if rank != 0:
+        logger.setLevel(logging.ERROR)
+
     # -- Train action recognition model
     for epoch in range(start_epoch, num_epochs):
         logging.info(f"Epoch {epoch}")
@@ -613,23 +618,30 @@ def train_one_epoch(
 
             # Forward and prediction
             with torch.no_grad():
-                outputs = model(clips, anticipation_times)
-            outputs = [c(outputs) for c in classifiers]
+                feats = model(clips, anticipation_times)
 
         # Compute loss & update weights
-        if action_is_verb_noun:
-            verb_loss = [criterion(o["verb"], verb_labels) for o in outputs]
-            noun_loss = [criterion(o["noun"], noun_labels) for o in outputs]
-            action_loss = [criterion(o["action"], action_labels) for o in outputs]
-            loss = [v + n + a for v, n, a in zip(verb_loss, noun_loss, action_loss)]
-        else:
-            loss = [criterion(o["action"], action_labels) for o in outputs]
+        # 2026-09-15: head 마다 forward -> loss -> backward 를 차례로 한다 (원본은 head 전부 forward 뒤 전부 backward).
+        # 계산 횟수·순서 (head i 의 forward 는 i 의 backward 전) 가 같고 head 끼리 독립 (encoder 는 no_grad) 이라 gradient 는 같다.
+        # activation 을 head 1 개분만 들고 있어 RTX 4090 24 GB 에 head 8 개가 들어간다. 원본 방식은 head 수만큼 activation 이 쌓인다.
+        outputs = []
+        for i, c in enumerate(classifiers):
+            with torch.cuda.amp.autocast(dtype=torch.bfloat16, enabled=use_bfloat16):
+                o = c(feats)
+            if action_is_verb_noun:
+                L = criterion(o["verb"], verb_labels) + criterion(o["noun"], noun_labels) + criterion(o["action"], action_labels)
+            else:
+                L = criterion(o["action"], action_labels)
+            if use_bfloat16:
+                scaler[i].scale(L).backward()
+            else:
+                L.backward()
+            outputs.append({k: v.detach() for k, v in o.items()})   # 지표용 logit 만 남긴다
+            del o, L
         if use_bfloat16:
-            [s.scale(l).backward() for s, l in zip(scaler, loss)]
             [s.step(o) for s, o in zip(scaler, optimizer)]
             [s.update() for s in scaler]
         else:
-            [L.backward() for L in loss]
             [o.step() for o in optimizer]
         [o.zero_grad() for o in optimizer]
 

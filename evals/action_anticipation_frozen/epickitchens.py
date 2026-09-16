@@ -105,7 +105,10 @@ class decode_videos_to_clips(wds.PipelineStage):
         # -- 구간 경계를 무엇으로 잡나 (§README 차이 3)
         #    "frame"    : csv 의 start_frame/stop_frame 을 비디오 프레임 번호로 그대로 (공식 구현)
         #    "timestamp": start_timestamp/stop_timestamp x 실제 fps 로 환산 (fps 불일치 8개 비디오 교정)
-        assert time_source in ("frame", "timestamp"), time_source
+        #    "frame_fixfps": frame 과 같되, csv 프레임 번호의 기준 fps(60/50)와 실제 fps 가 1 이상 다른 비디오
+        #                    (29.97/47.95/90) 와 stop_frame 이 비디오 길이를 넘는 구간만 timestamp 로.
+        #                    59.94fps 비디오는 공식과 비트 단위로 같은 clip (릴리즈 체크포인트가 본 입력) 을 유지한다
+        assert time_source in ("frame", "timestamp", "frame_fixfps"), time_source
         self.time_source = time_source
 
     @staticmethod
@@ -144,7 +147,10 @@ class decode_videos_to_clips(wds.PipelineStage):
 
                 # -- 구간 경계를 timestamp 에서 다시 잡는다 (annotation 프레임 번호와 실제
                 #    비디오 fps 가 어긋나는 비디오가 있다 — 29.97/47.95 fps 8개)
-                if self.time_source == "timestamp" and start_ts is not None:
+                use_ts = self.time_source == "timestamp"
+                if self.time_source == "frame_fixfps":
+                    use_ts = min(abs(vfps - 60.0), abs(vfps - 50.0)) > 1.0 or ef >= len(vr)
+                if use_ts and start_ts is not None:
                     sf = int(round(self._ts_to_sec(start_ts[i]) * vfps))
                     ef = int(round(self._ts_to_sec(stop_ts[i]) * vfps))
 

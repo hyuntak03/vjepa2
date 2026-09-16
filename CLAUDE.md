@@ -568,6 +568,7 @@ v8 의 정보손실/정렬손실 분해, 2D 대조는 `z_research/IntPhysGenV8/`
 | `configs/protocols/` | 프로토콜 yaml + `datasets.md`/`models.md` 레지스트리 | ✅ |
 | `z_research/scripts/` | 최상위엔 **직접 치는 것만**. 나머지는 `harness/`·`data/`·`figures/`·`analysis/` | ✅ |
 | **`z_research/IntPhysGenV11/`** | **본 실험 세트.** `README.md` 가 시작점 | 부분 |
+| `z_research/anticipation/EK100/` | V-JEPA 2 EK100 action anticipation 재현 (논문 §6). `README.md` 가 시작점 — 릴리즈 코드와 논문이 다른 곳과 우리 기본값 | 부분 |
 | **`z_research/RollOutV2/`** | **위치 readout 세트** (p 가 물체를 어디에 두나). `README.md` → `figures/v5/summary/POSITION_READOUT_2026-09-12.md` | 부분 |
 | `z_research/IntPhysGen{V8,V10}/`, `IntPhys/` | 아카이브 | 부분 |
 | `z_research/<셋>/Archive/*.md` | 분석 문서. **파일명에 날짜** `TOPIC_YYYY-MM-DD.md` | ✅ |

@@ -42,9 +42,13 @@ exp_results/
 figures/
   v5/summary/POSITION_READOUT_2026-09-12.md   정본. fig_l2 / fig_motion_gain / fig_motion_xy, two_futures_attn.{md,json}
   v5/attentive_pooling/{p,z,h}/{overlay,traj}/  v2 클립 overlay·궤적
+  v5/attentive_pooling/p/traj_gif/             위 traj 의 GIF 판 (32 샘플 프레임, 정답·읽기 궤적 누적, time bar)
+  v5/attentive_pooling/pair_gif/               같은 21 clip 의 context encoder z vs predictor p 나란히 GIF (`plot_v11_vanish_pair_gif.py --dataset v2 --out`)
   v5/v11_vanish/{p,z}/<motion>[_early|_mid]/k<k>/  GIF·overlay·fig_gain·readout.npz
-  v5/v11_vanish/pair/                          encoder vs predictor 나란히 GIF (발표용; <motion>_<timing>/ 하위)
+  v5/v11_vanish/pair/                          encoder vs predictor 나란히 GIF (발표용; <motion>_<timing>/k1~k4/ 하위, 가림막 없는 k=0 은 <motion>_visible/)
   v5/v11_vanish/timing/                        fig_timing, timing_summary, attn_diag, token_test
+  v5/v11_vanish/emergence/fig_position_k1      visible / early k=1 / mid k=1 / late k=1 미래 위치 (진실·z·p 평균 ± SD, 출구 모서리 점선) — 가장 읽기 쉬운 판
+  v5/v11_vanish/emergence/                     물체가 가림막 밖으로 나오는가: z vs p. by_condition/fig_<late|mid|early>_k<1..4> (위치 + 튜블릿 상태), data/*.npz, emergence.{md,json}, _superseded/ (첫 판)
   probe_pos_imp/                               fig_confusion_all_{h_ctx,z}
 ```
 
@@ -79,6 +83,8 @@ figures/
 | `figures/plot_rollout2_readout.py`, `plot_rollout2_summary.py` | v2 overlay·궤적, fig_l2 등 |
 | `figures/plot_v11_vanish_readout.py` | v11 자 적용 (`--rep --motion --timing --k`), GIF·readout.npz |
 | `figures/plot_v11_vanish_timing.py` | timing × k 표·그림 |
+| `figures/plot_v11_position_k1.py` | visible / early·mid·late k=1 미래 위치 한 장 (y = 진행 방향 화면 중심 기준 px) |
+| `figures/plot_v11_emergence.py` | 미래에서 물체가 가림막 밖으로 나오는가 (z vs p, 출구 모서리 거리 + attention gate). `--plot-only` 로 그림만 |
 | `figures/plot_v11_vanish_pair_gif.py` | encoder vs predictor 나란히 GIF (`--dataset v11\|v2`, `--timing`) |
 | `figures/plot_probe_pos_imp_confusion.py` | probe confusion 2×4 |
 

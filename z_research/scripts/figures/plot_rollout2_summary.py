@@ -2,6 +2,7 @@
 """RollOut_v2 — 학습셋 자 (attentive) 로 읽은 p / z / h 위치의 요약 그림 두 장.
 
   figures/<train>/summary/fig_l2.png         시나리오별 L2 위치 오차 (토큰 한 칸 18 px = 1), p / z / h + echo 기준선
+  figures/<train>/summary/fig_err_xy.png     같은 오차를 축별로: |x 오차|, |y 오차| 평균 (칸)
   figures/summary/fig_motion_gain.png  시나리오·축별 motion gain = clip 단위 (읽은 슬롯 0→7 변위) 를 (진실 변위) 에 회귀한 기울기. 1 = 진실만큼, 0 = 안 움직임. 숫자 = 상관.
   figures/summary/fig_motion_xy.png  시나리오별 x(t), y(t) 변위 (슬롯 0 기준, clip 평균 ± SD): 진실 vs p / z / h.
                                      x 는 진실의 진행 방향으로 부호를 맞춘다 (좌/우 clip 상쇄 방지).
@@ -57,6 +58,20 @@ def main():
     ax.set_xticks(xs); ax.set_xticklabels([LAB[s] for s in order], fontsize=7.5); ax.set_ylabel("L2 position error (token cells)"); ax.set_ylim(0, 2.4)
     ax.legend(fontsize=7, frameon=False, loc="upper left", ncol=3, bbox_to_anchor=(0, 0.95)); ax.spines[["top", "right"]].set_visible(False); ax.tick_params(axis="y", labelsize=7.5)
     fig.tight_layout(); fig.savefig(FIG / "fig_l2.png", dpi=200); fig.savefig(FIG / "fig_l2.pdf"); plt.close(fig)
+
+    # ── fig 1b: 축별 오차 — fig_l2 를 x / y 로 나눈다. 슬롯별 |읽기 − 진실| 평균 (in_frame 슬롯), 칸 단위 (2026-09-14) ──
+    AE = {r: np.array([[np.abs(pred[r][k][..., a] - truth[k][..., a])[inf[k]].mean() / CELL for k in [(sc == s) & (pl == 1) for s in SCEN]] for a in (0, 1)]) for r in pred}
+    fig, axes = plt.subplots(2, 1, figsize=(7.0, 4.2), sharex=True)
+    for a, ax in enumerate(axes):
+        for j, r in enumerate(reps):
+            ax.bar(xs + (j - (len(reps) - 1) / 2) * w, AE[r][a][oi], w, color=COL[r], label=LBL[r])
+        ax.axhline(1, color="k", lw=0.8, ls=":", label="half object width (18 px = 1 token)")
+        ax.set_ylim(0, 2.0); ax.spines[["top", "right"]].set_visible(False); ax.tick_params(axis="y", labelsize=7.5)
+        ax.set_ylabel(f"|{'xy'[a]} error| (token cells)")
+    axes[0].legend(fontsize=7.5, frameon=False, loc="upper left", ncol=4, handlelength=2.5)
+    axes[1].set_xticks(xs); axes[1].set_xticklabels([LAB[s] for s in order], fontsize=7.5)
+    fig.tight_layout(); fig.savefig(FIG / "fig_err_xy.png", dpi=200); fig.savefig(FIG / "fig_err_xy.pdf"); plt.close(fig)
+    print("axis error (cells) x / y:"); [print(f"   {s:<7} " + "  ".join(f"{r} {AE[r][0][i]:.2f}/{AE[r][1][i]:.2f}" for r in reps)) for i, s in enumerate(SCEN)]
     plt.rcParams.update({"font.family": "DejaVu Sans", "font.size": 9})
 
     # ── fig 2: x(t), y(t) displacement ──
@@ -82,8 +97,9 @@ def main():
                 ax.set_title(s)
             else:
                 ax.set_xlabel("future tubelet")
-    h, l = axes[0, -1].get_legend_handles_labels(); fig.legend(h, l, loc="lower center", ncol=6, frameon=False, fontsize=8, bbox_to_anchor=(0.5, -0.01))
-    fig.tight_layout(rect=(0, 0.05, 1, 1)); fig.savefig(FIG / "fig_motion_xy.png", dpi=170); plt.close(fig)
+    h, l = axes[0, -1].get_legend_handles_labels()
+    fig.legend(h, l, loc="lower center", ncol=6, frameon=False, fontsize=13, handlelength=3.0, columnspacing=2.5, bbox_to_anchor=(0.5, -0.01))
+    fig.tight_layout(rect=(0, 0.08, 1, 1)); fig.savefig(FIG / "fig_motion_xy.png", dpi=170); plt.close(fig)
 
     # ── fig 3: motion gain — clip 단위로 슬롯 0→7 변위를 진실에 회귀한 기울기 (1 = 진실만큼 움직임, 0 = 안 움직임) ──
     fig, axes = plt.subplots(1, 2, figsize=(7.0, 2.6), sharey=True); w = 0.25

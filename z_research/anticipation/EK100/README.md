@@ -1,413 +1,281 @@
-# EK100 action anticipation 재현 — 시작점 (2026-09-12)
-
-> **아직 한 번도 안 돌렸다.** 이 문서는 **구현과 확인해야 할 것**만 담는다. 수치는 하나도 없다.
-> 레포 규칙은 루트 `CLAUDE.md`. 논문은 V-JEPA 2 §6 + Appendix D.1 (Table 19).
-
-## 0. 한 줄
-
-frozen V-JEPA 2 encoder + predictor 위에 **attentive probe 만** 학습해 EK100 의 다음 action
-(verb / noun / action)을 1초 앞서 맞히고, **mean class recall@5** 로 잰다.
-공식 구현(`evals/action_anticipation_frozen/`)이 레포에 이미 있으므로 **새로 쓴 것은 없다** —
-경로·설정을 붙이고, 논문과 어긋나는 지점 3곳을 찾아 **논문 쪽으로 맞췄다** (§3).
-특히 **문맥은 action segment 시작 1초 전에서 끝난다** — 릴리즈 코드 기본값은 그게 아니었다.
-
----
-
-## 1. 먼저 답: spatial / temporal crop 을 하는가
-
-**질문하신 것과 실제 구현이 다르다.**
-
-| 축 | 공식 구현이 실제로 하는 것 | 어디 |
-|---|---|---|
-| **spatial (val)** | **center crop 을 한다.** 짧은변을 `256*256/224 = 292` 로 키우고 가운데 **256x256** 을 자른다. 1920x1080 이면 **폭의 46% 를 버린다** | `dataloader.py` `VideoTransform.eval_transform` |
-| **spatial (train)** | `random_resized_crop` (scale 0.08~1.0, ratio 3/4~4/3) + auto-augment + h-flip + random-erase 0.25 | 같은 파일 `__call__` |
-| **temporal** | **crop/다시점 없다.** action 마다 클립 **하나**. 32 frame @ 8 fps = **4초 문맥** 을 `af` 에서 끝나게 한 번 뽑는다. val 에 multi-view averaging 도 없다 | `epickitchens.py` `decode_videos_to_clips` |
-
-즉 **temporal 은 말씀대로 crop 이 없고, spatial 은 center crop 이 있다.**
-→ **2026-09-13 결정: 당분간 공식 `center_crop` 을 기본으로 쓴다.** `short_side` 는 `SET` 으로 켠다.
-
-### spatial 모드 세 가지 (기본 `center_crop`, 2026-09-13)
-
-`evals/action_anticipation_frozen/spatial.py` 에 종횡비를 **절대 늘리지 않는** 세 모드를 뒀다.
-원본을 정사각으로 눌러 담는 경로는 어디에도 없다.
-
-| `spatial_mode` | 무엇 | 1920x1080 에서 | 출력 |
-|---|---|---|---|
-| `short_side` | 짧은변을 256 에 맞추고 긴변만 가운데로 자른다 | 1080 -> **256** (세로 전부 보존), 1920 -> 455 -> 가운데 **256** | **256x256** |
-| **`center_crop`** | **짧은변 -> 292, 그 뒤 가운데 정사각 (공식 구현) — 기본값** | 1080 -> 292 -> 256 (**1.14배 더 확대**, 세로 12.5% 추가로 버림) | 256x256 |
-| `letterbox` | 긴변을 맞추고 남는 자리 패딩. 아무것도 안 자름 | 1920 -> 256, 1080 -> 144 + 패딩 | 256x256 |
-
-실측 (EK100 해상도 3종, 전부 출력 256x256 · 비율 안 깨짐):
-
-| 원본 | scale | 중간 | crop |
-|---|---|---|---|
-| 1080x1920 (694개) | 0.2370 | 256x455 | 256x256 |
-| 720x1280 (4개) | 0.3556 | 256x455 | 256x256 |
-| 1440x1920 (2개) | 0.1778 | 256x341 | 256x256 |
-
-**공식 `center_crop` 과의 차이는 확대율 하나다.** 공식은 짧은변을 292 로 키운 뒤 256 을
-떼므로 세로 화각을 12.5% 더 버린다. `short_side` 는 **세로를 통째로 보존**한다.
-가로는 둘 다 자른다 — 정사각 출력이라 피할 수 없다. **어느 쪽도 비율을 늘리지 않는다.**
-
-구현은 `scale = max(256/h, 256/w)` 후 CenterCrop (CSS `object-fit: cover`).
-`spatial.py` 의 `ResizeShortSideCenterCrop`. 옛 이름 `cover` 도 별칭으로 받는다.
-
-출력이 정사각이므로 **module 은 공식 정사각 판 그대로** 쓴다
-(`vit_encoder_predictor_concat_ar`), 토큰도 4096 그대로고 **global batch 도 논문과 같은 128** 이다.
-`width` 를 256 이 아닌 값으로 주면 비정사각이 되는데, 그때만 `..._nonsquare` module 이 필요하다
-(`resolve.py` 가 조합을 검사한다).
-
-⚠️ `letterbox` 는 pretrain 이 본 적 없는 입력이다. 대조군으로만.
-⚠️ 공식 수치는 `center_crop` 으로 나온 것이라 **직접 비교 대상이 아니다** (§8).
-
----
-
-## 2. 프로토콜 (논문 Table 19 대로 넣었다)
-
-| 항목 | 값 |
-|---|---|
-| 문맥 | 32 frames @ 8 fps = **4초**, `af` 에서 끝난다 |
-| val anticipation time | **1.0초** (`anticipation_time_sec: [1.0, 1.0]`) |
-| val anticipation point | 0.0 |
-| train anticipation time | 0.25 ~ 1.75초 |
-| train anticipation point | 0.0 ~ 0.25 |
-| probe | attentive, **4 블록**, 16 head, 마지막 cross-attention 의 **query 3개** (verb / noun / action 각각 linear) |
-| probe 입력 | `[encoder 출력 ; predictor 출력]` 을 토큰 축으로 concat — 256x256 이면 **4096 + 256 = 4352 토큰** |
-| loss | focal (alpha 0.25, gamma 2.0), 세 분류기 독립 합산 |
-| epoch / warmup | 20 / 0 |
-| global batch | **128** |
-| head | 논문은 **20개 = lr 5종 x wd 4종** sweep. **우리는 1개, lr 1e-3 / wd 1e-2 고정** (2026-09-13 결정) |
-| 지표 | **mean class recall@5 (verb / noun / action), EK100 validation set** — 논문 문장 그대로 |
-
-### probe head 는 하나로 고정했다 (2026-09-13)
-
-논문은 lr 5종 x wd 4종 = **head 20개를 동시에 학습하고 매 지표를 20개 중 `max` 로 보고**한다
-(`train_one_epoch` / `validate` 의 `max([...])`). 즉 논문 수치는 val 로 고른 sweep best 다.
-
-우리는 **head 1개, `lr 1e-3` / `wd 1e-2`** 로 고정했다. 값은 논문 grid 의 가운데를 고른 것이고
-**근거가 있는 값이 아니다.** 바꿀 때는 `LR=3e-4 WD=1e-1 bash run.sh ek100_vith`.
-sweep 으로 돌리려면 `make_configs.py` 에서 `heads="sweep"`.
-
-### 지표 — mean class recall@5 를 val set **전체에서 한 번씩** 센다
-
-논문: *"We report mean-class recall-at-5 for verb, noun and action on the validation set of EK100."*
-
-지표의 **정의**는 릴리즈 코드(`metrics.ClassMeanRecall`)와 같다 — top-5 안에 정답이 있으면 그 클래스의 TP,
-아니면 FN. 클래스별 recall 을 **val 에 한 번이라도 나온 클래스**에 대해 평균. 예측 후보를 val 클래스로 제한하지 않는다.
-
-문제는 그 지표를 **어떤 clip 들 위에서** 세느냐다. 릴리즈 `eval.py` 의 `validate()` 는
-
-```python
-ipe = num_clips // (world_size * batch_size)
-for itr in range(ipe):
-    try:    udata = next(_data_loader)
-    except: _data_loader = iter(data_loader); udata = next(_data_loader)   # 끝나면 다시 감는다
-```
-
-val 은 **비디오 단위로 rank 에 나뉘어** rank 마다 clip 수가 다른데, 모든 rank 가 똑같이 `ipe` 배치만 센다.
-clip 이 적은 rank 는 앞쪽을 다시 감아 **두 번** 세고, 많은 rank 는 뒤쪽을 **안 센다.**
-
-실제 val 분포(9,296 clip / 138 video)로 그 루프를 흉내 낸 결과:
-
-| 설정 | ipe | rank 가 가진 clip | 한 번도 안 센 clip | 두 번 이상 센 clip |
-|---|---:|---|---:|---:|
-| 공식 config (64 GPU, bs 2, workers 2) | 72 | 17 ~ 646 | **3,089 (33.2%)** | 1,812 |
-| 우리 (8 GPU, bs 16, workers 6) | 72 | 793 ~ 1,906 | **1,420 (15.3%)** | 1,061 |
-
-⚠️ 이건 **시뮬레이션**이다 (실행해서 센 값이 아니다). 가정: DataLoader 가 worker 를 round-robin 으로 섞고,
-비디오 순서는 `filter_annotations` 그대로, decode 실패 0. 수치의 크기는 이 가정에 달려 있지만
-**"val set 과 다른 clip 집합을 센다"** 는 결론은 `ipe` 공식과 다시 감기만으로 정해진다.
-이 차이가 recall 을 올리는지 내리는지는 **모른다** (클래스 분포가 비디오마다 달라서 방향이 정해지지 않는다).
-
-→ **`evaluation.exact_val_pass: true`** (전 config 기본): rank 마다 자기 loader 를 **끝까지 한 번** 돌고
-TP/FN 을 로컬에 쌓았다가 **all_reduce 한 번**. 실제로 센 clip 수(`n_clips`)를 기대값과 같이 기록한다.
-구현 `evals/action_anticipation_frozen/exact_val.py`, 지표 정의가 `ClassMeanRecall` 과 같은지는
-`selftest.py` [6] 에서 긴 꼬리 라벨로 대조했다 (97 / 3,568 클래스 모두 소수 넷째 자리까지 일치).
-
-출력 `exp_results/action_anticipation_frozen/<tag>/val_metrics.jsonl` — epoch 마다 한 줄:
-`{"epoch", "metric": "mean_class_recall@5", "action": {"recall", "accuracy"}, "verb": ..., "noun": ..., "n_clips", "expected_clips", "heads": [{"lr", "wd"}]}`
-
-**보고 값은 마지막 epoch(20)** 으로 한다. epoch 중 최고값은 val 로 고른 것이라 descriptive 다 (CLAUDE.md §1-3).
-
-### 레이블 공간
-
-`filter_annotations` 가 **train 에 있는 조합만** 남긴다. 실측:
-
-```
-train  67,217 segment / 495 video     verb 97 · noun 289 · action(verb,noun 쌍) 3,568
-val     9,296 segment / 138 video     (원본 9,668 중 372 개가 train 에 없는 action 이라 버려진다)
-비디오  /data/dataset/EPIC-KITCHENS 에 700개 전부 있다 (인덱스에 있고 파일이 없는 것 0)
-```
-
-논문이 말하는 "3,568 action / 97 verb / 300 noun" 과 맞는다 (noun 은 실제로 289 개만 쓰인다).
-
----
-
-## 3. ⚠️ 논문과 공식 구현이 어긋나는 3곳 — **돌리기 전에 결정해야 한다**
-
-세 곳 다 **실물에서 확인했다.** 차이 2 는 **논문/표준 프로토콜 쪽으로 고정했다** (2026-09-12 사용자 결정
-"논문 그대로 가라"). 차이 1·3 은 릴리즈 동작이 기본이고 config 스위치로 열려 있다.
-
-### 차이 1. predictor 가 **학습되지 않은 mask token** 을 쓴다
-
-`src/models/predictor.py` 의 `forward(..., mask_index=1)` 이 기본값이고 공식 wrapper 는
-그 기본값을 그대로 쓴다. 그런데 릴리즈 체크포인트에서 **학습된 mask token 은 `[0]` 하나뿐이다.**
-
-```
-mask_tokens.0: norm=0.6706  std=0.03427      <- 학습됨
-mask_tokens.1: norm=0.0000  std=0.00000      <- 전부 0
-...  1~9 전부 norm 0.0000                      (vith 체크포인트 실측)
-```
-
-즉 공식 anticipation eval 은 **0 벡터**를 미래 토큰 자리에 넣는다. RoPE 위치 정보는 살아 있으니
-predictor 가 아무것도 못 하는 건 아니지만, **우리 `surprise_c16t32` 프로토콜은 `mask_index: 0` 을
-"critical" 로 못박아 뒀다** (CLAUDE.md §1-7). 같은 체크포인트에 두 관례가 공존하면 안 된다.
-
-- 스위치: `model_kwargs.wrapper_kwargs.mask_index` (기본 1 = 공식). `0` 으로 바꾸면 학습된 토큰.
-- `mask_index != 1` 은 비정사각 module 에서만 된다 (원본 module 은 이 인자를 안 받는다).
-
-### 차이 2. `anticipation_point` 의 방향이 논문 본문과 **반대**다 → **논문대로 고정했다**
-
-EK100 은 action 마다 시간 구간(`start_frame` / `stop_frame`)이 달려 있고, 표준 anticipation
-프로토콜은 **문맥이 action segment 시작 τa(=1초) 전에서 끝난다**. 논문 본문도 같다 —
-*"anticipation point 0 이면 action segment 의 **첫 프레임**을 예측한다."*
-
-릴리즈 코드는 그렇지 않다: `af = int(sf*ap + (1-ap)*ef - aframes)` 라서 **ap=0 이면 `ef`**
-(action 의 **끝**)다. val 은 `val_anticipation_point` 를 yaml 에 안 써서 기본값 `[0.0, 0.0]`
-이 들어가므로, 문맥 4초가 **action 이 끝나기 1초 전**에서 끝난다.
-
-실측 — `P01_11_100 'wash cloth'` (59.94 fps, action frame 19636~19918 = 4.70초):
-
-| 규약 | 문맥 (raw frame) | 32장 중 action 내부 |
-|---|---|---:|
-| 릴리즈 (ap=0 → `ef`) | 19635 ~ 19852 (327.58s ~ 331.20s) | **31장** |
-| 논문/표준 (ap=0 → `sf`) | 19353 ~ 19570 (322.87s ~ 326.49s) | **0장** (문맥 끝과 action 시작 간격 +1.10s) |
-
-val 9,296 segment 전수:
-
-| 규약 | action 프레임이 문맥에 드는 segment | 평균 누수 |
-|---|---:|---|
-| 릴리즈 | **78.8%** | **12.33 / 32 장** (누수 있는 것만 15.6장) |
-| **논문/표준** | **0.0%** | **0장** |
-
-→ **`anticipation_point_mode: paper` 를 전 config 의 기본값으로 박았다.**
-`af = sf*(1-ap) + ap*ef - aframes` 이므로 ap=0 에서 `sf - aframes` 다.
-
-train 은 논문이 `ap ∈ [0.0, 0.25]` 로 지정한 대로 둔다 — 정의상 segment 의 앞 25% 까지만
-안으로 들어갈 수 있는 **의도된 증강**이다. 실측 (paper 규약, at 0.25~1.75s):
-
-| | action 프레임이 문맥에 드는 segment | 평균 누수 |
-|---|---:|---|
-| train, 논문 규약 | 9.3% | 0.78 / 32 장 |
-| train, 릴리즈 규약 (대조) | 64.0% | 9.15 / 32 장 |
-
-- 코드 변경 없이 yaml 만으로도 같은 결과를 낼 수 있다 (릴리즈 공식에 ap=1 을 넣으면
-  `af = sf - aframes`): `val_anticipation_point: [1.0, 1.0]`, `train_anticipation_point: [0.75, 1.0]`.
-  읽기 편한 쪽을 골라 `anticipation_point_mode: paper` 로 넣었다.
-- 옛 릴리즈 동작이 필요하면 (예: 공개 수치와 대조) 한 줄이면 된다 —
-  `SET="data.anticipation_point_mode=released"`. **그 값으로 나온 수는 anticipation 성능으로
-  읽을 수 없다** (78.8% 가 정답을 보고 있다).
-
-### 차이 3. annotation 프레임 번호와 비디오 fps 가 8개 비디오에서 어긋난다
-
-구현은 `vfps = vr.get_avg_fps()` 로 실제 fps 를 읽고 csv 의 `start_frame`/`stop_frame` 을
-그 비디오의 프레임 번호로 **그대로** 쓴다. `start_timestamp` 로 역산해 본 실측:
-
-| 비디오 실제 fps | 역산한 annotation fps | 비디오 수 | segment 수 |
-|---|---|---:|---:|
-| 59.94 | 59.999 | 423 | 대부분 (오차 0.1%, 무해) |
-| 50.00 | 50.000 | 268 | 대부분 (정확히 일치) |
-| **29.97** | **60.000** | 4 | 506 |
-| **47.95** | **59.999** | 4 | 84 |
-
-즉 **29.97 / 47.95 fps 비디오 8개(segment 590개, 0.9%)는 프레임 번호가 60fps 기준**이라
-구현이 그대로 쓰면 시점이 2배/1.25배 어긋난다. 전체의 0.9% 라 수치에 거의 영향이 없지만 기록해 둔다.
-
-- 스위치: `data.time_source: timestamp` — `start_timestamp`/`stop_timestamp` x 실제 fps 로 다시 계산한다 (전 비디오에서 옳다). 기본은 `frame` (공식).
-
----
-
-## 4. ⚠️ 돌리기 전에 해야 하는 것
-
-### 4-0. 전처리한 비디오 (2026-09-13, vll6 전용)
-
-`/data2/local_datasets/EPIC-KITCHENS_resized` — **짧은변 256 -> 가운데 256x256**, fps·프레임 수 원본 그대로.
-스크립트 `z_research/scripts/data/build_ek100_resized.py`, 처리 방법 `_info.json`, 파일별 대조 `_meta/<video_id>.json`,
-진행률 `python z_research/scripts/data/ek100_resized_progress.py`, 로그 `_build.log` (파일 하나 끝날 때마다 한 줄).
-
-- **config 는 `spatial_mode: short_side`** 로 쓴다. 256x256 입력에서 항등 변환이다.
-  기본값 `center_crop` 을 그대로 두면 짧은변을 292 로 **다시 키워** 256 을 떼므로 1.14배 추가 확대 + 업샘플 흐림
-- 프레임 인덱스: 디코드 순서 k 번째 프레임에 k/fps 타임스탬프를 새로 매겨 **원본 decord k 번째 = 출력 k 번째**.
-  파일마다 프레임 수를 원본 헤더와 대조한다. 시험 3개(59.94 / 4:3 / 29.97fps)에서 움직이는 프레임 전부 정렬, 밀림 0
-- ⚠️ 공식과 다른 점: (1) val 기하 — 공식은 짧은변 292 -> 256 crop (세로 12.3% 더 버림), 여기는 짧은변 256 -> 256 crop.
-  (2) train random resized crop 이 원본 전체 화면이 아니라 이 256x256 안에서만 고른다.
-  (3) 축소 커널 ffmpeg bilinear vs cv2 INTER_LINEAR. (4) H.264 crf 18 재인코딩
-- ⚠️ 기록: 처음 판(`-vsync 0` 만)은 P29_01 / P29_05 에서 프레임이 2장씩 빠져 뒤쪽 인덱스가 1~2 칸 밀렸다 (원본 타임스탬프 흔들림).
-  한때 짧은변 292 no-crop 으로 바꿨다가 사용자 결정으로 256x256 으로 되돌렸다. 프레임 재번호 수정은 유지
-- 속도: 디코드 스레드 2개는 CPU 만 두 배 쓰고 wall 이 같다 (P17_01 실측 157.5 vs 80.1 CPU초) -> ffmpeg 60개 x 스레드 1개.
-  104 -> 151 MB/s. 병목은 CPU (할당 64 = 물리 32코어 x HT). GPU 디코딩은 노드에 `libnvcuvid` 가 없어 못 쓴다
-- ⚠️ **vll6 의 `/data2` 에만 있다** (노드 로컬 디스크). 학습도 vll6 에서 돌릴 것
-
-```bash
-EK100_ROOT=/data2/local_datasets/EPIC-KITCHENS_resized SET="data.spatial_mode=short_side" \
-  GPUS=1 bash z_research/anticipation/EK100/run.sh ek100_smoke
-```
-
-
-1. **비디오를 노드 로컬로 옮긴다.** 지금 `/data/dataset/EPIC-KITCHENS` 는 **NFS** 고 700개 / **1.2T** 다.
-   `epoch 20 x 67,217 clip` 을 여기서 decode 하면 I/O 로 벽을 넘는다 (CLAUDE.md §1-6·§4-1).
-   `/local_datasets` 는 사실상 꽉 차 있으니 **`df -h` 를 먼저 보고** 자리를 정할 것.
-   옮긴 뒤에는 `EK100_ROOT=<새 경로> bash run.sh ...` 로 주면 config 를 안 고쳐도 된다.
-   - 참고: val 만 먼저 보려면 val 비디오 **138개**만 옮기면 된다 (`EPIC_100_validation.csv` 의 `video_id`).
-2. **batch_size 를 실측으로 정한다.** 논문 global batch 128 = 8 GPU x **16**. 그런데
-   probe 20개가 4352 토큰에 backprop 하므로 OOM 가능성이 있다.
-   256x256 이라 토큰은 4096 이고 **16 x 8 GPU = global 128 로 논문과 같다.** OOM 이면 `BATCH_SIZE=8`
-   로 내리되 **global 이 64 로 바뀌므로 문서에 적을 것.**
-3. **train 비디오도 옮겨야 한다** — probe 를 학습하므로 train 495 + val 138 = **633개**가 필요하다
-   (전체 700개 중 test 67개만 빠진다). §7-2 를 볼 것.
-
----
-
-## 5. 실행
+# EK100 action anticipation 재현 — 시작점 (2026-09-14 개정)
+
+> ⚠️ 정정 (2026-09-15) — 아래 "아직 본 학습은 안 돌렸다" 는 지난 서술이다. `ek100_vith_lr3e-4` (paper 규약 · timestamp · head 1 · **옛 데이터**) 가 20 epoch 를 마쳤다:
+> verb 32.05 / noun 34.81 / action 18.41 (최고 action 18.59 @ epoch 19). 논문 36.5 는 릴리즈 규약 (context 가 action 끝 1 s 전) 이라 비교 대상이 아니다.
+> 새 데이터 (§3-1) 로는 `train_vith.sh paper|released` 로 다시 돌린다.
+>
+> 아직 본 학습(20 epoch)은 돌리지 않았다. 1-GPU smoke(비디오 4개, 1 epoch)는 끝까지 통과했다 (§5).
+> 레포 규칙은 루트 `CLAUDE.md`. 논문은 레포 루트의 `V-JEPA 2- Self-Supervised Video Models Enable Understanding, Prediction and Planning.pdf`
+> (§6, Appendix C.1·D.1, Table 5·19·20). arXiv 2506.09985 판과 §6·Appendix D 본문이 글자 단위로 같다.
+
+## 0. 실행
 
 ```bash
 cd /data/hyuntak/project/2026/2027_cvpr/vjepa2
+DRYRUN=1 GPUS=8 bash z_research/anticipation/EK100/run.sh        # 검사만 (몇 초, GPU 0장)
+GPUS=1 SMOKE=1 bash z_research/anticipation/EK100/run.sh         # 배관 점검 (~3분 + 모델 로딩)
+GPUS=8 bash z_research/anticipation/EK100/run.sh                 # 본 설정 = configs/ek100_vith.yaml
+GPUS=8 bash z_research/anticipation/EK100/sbatch.sh              # SLURM (vll5)
+watch -n 1 bash z_research/anticipation/EK100/monitor.sh         # 모니터 (가장 최근 run, 또는 인자로 TAG)
 
-bash z_research/anticipation/EK100/run.sh --list                     # config 목록
-DRYRUN=1 bash z_research/anticipation/EK100/run.sh ek100_vith        # 검사만. GPU 0장, 몇 초
-python z_research/anticipation/EK100/selftest.py                     # 추가한 코드 자체 검사 (CPU, 몇 초)
-
-GPUS=1 bash z_research/anticipation/EK100/run.sh ek100_smoke         # 배관 점검 (비디오 4개, 1 epoch, head 1개)
-GPUS=8 bash z_research/anticipation/EK100/run.sh ek100_vith          # 본 설정 (center_crop 256x256, 논문 ap)
-GPUS=8 bash z_research/anticipation/EK100/run.sh ek100_vith --val-only   # latest.pt 로 val 만
-
-# SLURM (ANT_RUN=1 로 제출/본체가 갈린다 — 직접 sbatch 할 때 반드시 붙인다)
-C=ek100_vith GPUS=8 bash z_research/anticipation/EK100/sbatch.sh
+# 2026-09-15 부터 본 학습은 이것 — 공식 기하 재인코딩본 (§3-1) + 규약을 인자로 고정. SLURM 8 GPU
+bash z_research/anticipation/EK100/train_vith.sh paper      # context = action 시작 1 s 전에 끝 (논문 글)   TAG ek100_vith_official256_paper
+bash z_research/anticipation/EK100/train_vith.sh released   # context = action 끝 1 s 전에 끝 (릴리즈 코드) TAG ek100_vith_official256_released
+bash z_research/anticipation/EK100/eval_released_vitl.sh    # 공개 ViT-L probe val 만 (released + frame_fixfps)
+HEADS=grid8 NODE=vll3 MEM_PER_GPU=40G bash z_research/anticipation/EK100/train_vith.sh released
+                                                            # 2026-09-15 제출: head 8 개 (lr {3e-4,1e-4} x wd {1e-4,1e-3,1e-2,1e-1}), vll3
+# ⚠️ head 20 개 (HEADS=sweep) 는 RTX 4090 24 GB 에 안 들어간다: head 1 개 = 82.1M 파라미터, 가중치+grad+Adam+DDP 버퍼 1.53 GB → 20 개 30.6 GB.
+#    head 8 개도 원본 루프 (전부 fwd 뒤 전부 bwd) 는 activation 이 쌓여 안 들어가서, eval.py 를 head 마다 fwd→bwd 로 바꿨다
+#    (CPU·DDP·가짜 데이터에서 원본 방식과 파라미터 업데이트 차이 0.0 확인, bf16 경로 포함).
 ```
 
-환경변수: `GPUS` `SET="a.b=1"` `TAG` `OUTDIR` `BATCH_SIZE` `EK100_ROOT` `LIMIT_VIDEOS`
-`VAL_ONLY=1` `DRYRUN=1` `EVAL_DDP_PORT` `EVAL_DDP_TIMEOUT_S`.
-`SET` 의 `data.` / `optimization.` / `classifier.` 는 `experiment.` 접두어를 생략할 수 있다.
+예전 명령 `EK100_ROOT=... SET="data.spatial_mode=short_side data.time_source=timestamp model_kwargs.module_name=..._nonsquare model_kwargs.wrapper_kwargs.mask_index=0" TAG=ek100_vith_ts_mask0 GPUS=8 bash run.sh ek100_vith`
+의 설정이 **이제 config 기본값**이다. 위 세 번째 줄과 같은 계산이다.
 
-**`evals.main` 을 직접 부르지 않는다.** `run.sh` 만 하는 두 가지가 있다 — 빈 DDP 포트 탐색과
-`ANT_EXPECT_WS` 가드. `init_distributed` 는 bind 실패를 삼키고 조용히 `world_size=1` 로
-폴백해서 두 job 이 섞인다 (CLAUDE.md §7-1).
+| 환경변수 | 뜻 |
+|---|---|
+| `GPUS` | GPU 수 (기본 1). 8 이면 global batch 128 = 논문 |
+| `TAG` | 결과 폴더 이름 (기본 `ek100_vith`). **설정을 바꾸면 TAG 도 바꾼다** — 같은 TAG 에 다른 설정의 `latest.pt` 가 있으면 resolve 가 막는다 |
+| `SET="a.b=1 c.d=2"` | config 덮어쓰기. `data.` `optimization.` `classifier.` `evaluation.` 는 `experiment.` 생략 |
+| `HEADS=sweep` | 논문의 probe head 20개 (lr 5종 x wd 4종) |
+| `SMOKE=1` `VAL_ONLY=1` `DRYRUN=1` | 배관 점검 / `latest.pt` 로 val 만 / 검사만 |
 
-### config
-
-**전부 `spatial_mode: center_crop` (256x256) + `anticipation_point_mode: paper`** —
-공식 spatial 처리에, 문맥은 action segment 시작 1초 전에서 끝난다.
-
-| config | 무엇 | batch (global, 8 GPU) |
-|---|---|---|
-| `ek100_vith` | **본 설정.** ViT-H 256x256, head 1개 (lr 1e-3 / wd 1e-2) | 16 (128 = 논문) |
-| `ek100_smoke` | 배관 점검. 비디오 4개 / 1 epoch / head 1개. **수치를 읽는 용도가 아니다** | 2 |
-
-다른 spatial 을 보려면 새 yaml 을 뜨지 말고 `SET` 으로 (`configs/protocols/README.md` 관례):
+자주 쓸 변형:
 ```bash
-SET="data.spatial_mode=short_side" GPUS=8 bash .../run.sh ek100_vith    # 짧은변 256 판 (세로 전부 보존)
-SET="data.spatial_mode=letterbox" GPUS=8 bash .../run.sh ek100_vith                    # 안 자르는 판
+TAG=ek100_vith_mask1   SET="model_kwargs.wrapper_kwargs.mask_index=1"      GPUS=8 bash .../run.sh   # 릴리즈 코드의 mask token
+TAG=ek100_vith_encoder SET="model_kwargs.wrapper_kwargs.no_predictor=true" GPUS=8 bash .../run.sh   # encoder 만 (논문 Table 20 대조군)
+TAG=ek100_vith_sweep   HEADS=sweep                                          GPUS=8 bash .../run.sh   # 논문 head 20개
 ```
 
-`configs/*.yaml` 은 **`make_configs.py` 의 산출물**이다 (head 20개를 손으로 안 쓰기 위해).
-값을 바꿀 때는 yaml 이 아니라 그 스크립트를 고치고 다시 돌린다.
-
-### 출력
-
-```
-exp_results/action_anticipation_frozen/<tag>/
-  _resolved.yaml    resolve.py 가 병합·검사한 config
-  log_r<rank>.csv   epoch 별 train/val 의 acc·recall (action/verb/noun)
-  latest.pt         probe 20개 + optimizer (resume_checkpoint: true 로 이어진다)
-```
+출력 `exp_results/action_anticipation_frozen/<TAG>/`: `_resolved.yaml` · `stdout.log` · `log_r0.csv` · `latest.pt` ·
+**`val_metrics.jsonl`** (epoch 마다 한 줄: mean class recall@5 verb/noun/action, 센 clip 수, head 별 값). **보고 값은 마지막 epoch.**
 
 ---
 
-## 6. 파일과 코드 변경 내역
+## 1. 논문이 한 것 (원문 기준)
 
-**새로 만든 것** (`z_research/anticipation/EK100/`):
+| 항목 | 논문 | 어디 |
+|---|---|---|
+| 과제 | action segment **시작 전**의 context clip 으로 verb / noun / action 예측. "The interval between the end of the context and the beginning of the action segment is the anticipation time, which is set to 1 second by default." | §6 Task |
+| 입력 | "we sample a video clip that ends 1 second before an action starts". 32 frames @ 8 fps, **256×256** (ViT-L/H/g), 384×384 (ViT-g384) | §6, D.1 |
+| 모델 | frozen encoder → predictor 가 "the mask tokens corresponding to the frame 1 second into the future" 로 미래 표현 예측 → **encoder 출력과 predictor 출력을 토큰 축으로 concat** | §6 Anticipation Probe |
+| probe | 4 transformer block, 16 head, 앞 3개 self-attn + 마지막 cross-attn. cross-attn 의 **query 3개** → verb / noun / action 각각 linear | §6, C.1, D.1 |
+| loss | focal (α 0.25, γ 2.0), 세 분류기 독립 합산 | §6, D.1 |
+| train | anticipation time **0.25–1.75 s**, anticipation point **0.0–0.25** | D.1, Table 19 |
+| val | anticipation time **1 s**, anticipation point **0.0** | D.1, Table 19 |
+| anticipation point 정의 | "an anticipation point of 0 means that we predict the representation of the **first frame in the action segment** … 1 means … the last frame" | D.1 |
+| 최적화 | 20 epoch, warmup 0, global batch 128, **head 20개** (lr [5e-3 3e-3 1e-3 3e-4 1e-4] × wd [1e-4 1e-3 1e-2 1e-1]), "reporting the accuracy of the **best-performing classifier**", cosine lr | Table 19, C.1 Optimization |
+| 지표 | "mean-class recall-at-5 for verb, noun and action on the **validation set** of EK100" | Table 5 |
+| 논문이 **안** 적은 것 | spatial 전처리(crop 방식), mask token 번호, 프레임 번호 vs 타임스탬프, 비디오 fps 가 8 의 배수가 아닐 때의 샘플링 | — |
+
+**보고 수치** (Table 5, Frozen Backbone, R@5 verb / noun / action):
+
+| 모델 | verb | noun | action |
+|---|---:|---:|---:|
+| ViT-L | 57.8 | 53.8 | 32.7 |
+| **ViT-H** | **59.2** | **54.6** | **36.5** |
+| ViT-g | 61.2 | 55.7 | 38.0 |
+| ViT-g384 | 63.6 | 57.1 | 39.7 |
+
+Table 20 (ViT-g384): encoder 만 61.3 / 57.0 / 39.1, predictor 만 48.7 / 34.7 / 20.2, 둘 다 63.6 / 57.1 / 39.7.
+레포 `README.md` 에는 ViT-L (32.7) · ViT-g384 (39.7) 의 **학습된 probe checkpoint** 가 공개돼 있다 (§7).
+
+---
+
+## 2. 릴리즈 코드가 논문과 다른 곳 → 우리 선택
+
+전부 실물에서 재계산했다 (2026-09-14, annotation csv + `_meta/*.json` 의 실제 fps).
+
+| # | 무엇 | 릴리즈 코드 | 논문 / 옳은 쪽 | **config 기본** | 스위치 |
+|---|---|---|---|---|---|
+| A | anticipation point 방향 | `af = sf·ap + (1−ap)·ef − at` → **ap=0 이 action 끝** | ap=0 = action 첫 프레임 | **`paper`** (사용자 결정 09-12) | `data.anticipation_point_mode` |
+| B | 구간 경계 | csv 의 `start_frame` 을 비디오 프레임 번호로 그대로 | 타임스탬프 × 실제 fps | **`timestamp`** | `data.time_source` |
+| C | 미래 mask token | `predictor.forward` 기본 `mask_index=1` = **0 벡터** (ckpt 에서 1~9 전부 norm 0.0000, [0] 만 0.6706) | 논문 미기재 | **`0`** (학습된 토큰) | `model_kwargs.wrapper_kwargs.mask_index` |
+| D | probe head | 20개, 지표는 head 중 max | 20개 sweep best | **1개 (lr 3e-4, wd 1e-2)** (사용자 결정 09-13, lr 은 09-14 에 1e-3 → 3e-4) | `HEADS=sweep` |
+| E | val 을 세는 법 | `ipe` 배치만 돌고 모자라면 다시 감는다 → clip 중복·누락 (시뮬레이션 8 GPU 기준 15% 안 셈) | "on the validation set" | **정확히 한 번** (`exact_val.py`) | `evaluation.exact_val_pass` |
+| F | spatial | 원본 1080p → 짧은변 292 → 가운데 256 (val); train 은 원본 전체에서 random resized crop | 미기재 | **256×256 재인코딩본 + `short_side`(항등)** | `data.spatial_mode`, `data.base_path` |
+
+### A. anticipation point — action 프레임이 문맥에 들어가는 비율
+
+| 규약 × 경계 | val (9,296 segment) | train (67,217, 한 번 샘플) |
+|---|---|---|
+| released × frame (= 릴리즈 코드 그대로) | **88.6%**, 평균 14.00 / 32 장 | 69.0%, 10.05 장 |
+| released × timestamp | 78.8%, 12.27 장 | 64.4%, 9.13 장 |
+| paper × frame | 6.9%, 0.27 장 | 20.1%, 1.64 장 |
+| **paper × timestamp (기본)** | **0.1%**, 0.03 장 | 9.2%, 0.77 장 (ap ≤ 0.25 로 의도된 것) |
+
+릴리즈 규약으로 나온 수치는 anticipation 성능으로 읽을 수 없다 (val 의 대부분이 정답 action 을 보고 있다).
+val 0.1% 는 영상 시작 1초 안에 action 이 시작해 인덱스가 0 으로 잘린 경우다.
+
+### B. 프레임 번호 vs 타임스탬프 — ⚠️ 이전 README 의 "8개 비디오, 0.9%, 무해" 는 틀렸다
+
+annotation 의 `start_frame` 은 비디오 fps 와 상관없이 **60 fps (50 fps 비디오는 50) 기준**으로 매겨져 있다.
+decord 는 실제 fps 로 프레임을 세므로 `start_frame / 실제 fps − start_timestamp` 만큼 시점이 어긋난다:
+
+| 실제 fps | val segment (video) | train segment (video) | 프레임 번호 방식의 시점 오차 (평균 / 최대) |
+|---|---|---|---|
+| 50.00 | — | 37,455 (201) | 0.006 s / 0.02 s |
+| **59.94** | 9,167 (133) | 29,167 (290) | **0.37 s / 2.0 s (val)**, 0.59 s / 3.7 s (train) — 시점이 늦어진다 (영상 뒤로 갈수록 커짐) |
+| 29.97 | 63 (3) | 506 (1) | 63 s / 187 s (val), 최대 3,347 s (train) |
+| 47.95 | 25 (1) | 89 (3) | 56 s / 134 s |
+| 90.00 | 41 (1, P18_09) | — | 37 s / 90 s |
+
+val 로 보면 프레임 번호 방식에서 오차 > 0.5 s 인 segment 가 26.7%, > 1 s 가 10.9% 다. anticipation time 이 1 s 이므로
+**문맥이 action 시작을 넘어가는 누수가 생긴다** (위 표 paper × frame 6.9%). 타임스탬프 방식의 오차는 최대 0.03 s.
+
+### C. mask token — 사용자 명령대로 0 을 기본으로 뒀다
+
+논문 수치가 어느 쪽으로 나왔는지는 **모른다** (코드 기본은 1). 공개 수치와 비교하려면 `mask_index=1` arm 을 같이 돌린다.
+
+### 릴리즈 코드 그대로 둔 것 (알고 둔다)
+
+- **프레임 간격** `fstp = int(vfps / 8)`: 실제 문맥 길이가 fps 마다 다르다 — 59.94 fps 는 7장 간격 = **3.74 s** (8.56 fps), 50 fps 3.84 s,
+  29.97 fps 3.20 s, 47.95 fps 3.34 s, 90 fps 3.91 s. predictor 는 8 fps (0.125 s/frame) 로 가정한다. 논문의 "8 fps" 와 7% 차이.
+- **anticipation step 양자화** `int(at · 8 / 2)` tubelet: train 에서 at 0.25~0.49 s 는 1 step (0.25 s) 로 잘린다. val (1 s) 은 정확.
+- **train random resized crop** 은 원본 16:9 전체가 아니라 256×256 재인코딩본 안에서 고른다 (F). 공식과 다르다.
+- `resolution`·`frames_per_clip`·probe 구조·loss·lr 스케줄은 공식 config (`configs/eval/vitl/ek100.yaml`) 와 같다. 공식은 64 GPU × batch 2, 우리는 8 × 16 (global 128 동일).
+
+---
+
+## 3. 영상 검증 (2026-09-14, `/data2/local_datasets/EPIC-KITCHENS_resized`)
+
+| 검사 | 결과 |
+|---|---|
+| 파일 | 700 / 700, 256×256, `_meta` 700개 전부 `ok`, 임시 `.tmp.MP4` 0개 (인코더 로그 `*.tmp.MP4.enc.log` 4개 남음) |
+| 헤더 대조 (700개) | 프레임 수 = 원본 `nb_frames` = 재인코딩본 decord 길이, fps 그룹 원본 = 재인코딩본 (59.94 423 · 50 268 · 29.97 4 · 47.95 4 · **90 1**). 원본 avg fps 59.939 vs 재인코딩 59.940 (프레임 간격 `int(fps/8)` 동일) |
+| **픽셀 정렬** (decord, dataloader 와 같은 인덱스) | 25개 비디오 × 3 clip × 32장 (복구 4개 + fps 그룹별 표본). 재인코딩 k 번째가 원본 k+d 중 어디와 가장 같은지: 확실히 갈린 906장 중 **d=0 854**, ±1 50 (23 / 27 대칭), ±2 2. 동률 1,173장 중 d=0 이 빠진 동률 21 (1.8%, 움직임 큰 50 fps 비디오에 몰림) |
+| decord 임의 접근 (재인코딩본) | ffmpeg 순차 디코드와 **픽셀 차 0.0** (P21_01) |
+| 순차 디코드끼리 (ffmpeg) | P07_101 3,000장 중 움직이는 2,869장에서 d=0 2,867 |
+
+→ **프레임 밀림은 없다.** 동률이 많은 것은 원본 성질이다: 59.94 fps 비디오 상당수가 **같은 프레임을 2장씩** 담고 있다
+(P21_01 연속 프레임 차가 11.1 / 0.1 / 10.0 / 0.1 … 로 번갈아, P13_06 은 움직이는 프레임의 43%). 재인코딩본도 같은 패턴이다.
+이런 비디오의 실제 시간 해상도는 30 fps 급이다 — 공식 경로에서도 같다.
+
+- 복구한 4개 (P29_01 · P29_05 · P30_05 · P30_08) 는 원본에 디코드 불가 패킷이 있어 해당 번호를 앞 프레임으로 채웠다 (2 / 2 / 1 / 16장).
+  공식 md5 와 일치하므로 배포본 자체의 성질이다. 깨진 패킷 뒤는 다음 키프레임까지 번짐으로 디코드된다 — val 에서 그 구간이 입력 32장에 걸리는 clip 14개.
+- ⚠️ `_info.json` 은 `host: vll6` 이라고 적혀 있지만 **vll5 의 `/data2` 에도 700개가 그대로 있다** (2026-09-14 vll5 에서 위 검사 전부 수행, smoke 도 vll5).
+  이전 README 의 "vll6 에만 있다" 는 지금 상태와 맞지 않는다. 다른 노드에서 돌릴 때는 `DRYRUN=1` 이 비디오 존재를 먼저 검사한다.
+- 재인코딩 과정의 틀린 진단 기록은 `z_research/scripts/data/build_ek100_resized.py` docstring 에 있다.
+
+---
+
+### 3-1. 공식 val 입력과 같게 만든 세트 (2026-09-14 val · 2026-09-15 train, 지금 경로 `/data2/local_datasets/EPIC-KITCHENS_resized`)
+
+> ⚠️ **경로 변경 (2026-09-15).** 처음엔 `/data2/local_datasets/epic_test` 에 만들었고 (이름과 달리 **validation 138 개**, test 67 개는 정답 비공개라 안 씀),
+> train 495 개를 같은 기하로 더한 뒤 사용자가 `EPIC-KITCHENS_resized` 로 옮겼다. **그 자리에 있던 옛 데이터 (§3, 짧은변 256 → 256) 는 지워졌다.**
+> 2026-09-15 이전 run (`ek100_vith_lr3e-4`, `ek100_vitl_rel_resized*`, `ek100_vitl_paper_resized_mask0`) 은 옛 데이터 기준이다.
+> 옛 데이터 전용 스크립트 (`build_ek100_resized.py`, `verify_ek100_resized_*.py`, `ek100_resized_progress.py`) 는 새 `_meta` 형식을 못 읽는다.
+>
+> **현재 내용 (2026-09-15, `_meta` 633 개 전수 확인):** train 495 + val 138 전부 검증 통과 (프레임 수·fps 일치, MAD ≤ 2.99).
+> 압축: val crf 12 · train crf 15 459 개 / crf 12 34 개 / crf 8 2 개 (P27_105, P28_103 은 crf 12 에서도 MAD 3.30 / 3.10).
+> 색 허용치: val 0.5 (P18_08 만 1.0), train 1.0. 앞 프레임으로 채운 프레임: P30_08 289 · P30_05 50 · P29_01 46 · P29_05 36.
+> 기하: 1920×1080·1280×720 → 519×292, crop (132, 18) / 1920×1440 (2 개) → 389×292, crop (66, 18).
+> 공식 코드가 원본 1080p 에서 만드는 입력과의 차이 (val 3 비디오 × 2 구간, 256² 텐서): 평균 1.7~2.2 / 99% 7~10 (옛 데이터는 평균 13~30 / 99% 97~163).
+> 공개 ViT-L probe (released · frame_fixfps · mask 1): 옛 데이터 49.43 / 48.28 / **29.50** → 이 세트 52.43 / 51.45 / **31.01** (verb / noun / action, 9,296 clip). 논문 57.8 / 53.8 / 32.7.
+> ⚠️ train 은 가운데 256 만 저장했으므로 random resized crop 이 원본 16:9 전체가 아니라 그 안에서만 일어난다 (val 입력은 공식과 같다).
+
+**왜:** 공개 ViT-L probe 를 공식 조건 (released · 프레임 번호 · mask 1) 으로 256 재인코딩본에서 평가하면
+action 29.48 / verb 49.28 / noun 48.22 로 논문 (32.7 / 57.8 / 53.8) 보다 낮았다. 원본 1080p 평가는 이 셸이 학습 job 의
+메모리 그룹 안이라 decord worker 가 OOM 으로 죽었다. 재인코딩본에서 두 가지 차이를 찾았다:
+- **기하:** 기존 판은 짧은변 256 → 256 crop. 공식 val 은 짧은변 292 (`int(256*256/224)`) → 가운데 256 (물체 1.14 배)
+- **색:** 기존 판은 `yuv420p`, 색 태그 없음 (원본은 `yuvj420p` BT.709). 표본 비디오에서 decord 로 되읽은 RGB 가 R·G 약 −2, B +0.5~0.8
+
+**만드는 법** (`z_research/scripts/data/build_ek100_val_official.py`):
+- 공식 변환 그대로: decord RGB → `cv2.INTER_LINEAR` 짧은변 292 (1920×1080 → 519×292) → `CenterCrop(256)` (x 132, y 18)
+- 인코딩: BT.709 행렬 (정밀 반올림), tv range, bt709 태그, **yuv444p**, crf 12, gop 32.
+  4:2:0 은 무손실이어도 되읽은 RGB 가 −0.9 / −1.4 / −0.9 로 치우쳤고 (BT.601 태그로 바꿔도 같음), 4:4:4 는 치우침 0.4 이내
+- 프레임: decord 인덱스 k = 출력 k (프레임 수 = 원본 decord 길이). decord 가 못 읽는 프레임은 앞 프레임으로 채움 (val 에서는 P29_05·P30_08)
+- 비디오마다 저장 직후 되읽어 프레임 수·fps·색 (표본 8 장, 채널 평균 차 ≤ 0.5, MAD ≤ 3) 을 검사하고 `_meta/<video>.json` 에 기록
+- 시험: P09_07 통과 (1,655 / 1,655, 색 +0.38 / +0.07 / +0.20, MAD 1.88)
+
+**쓰는 법:** config 기본값 (`base_path: /data2/local_datasets/EPIC-KITCHENS_resized`, `spatial_mode: short_side`) 그대로. 학습은 `train_vith.sh`, 공개 probe 평가는 `eval_released_vitl.sh`.
+(2026-09-14 당시: `data.base_path=/data2/local_datasets/epic_test` + `VAL_ONLY=1`. train 비디오가 없어 `resolve.py` 는 `VAL_ONLY` 일 때 val 비디오만 요구하도록 고쳤다.)
+
+## 4. 레이블 공간
+
+`filter_annotations` 가 train 에 있는 (verb, noun) 조합만 남긴다: train 67,217 segment / 495 video, **verb 97 · noun 289 · action 3,568**;
+val 9,668 → **9,296** segment / 138 video (372개 버림). 논문의 "3,568 action / 97 verb / 300 noun" 과 맞는다 (noun 은 289개만 쓰인다).
+
+---
+
+## 5. smoke 결과 (배관 점검, 수치를 읽는 용도 아님)
+
+`GPUS=1 SMOKE=1` (2026-09-14, vll5): 비디오 4개 (train 548 clip / val 580 clip), 1 epoch, 274 iter.
+로그에서 확인한 것 — mask token norm `[0]=0.6706, [1..9]=0.0000`, `AnticipativeWrapper grid=(16,16) mask_index=0`,
+**exact val `n_clips 580/580`**, `val_metrics.jsonl` 기록, `latest.pt` 저장. 이전 실측 (8 GPU, batch 16): 2.4 s/iter → epoch 525 iter ≈ 21 분, 20 epoch ≈ 7 시간 + val.
+
+---
+
+## 6. 파일
 
 | 파일 | 역할 |
 |---|---|
-| `README.md` | 이 문서 |
-| `make_configs.py` | `configs/*.yaml` 생성기 (head 20개 보일러플레이트) |
-| `configs/*.yaml` | 위의 산출물 5개 |
-| `resolve.py` | config 검사 + `_resolved.yaml` (경로·해상도·module 정합성·프레임 예산). **모델 로딩 전에 죽는다** |
-| `run.sh` | 표준 진입점. DDP 포트 탐색 + `ANT_EXPECT_WS` |
-| `sbatch.sh` | SLURM. `ANT_RUN=1` 로 제출/본체 분기 |
-| `selftest.py` | 추가 코드 자체 검사 (CPU, 체크포인트·데이터 불필요) |
+| `configs/ek100_vith.yaml` | **본 설정 하나** (손으로 관리. 생성기 없음) |
+| `run.sh` | 진입점. resolve → 빈 DDP 포트 → `evals.main` (포트 충돌 시 조용한 world_size=1 폴백을 `ANT_EXPECT_WS` 로 막는다) |
+| `resolve.py` | 덮어쓰기(`SET`/`TAG`/`SMOKE`/`HEADS`) + 검사 (annotation·ckpt·비디오 633개 존재, module·mask 조합, 프레임 예산) + **같은 TAG 다른 설정 이어하기 차단** |
+| `sbatch.sh` | SLURM. `ANT_RUN=1` 로 제출/본체 분기, `SET` 은 base64 |
+| `monitor.sh` | `watch -n 1` 용 모니터: SLURM 상태, epoch·iter 진행률과 남은 시간, 최신 train 지표, epoch 별 val 과 상수 예측 경고, GPU, 에러 줄 |
+| `selftest.py` | CPU 자체 검사 (spatial 모드, 비정사각 wrapper, 정사각에서 원본 module 과 비트 동일, ap 산술, exact val == `ClassMeanRecall`). 2026-09-14 전부 PASS |
 
-**`evals/` 에 새로 만든 것:**
-
-| 파일 | 역할 |
-|---|---|
-| `action_anticipation_frozen/exact_val.py` | val 을 정확히 한 번 도는 mean class recall@k (`evaluation.exact_val_pass`) |
-| `action_anticipation_frozen/spatial.py` | `short_side`(기본) / `center_crop`(공식) / `letterbox` 세 spatial 모드 |
-| `action_anticipation_frozen/modelcustom/vit_encoder_predictor_concat_ar_nonsquare.py` | 비정사각 grid + `mask_index` 설정. `module_name` 으로 고른다 — **원본 module 은 안 건드렸다** |
-
-**기존 파일 수정 — 전부 추가 인자이고 기본값은 현행 동작이다** (총 3파일 115줄):
+`evals/action_anticipation_frozen/` 에서 upstream (45d025f) 대비 바꾼 것 — 전부 **추가 인자**, 인자 기본값은 릴리즈 동작:
 
 | 파일 | 무엇 |
 |---|---|
-| `dataloader.py` | `init_data`/`make_transforms`/`VideoTransform` 에 `spatial_mode`·`crop_width`·`train_spatial_mode`·`anticipation_point_mode`·`time_source` 인자 추가 |
-| `epickitchens.py` | `decode_videos_to_clips` 에 `anticipation_point_mode`·`time_source` 추가 |
-| `eval.py` | 위 인자들을 `args_data` 에서 읽어 전달 + `limit_videos` + `ANT_EXPECT_WS` 가드 + `evaluation` 블록 (exact val · `val_metrics.jsonl`) |
+| `epickitchens.py` | `anticipation_point_mode` (A), `time_source` (B) |
+| `dataloader.py` | `spatial_mode` · `crop_width` · `train_spatial_mode` 전달 |
+| `spatial.py` (새 파일) | `short_side` / `center_crop` / `letterbox` |
+| `exact_val.py` (새 파일) | val 정확히 한 번 + all_reduce 한 번 (E) |
+| `modelcustom/vit_encoder_predictor_concat_ar_nonsquare.py` (새 파일) | `mask_index` 인자 (C) + 비정사각 grid. 정사각·mask 1 이면 원본과 비트 동일 |
+| `eval.py` | 위 인자 전달, `limit_videos`, `ANT_EXPECT_WS` 가드, `evaluation` 블록·`val_metrics.jsonl`, rank≠0 로그 끔 (2026-09-14: GPU 수만큼 같은 줄이 찍히던 것) |
 
-`src/` 는 **한 줄도 안 고쳤다.** predictor 의 RoPE 가 정사각을 가정하는 문제는
-새 module 이 predictor block 의 `forward` 를 감싸 `H_patches`/`W_patches` 를 주입해 해결한다.
-
-**정사각 입력에서는 새 module 이 원본과 비트 단위로 같다** (`selftest.py` [3], `max|diff| = 0.0`) —
-즉 기본 설정으로 돌리면 공식 구현과 완전히 같은 계산이다.
-
----
-
-## 7. `selftest.py` 가 확인하는 것 (전부 PASS)
-
-1. spatial 세 모드 x EK100 실제 해상도 3종 -> shape, `short_side` 가 짧은변을 정확히 256 에 맞추는지
-2. 비정사각 wrapper 의 토큰 계산: grid 16x28, tokens/tubelet 448, 출력 = 문맥 1792 + 예측 448
-3. **정사각에서 새 module == 원본 module** (`max|diff| = 0.000e+00`)
-4. H/W 주입 없이 비정사각을 넣으면 실제로 깨진다 (정사각 module 은 shape 부터 안 맞는다)
-5. `released` / `paper` ap 규약의 프레임 산술이 실제로 다르다 (예시에서 200 프레임 = 4.0초 차이)
-6. **exact val 지표 == 공식 `ClassMeanRecall`** (긴 꼬리 라벨, 97 / 3,568 클래스, TP+FN == clip 수)
-
-`resolve.py` 가 막는 것 (실측 확인): 비정사각 + 정사각 module / patch 로 안 나눠지는 해상도 /
-프레임 예산 초과 / `mask_index != 1` + 정사각 module / 없는 경로·비디오.
+영상 검증 스크립트: `z_research/scripts/data/verify_ek100_resized_frames.py` (§3 픽셀 정렬).
 
 ---
 
-## 8. 아직 못 한 것 / 확인이 필요한 것
+## 7. 아직 안 한 것
 
-- ❌ **한 번도 실행하지 않았다.** GPU 메모리, 실제 throughput, NFS decode 속도 전부 미측정.
-- ⚠️ **ViT-H 비교 수치가 레포에 없다.** 레포 `README.md` 의 EK100 표는 action R@5 **ViT-L/16 32.7**,
-  **ViT-g/16-384 39.7** 두 줄뿐이다. ViT-H 값은 논문 PDF 에서 확인해야 하는데 PDF 가 레포에 없다 (미확인).
-  ⚠️ 공개 수치와 우리 수치는 **세 축**이 다르다 — anticipation point(차이 2), head sweep best vs 단일 head,
-  val 을 세는 방식(공식 루프 vs exact pass). 공개 수치가 릴리즈 규약으로 나온 것이면 우리 수치가 더 낮게 나오는 게 정상이다.
-  그때 "재현 실패" 로 읽지 말 것 — 프로토콜이 다르다는 것을 표로 병기한다 (CLAUDE.md §1-3).
-- ✅ 차이 2 는 **논문/표준 프로토콜로 결정됐다** (2026-09-12). 전 config 기본값 `paper`.
-  릴리즈 동작으로 나온 공개 수치와는 **직접 비교할 수 없다** — 우리 쪽 문맥이 더 어렵다.
-- ⚠️ **공식 수치와 한 축이 다르다** — spatial 은 공식과 같고(`center_crop`),
-  anticipation point(`paper` vs 릴리즈). 어느 쪽도 "재현 실패" 가 아니라 **프로토콜 차이**이므로
-  비교표에 두 축을 같이 적는다 (CLAUDE.md §1-3).
-- ❌ predictor 출력을 빼고 encoder 만 쓴 대조군 (`wrapper_kwargs.no_predictor: true`) 은 설정만 가능하고
-  config 를 따로 만들지 않았다. **"predictor 가 기여하는가" 를 재려면 이 arm 이 필요하다** —
-  우리 논문(`IntPhysGenV11/Archive/PAPER_STORY_2026-09-06.md`: "predictor 는 상태를 이어가지 않는다")
-  과 직접 맞물리는 축이다. `SET="model_kwargs.wrapper_kwargs.no_predictor=true"` 로 바로 된다.
+### ⚠️ lr 1e-3 은 학습이 무너졌다 (2026-09-14, TAG `ek100_vith`)
+
+| val mean class recall@5 | verb | noun | action |
+|---|---:|---:|---:|
+| epoch 1 / 2 / 3 | 6.85 / 6.85 / 6.85 | 2.46 / 2.48 / 2.48 | 0.46 / 0.45 / 0.45 |
+| 모든 clip 에 같은 top-5 (계산값: 5 / val 에 나온 클래스 수 73 · 201 · 1,114) | 6.85 | 2.49 | 0.45 |
+
+- 영상 (clip 마다 다름), encoder·predictor 특징 (clip 간 토큰 std 1.84, NaN 없음), gradient (모든 층, GradScaler 건너뛴 step 0 / 1,575) 는 정상.
+- 무너진 곳은 probe 몸통: 학습된 pooler 출력의 clip 간 차이 0.019 (새로 초기화한 probe 0.168). residual 가지 가중치가 줄었다 (attn.proj 크기 19.7 → 14.9 → 13.0, 초기 약 25.6).
+- 시점: train recall verb 가 10 iter 7.9 → 80 iter 5.1 로 떨어진 뒤 그대로. warmup 없는 lr 1e-3 이 큰 것으로 판단 (가설, 짧은 lr 비교는 하지 않았다).
+- 논문은 head 20개 (lr 5 × wd 4) 중 best 를 보고하므로 무너지는 lr 이 섞여도 드러나지 않는다. head 하나로 고정하면 이 안전장치가 없다.
+- → 기본 lr 을 **3e-4** 로 바꾸고 TAG `ek100_vith_lr3e-4` 로 다시 제출 (사용자 결정). 첫 epoch val 이 위 상수값에서 벗어나는지부터 확인한다.
+
+
+- ❌ 본 학습 (20 epoch). 결과가 나오면 **마지막 epoch** 값을 Table 5 ViT-H (59.2 / 54.6 / 36.5) 옆에 두되, §2 의 A·B·C·D·E·F 를 같이 적는다.
+  우리 쪽이 더 어렵다 (A: 누수 0.1% vs 88.6%, D: head 1개 vs 20개 중 best). "재현 실패" 로 읽지 말 것 (CLAUDE.md §1-3).
+- ❌ **논문이 실제로 어느 규약으로 돌렸는지 확인.** 공개된 ViT-L probe checkpoint (`https://dl.fbaipublicfiles.com/vjepa2/evals/ek100-vitl-256.pt`)
+  를 `VAL_ONLY=1` 로 A (released/paper) × C (mask 0/1) 에 걸면 어느 조합이 32.7 을 내는지로 정해진다. 학습이 없어 val 한 번 (8 GPU 수 분).
+  vitl backbone 은 `checkpoint/models--facebook--vjepa2-vitl-fpc64-256` 에 있다.
+- ❌ encoder 만 (`no_predictor=true`) arm — "predictor 가 기여하는가" (논문 Table 20 은 +0.6 action).
 
 ---
+
+## 8. 기록 — 정정한 서술 (다시 쓰지 말 것)
+
+| 이전 서술 | 정정 |
+|---|---|
+| "annotation 프레임 번호와 fps 가 어긋나는 비디오는 8개 (590 segment, 0.9%), 59.94 fps 는 오차 0.1% 라 무해" | 59.94 fps 도 영상 길이에 비례해 최대 2 s (val) / 3.7 s (train) 어긋나고, 90 fps 비디오 P18_09 가 val 에 있다. 기본값을 `timestamp` 로 바꿨다 (§2-B) |
+| "EK100 해상도 3종 (1080p 694개 등)" 표만 있고 fps 는 59.94/50 두 종류로 서술 | fps 는 5종: 59.94 · 50 · 29.97 · 47.95 · 90 |
+| "재인코딩본은 vll6 에만 있다" | 2026-09-14 vll5 `/data2` 에 700개 있음 확인 |
+| "기본 `center_crop`, `short_side` 는 SET 으로" + `make_configs.py` 생성기 + `ek100_smoke.yaml` | config 한 파일에 결정된 설정을 기본으로 박았다. smoke 는 `SMOKE=1`, sweep 은 `HEADS=sweep` |
+| "ViT-H 비교 수치가 레포에 없다, PDF 가 없다" | PDF 가 레포 루트에 있다. ViT-H 는 59.2 / 54.6 / 36.5 |
 
 ## 재현
 
 ```bash
 cd /data/hyuntak/project/2026/2027_cvpr/vjepa2
-python z_research/anticipation/EK100/make_configs.py          # configs/ 생성 (멱등)
-python z_research/anticipation/EK100/selftest.py              # 코드 자체 검사
-GPUS=8 DRYRUN=1 bash z_research/anticipation/EK100/run.sh ek100_vith
+python z_research/anticipation/EK100/selftest.py                                   # CPU, 몇 초
+DRYRUN=1 GPUS=8 bash z_research/anticipation/EK100/run.sh
+GPUS=1 SMOKE=1 bash z_research/anticipation/EK100/run.sh
+python z_research/scripts/data/verify_ek100_resized_frames.py --jobs 16 --out /tmp/ek100_frames.json   # §3 (~10분, NFS 원본 읽음)
 ```
-
-§2 의 segment/label 수, §3 차이 1 의 mask token norm, 차이 2 의 84%, 차이 3 의 fps 표는 전부
-`epic-kitchens-100-annotations/*.csv` · `EPIC_100_video_info.csv` · vith 체크포인트에서
-직접 계산했다 (2026-09-12). 계산식은 이 문서 안에 다 적어 뒀다.
-
-데이터: `/data/dataset/EPIC-KITCHENS` (700 MP4, 1.2T, NFS, `P*/videos/P*.MP4` = `file_format: 0`)
-annotation: `/data/hyuntak/project/2026/2027_cvpr/epic-kitchens-100-annotations`
-체크포인트: `configs/protocols/models.md` 의 `vith` / `vitl` 과 같은 파일
+§2 의 누수·시점 오차 표는 `epic-kitchens-100-annotations/EPIC_100_{train,validation}.csv` 와
+`/data2/local_datasets/EPIC-KITCHENS_resized/_meta/<video>.json` 의 fps 로 `epickitchens.decode_videos_to_clips` 와 같은 산술을 numpy 로 돌려 얻었다 (2026-09-14 세션).
+데이터 원본 `/data/dataset/EPIC-KITCHENS` (NFS, 1.2 T) · annotation `/data/hyuntak/project/2026/2027_cvpr/epic-kitchens-100-annotations` · ckpt `configs/protocols/models.md` 의 `vith`.

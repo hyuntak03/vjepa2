@@ -1,0 +1,23 @@
+22:19:25 A: loaded static_visible: {'n_clips': 120, 'n_tok_per_clip': 256, 'n_tokens': 30720, 'n_blocks': 120, 'k_counts': {0: 120}, 'violation_counts': {'color': 40, 'shape': 40, 'vanish': 40}}
+22:19:27 A: loaded static_late: {'n_clips': 120, 'n_tok_per_clip': 256, 'n_tokens': 30720, 'n_blocks': 120, 'k_counts': {1: 30, 2: 30, 3: 30, 4: 30}, 'violation_counts': {'color': 40, 'shape': 40, 'vanish': 40}}
+22:19:28 A: loaded static_early: {'n_clips': 120, 'n_tok_per_clip': 256, 'n_tokens': 30720, 'n_blocks': 120, 'k_counts': {4: 120}, 'violation_counts': {'color': 40, 'shape': 40, 'vanish': 40}}
+22:19:29 A: loaded movflat_visible: {'n_clips': 120, 'n_tok_per_clip': 256, 'n_tokens': 30720, 'n_blocks': 120, 'k_counts': {0: 120}, 'violation_counts': {'color': 40, 'shape': 40, 'vanish': 40}}
+22:19:30 A: loaded movflat_late: {'n_clips': 120, 'n_tok_per_clip': 256, 'n_tokens': 30720, 'n_blocks': 120, 'k_counts': {1: 30, 2: 30, 3: 30, 4: 30}, 'violation_counts': {'color': 40, 'shape': 40, 'vanish': 40}}
+22:19:31 A: loaded movflat_early: {'n_clips': 120, 'n_tok_per_clip': 256, 'n_tokens': 30720, 'n_blocks': 120, 'k_counts': {4: 120}, 'violation_counts': {'color': 40, 'shape': 40, 'vanish': 40}}
+22:19:35 A: loaded ramp_visible: {'n_clips': 120, 'n_tok_per_clip': 256, 'n_tokens': 30720, 'n_blocks': 120, 'k_counts': {0: 120}, 'violation_counts': {'color': 40, 'shape': 40, 'vanish': 40}}
+22:19:38 A: loaded ramp_late: {'n_clips': 120, 'n_tok_per_clip': 256, 'n_tokens': 30720, 'n_blocks': 120, 'k_counts': {1: 30, 2: 30, 3: 30, 4: 30}, 'violation_counts': {'color': 40, 'shape': 40, 'vanish': 40}}
+22:19:42 A: loaded ramp_early: {'n_clips': 120, 'n_tok_per_clip': 256, 'n_tokens': 30720, 'n_blocks': 120, 'k_counts': {4: 120}, 'violation_counts': {'color': 40, 'shape': 40, 'vanish': 40}}
+22:19:47 A(a) PCA subspaces
+22:20:04 A(a) bases done
+22:20:32 A(a) split-half done
+22:20:32 A(a) within/across done
+22:21:11 A(b) CKA
+22:22:00 A(c) alignment maps (+ z->h control, norm-matched, absolute L1)
+22:28:15 A(per-k) late sets per k with block-bootstrap
+22:35:17 A done (953s)
+22:35:17 B: block split + sampling
+22:35:20 B: fitting maps (streaming over 960 possible clips × 2048 tokens)
+22:37:00 B: maps fit (1056s); scoring 2592 blocks
+22:42:35 B: scored (1391s)
+22:42:35 !! same-block accuracy differs from the reference by > 0.5 pt in some condition (near-tie flips from cache precision; see rs.verification)
+22:42:37 done in 1392s → /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/context_encoder_analysis/exp_results/ctxenc_subspace_v2

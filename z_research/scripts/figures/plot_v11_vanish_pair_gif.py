@@ -3,7 +3,7 @@
 
 `plot_v11_vanish_readout.py` 가 저장한 readout.npz (같은 학습셋 자, ROLLOUT2_TRAIN) 를 읽어 그린다. 왼쪽 = context encoder z (32 frames 전부 봄),
 오른쪽 = predictor p (앞 16 frames 만 봄). 진실·읽기 모두 tubelet (2 frames) 단위. 아래 time bar (문맥 / 미래 / 가려진 구간).
-출력: figures/<train>/v11_vanish/pair/<motion>_<timing>/<clip>.gif  (v2 는 pair/v2/)
+출력: figures/<train>/v11_vanish/pair/<motion>_<timing>/k<k>/<clip>.gif  (v2 는 pair/v2/)
 
   python z_research/scripts/figures/plot_v11_vanish_pair_gif.py --motion ramp --k 3 --clip v11_moving_occlusion_k3_02689_pos_a
   python z_research/scripts/figures/plot_v11_vanish_pair_gif.py --motion flat --timing early --k 4 --clip v11_moving_occlusion_flat_early_k4_02464_pos_a
@@ -82,7 +82,8 @@ def load_v2(clip):
 
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument("--dataset", choices=["v11", "v2"], default="v11"); ap.add_argument("--motion", default="ramp"); ap.add_argument("--timing", default="late", choices=["late", "early", "mid"]); ap.add_argument("--k", default="3")
-    ap.add_argument("--clip", required=True); ap.add_argument("--ms", type=int, default=380); a = ap.parse_args()
+    ap.add_argument("--clip", required=True); ap.add_argument("--ms", type=int, default=380)
+    ap.add_argument("--out", help="출력 폴더 (기본: v11 은 pair/<motion>_<timing>/k<k>, v2 는 pair/v2). v2 는 파일명 앞에 시나리오를 붙인다"); a = ap.parse_args()
     global FRAMES
     if a.dataset == "v11":
         idx = {r["video_id"]: r for r in csv.DictReader(INDEX.open())}; r = idx[a.clip]
@@ -91,7 +92,8 @@ def main():
         hs, he = (float(meta["hidden_start"]), float(meta["hidden_end"])) if meta["hidden_start"] else (1, 0); hid = {t for t in range(32) if hs <= 3 * t <= he}
         cond = {"flat": "flat ground, constant velocity", "ramp": "ramp, constant acceleration", "static": "static, the object does not move"}[a.motion]
         when = {"late": "across the context/future boundary", "early": "early in the context only", "mid": "in the middle of the context only"}[a.timing]
-        sub = f"IntPhysGen v11 · {cond} · occluded k={a.k}, {when}   (possible clip)"
+        sub = (f"IntPhysGen v11 · {cond} · visible, no occluder (k=0)   (possible clip)" if a.k == "0"
+               else f"IntPhysGen v11 · {cond} · occluded k={a.k}, {when}   (possible clip)")
     else:
         FRAMES = Path("/local_datasets/world/world_analysis/RollOut_v2"); pz, pp, truth, r = load_v2(a.clip); hid = set()
         scen = r["scenario"]; desc = {"ledge": "rolls off a ledge and falls", "wall": "rolls into a wall and stops", "ramp_a": "rolls down a ramp", "arc": "flies on a parabola",
@@ -125,7 +127,9 @@ def main():
     for k, c in enumerate((GREEN, ORANGE, WHITE, BLUE, FUT, HID, BG, INK)):
         d.rectangle([20 + 150 * k, 20, 160 + 150 * k, 200], fill=c)
     pal = ref.quantize(colors=255, method=Image.Quantize.MEDIANCUT); q = [fr.quantize(palette=pal, dither=Image.Dither.NONE) for fr in frames]
-    out = FIG / "pair" / (f"{a.motion}_{a.timing}" if a.dataset == "v11" else "v2"); out.mkdir(parents=True, exist_ok=True); path = out / f"{a.clip}.gif"
+    sub_dir = (f"{a.motion}_visible" if a.k == "0" else f"{a.motion}_{a.timing}/k{a.k}") if a.dataset == "v11" else "v2"   # k=0 (visible) 은 timing 과 무관
+    out = Path(a.out) if a.out else FIG / "pair" / sub_dir; out.mkdir(parents=True, exist_ok=True)
+    path = out / (f"{r['scenario']}_{a.clip}.gif" if a.dataset == "v2" and a.out else f"{a.clip}.gif")
     q[0].save(path, save_all=True, append_images=q[1:], duration=[a.ms] * 31 + [1600], loop=0); print(f"→ {path}  ({W}x{H}, {len(q)} frames)")
 
 

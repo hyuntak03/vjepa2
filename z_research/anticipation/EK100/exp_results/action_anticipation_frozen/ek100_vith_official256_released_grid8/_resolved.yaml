@@ -1,0 +1,133 @@
+tag: ek100_vith_official256_released_grid8
+eval_name: action_anticipation_frozen
+folder: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/anticipation/EK100/exp_results
+resume_checkpoint: true
+nodes: 1
+tasks_per_node: 8
+cpus_per_task: 12
+experiment:
+  classifier:
+    num_probe_blocks: 4
+    num_heads: 16
+  data:
+    dataset: EK100
+    file_format: 0
+    base_path: /data2/local_datasets/EPIC-KITCHENS_resized
+    dataset_train: /data/hyuntak/project/2026/2027_cvpr/epic-kitchens-100-annotations/EPIC_100_train.csv
+    dataset_val: /data/hyuntak/project/2026/2027_cvpr/epic-kitchens-100-annotations/EPIC_100_validation.csv
+    frames_per_clip: 32
+    frames_per_second: 8
+    resolution: 256
+    spatial_mode: short_side
+    width: null
+    train_spatial_mode: rrc
+    anticipation_point_mode: released
+    time_source: frame_fixfps
+    train_anticipation_time_sec:
+    - 0.25
+    - 1.75
+    train_anticipation_point:
+    - 0.0
+    - 0.25
+    anticipation_time_sec:
+    - 1.0
+    - 1.0
+    val_anticipation_point:
+    - 0.0
+    - 0.0
+    auto_augment: true
+    motion_shift: false
+    reprob: 0.25
+    random_resize_scale:
+    - 0.08
+    - 1.0
+    num_workers: 6
+    pin_memory: true
+    limit_videos: null
+  evaluation:
+    topk: 5
+    exact_val_pass: true
+  optimization:
+    num_epochs: 20
+    batch_size: 16
+    use_bfloat16: true
+    use_focal_loss: true
+    multihead_kwargs:
+    - lr: 0.0003
+      start_lr: 0.0003
+      final_lr: 0.0
+      weight_decay: 0.0001
+      final_weight_decay: 0.0001
+      warmup: 0.0
+    - lr: 0.0001
+      start_lr: 0.0001
+      final_lr: 0.0
+      weight_decay: 0.0001
+      final_weight_decay: 0.0001
+      warmup: 0.0
+    - lr: 0.0003
+      start_lr: 0.0003
+      final_lr: 0.0
+      weight_decay: 0.001
+      final_weight_decay: 0.001
+      warmup: 0.0
+    - lr: 0.0001
+      start_lr: 0.0001
+      final_lr: 0.0
+      weight_decay: 0.001
+      final_weight_decay: 0.001
+      warmup: 0.0
+    - lr: 0.0003
+      start_lr: 0.0003
+      final_lr: 0.0
+      weight_decay: 0.01
+      final_weight_decay: 0.01
+      warmup: 0.0
+    - lr: 0.0001
+      start_lr: 0.0001
+      final_lr: 0.0
+      weight_decay: 0.01
+      final_weight_decay: 0.01
+      warmup: 0.0
+    - lr: 0.0003
+      start_lr: 0.0003
+      final_lr: 0.0
+      weight_decay: 0.1
+      final_weight_decay: 0.1
+      warmup: 0.0
+    - lr: 0.0001
+      start_lr: 0.0001
+      final_lr: 0.0
+      weight_decay: 0.1
+      final_weight_decay: 0.1
+      warmup: 0.0
+model_kwargs:
+  checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vith-fpc64-256/snapshots/b5eac8703e3efdc1547fbb6ddfbeb133dc0bdee5/original/model.pth
+  module_name: evals.action_anticipation_frozen.modelcustom.vit_encoder_predictor_concat_ar_nonsquare
+  wrapper_kwargs:
+    no_predictor: false
+    num_output_frames: 2
+    num_steps: 1
+    mask_index: 0
+  pretrain_kwargs:
+    encoder:
+      model_name: vit_huge
+      checkpoint_key: target_encoder
+      tubelet_size: 2
+      patch_size: 16
+      uniform_power: true
+      use_rope: true
+    predictor:
+      model_name: vit_predictor
+      checkpoint_key: predictor
+      num_frames: 64
+      depth: 12
+      num_heads: 12
+      predictor_embed_dim: 384
+      num_mask_tokens: 10
+      uniform_power: true
+      use_mask_tokens: true
+      use_sdpa: true
+      use_silu: false
+      wide_silu: false
+      use_rope: true
