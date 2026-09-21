@@ -1,0 +1,32 @@
+# =============================================================================
+# 릴리즈 ViT-H predictor post-FT — IntPhys 2 Main 의 가능 영상 (2026-09-19 결정)
+#   학습 = Main 장면 split train 절반의 가능 영상 254 clip (intphys2_main_split_train),
+#   test = 나머지 126 장면 (504 영상, 252 쌍; 채점기 split: MainTest). HeldOut 은 라벨·장면 정보가 없어 로컬 채점 불가.
+#   ⚠️ 논문 A.3: Main 을 학습에 쓰지 말 것 → test 수치는 논문 Table 2 가 아니라 같은 test 장면의 릴리즈 값과만 비교.
+#
+#   GPUS=8 bash z_training/train.sh intphys2_postft
+#
+# 창을 채점 (analysis/intphys2, vjepa2_vith_intphys2_main_repro.yaml) 과 맞춘다:
+#   6 fps (frame_step 10), 창 M = 48 장, 무작위 시작 (채점은 stride 2), 예측 = 창 끝까지 (prediction length -1)
+#   문맥 C = 채점 sweep 값에서 고른다. ★ 재현 결과 (열별 최고 C) 를 보고 확정한다 — 지금은 공식 vjepa_2.yaml 의 12..42.
+#   growing-context 의 앞쪽 짧은 창 (C = 2..C−2) 은 따로 흉내 내지 않는다 (작은 C 가 목록에 있으면 대부분 덮인다).
+# =============================================================================
+extends: frozen_predictor_postft
+
+meta:
+  save_every_freq: 5
+
+data:
+  n_frames: 48
+  batch_size: 10             # rank 당 (global 80). vll3 RTX 3090 24G 에서 batch 4 = 9.9G 실측 → VRAM 을 채우려 10 (2026-09-19)
+  datasets: [intphys2_main_split_train]
+
+mask:
+  - type: temporal_prefix
+    context_frames: [12, 18, 24, 30, 36, 42]
+    weight: 1.0
+
+val: null                    # 기본 val (IntPhys1 dev) 은 48 장 창을 못 담는다 (100 장 stride 3). HeldOut 은 라벨이 없어 감시 불가.
+
+optimization:
+  epochs: 80                 # 254 clip / global 80 ≈ 3 step/epoch → 약 240 step (batch 4·30 epoch 과 step 수를 맞춤; clip 반복은 2.5 배)

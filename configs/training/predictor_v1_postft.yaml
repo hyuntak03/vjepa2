@@ -1,0 +1,32 @@
+# =============================================================================
+# 릴리즈 ViT-H predictor post-FT — Predictor_v1_training (line / occ / ramp, 학습 index 14,250 clip)
+#   GPUS=8 bash z_training/sbatch.sh predictor_v1_postft          # vll5, 8 GPU
+#   CKPT=e10.pt GPUS=8 bash z_training/eval.sh predictor_v1_postft v11_split_test
+#
+# v11_postft 와의 차이
+#   * 데이터: predictor_v1_training (테스트 세트와 문맥 공유 없음, held-out 은 index_holdout.csv 로 분리)
+#   * batch: rank 당 16 (global 128). v11_postft 의 rank 8 이 24 GB 중 ~12 GB 를 썼다 -> 두 배로 채운다.
+#     OOM 이 나면 SET="data.batch_size=12 optimization.lr=7.5e-5"
+#   * lr 을 batch 에 선형 비례로 5e-5 -> 1e-4. epoch 당 111 step 이라 15 epoch = 1,665 step
+#     (v11_postft 의 1,680 step 과 같은 규모)
+# val 은 v11_split_test 표본 192 쌍 (감시용). test 세트의 일부이므로 이 값으로 epoch 을 고르지 말 것.
+# =============================================================================
+extends: frozen_predictor_postft
+
+meta:
+  save_every_freq: 1
+
+data:
+  batch_size: 16
+  num_workers: 8
+  datasets: [predictor_v1_training]
+
+optimization:
+  epochs: 15
+  lr: 1.0e-4
+  warmup: 1
+
+val:
+  dataset: v11_split_test
+  n_blocks_per_type: 8
+  batch_size: 16

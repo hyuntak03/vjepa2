@@ -1,5 +1,10 @@
 # EK100 action anticipation 재현 — 시작점 (2026-09-14 개정)
 
+> ## 2026-09-20 결정 (사용자): **기준은 공개 코드 규약 (`released`) 이다.**
+> 논문 Table 5 수치와 공개 probe 체크포인트가 그 규약에서 나왔다 (§2-A, §A-1). 비교 가능한 축은 그것 하나이므로
+> 재현·보고의 기준선은 `ek100_vith_official256_released_grid8` 의 **verb 56.36 / noun 56.16 / action 35.34** (논문 ViT-H 59.2 / 54.6 / 36.5) 로 둔다.
+> `paper` 규약 (문맥이 action 시작 1 s 전에 끝남) 수치는 **정직한 anticipation** 으로 병기하되 논문 비교선으로 쓰지 않는다.
+
 > ⚠️ 정정 (2026-09-15) — 아래 "아직 본 학습은 안 돌렸다" 는 지난 서술이다. `ek100_vith_lr3e-4` (paper 규약 · timestamp · head 1 · **옛 데이터**) 가 20 epoch 를 마쳤다:
 > verb 32.05 / noun 34.81 / action 18.41 (최고 action 18.59 @ epoch 19). 논문 36.5 는 릴리즈 규약 (context 가 action 끝 1 s 전) 이라 비교 대상이 아니다.
 > 새 데이터 (§3-1) 로는 `train_vith.sh paper|released` 로 다시 돌린다.
@@ -106,6 +111,34 @@ Table 20 (ViT-g384): encoder 만 61.3 / 57.0 / 39.1, predictor 만 48.7 / 34.7 /
 
 릴리즈 규약으로 나온 수치는 anticipation 성능으로 읽을 수 없다 (val 의 대부분이 정답 action 을 보고 있다).
 val 0.1% 는 영상 시작 1초 안에 action 이 시작해 인덱스가 0 으로 잘린 경우다.
+
+### A-1. 규약을 바꿔 평가하면 — 학습 규약을 벗어나면 이식되지 않는다 (2026-09-20)
+
+`val_metrics.jsonl` 에서 읽은 값. 전부 val 9,296 clip 전수 (`exact_val`), mean class recall@5.
+
+| 체크포인트 (TAG) | 학습 규약 | 평가 규약 | verb | noun | action |
+|---|---|---|---:|---:|---:|
+| `ek100_vith_official256_released_grid8` (20 epoch, head 8) | released | released | 56.36 | 56.16 | **35.34** |
+| `ek100_vith_rel_grid8_valpaper` (위 체크포인트, val 만) | released | **paper** | 26.90 | 35.28 | **14.14** |
+| `ek100_vith_official256_paper_grid8` (20 epoch, head 8) | paper | paper | 33.25 | 35.24 | **19.07** |
+| `ek100_vitl_rel_resized_mask0` (공개 probe) | released | released | 48.58 | 47.61 | 28.51 |
+| `ek100_vitl_paper_resized_mask0` (같은 공개 probe) | released | **paper** | 24.25 | 31.48 | 11.92 |
+
+- **같은 체크포인트에서 평가 규약만 바꾸면 action 이 35.34 → 14.14.** 공개 ViT-L 도 28.51 → 11.92 로 폭이 같다
+- paper 규약으로 **처음부터 학습하면 19.07** 이다 (20 epoch 완주, 2026-09-20). 같은 평가에서 released 학습 head 를 가져오면 14.14 → **"released 로 학습하고 paper 로 평가" 는 손해다**
+- **가장 큰 수치는 여기다: 같은 모델·같은 probe 인데 문맥에 동작이 보이면 35.34, 안 보이면 19.07.** 릴리즈 규약 수치의 절반 가까이가 "이미 시작된 동작을 보고 있다" 에서 온다.
+  (우연은 action recall@5 = 5/1114 = 0.45 이므로 19.07 도 우연의 42 배다. "못 한다" 가 아니라 **문맥이 동작을 보여줄 때와 아닐 때가 두 배 차이** 라는 뜻이다)
+- paper arm 의 수렴: 5 epoch 당 +6.58 → +5.44 → **+1.39** 로 마지막 구간에서 꺾였다 (cosine lr → 0). 20 epoch 예산 안에서 대체로 수렴했다
+- 왜: released 문맥에는 정답 action 프레임이 val 평균 **14 / 32 장** 들어 있다 (§2-A). 두 규약의 차이는 곧 **action 길이**다 —
+  annotation 에서 계산한 val 구간 길이는 중앙값 **1.96 s** · 평균 **3.68 s**, 1 초 미만은 **15.7%** 뿐이다 (train 1.57 / 3.12 s, 25.9%).
+  1 초보다 짧은 구간에서만 두 규약이 같은 문맥이 된다
+- 예측 대상도 같이 옮겨간다: released 는 action 의 **마지막** 프레임, paper 는 **첫** 프레임 (predictor 는 1 초를 건너뛰고 **한 시점** 을 만든다 — `num_output_frames: 2` = 1 tubelet, 공식 기본값)
+- ⚠️ 이 val 은 경계를 `timestamp` 로 환산했고 체크포인트는 `frame_fixfps` 로 학습했다. 규약과 경계 환산이 함께 바뀐다
+  (paper 규약에서 프레임 번호를 쓰면 59.94 fps 영상이 최대 2 s 밀려 문맥이 action 안으로 들어간다, §2-B). 규약만의 효과를 보려면 `frame_fixfps` arm 을 더 돌린다 (val 12 분)
+
+재현: `VAL_ONLY=1 HEADS=grid8 TAG=ek100_vith_rel_grid8_valpaper SET="data.anticipation_point_mode=paper data.time_source=timestamp" NODE=vll3 MEM_PER_GPU=30G GPUS=8 bash z_research/anticipation/EK100/sbatch.sh`
+(학습된 `latest.pt` 를 새 TAG 폴더에 심볼릭 링크로 걸어 두고 val 만 돈다 — `eval_released_vitl.sh` 와 같은 방식.
+⚠️ vll3 는 RealMemory 329 GB 라 `MEM_PER_GPU=40G` (= 320 G) 면 다른 job 20 G 때문에 영원히 대기한다.)
 
 ### B. 프레임 번호 vs 타임스탬프 — ⚠️ 이전 README 의 "8개 비디오, 0.9%, 무해" 는 틀렸다
 
@@ -247,12 +280,27 @@ val 9,668 → **9,296** segment / 138 video (372개 버림). 논문의 "3,568 ac
 - 논문은 head 20개 (lr 5 × wd 4) 중 best 를 보고하므로 무너지는 lr 이 섞여도 드러나지 않는다. head 하나로 고정하면 이 안전장치가 없다.
 - → 기본 lr 을 **3e-4** 로 바꾸고 TAG `ek100_vith_lr3e-4` 로 다시 제출 (사용자 결정). 첫 epoch val 이 위 상수값에서 벗어나는지부터 확인한다.
 
+#### ⚠️ 2026-09-20 재확인 — lr 1e-3 · 3e-3 은 **새 데이터·head 2 개에서도** 첫 epoch 에 붕괴한다
+
+grid8 두 arm 에서 최적이 lr 격자 위쪽 끝 (3e-4) 에 붙어 있어 (released: 3e-4 넷이 1e-4 넷을 4.9 pt 차로, paper: 2.7 pt 차로 전부 이김)
+한 칸 위를 밟아 보았다 — TAG `ek100_vith_official256_paper_hi2`, **lr {1e-3, 3e-3} × wd 1e-2, warmup 0 (논문대로), val 매 epoch**, vll3 8 GPU.
+
+| head | action | verb | noun |
+|---|---:|---:|---:|
+| lr 1e-3 wd 1e-2 | **0.45** | 7.14 | **2.49** |
+| lr 3e-3 wd 1e-2 | **0.45** | 5.48 | **2.49** |
+| (붕괴 상수 = 모든 clip 에 같은 top-5) | 0.45 | 6.85 | 2.49 |
+
+epoch 1 val 에서 둘 다 상수값이라 job 215141 을 취소했다 (16 시간 절약). **결론: warmup 0 에서 우리가 쓸 수 있는 lr 상한은 3e-4 다.**
+논문이 lr 5e-3~1e-4 5 종을 쓰고도 괜찮은 것은 20 head 중 best 를 보고하기 때문이다 (붕괴한 head 는 조용히 버려진다) — head 수가 적으면 그 안전장치가 없다.
+남은 수렴 지렛대는 lr 이 아니라 **epoch 예산**이다 (paper arm 은 20 epoch 에서도 5 epoch 당 +5 pt 로 오르는 중, §A-1).
+다시 시도하려면 warmup 을 1~2 epoch 넣어야 하고 그건 논문 optimizer 설정에서 벗어나므로 **별도 arm 으로 적는다**. 격자는 `resolve.py --heads hi2`.
+
 
 - ❌ 본 학습 (20 epoch). 결과가 나오면 **마지막 epoch** 값을 Table 5 ViT-H (59.2 / 54.6 / 36.5) 옆에 두되, §2 의 A·B·C·D·E·F 를 같이 적는다.
   우리 쪽이 더 어렵다 (A: 누수 0.1% vs 88.6%, D: head 1개 vs 20개 중 best). "재현 실패" 로 읽지 말 것 (CLAUDE.md §1-3).
-- ❌ **논문이 실제로 어느 규약으로 돌렸는지 확인.** 공개된 ViT-L probe checkpoint (`https://dl.fbaipublicfiles.com/vjepa2/evals/ek100-vitl-256.pt`)
-  를 `VAL_ONLY=1` 로 A (released/paper) × C (mask 0/1) 에 걸면 어느 조합이 32.7 을 내는지로 정해진다. 학습이 없어 val 한 번 (8 GPU 수 분).
-  vitl backbone 은 `checkpoint/models--facebook--vjepa2-vitl-fpc64-256` 에 있다.
+- ✅ **논문이 실제로 어느 규약으로 돌렸는지 확인 (2026-09-20 완료).** 공개 ViT-L probe 가 released 규약에서 action **31.01** (논문 32.7), paper 규약에서 **11.92**.
+  → 논문 수치는 공식 코드 그대로의 규약이다. §A-1.
 - ❌ encoder 만 (`no_predictor=true`) arm — "predictor 가 기여하는가" (논문 Table 20 은 +0.6 action).
 
 ---

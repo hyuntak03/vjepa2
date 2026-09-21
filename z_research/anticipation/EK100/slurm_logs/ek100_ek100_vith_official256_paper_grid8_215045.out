@@ -1,0 +1,1254 @@
+==============================================================================
+tag         ek100_vith_official256_paper_grid8   (새로 시작)
+모델        vit_huge  mask_index=0  no_predictor=False
+입력        32 frames @ 8 fps, 256x256, spatial=short_side
+프로토콜    ap=paper  time=timestamp  train at [0.25, 1.75] ap [0.0, 0.25]  val at [1.0, 1.0] ap [0.0, 0.0]
+probe       blocks 4, heads 8 개 sweep — 지표는 head 중 max
+batch       16 x 8 GPU = global 128  (논문 128)   epoch 20
+비디오      /data2/local_datasets/EPIC-KITCHENS_resized  (train 495/495 · val 138/138 있음)
+출력        /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/anticipation/EK100/exp_results/action_anticipation_frozen/ek100_vith_official256_paper_grid8
+==============================================================================
+/data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/anticipation/EK100/exp_results/action_anticipation_frozen/ek100_vith_official256_paper_grid8/_resolved.yaml
+port 25045  log /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/anticipation/EK100/exp_results/action_anticipation_frozen/ek100_vith_official256_paper_grid8/stdout.log
+[INFO    ][2026-09-19 18:56:32][root                ][process_main             ] called-params /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/anticipation/EK100/exp_results/action_anticipation_frozen/ek100_vith_official256_paper_grid8/_resolved.yaml
+[INFO    ][2026-09-19 18:56:32][root                ][process_main             ] loaded params...
+{   'cpus_per_task': 12,
+    'eval_name': 'action_anticipation_frozen',
+    'experiment': {   'classifier': {'num_heads': 16, 'num_probe_blocks': 4},
+                      'data': {   'anticipation_point_mode': 'paper',
+                                  'anticipation_time_sec': [1.0, 1.0],
+                                  'auto_augment': True,
+                                  'base_path': '/data2/local_datasets/EPIC-KITCHENS_resized',
+                                  'dataset': 'EK100',
+                                  'dataset_train': '/data/hyuntak/project/2026/2027_cvpr/epic-kitchens-100-annotations/EPIC_100_train.csv',
+                                  'dataset_val': '/data/hyuntak/project/2026/2027_cvpr/epic-kitchens-100-annotations/EPIC_100_validation.csv',
+                                  'file_format': 0,
+                                  'frames_per_clip': 32,
+                                  'frames_per_second': 8,
+                                  'limit_videos': None,
+                                  'motion_shift': False,
+                                  'num_workers': 6,
+                                  'pin_memory': True,
+                                  'random_resize_scale': [0.08, 1.0],
+                                  'reprob': 0.25,
+                                  'resolution': 256,
+                                  'spatial_mode': 'short_side',
+                                  'time_source': 'timestamp',
+                                  'train_anticipation_point': [0.0, 0.25],
+                                  'train_anticipation_time_sec': [0.25, 1.75],
+                                  'train_spatial_mode': 'rrc',
+                                  'val_anticipation_point': [0.0, 0.0],
+                                  'width': None},
+                      'evaluation': {'exact_val_pass': True, 'topk': 5},
+                      'optimization': {   'batch_size': 16,
+                                          'multihead_kwargs': [   {   'final_lr': 0.0,
+                                                                      'final_weight_decay': 0.0001,
+                                                                      'lr': 0.0003,
+                                                                      'start_lr': 0.0003,
+                                                                      'warmup': 0.0,
+                                                                      'weight_decay': 0.0001},
+                                                                  {   'final_lr': 0.0,
+                                                                      'final_weight_decay': 0.0001,
+                                                                      'lr': 0.0001,
+                                                                      'start_lr': 0.0001,
+                                                                      'warmup': 0.0,
+                                                                      'weight_decay': 0.0001},
+                                                                  {   'final_lr': 0.0,
+                                                                      'final_weight_decay': 0.001,
+                                                                      'lr': 0.0003,
+                                                                      'start_lr': 0.0003,
+                                                                      'warmup': 0.0,
+                                                                      'weight_decay': 0.001},
+                                                                  {   'final_lr': 0.0,
+                                                                      'final_weight_decay': 0.001,
+                                                                      'lr': 0.0001,
+                                                                      'start_lr': 0.0001,
+                                                                      'warmup': 0.0,
+                                                                      'weight_decay': 0.001},
+                                                                  {   'final_lr': 0.0,
+                                                                      'final_weight_decay': 0.01,
+                                                                      'lr': 0.0003,
+                                                                      'start_lr': 0.0003,
+                                                                      'warmup': 0.0,
+                                                                      'weight_decay': 0.01},
+                                                                  {   'final_lr': 0.0,
+                                                                      'final_weight_decay': 0.01,
+                                                                      'lr': 0.0001,
+                                                                      'start_lr': 0.0001,
+                                                                      'warmup': 0.0,
+                                                                      'weight_decay': 0.01},
+                                                                  {   'final_lr': 0.0,
+                                                                      'final_weight_decay': 0.1,
+                                                                      'lr': 0.0003,
+                                                                      'start_lr': 0.0003,
+                                                                      'warmup': 0.0,
+                                                                      'weight_decay': 0.1},
+                                                                  {   'final_lr': 0.0,
+                                                                      'final_weight_decay': 0.1,
+                                                                      'lr': 0.0001,
+                                                                      'start_lr': 0.0001,
+                                                                      'warmup': 0.0,
+                                                                      'weight_decay': 0.1}],
+                                          'num_epochs': 20,
+                                          'use_bfloat16': True,
+                                          'use_focal_loss': True}},
+    'folder': '/data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/anticipation/EK100/exp_results',
+    'model_kwargs': {   'checkpoint': '/data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vith-fpc64-256/snapshots/b5eac8703e3efdc1547fbb6ddfbeb133dc0bdee5/original/model.pth',
+                        'module_name': 'evals.action_anticipation_frozen.modelcustom.vit_encoder_predictor_concat_ar_nonsquare',
+                        'pretrain_kwargs': {   'encoder': {   'checkpoint_key': 'target_encoder',
+                                                              'model_name': 'vit_huge',
+                                                              'patch_size': 16,
+                                                              'tubelet_size': 2,
+                                                              'uniform_power': True,
+                                                              'use_rope': True},
+                                               'predictor': {   'checkpoint_key': 'predictor',
+                                                                'depth': 12,
+                                                                'model_name': 'vit_predictor',
+                                                                'num_frames': 64,
+                                                                'num_heads': 12,
+                                                                'num_mask_tokens': 10,
+                                                                'predictor_embed_dim': 384,
+                                                                'uniform_power': True,
+                                                                'use_mask_tokens': True,
+                                                                'use_rope': True,
+                                                                'use_sdpa': True,
+                                                                'use_silu': False,
+                                                                'wide_silu': False}},
+                        'wrapper_kwargs': {   'mask_index': 0,
+                                              'no_predictor': False,
+                                              'num_output_frames': 2,
+                                              'num_steps': 1}},
+    'nodes': 1,
+    'resume_checkpoint': True,
+    'tag': 'ek100_vith_official256_paper_grid8',
+    'tasks_per_node': 8,
+    'use_fsdp': False}
+[INFO    ][2026-09-19 18:56:32][root                ][process_main             ] Running... (rank: 0/8)
+[INFO    ][2026-09-19 18:56:32][Eval runner scaffold][main                     ] Running evaluation: action_anticipation_frozen
+/data/hyuntak/anaconda3/envs/vjepa2/lib/python3.12/site-packages/timm/models/layers/__init__.py:49: FutureWarning: Importing from timm.models.layers is deprecated, please import via timm.layers
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.layers", FutureWarning)
+/data/hyuntak/anaconda3/envs/vjepa2/lib/python3.12/site-packages/timm/models/layers/__init__.py:49: FutureWarning: Importing from timm.models.layers is deprecated, please import via timm.layers
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.layers", FutureWarning)
+/data/hyuntak/anaconda3/envs/vjepa2/lib/python3.12/site-packages/timm/models/layers/__init__.py:49: FutureWarning: Importing from timm.models.layers is deprecated, please import via timm.layers
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.layers", FutureWarning)
+/data/hyuntak/anaconda3/envs/vjepa2/lib/python3.12/site-packages/timm/models/layers/__init__.py:49: FutureWarning: Importing from timm.models.layers is deprecated, please import via timm.layers
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.layers", FutureWarning)
+/data/hyuntak/anaconda3/envs/vjepa2/lib/python3.12/site-packages/timm/models/layers/__init__.py:49: FutureWarning: Importing from timm.models.layers is deprecated, please import via timm.layers
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.layers", FutureWarning)
+/data/hyuntak/anaconda3/envs/vjepa2/lib/python3.12/site-packages/timm/models/layers/__init__.py:49: FutureWarning: Importing from timm.models.layers is deprecated, please import via timm.layers
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.layers", FutureWarning)
+/data/hyuntak/anaconda3/envs/vjepa2/lib/python3.12/site-packages/timm/models/layers/__init__.py:49: FutureWarning: Importing from timm.models.layers is deprecated, please import via timm.layers
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.layers", FutureWarning)
+/data/hyuntak/anaconda3/envs/vjepa2/lib/python3.12/site-packages/timm/models/layers/__init__.py:49: FutureWarning: Importing from timm.models.layers is deprecated, please import via timm.layers
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.layers", FutureWarning)
+[INFO    ][2026-09-19 18:56:54][root                ][main                     ] Initialized (rank/world-size) 7/8
+[INFO    ][2026-09-19 18:56:54][root                ][main                     ] Initialized (rank/world-size) 5/8
+[INFO    ][2026-09-19 18:56:54][root                ][main                     ] Initialized (rank/world-size) 1/8
+[INFO    ][2026-09-19 18:56:54][root                ][main                     ] Initialized (rank/world-size) 6/8
+[INFO    ][2026-09-19 18:56:54][root                ][main                     ] Initialized (rank/world-size) 3/8
+[INFO    ][2026-09-19 18:56:54][root                ][main                     ] Initialized (rank/world-size) 0/8
+[INFO    ][2026-09-19 18:56:54][root                ][main                     ] Initialized (rank/world-size) 2/8
+[INFO    ][2026-09-19 18:56:54][root                ][main                     ] Initialized (rank/world-size) 4/8
+[INFO    ][2026-09-19 18:56:56][root                ][init_module              ] Loading pretrained model from /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vith-fpc64-256/snapshots/b5eac8703e3efdc1547fbb6ddfbeb133dc0bdee5/original/model.pth (input 256x256)
+[INFO    ][2026-09-19 18:56:56][root                ][init_module              ] Loading pretrained model from /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vith-fpc64-256/snapshots/b5eac8703e3efdc1547fbb6ddfbeb133dc0bdee5/original/model.pth (input 256x256)
+[INFO    ][2026-09-19 18:56:56][root                ][init_module              ] Loading pretrained model from /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vith-fpc64-256/snapshots/b5eac8703e3efdc1547fbb6ddfbeb133dc0bdee5/original/model.pth (input 256x256)
+[INFO    ][2026-09-19 18:56:56][root                ][init_module              ] Loading pretrained model from /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vith-fpc64-256/snapshots/b5eac8703e3efdc1547fbb6ddfbeb133dc0bdee5/original/model.pth (input 256x256)
+[INFO    ][2026-09-19 18:56:56][root                ][init_module              ] Loading pretrained model from /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vith-fpc64-256/snapshots/b5eac8703e3efdc1547fbb6ddfbeb133dc0bdee5/original/model.pth (input 256x256)
+[INFO    ][2026-09-19 18:56:56][root                ][init_module              ] Loading pretrained model from /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vith-fpc64-256/snapshots/b5eac8703e3efdc1547fbb6ddfbeb133dc0bdee5/original/model.pth (input 256x256)
+[INFO    ][2026-09-19 18:56:56][root                ][init_module              ] Loading pretrained model from /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vith-fpc64-256/snapshots/b5eac8703e3efdc1547fbb6ddfbeb133dc0bdee5/original/model.pth (input 256x256)
+[INFO    ][2026-09-19 18:56:56][root                ][init_module              ] Loading pretrained model from /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vith-fpc64-256/snapshots/b5eac8703e3efdc1547fbb6ddfbeb133dc0bdee5/original/model.pth (input 256x256)
+[INFO    ][2026-09-19 18:58:58][root                ][init_module              ] loaded pretrained encoder with msg: <All keys matched successfully>
+[INFO    ][2026-09-19 18:58:58][root                ][init_module              ] loaded pretrained encoder with msg: <All keys matched successfully>
+[INFO    ][2026-09-19 18:58:58][root                ][init_module              ] loaded pretrained encoder with msg: <All keys matched successfully>
+[INFO    ][2026-09-19 18:58:58][root                ][init_module              ] loaded pretrained encoder with msg: <All keys matched successfully>
+[INFO    ][2026-09-19 18:58:58][root                ][init_module              ] loaded pretrained encoder with msg: <All keys matched successfully>
+[INFO    ][2026-09-19 18:58:58][root                ][init_module              ] loaded pretrained encoder with msg: <All keys matched successfully>
+[INFO    ][2026-09-19 18:58:58][root                ][init_module              ] loaded pretrained predictor with msg: <All keys matched successfully>
+[INFO    ][2026-09-19 18:58:58][root                ][_inject_grid_into_predictor] injected (H_patches, W_patches)=(16, 16) into 12 predictor blocks
+[INFO    ][2026-09-19 18:58:58][root                ][init_module              ] loaded pretrained predictor with msg: <All keys matched successfully>
+[INFO    ][2026-09-19 18:58:58][root                ][_inject_grid_into_predictor] injected (H_patches, W_patches)=(16, 16) into 12 predictor blocks
+[INFO    ][2026-09-19 18:58:58][root                ][init_module              ] loaded pretrained predictor with msg: <All keys matched successfully>
+[INFO    ][2026-09-19 18:58:58][root                ][_inject_grid_into_predictor] injected (H_patches, W_patches)=(16, 16) into 12 predictor blocks
+[INFO    ][2026-09-19 18:58:58][root                ][init_module              ] loaded pretrained encoder with msg: <All keys matched successfully>
+[INFO    ][2026-09-19 18:58:58][root                ][init_module              ] loaded pretrained encoder with msg: <All keys matched successfully>
+[INFO    ][2026-09-19 18:58:58][root                ][init_module              ] loaded pretrained predictor with msg: <All keys matched successfully>
+[INFO    ][2026-09-19 18:58:58][root                ][_inject_grid_into_predictor] injected (H_patches, W_patches)=(16, 16) into 12 predictor blocks
+[INFO    ][2026-09-19 18:58:58][root                ][init_module              ] loaded pretrained predictor with msg: <All keys matched successfully>
+[INFO    ][2026-09-19 18:58:58][root                ][_inject_grid_into_predictor] injected (H_patches, W_patches)=(16, 16) into 12 predictor blocks
+[INFO    ][2026-09-19 18:58:58][root                ][init_module              ] loaded pretrained predictor with msg: <All keys matched successfully>
+[INFO    ][2026-09-19 18:58:58][root                ][_inject_grid_into_predictor] injected (H_patches, W_patches)=(16, 16) into 12 predictor blocks
+/data/hyuntak/project/2026/2027_cvpr/vjepa2/evals/action_anticipation_frozen/modelcustom/vit_encoder_predictor_concat_ar_nonsquare.py:166: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:838.)
+  norms = [float(predictor.mask_tokens[i].float().norm()) for i in range(len(predictor.mask_tokens))]
+/data/hyuntak/project/2026/2027_cvpr/vjepa2/evals/action_anticipation_frozen/modelcustom/vit_encoder_predictor_concat_ar_nonsquare.py:166: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:838.)
+  norms = [float(predictor.mask_tokens[i].float().norm()) for i in range(len(predictor.mask_tokens))]
+/data/hyuntak/project/2026/2027_cvpr/vjepa2/evals/action_anticipation_frozen/modelcustom/vit_encoder_predictor_concat_ar_nonsquare.py:166: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:838.)
+  norms = [float(predictor.mask_tokens[i].float().norm()) for i in range(len(predictor.mask_tokens))]
+/data/hyuntak/project/2026/2027_cvpr/vjepa2/evals/action_anticipation_frozen/modelcustom/vit_encoder_predictor_concat_ar_nonsquare.py:166: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:838.)
+  norms = [float(predictor.mask_tokens[i].float().norm()) for i in range(len(predictor.mask_tokens))]
+/data/hyuntak/project/2026/2027_cvpr/vjepa2/evals/action_anticipation_frozen/modelcustom/vit_encoder_predictor_concat_ar_nonsquare.py:166: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:838.)
+  norms = [float(predictor.mask_tokens[i].float().norm()) for i in range(len(predictor.mask_tokens))]
+/data/hyuntak/project/2026/2027_cvpr/vjepa2/evals/action_anticipation_frozen/modelcustom/vit_encoder_predictor_concat_ar_nonsquare.py:166: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:838.)
+  norms = [float(predictor.mask_tokens[i].float().norm()) for i in range(len(predictor.mask_tokens))]
+[INFO    ][2026-09-19 18:58:58][root                ][init_module              ] loaded pretrained predictor with msg: <All keys matched successfully>
+[INFO    ][2026-09-19 18:58:58][root                ][_inject_grid_into_predictor] injected (H_patches, W_patches)=(16, 16) into 12 predictor blocks
+/data/hyuntak/project/2026/2027_cvpr/vjepa2/evals/action_anticipation_frozen/modelcustom/vit_encoder_predictor_concat_ar_nonsquare.py:166: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:838.)
+  norms = [float(predictor.mask_tokens[i].float().norm()) for i in range(len(predictor.mask_tokens))]
+[INFO    ][2026-09-19 18:58:58][root                ][init_module              ] loaded pretrained predictor with msg: <All keys matched successfully>
+[INFO    ][2026-09-19 18:58:58][root                ][_inject_grid_into_predictor] injected (H_patches, W_patches)=(16, 16) into 12 predictor blocks
+/data/hyuntak/project/2026/2027_cvpr/vjepa2/evals/action_anticipation_frozen/modelcustom/vit_encoder_predictor_concat_ar_nonsquare.py:166: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:838.)
+  norms = [float(predictor.mask_tokens[i].float().norm()) for i in range(len(predictor.mask_tokens))]
+[INFO    ][2026-09-19 18:58:58][root                ][init_module              ] predictor mask_token norms: [0]=0.6706, [1]=0.0000, [2]=0.0000, [3]=0.0000, [4]=0.0000, [5]=0.0000, [6]=0.0000, [7]=0.0000, [8]=0.0000, [9]=0.0000
+[INFO    ][2026-09-19 18:58:58][root                ][init_module              ] predictor mask_token norms: [0]=0.6706, [1]=0.0000, [2]=0.0000, [3]=0.0000, [4]=0.0000, [5]=0.0000, [6]=0.0000, [7]=0.0000, [8]=0.0000, [9]=0.0000
+[INFO    ][2026-09-19 18:58:58][root                ][init_module              ] predictor mask_token norms: [0]=0.6706, [1]=0.0000, [2]=0.0000, [3]=0.0000, [4]=0.0000, [5]=0.0000, [6]=0.0000, [7]=0.0000, [8]=0.0000, [9]=0.0000
+[INFO    ][2026-09-19 18:58:58][root                ][init_module              ] predictor mask_token norms: [0]=0.6706, [1]=0.0000, [2]=0.0000, [3]=0.0000, [4]=0.0000, [5]=0.0000, [6]=0.0000, [7]=0.0000, [8]=0.0000, [9]=0.0000
+[INFO    ][2026-09-19 18:58:58][root                ][init_module              ] predictor mask_token norms: [0]=0.6706, [1]=0.0000, [2]=0.0000, [3]=0.0000, [4]=0.0000, [5]=0.0000, [6]=0.0000, [7]=0.0000, [8]=0.0000, [9]=0.0000
+[INFO    ][2026-09-19 18:58:58][root                ][init_module              ] predictor mask_token norms: [0]=0.6706, [1]=0.0000, [2]=0.0000, [3]=0.0000, [4]=0.0000, [5]=0.0000, [6]=0.0000, [7]=0.0000, [8]=0.0000, [9]=0.0000
+[INFO    ][2026-09-19 18:58:58][root                ][__init__                 ] AnticipativeWrapper: grid=(16, 16) tokens/tubelet=256 mask_index=0 num_output_frames=2 num_steps=1
+[INFO    ][2026-09-19 18:58:58][root                ][init_module              ] predictor mask_token norms: [0]=0.6706, [1]=0.0000, [2]=0.0000, [3]=0.0000, [4]=0.0000, [5]=0.0000, [6]=0.0000, [7]=0.0000, [8]=0.0000, [9]=0.0000
+[INFO    ][2026-09-19 18:58:58][root                ][__init__                 ] AnticipativeWrapper: grid=(16, 16) tokens/tubelet=256 mask_index=0 num_output_frames=2 num_steps=1
+[INFO    ][2026-09-19 18:58:58][root                ][init_module              ] predictor mask_token norms: [0]=0.6706, [1]=0.0000, [2]=0.0000, [3]=0.0000, [4]=0.0000, [5]=0.0000, [6]=0.0000, [7]=0.0000, [8]=0.0000, [9]=0.0000
+[INFO    ][2026-09-19 18:58:58][root                ][__init__                 ] AnticipativeWrapper: grid=(16, 16) tokens/tubelet=256 mask_index=0 num_output_frames=2 num_steps=1
+[INFO    ][2026-09-19 18:58:58][root                ][__init__                 ] AnticipativeWrapper: grid=(16, 16) tokens/tubelet=256 mask_index=0 num_output_frames=2 num_steps=1
+[INFO    ][2026-09-19 18:58:58][root                ][__init__                 ] AnticipativeWrapper: grid=(16, 16) tokens/tubelet=256 mask_index=0 num_output_frames=2 num_steps=1
+[INFO    ][2026-09-19 18:58:58][root                ][__init__                 ] AnticipativeWrapper: grid=(16, 16) tokens/tubelet=256 mask_index=0 num_output_frames=2 num_steps=1
+[INFO    ][2026-09-19 18:58:58][root                ][__init__                 ] AnticipativeWrapper: grid=(16, 16) tokens/tubelet=256 mask_index=0 num_output_frames=2 num_steps=1
+[INFO    ][2026-09-19 18:58:58][root                ][__init__                 ] AnticipativeWrapper: grid=(16, 16) tokens/tubelet=256 mask_index=0 num_output_frames=2 num_steps=1
+AnticipativeWrapper(
+  (encoder): VisionTransformer(
+    (patch_embed): PatchEmbed3D(
+      (proj): Conv3d(3, 1280, kernel_size=(2, 16, 16), stride=(2, 16, 16))
+    )
+    (blocks): ModuleList(
+      (0-31): 32 x Block(
+        (norm1): LayerNorm((1280,), eps=1e-06, elementwise_affine=True, bias=True)
+        (attn): RoPEAttention(
+          (qkv): Linear(in_features=1280, out_features=3840, bias=True)
+          (attn_drop): Dropout(p=0.0, inplace=False)
+          (proj): Linear(in_features=1280, out_features=1280, bias=True)
+          (proj_drop): Dropout(p=0.0, inplace=False)
+        )
+        (drop_path): Identity()
+        (norm2): LayerNorm((1280,), eps=1e-06, elementwise_affine=True, bias=True)
+        (mlp): MLP(
+          (fc1): Linear(in_features=1280, out_features=5120, bias=True)
+          (act): GELU(approximate='none')
+          (fc2): Linear(in_features=5120, out_features=1280, bias=True)
+          (drop): Dropout(p=0.0, inplace=False)
+        )
+      )
+    )
+    (norm): LayerNorm((1280,), eps=1e-06, elementwise_affine=True, bias=True)
+  )
+  (predictor): VisionTransformerPredictor(
+    (predictor_embed): Linear(in_features=1280, out_features=384, bias=True)
+    (mask_tokens): ParameterList(
+        (0): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (1): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (2): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (3): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (4): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (5): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (6): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (7): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (8): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (9): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+    )
+    (predictor_blocks): ModuleList(
+      (0-11): 12 x Block(
+        (norm1): LayerNorm((384,), eps=1e-06, elementwise_affine=True, bias=True)
+        (attn): RoPEAttention(
+          (qkv): Linear(in_features=384, out_features=1152, bias=True)
+          (attn_drop): Dropout(p=0.0, inplace=False)
+          (proj): Linear(in_features=384, out_features=384, bias=True)
+          (proj_drop): Dropout(p=0.0, inplace=False)
+        )
+        (drop_path): Identity()
+        (norm2): LayerNorm((384,), eps=1e-06, elementwise_affine=True, bias=True)
+        (mlp): MLP(
+          (fc1): Linear(in_features=384, out_features=1536, bias=True)
+          (act): GELU(approximate='none')
+          (fc2): Linear(in_features=1536, out_features=384, bias=True)
+          (drop): Dropout(p=0.0, inplace=False)
+        )
+      )
+    )
+    (predictor_norm): LayerNorm((384,), eps=1e-06, elementwise_affine=True, bias=True)
+    (predictor_proj): Linear(in_features=384, out_features=1280, bias=True)
+  )
+)
+AnticipativeWrapper(
+  (encoder): VisionTransformer(
+    (patch_embed): PatchEmbed3D(
+      (proj): Conv3d(3, 1280, kernel_size=(2, 16, 16), stride=(2, 16, 16))
+    )
+    (blocks): ModuleList(
+      (0-31): 32 x Block(
+        (norm1): LayerNorm((1280,), eps=1e-06, elementwise_affine=True, bias=True)
+        (attn): RoPEAttention(
+          (qkv): Linear(in_features=1280, out_features=3840, bias=True)
+          (attn_drop): Dropout(p=0.0, inplace=False)
+          (proj): Linear(in_features=1280, out_features=1280, bias=True)
+          (proj_drop): Dropout(p=0.0, inplace=False)
+        )
+        (drop_path): Identity()
+        (norm2): LayerNorm((1280,), eps=1e-06, elementwise_affine=True, bias=True)
+        (mlp): MLP(
+          (fc1): Linear(in_features=1280, out_features=5120, bias=True)
+          (act): GELU(approximate='none')
+          (fc2): Linear(in_features=5120, out_features=1280, bias=True)
+          (drop): Dropout(p=0.0, inplace=False)
+        )
+      )
+    )
+    (norm): LayerNorm((1280,), eps=1e-06, elementwise_affine=True, bias=True)
+  )
+  (predictor): VisionTransformerPredictor(
+    (predictor_embed): Linear(in_features=1280, out_features=384, bias=True)
+    (mask_tokens): ParameterList(
+        (0): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (1): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (2): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (3): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (4): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (5): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (6): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (7): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (8): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (9): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+    )
+    (predictor_blocks): ModuleList(
+      (0-11): 12 x Block(
+        (norm1): LayerNorm((384,), eps=1e-06, elementwise_affine=True, bias=True)
+        (attn): RoPEAttention(
+          (qkv): Linear(in_features=384, out_features=1152, bias=True)
+          (attn_drop): Dropout(p=0.0, inplace=False)
+          (proj): Linear(in_features=384, out_features=384, bias=True)
+          (proj_drop): Dropout(p=0.0, inplace=False)
+        )
+        (drop_path): Identity()
+        (norm2): LayerNorm((384,), eps=1e-06, elementwise_affine=True, bias=True)
+        (mlp): MLP(
+          (fc1): Linear(in_features=384, out_features=1536, bias=True)
+          (act): GELU(approximate='none')
+          (fc2): Linear(in_features=1536, out_features=384, bias=True)
+          (drop): Dropout(p=0.0, inplace=False)
+        )
+      )
+    )
+    (predictor_norm): LayerNorm((384,), eps=1e-06, elementwise_affine=True, bias=True)
+    (predictor_proj): Linear(in_features=384, out_features=1280, bias=True)
+  )
+)
+AnticipativeWrapper(
+  (encoder): VisionTransformer(
+    (patch_embed): PatchEmbed3D(
+      (proj): Conv3d(3, 1280, kernel_size=(2, 16, 16), stride=(2, 16, 16))
+    )
+    (blocks): ModuleList(
+      (0-31): 32 x Block(
+        (norm1): LayerNorm((1280,), eps=1e-06, elementwise_affine=True, bias=True)
+        (attn): RoPEAttention(
+          (qkv): Linear(in_features=1280, out_features=3840, bias=True)
+          (attn_drop): Dropout(p=0.0, inplace=False)
+          (proj): Linear(in_features=1280, out_features=1280, bias=True)
+          (proj_drop): Dropout(p=0.0, inplace=False)
+        )
+        (drop_path): Identity()
+        (norm2): LayerNorm((1280,), eps=1e-06, elementwise_affine=True, bias=True)
+        (mlp): MLP(
+          (fc1): Linear(in_features=1280, out_features=5120, bias=True)
+          (act): GELU(approximate='none')
+          (fc2): Linear(in_features=5120, out_features=1280, bias=True)
+          (drop): Dropout(p=0.0, inplace=False)
+        )
+      )
+    )
+    (norm): LayerNorm((1280,), eps=1e-06, elementwise_affine=True, bias=True)
+  )
+  (predictor): VisionTransformerPredictor(
+    (predictor_embed): Linear(in_features=1280, out_features=384, bias=True)
+    (mask_tokens): ParameterList(
+        (0): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (1): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (2): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (3): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (4): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (5): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (6): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (7): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (8): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (9): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+    )
+    (predictor_blocks): ModuleList(
+      (0-11): 12 x Block(
+        (norm1): LayerNorm((384,), eps=1e-06, elementwise_affine=True, bias=True)
+        (attn): RoPEAttention(
+          (qkv): Linear(in_features=384, out_features=1152, bias=True)
+          (attn_drop): Dropout(p=0.0, inplace=False)
+          (proj): Linear(in_features=384, out_features=384, bias=True)
+          (proj_drop): Dropout(p=0.0, inplace=False)
+        )
+        (drop_path): Identity()
+        (norm2): LayerNorm((384,), eps=1e-06, elementwise_affine=True, bias=True)
+        (mlp): MLP(
+          (fc1): Linear(in_features=384, out_features=1536, bias=True)
+          (act): GELU(approximate='none')
+          (fc2): Linear(in_features=1536, out_features=384, bias=True)
+          (drop): Dropout(p=0.0, inplace=False)
+        )
+      )
+    )
+    (predictor_norm): LayerNorm((384,), eps=1e-06, elementwise_affine=True, bias=True)
+    (predictor_proj): Linear(in_features=384, out_features=1280, bias=True)
+  )
+)
+AnticipativeWrapper(
+  (encoder): VisionTransformer(
+    (patch_embed): PatchEmbed3D(
+      (proj): Conv3d(3, 1280, kernel_size=(2, 16, 16), stride=(2, 16, 16))
+    )
+    (blocks): ModuleList(
+      (0-31): 32 x Block(
+        (norm1): LayerNorm((1280,), eps=1e-06, elementwise_affine=True, bias=True)
+        (attn): RoPEAttention(
+          (qkv): Linear(in_features=1280, out_features=3840, bias=True)
+          (attn_drop): Dropout(p=0.0, inplace=False)
+          (proj): Linear(in_features=1280, out_features=1280, bias=True)
+          (proj_drop): Dropout(p=0.0, inplace=False)
+        )
+        (drop_path): Identity()
+        (norm2): LayerNorm((1280,), eps=1e-06, elementwise_affine=True, bias=True)
+        (mlp): MLP(
+          (fc1): Linear(in_features=1280, out_features=5120, bias=True)
+          (act): GELU(approximate='none')
+          (fc2): Linear(in_features=5120, out_features=1280, bias=True)
+          (drop): Dropout(p=0.0, inplace=False)
+        )
+      )
+    )
+    (norm): LayerNorm((1280,), eps=1e-06, elementwise_affine=True, bias=True)
+  )
+  (predictor): VisionTransformerPredictor(
+    (predictor_embed): Linear(in_features=1280, out_features=384, bias=True)
+    (mask_tokens): ParameterList(
+        (0): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (1): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (2): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (3): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (4): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (5): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (6): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (7): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (8): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (9): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+    )
+    (predictor_blocks): ModuleList(
+      (0-11): 12 x Block(
+        (norm1): LayerNorm((384,), eps=1e-06, elementwise_affine=True, bias=True)
+        (attn): RoPEAttention(
+          (qkv): Linear(in_features=384, out_features=1152, bias=True)
+          (attn_drop): Dropout(p=0.0, inplace=False)
+          (proj): Linear(in_features=384, out_features=384, bias=True)
+          (proj_drop): Dropout(p=0.0, inplace=False)
+        )
+        (drop_path): Identity()
+        (norm2): LayerNorm((384,), eps=1e-06, elementwise_affine=True, bias=True)
+        (mlp): MLP(
+          (fc1): Linear(in_features=384, out_features=1536, bias=True)
+          (act): GELU(approximate='none')
+          (fc2): Linear(in_features=1536, out_features=384, bias=True)
+          (drop): Dropout(p=0.0, inplace=False)
+        )
+      )
+    )
+    (predictor_norm): LayerNorm((384,), eps=1e-06, elementwise_affine=True, bias=True)
+    (predictor_proj): Linear(in_features=384, out_features=1280, bias=True)
+  )
+)
+AnticipativeWrapper(
+  (encoder): VisionTransformer(
+    (patch_embed): PatchEmbed3D(
+      (proj): Conv3d(3, 1280, kernel_size=(2, 16, 16), stride=(2, 16, 16))
+    )
+    (blocks): ModuleList(
+      (0-31): 32 x Block(
+        (norm1): LayerNorm((1280,), eps=1e-06, elementwise_affine=True, bias=True)
+        (attn): RoPEAttention(
+          (qkv): Linear(in_features=1280, out_features=3840, bias=True)
+          (attn_drop): Dropout(p=0.0, inplace=False)
+          (proj): Linear(in_features=1280, out_features=1280, bias=True)
+          (proj_drop): Dropout(p=0.0, inplace=False)
+        )
+        (drop_path): Identity()
+        (norm2): LayerNorm((1280,), eps=1e-06, elementwise_affine=True, bias=True)
+        (mlp): MLP(
+          (fc1): Linear(in_features=1280, out_features=5120, bias=True)
+          (act): GELU(approximate='none')
+          (fc2): Linear(in_features=5120, out_features=1280, bias=True)
+          (drop): Dropout(p=0.0, inplace=False)
+        )
+      )
+    )
+    (norm): LayerNorm((1280,), eps=1e-06, elementwise_affine=True, bias=True)
+  )
+  (predictor): VisionTransformerPredictor(
+    (predictor_embed): Linear(in_features=1280, out_features=384, bias=True)
+    (mask_tokens): ParameterList(
+        (0): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (1): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (2): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (3): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (4): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (5): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (6): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (7): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (8): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (9): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+    )
+    (predictor_blocks): ModuleList(
+      (0-11): 12 x Block(
+        (norm1): LayerNorm((384,), eps=1e-06, elementwise_affine=True, bias=True)
+        (attn): RoPEAttention(
+          (qkv): Linear(in_features=384, out_features=1152, bias=True)
+          (attn_drop): Dropout(p=0.0, inplace=False)
+          (proj): Linear(in_features=384, out_features=384, bias=True)
+          (proj_drop): Dropout(p=0.0, inplace=False)
+        )
+        (drop_path): Identity()
+        (norm2): LayerNorm((384,), eps=1e-06, elementwise_affine=True, bias=True)
+        (mlp): MLP(
+          (fc1): Linear(in_features=384, out_features=1536, bias=True)
+          (act): GELU(approximate='none')
+          (fc2): Linear(in_features=1536, out_features=384, bias=True)
+          (drop): Dropout(p=0.0, inplace=False)
+        )
+      )
+    )
+    (predictor_norm): LayerNorm((384,), eps=1e-06, elementwise_affine=True, bias=True)
+    (predictor_proj): Linear(in_features=384, out_features=1280, bias=True)
+  )
+)
+AnticipativeWrapper(
+  (encoder): VisionTransformer(
+    (patch_embed): PatchEmbed3D(
+      (proj): Conv3d(3, 1280, kernel_size=(2, 16, 16), stride=(2, 16, 16))
+    )
+    (blocks): ModuleList(
+      (0-31): 32 x Block(
+        (norm1): LayerNorm((1280,), eps=1e-06, elementwise_affine=True, bias=True)
+        (attn): RoPEAttention(
+          (qkv): Linear(in_features=1280, out_features=3840, bias=True)
+          (attn_drop): Dropout(p=0.0, inplace=False)
+          (proj): Linear(in_features=1280, out_features=1280, bias=True)
+          (proj_drop): Dropout(p=0.0, inplace=False)
+        )
+        (drop_path): Identity()
+        (norm2): LayerNorm((1280,), eps=1e-06, elementwise_affine=True, bias=True)
+        (mlp): MLP(
+          (fc1): Linear(in_features=1280, out_features=5120, bias=True)
+          (act): GELU(approximate='none')
+          (fc2): Linear(in_features=5120, out_features=1280, bias=True)
+          (drop): Dropout(p=0.0, inplace=False)
+        )
+      )
+    )
+    (norm): LayerNorm((1280,), eps=1e-06, elementwise_affine=True, bias=True)
+  )
+  (predictor): VisionTransformerPredictor(
+    (predictor_embed): Linear(in_features=1280, out_features=384, bias=True)
+    (mask_tokens): ParameterList(
+        (0): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (1): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (2): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (3): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (4): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (5): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (6): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (7): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (8): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (9): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+    )
+    (predictor_blocks): ModuleList(
+      (0-11): 12 x Block(
+        (norm1): LayerNorm((384,), eps=1e-06, elementwise_affine=True, bias=True)
+        (attn): RoPEAttention(
+          (qkv): Linear(in_features=384, out_features=1152, bias=True)
+          (attn_drop): Dropout(p=0.0, inplace=False)
+          (proj): Linear(in_features=384, out_features=384, bias=True)
+          (proj_drop): Dropout(p=0.0, inplace=False)
+        )
+        (drop_path): Identity()
+        (norm2): LayerNorm((384,), eps=1e-06, elementwise_affine=True, bias=True)
+        (mlp): MLP(
+          (fc1): Linear(in_features=384, out_features=1536, bias=True)
+          (act): GELU(approximate='none')
+          (fc2): Linear(in_features=1536, out_features=384, bias=True)
+          (drop): Dropout(p=0.0, inplace=False)
+        )
+      )
+    )
+    (predictor_norm): LayerNorm((384,), eps=1e-06, elementwise_affine=True, bias=True)
+    (predictor_proj): Linear(in_features=384, out_features=1280, bias=True)
+  )
+)
+AnticipativeWrapper(
+  (encoder): VisionTransformer(
+    (patch_embed): PatchEmbed3D(
+      (proj): Conv3d(3, 1280, kernel_size=(2, 16, 16), stride=(2, 16, 16))
+    )
+    (blocks): ModuleList(
+      (0-31): 32 x Block(
+        (norm1): LayerNorm((1280,), eps=1e-06, elementwise_affine=True, bias=True)
+        (attn): RoPEAttention(
+          (qkv): Linear(in_features=1280, out_features=3840, bias=True)
+          (attn_drop): Dropout(p=0.0, inplace=False)
+          (proj): Linear(in_features=1280, out_features=1280, bias=True)
+          (proj_drop): Dropout(p=0.0, inplace=False)
+        )
+        (drop_path): Identity()
+        (norm2): LayerNorm((1280,), eps=1e-06, elementwise_affine=True, bias=True)
+        (mlp): MLP(
+          (fc1): Linear(in_features=1280, out_features=5120, bias=True)
+          (act): GELU(approximate='none')
+          (fc2): Linear(in_features=5120, out_features=1280, bias=True)
+          (drop): Dropout(p=0.0, inplace=False)
+        )
+      )
+    )
+    (norm): LayerNorm((1280,), eps=1e-06, elementwise_affine=True, bias=True)
+  )
+  (predictor): VisionTransformerPredictor(
+    (predictor_embed): Linear(in_features=1280, out_features=384, bias=True)
+    (mask_tokens): ParameterList(
+        (0): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (1): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (2): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (3): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (4): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (5): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (6): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (7): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (8): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (9): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+    )
+    (predictor_blocks): ModuleList(
+      (0-11): 12 x Block(
+        (norm1): LayerNorm((384,), eps=1e-06, elementwise_affine=True, bias=True)
+        (attn): RoPEAttention(
+          (qkv): Linear(in_features=384, out_features=1152, bias=True)
+          (attn_drop): Dropout(p=0.0, inplace=False)
+          (proj): Linear(in_features=384, out_features=384, bias=True)
+          (proj_drop): Dropout(p=0.0, inplace=False)
+        )
+        (drop_path): Identity()
+        (norm2): LayerNorm((384,), eps=1e-06, elementwise_affine=True, bias=True)
+        (mlp): MLP(
+          (fc1): Linear(in_features=384, out_features=1536, bias=True)
+          (act): GELU(approximate='none')
+          (fc2): Linear(in_features=1536, out_features=384, bias=True)
+          (drop): Dropout(p=0.0, inplace=False)
+        )
+      )
+    )
+    (predictor_norm): LayerNorm((384,), eps=1e-06, elementwise_affine=True, bias=True)
+    (predictor_proj): Linear(in_features=384, out_features=1280, bias=True)
+  )
+)
+AnticipativeWrapper(
+  (encoder): VisionTransformer(
+    (patch_embed): PatchEmbed3D(
+      (proj): Conv3d(3, 1280, kernel_size=(2, 16, 16), stride=(2, 16, 16))
+    )
+    (blocks): ModuleList(
+      (0-31): 32 x Block(
+        (norm1): LayerNorm((1280,), eps=1e-06, elementwise_affine=True, bias=True)
+        (attn): RoPEAttention(
+          (qkv): Linear(in_features=1280, out_features=3840, bias=True)
+          (attn_drop): Dropout(p=0.0, inplace=False)
+          (proj): Linear(in_features=1280, out_features=1280, bias=True)
+          (proj_drop): Dropout(p=0.0, inplace=False)
+        )
+        (drop_path): Identity()
+        (norm2): LayerNorm((1280,), eps=1e-06, elementwise_affine=True, bias=True)
+        (mlp): MLP(
+          (fc1): Linear(in_features=1280, out_features=5120, bias=True)
+          (act): GELU(approximate='none')
+          (fc2): Linear(in_features=5120, out_features=1280, bias=True)
+          (drop): Dropout(p=0.0, inplace=False)
+        )
+      )
+    )
+    (norm): LayerNorm((1280,), eps=1e-06, elementwise_affine=True, bias=True)
+  )
+  (predictor): VisionTransformerPredictor(
+    (predictor_embed): Linear(in_features=1280, out_features=384, bias=True)
+    (mask_tokens): ParameterList(
+        (0): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (1): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (2): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (3): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (4): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (5): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (6): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (7): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (8): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+        (9): Parameter containing: [torch.float32 of size 1x1x384 (cuda:0)]
+    )
+    (predictor_blocks): ModuleList(
+      (0-11): 12 x Block(
+        (norm1): LayerNorm((384,), eps=1e-06, elementwise_affine=True, bias=True)
+        (attn): RoPEAttention(
+          (qkv): Linear(in_features=384, out_features=1152, bias=True)
+          (attn_drop): Dropout(p=0.0, inplace=False)
+          (proj): Linear(in_features=384, out_features=384, bias=True)
+          (proj_drop): Dropout(p=0.0, inplace=False)
+        )
+        (drop_path): Identity()
+        (norm2): LayerNorm((384,), eps=1e-06, elementwise_affine=True, bias=True)
+        (mlp): MLP(
+          (fc1): Linear(in_features=384, out_features=1536, bias=True)
+          (act): GELU(approximate='none')
+          (fc2): Linear(in_features=1536, out_features=384, bias=True)
+          (drop): Dropout(p=0.0, inplace=False)
+        )
+      )
+    )
+    (predictor_norm): LayerNorm((384,), eps=1e-06, elementwise_affine=True, bias=True)
+    (predictor_proj): Linear(in_features=384, out_features=1280, bias=True)
+  )
+)
+AttentiveClassifier(
+  (pooler): AttentivePooler(
+    (cross_attention_block): CrossAttentionBlock(
+      (norm1): LayerNorm((1280,), eps=1e-05, elementwise_affine=True, bias=True)
+      (xattn): CrossAttention(
+        (q): Linear(in_features=1280, out_features=1280, bias=True)
+        (kv): Linear(in_features=1280, out_features=2560, bias=True)
+      )
+      (norm2): LayerNorm((1280,), eps=1e-05, elementwise_affine=True, bias=True)
+      (mlp): MLP(
+        (fc1): Linear(in_features=1280, out_features=5120, bias=True)
+        (act): GELU(approximate='none')
+        (fc2): Linear(in_features=5120, out_features=1280, bias=True)
+        (drop): Dropout(p=0.0, inplace=False)
+      )
+    )
+    (blocks): ModuleList(
+      (0-2): 3 x Block(
+        (norm1): LayerNorm((1280,), eps=1e-05, elementwise_affine=True, bias=True)
+        (attn): Attention(
+          (qkv): Linear(in_features=1280, out_features=3840, bias=True)
+          (attn_drop): Dropout(p=0.0, inplace=False)
+          (proj): Linear(in_features=1280, out_features=1280, bias=True)
+          (proj_drop): Dropout(p=0.0, inplace=False)
+        )
+        (drop_path): Identity()
+        (norm2): LayerNorm((1280,), eps=1e-05, elementwise_affine=True, bias=True)
+        (mlp): MLP(
+          (fc1): Linear(in_features=1280, out_features=5120, bias=True)
+          (act): GELU(approximate='none')
+          (fc2): Linear(in_features=5120, out_features=1280, bias=True)
+          (drop): Dropout(p=0.0, inplace=False)
+        )
+      )
+    )
+  )
+  (verb_classifier): Linear(in_features=1280, out_features=97, bias=True)
+  (noun_classifier): Linear(in_features=1280, out_features=289, bias=True)
+  (action_classifier): Linear(in_features=1280, out_features=3568, bias=True)
+)
+[INFO    ][2026-09-19 18:59:05][root                ][get_video_wds_dataset    ] Total number of shards across all data is num_shards=495
+[INFO    ][2026-09-19 18:59:05][root                ][__init__                 ] Done initializing ResampledShards
+[INFO    ][2026-09-19 18:59:05][root                ][main                     ] Dataloader created... iterations per epoch: 525
+[INFO    ][2026-09-19 18:59:05][root                ][get_video_wds_dataset    ] Total number of shards across all data is num_shards=138
+[INFO    ][2026-09-19 18:59:05][root                ][__init__                 ] Done initializing ResampledShards
+[INFO    ][2026-09-19 18:59:05][root                ][main                     ] Val dataloader created... iterations per epoch: 72
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+/data/hyuntak/project/2026/2027_cvpr/vjepa2/evals/action_anticipation_frozen/utils.py:34: FutureWarning: `torch.cuda.amp.GradScaler(args...)` is deprecated. Please use `torch.amp.GradScaler('cuda', args...)` instead.
+  scalers += [torch.cuda.amp.GradScaler() if use_bfloat16 else None]
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+AttentiveClassifier(
+  (pooler): AttentivePooler(
+    (cross_attention_block): CrossAttentionBlock(
+      (norm1): LayerNorm((1280,), eps=1e-05, elementwise_affine=True, bias=True)
+      (xattn): CrossAttention(
+        (q): Linear(in_features=1280, out_features=1280, bias=True)
+        (kv): Linear(in_features=1280, out_features=2560, bias=True)
+      )
+      (norm2): LayerNorm((1280,), eps=1e-05, elementwise_affine=True, bias=True)
+      (mlp): MLP(
+        (fc1): Linear(in_features=1280, out_features=5120, bias=True)
+        (act): GELU(approximate='none')
+        (fc2): Linear(in_features=5120, out_features=1280, bias=True)
+        (drop): Dropout(p=0.0, inplace=False)
+      )
+    )
+    (blocks): ModuleList(
+      (0-2): 3 x Block(
+        (norm1): LayerNorm((1280,), eps=1e-05, elementwise_affine=True, bias=True)
+        (attn): Attention(
+          (qkv): Linear(in_features=1280, out_features=3840, bias=True)
+          (attn_drop): Dropout(p=0.0, inplace=False)
+          (proj): Linear(in_features=1280, out_features=1280, bias=True)
+          (proj_drop): Dropout(p=0.0, inplace=False)
+        )
+        (drop_path): Identity()
+        (norm2): LayerNorm((1280,), eps=1e-05, elementwise_affine=True, bias=True)
+        (mlp): MLP(
+          (fc1): Linear(in_features=1280, out_features=5120, bias=True)
+          (act): GELU(approximate='none')
+          (fc2): Linear(in_features=5120, out_features=1280, bias=True)
+          (drop): Dropout(p=0.0, inplace=False)
+        )
+      )
+    )
+  )
+  (verb_classifier): Linear(in_features=1280, out_features=97, bias=True)
+  (noun_classifier): Linear(in_features=1280, out_features=289, bias=True)
+  (action_classifier): Linear(in_features=1280, out_features=3568, bias=True)
+)[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+[INFO    ][2026-09-19 18:59:05][root                ][get_video_wds_dataset    ] Total number of shards across all data is num_shards=495
+[INFO    ][2026-09-19 18:59:05][root                ][__init__                 ] Done initializing ResampledShards
+[INFO    ][2026-09-19 18:59:05][root                ][main                     ] Dataloader created... iterations per epoch: 525
+[INFO    ][2026-09-19 18:59:05][root                ][get_video_wds_dataset    ] Total number of shards across all data is num_shards=138
+[INFO    ][2026-09-19 18:59:05][root                ][__init__                 ] Done initializing ResampledShards
+[INFO    ][2026-09-19 18:59:05][root                ][main                     ] Val dataloader created... iterations per epoch: 72
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+/data/hyuntak/project/2026/2027_cvpr/vjepa2/evals/action_anticipation_frozen/utils.py:34: FutureWarning: `torch.cuda.amp.GradScaler(args...)` is deprecated. Please use `torch.amp.GradScaler('cuda', args...)` instead.
+  scalers += [torch.cuda.amp.GradScaler() if use_bfloat16 else None]
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+AttentiveClassifier(
+  (pooler): AttentivePooler(
+    (cross_attention_block): CrossAttentionBlock(
+      (norm1): LayerNorm((1280,), eps=1e-05, elementwise_affine=True, bias=True)
+      (xattn): CrossAttention(
+        (q): Linear(in_features=1280, out_features=1280, bias=True)
+        (kv): Linear(in_features=1280, out_features=2560, bias=True)
+      )
+      (norm2): LayerNorm((1280,), eps=1e-05, elementwise_affine=True, bias=True)
+      (mlp): MLP(
+        (fc1): Linear(in_features=1280, out_features=5120, bias=True)
+        (act): GELU(approximate='none')
+        (fc2): Linear(in_features=5120, out_features=1280, bias=True)
+        (drop): Dropout(p=0.0, inplace=False)
+      )
+    )
+    (blocks): ModuleList(
+      (0-2): 3 x Block(
+        (norm1): LayerNorm((1280,), eps=1e-05, elementwise_affine=True, bias=True)
+        (attn): Attention(
+          (qkv): Linear(in_features=1280, out_features=3840, bias=True)
+          (attn_drop): Dropout(p=0.0, inplace=False)
+          (proj): Linear(in_features=1280, out_features=1280, bias=True)
+          (proj_drop): Dropout(p=0.0, inplace=False)
+        )
+        (drop_path): Identity()
+        (norm2): LayerNorm((1280,), eps=1e-05, elementwise_affine=True, bias=True)
+        (mlp): MLP(
+          (fc1): Linear(in_features=1280, out_features=5120, bias=True)
+          (act): GELU(approximate='none')
+          (fc2): Linear(in_features=5120, out_features=1280, bias=True)
+          (drop): Dropout(p=0.0, inplace=False)
+        )
+      )
+    )
+  )
+  (verb_classifier): Linear(in_features=1280, out_features=97, bias=True)
+  (noun_classifier): Linear(in_features=1280, out_features=289, bias=True)
+  (action_classifier): Linear(in_features=1280, out_features=3568, bias=True)
+)
+[INFO    ][2026-09-19 18:59:05][root                ][get_video_wds_dataset    ] Total number of shards across all data is num_shards=495
+[INFO    ][2026-09-19 18:59:05][root                ][__init__                 ] Done initializing ResampledShards
+[INFO    ][2026-09-19 18:59:05][root                ][main                     ] Dataloader created... iterations per epoch: 525
+[INFO    ][2026-09-19 18:59:05][root                ][get_video_wds_dataset    ] Total number of shards across all data is num_shards=138
+[INFO    ][2026-09-19 18:59:05][root                ][__init__                 ] Done initializing ResampledShards
+[INFO    ][2026-09-19 18:59:05][root                ][main                     ] Val dataloader created... iterations per epoch: 72
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+/data/hyuntak/project/2026/2027_cvpr/vjepa2/evals/action_anticipation_frozen/utils.py:34: FutureWarning: `torch.cuda.amp.GradScaler(args...)` is deprecated. Please use `torch.amp.GradScaler('cuda', args...)` instead.
+  scalers += [torch.cuda.amp.GradScaler() if use_bfloat16 else None]
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+AttentiveClassifier(
+  (pooler): AttentivePooler(
+    (cross_attention_block): CrossAttentionBlock(
+      (norm1): LayerNorm((1280,), eps=1e-05, elementwise_affine=True, bias=True)
+      (xattn): CrossAttention(
+        (q): Linear(in_features=1280, out_features=1280, bias=True)
+        (kv): Linear(in_features=1280, out_features=2560, bias=True)
+      )
+      (norm2): LayerNorm((1280,), eps=1e-05, elementwise_affine=True, bias=True)
+      (mlp): MLP(
+        (fc1): Linear(in_features=1280, out_features=5120, bias=True)
+        (act): GELU(approximate='none')
+        (fc2): Linear(in_features=5120, out_features=1280, bias=True)
+        (drop): Dropout(p=0.0, inplace=False)
+      )
+    )
+    (blocks): ModuleList(
+      (0-2): 3 x Block(
+        (norm1): LayerNorm((1280,), eps=1e-05, elementwise_affine=True, bias=True)
+        (attn): Attention(
+          (qkv): Linear(in_features=1280, out_features=3840, bias=True)
+          (attn_drop): Dropout(p=0.0, inplace=False)
+          (proj): Linear(in_features=1280, out_features=1280, bias=True)
+          (proj_drop): Dropout(p=0.0, inplace=False)
+        )
+        (drop_path): Identity()
+        (norm2): LayerNorm((1280,), eps=1e-05, elementwise_affine=True, bias=True)
+        (mlp): MLP(
+          (fc1): Linear(in_features=1280, out_features=5120, bias=True)
+          (act): GELU(approximate='none')
+          (fc2): Linear(in_features=5120, out_features=1280, bias=True)
+          (drop): Dropout(p=0.0, inplace=False)
+        )
+      )
+    )
+  )
+  (verb_classifier): Linear(in_features=1280, out_features=97, bias=True)
+  (noun_classifier): Linear(in_features=1280, out_features=289, bias=True)
+  (action_classifier): Linear(in_features=1280, out_features=3568, bias=True)
+)
+AttentiveClassifier(
+  (pooler): AttentivePooler(
+    (cross_attention_block): CrossAttentionBlock(
+      (norm1): LayerNorm((1280,), eps=1e-05, elementwise_affine=True, bias=True)
+      (xattn): CrossAttention(
+        (q): Linear(in_features=1280, out_features=1280, bias=True)
+        (kv): Linear(in_features=1280, out_features=2560, bias=True)
+      )
+      (norm2): LayerNorm((1280,), eps=1e-05, elementwise_affine=True, bias=True)
+      (mlp): MLP(
+        (fc1): Linear(in_features=1280, out_features=5120, bias=True)
+        (act): GELU(approximate='none')
+        (fc2): Linear(in_features=5120, out_features=1280, bias=True)
+        (drop): Dropout(p=0.0, inplace=False)
+      )
+    )
+    (blocks): ModuleList(
+      (0-2): 3 x Block(
+        (norm1): LayerNorm((1280,), eps=1e-05, elementwise_affine=True, bias=True)
+        (attn): Attention(
+          (qkv): Linear(in_features=1280, out_features=3840, bias=True)
+          (attn_drop): Dropout(p=0.0, inplace=False)
+          (proj): Linear(in_features=1280, out_features=1280, bias=True)
+          (proj_drop): Dropout(p=0.0, inplace=False)
+        )
+        (drop_path): Identity()
+        (norm2): LayerNorm((1280,), eps=1e-05, elementwise_affine=True, bias=True)
+        (mlp): MLP(
+          (fc1): Linear(in_features=1280, out_features=5120, bias=True)
+          (act): GELU(approximate='none')
+          (fc2): Linear(in_features=5120, out_features=1280, bias=True)
+          (drop): Dropout(p=0.0, inplace=False)
+        )
+      )
+    )
+  )
+  (verb_classifier): Linear(in_features=1280, out_features=97, bias=True)
+  (noun_classifier): Linear(in_features=1280, out_features=289, bias=True)
+  (action_classifier): Linear(in_features=1280, out_features=3568, bias=True)
+)
+[INFO    ][2026-09-19 18:59:05][root                ][get_video_wds_dataset    ] Total number of shards across all data is num_shards=495
+[INFO    ][2026-09-19 18:59:05][root                ][get_video_wds_dataset    ] Total number of shards across all data is num_shards=495
+[INFO    ][2026-09-19 18:59:05][root                ][__init__                 ] Done initializing ResampledShards
+AttentiveClassifier(
+  (pooler): AttentivePooler(
+    (cross_attention_block): CrossAttentionBlock(
+      (norm1): LayerNorm((1280,), eps=1e-05, elementwise_affine=True, bias=True)
+      (xattn): CrossAttention(
+        (q): Linear(in_features=1280, out_features=1280, bias=True)
+        (kv): Linear(in_features=1280, out_features=2560, bias=True)
+      )
+      (norm2): LayerNorm((1280,), eps=1e-05, elementwise_affine=True, bias=True)
+      (mlp): MLP(
+        (fc1): Linear(in_features=1280, out_features=5120, bias=True)
+        (act): GELU(approximate='none')
+        (fc2): Linear(in_features=5120, out_features=1280, bias=True)
+        (drop): Dropout(p=0.0, inplace=False)
+      )
+    )
+    (blocks): ModuleList(
+      (0-2): 3 x Block(
+        (norm1): LayerNorm((1280,), eps=1e-05, elementwise_affine=True, bias=True)
+        (attn): Attention(
+          (qkv): Linear(in_features=1280, out_features=3840, bias=True)
+          (attn_drop): Dropout(p=0.0, inplace=False)
+          (proj): Linear(in_features=1280, out_features=1280, bias=True)
+          (proj_drop): Dropout(p=0.0, inplace=False)
+        )
+        (drop_path): Identity()
+        (norm2): LayerNorm((1280,), eps=1e-05, elementwise_affine=True, bias=True)
+        (mlp): MLP(
+          (fc1): Linear(in_features=1280, out_features=5120, bias=True)
+          (act): GELU(approximate='none')
+          (fc2): Linear(in_features=5120, out_features=1280, bias=True)
+          (drop): Dropout(p=0.0, inplace=False)
+        )
+      )
+    )
+  )
+  (verb_classifier): Linear(in_features=1280, out_features=97, bias=True)
+  (noun_classifier): Linear(in_features=1280, out_features=289, bias=True)
+  (action_classifier): Linear(in_features=1280, out_features=3568, bias=True)
+)
+[INFO    ][2026-09-19 18:59:05][root                ][main                     ] Dataloader created... iterations per epoch: 525
+[INFO    ][2026-09-19 18:59:05][root                ][get_video_wds_dataset    ] Total number of shards across all data is num_shards=138
+[INFO    ][2026-09-19 18:59:05][root                ][__init__                 ] Done initializing ResampledShards
+[INFO    ][2026-09-19 18:59:05][root                ][main                     ] Val dataloader created... iterations per epoch: 72
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+[INFO    ][2026-09-19 18:59:05][root                ][__init__                 ] Done initializing ResampledShards
+/data/hyuntak/project/2026/2027_cvpr/vjepa2/evals/action_anticipation_frozen/utils.py:34: FutureWarning: `torch.cuda.amp.GradScaler(args...)` is deprecated. Please use `torch.amp.GradScaler('cuda', args...)` instead.
+  scalers += [torch.cuda.amp.GradScaler() if use_bfloat16 else None]
+[INFO    ][2026-09-19 18:59:05][root                ][main                     ] Dataloader created... iterations per epoch: 525
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+[INFO    ][2026-09-19 18:59:05][root                ][get_video_wds_dataset    ] Total number of shards across all data is num_shards=495
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+[INFO    ][2026-09-19 18:59:05][root                ][get_video_wds_dataset    ] Total number of shards across all data is num_shards=138
+[INFO    ][2026-09-19 18:59:05][root                ][__init__                 ] Done initializing ResampledShards
+[INFO    ][2026-09-19 18:59:05][root                ][main                     ] Val dataloader created... iterations per epoch: 72
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+/data/hyuntak/project/2026/2027_cvpr/vjepa2/evals/action_anticipation_frozen/utils.py:34: FutureWarning: `torch.cuda.amp.GradScaler(args...)` is deprecated. Please use `torch.amp.GradScaler('cuda', args...)` instead.
+  scalers += [torch.cuda.amp.GradScaler() if use_bfloat16 else None]
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+[INFO    ][2026-09-19 18:59:05][root                ][__init__                 ] Done initializing ResampledShards
+[INFO    ][2026-09-19 18:59:05][root                ][main                     ] Dataloader created... iterations per epoch: 525
+[INFO    ][2026-09-19 18:59:05][root                ][get_video_wds_dataset    ] Total number of shards across all data is num_shards=138
+[INFO    ][2026-09-19 18:59:05][root                ][__init__                 ] Done initializing ResampledShards
+[INFO    ][2026-09-19 18:59:05][root                ][main                     ] Val dataloader created... iterations per epoch: 72
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+/data/hyuntak/project/2026/2027_cvpr/vjepa2/evals/action_anticipation_frozen/utils.py:34: FutureWarning: `torch.cuda.amp.GradScaler(args...)` is deprecated. Please use `torch.amp.GradScaler('cuda', args...)` instead.
+  scalers += [torch.cuda.amp.GradScaler() if use_bfloat16 else None]
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+AttentiveClassifier(
+  (pooler): AttentivePooler(
+    (cross_attention_block): CrossAttentionBlock(
+      (norm1): LayerNorm((1280,), eps=1e-05, elementwise_affine=True, bias=True)
+      (xattn): CrossAttention(
+        (q): Linear(in_features=1280, out_features=1280, bias=True)
+        (kv): Linear(in_features=1280, out_features=2560, bias=True)
+      )
+      (norm2): LayerNorm((1280,), eps=1e-05, elementwise_affine=True, bias=True)
+      (mlp): MLP(
+        (fc1): Linear(in_features=1280, out_features=5120, bias=True)
+        (act): GELU(approximate='none')
+        (fc2): Linear(in_features=5120, out_features=1280, bias=True)
+        (drop): Dropout(p=0.0, inplace=False)
+      )
+    )
+    (blocks): ModuleList(
+      (0-2): 3 x Block(
+        (norm1): LayerNorm((1280,), eps=1e-05, elementwise_affine=True, bias=True)
+        (attn): Attention(
+          (qkv): Linear(in_features=1280, out_features=3840, bias=True)
+          (attn_drop): Dropout(p=0.0, inplace=False)
+          (proj): Linear(in_features=1280, out_features=1280, bias=True)
+          (proj_drop): Dropout(p=0.0, inplace=False)
+        )
+        (drop_path): Identity()
+        (norm2): LayerNorm((1280,), eps=1e-05, elementwise_affine=True, bias=True)
+        (mlp): MLP(
+          (fc1): Linear(in_features=1280, out_features=5120, bias=True)
+          (act): GELU(approximate='none')
+          (fc2): Linear(in_features=5120, out_features=1280, bias=True)
+          (drop): Dropout(p=0.0, inplace=False)
+        )
+      )
+    )
+  )
+  (verb_classifier): Linear(in_features=1280, out_features=97, bias=True)
+  (noun_classifier): Linear(in_features=1280, out_features=289, bias=True)
+  (action_classifier): Linear(in_features=1280, out_features=3568, bias=True)
+)
+[INFO    ][2026-09-19 18:59:05][root                ][get_video_wds_dataset    ] Total number of shards across all data is num_shards=495
+AttentiveClassifier(
+  (pooler): AttentivePooler(
+    (cross_attention_block): CrossAttentionBlock(
+      (norm1): LayerNorm((1280,), eps=1e-05, elementwise_affine=True, bias=True)
+      (xattn): CrossAttention(
+        (q): Linear(in_features=1280, out_features=1280, bias=True)
+        (kv): Linear(in_features=1280, out_features=2560, bias=True)
+      )
+      (norm2): LayerNorm((1280,), eps=1e-05, elementwise_affine=True, bias=True)
+      (mlp): MLP(
+        (fc1): Linear(in_features=1280, out_features=5120, bias=True)
+        (act): GELU(approximate='none')
+        (fc2): Linear(in_features=5120, out_features=1280, bias=True)
+        (drop): Dropout(p=0.0, inplace=False)
+      )
+    )
+    (blocks): ModuleList(
+      (0-2): 3 x Block(
+        (norm1): LayerNorm((1280,), eps=1e-05, elementwise_affine=True, bias=True)
+        (attn): Attention(
+          (qkv): Linear(in_features=1280, out_features=3840, bias=True)
+          (attn_drop): Dropout(p=0.0, inplace=False)
+          (proj): Linear(in_features=1280, out_features=1280, bias=True)
+          (proj_drop): Dropout(p=0.0, inplace=False)
+        )
+        (drop_path): Identity()
+        (norm2): LayerNorm((1280,), eps=1e-05, elementwise_affine=True, bias=True)
+        (mlp): MLP(
+          (fc1): Linear(in_features=1280, out_features=5120, bias=True)
+          (act): GELU(approximate='none')
+          (fc2): Linear(in_features=5120, out_features=1280, bias=True)
+          (drop): Dropout(p=0.0, inplace=False)
+        )
+      )
+    )
+  )
+  (verb_classifier): Linear(in_features=1280, out_features=97, bias=True)
+  (noun_classifier): Linear(in_features=1280, out_features=289, bias=True)
+  (action_classifier): Linear(in_features=1280, out_features=3568, bias=True)
+)
+[INFO    ][2026-09-19 18:59:05][root                ][get_video_wds_dataset    ] Total number of shards across all data is num_shards=495
+[INFO    ][2026-09-19 18:59:05][root                ][__init__                 ] Done initializing ResampledShards
+[INFO    ][2026-09-19 18:59:05][root                ][main                     ] Dataloader created... iterations per epoch: 525
+[INFO    ][2026-09-19 18:59:05][root                ][get_video_wds_dataset    ] Total number of shards across all data is num_shards=138
+[INFO    ][2026-09-19 18:59:05][root                ][__init__                 ] Done initializing ResampledShards
+[INFO    ][2026-09-19 18:59:05][root                ][main                     ] Val dataloader created... iterations per epoch: 72
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+[INFO    ][2026-09-19 18:59:05][root                ][__init__                 ] Done initializing ResampledShards
+/data/hyuntak/project/2026/2027_cvpr/vjepa2/evals/action_anticipation_frozen/utils.py:34: FutureWarning: `torch.cuda.amp.GradScaler(args...)` is deprecated. Please use `torch.amp.GradScaler('cuda', args...)` instead.
+  scalers += [torch.cuda.amp.GradScaler() if use_bfloat16 else None]
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+[INFO    ][2026-09-19 18:59:05][root                ][main                     ] Dataloader created... iterations per epoch: 525
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+[INFO    ][2026-09-19 18:59:05][root                ][get_video_wds_dataset    ] Total number of shards across all data is num_shards=138
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+[INFO    ][2026-09-19 18:59:05][root                ][__init__                 ] Done initializing ResampledShards
+[INFO    ][2026-09-19 18:59:05][root                ][main                     ] Val dataloader created... iterations per epoch: 72
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+/data/hyuntak/project/2026/2027_cvpr/vjepa2/evals/action_anticipation_frozen/utils.py:34: FutureWarning: `torch.cuda.amp.GradScaler(args...)` is deprecated. Please use `torch.amp.GradScaler('cuda', args...)` instead.
+  scalers += [torch.cuda.amp.GradScaler() if use_bfloat16 else None]
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+[INFO    ][2026-09-19 18:59:05][root                ][init_opt                 ] Using AdamW
+[INFO    ][2026-09-19 18:59:08][root                ][main                     ] Epoch 0
+[INFO    ][2026-09-19 18:59:08][root                ][main                     ] Training...
+/data/hyuntak/project/2026/2027_cvpr/vjepa2/evals/action_anticipation_frozen/eval.py:593: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(dtype=torch.bfloat16, enabled=use_bfloat16):
+/data/hyuntak/project/2026/2027_cvpr/vjepa2/evals/action_anticipation_frozen/eval.py:593: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(dtype=torch.bfloat16, enabled=use_bfloat16):
+/data/hyuntak/project/2026/2027_cvpr/vjepa2/evals/action_anticipation_frozen/eval.py:593: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(dtype=torch.bfloat16, enabled=use_bfloat16):
+/data/hyuntak/project/2026/2027_cvpr/vjepa2/evals/action_anticipation_frozen/eval.py:593: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(dtype=torch.bfloat16, enabled=use_bfloat16):
+/data/hyuntak/project/2026/2027_cvpr/vjepa2/evals/action_anticipation_frozen/eval.py:593: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(dtype=torch.bfloat16, enabled=use_bfloat16):
+/data/hyuntak/project/2026/2027_cvpr/vjepa2/evals/action_anticipation_frozen/eval.py:593: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(dtype=torch.bfloat16, enabled=use_bfloat16):
+/data/hyuntak/project/2026/2027_cvpr/vjepa2/evals/action_anticipation_frozen/eval.py:593: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(dtype=torch.bfloat16, enabled=use_bfloat16):
+/data/hyuntak/project/2026/2027_cvpr/vjepa2/evals/action_anticipation_frozen/eval.py:593: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(dtype=torch.bfloat16, enabled=use_bfloat16):
+/data/hyuntak/anaconda3/envs/vjepa2/lib/python3.12/contextlib.py:105: FutureWarning: `torch.backends.cuda.sdp_kernel()` is deprecated. In the future, this context manager will be removed. Please see `torch.nn.attention.sdpa_kernel()` for the new context manager, with updated signature.
+  self.gen = func(*args, **kwds)
+/data/hyuntak/anaconda3/envs/vjepa2/lib/python3.12/contextlib.py:105: FutureWarning: `torch.backends.cuda.sdp_kernel()` is deprecated. In the future, this context manager will be removed. Please see `torch.nn.attention.sdpa_kernel()` for the new context manager, with updated signature.
+  self.gen = func(*args, **kwds)
+/data/hyuntak/anaconda3/envs/vjepa2/lib/python3.12/contextlib.py:105: FutureWarning: `torch.backends.cuda.sdp_kernel()` is deprecated. In the future, this context manager will be removed. Please see `torch.nn.attention.sdpa_kernel()` for the new context manager, with updated signature.
+  self.gen = func(*args, **kwds)
+/data/hyuntak/anaconda3/envs/vjepa2/lib/python3.12/contextlib.py:105: FutureWarning: `torch.backends.cuda.sdp_kernel()` is deprecated. In the future, this context manager will be removed. Please see `torch.nn.attention.sdpa_kernel()` for the new context manager, with updated signature.
+  self.gen = func(*args, **kwds)
+/data/hyuntak/anaconda3/envs/vjepa2/lib/python3.12/contextlib.py:105: FutureWarning: `torch.backends.cuda.sdp_kernel()` is deprecated. In the future, this context manager will be removed. Please see `torch.nn.attention.sdpa_kernel()` for the new context manager, with updated signature.
+  self.gen = func(*args, **kwds)
+/data/hyuntak/anaconda3/envs/vjepa2/lib/python3.12/contextlib.py:105: FutureWarning: `torch.backends.cuda.sdp_kernel()` is deprecated. In the future, this context manager will be removed. Please see `torch.nn.attention.sdpa_kernel()` for the new context manager, with updated signature.
+  self.gen = func(*args, **kwds)
+/data/hyuntak/anaconda3/envs/vjepa2/lib/python3.12/contextlib.py:105: FutureWarning: `torch.backends.cuda.sdp_kernel()` is deprecated. In the future, this context manager will be removed. Please see `torch.nn.attention.sdpa_kernel()` for the new context manager, with updated signature.
+  self.gen = func(*args, **kwds)
+/data/hyuntak/anaconda3/envs/vjepa2/lib/python3.12/contextlib.py:105: FutureWarning: `torch.backends.cuda.sdp_kernel()` is deprecated. In the future, this context manager will be removed. Please see `torch.nn.attention.sdpa_kernel()` for the new context manager, with updated signature.
+  self.gen = func(*args, **kwds)
+/data/hyuntak/project/2026/2027_cvpr/vjepa2/evals/action_anticipation_frozen/eval.py:629: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(dtype=torch.bfloat16, enabled=use_bfloat16):
+/data/hyuntak/project/2026/2027_cvpr/vjepa2/evals/action_anticipation_frozen/eval.py:629: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(dtype=torch.bfloat16, enabled=use_bfloat16):
+/data/hyuntak/project/2026/2027_cvpr/vjepa2/evals/action_anticipation_frozen/eval.py:629: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(dtype=torch.bfloat16, enabled=use_bfloat16):
+/data/hyuntak/project/2026/2027_cvpr/vjepa2/evals/action_anticipation_frozen/eval.py:629: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(dtype=torch.bfloat16, enabled=use_bfloat16):
+/data/hyuntak/project/2026/2027_cvpr/vjepa2/evals/action_anticipation_frozen/eval.py:629: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(dtype=torch.bfloat16, enabled=use_bfloat16):
+/data/hyuntak/project/2026/2027_cvpr/vjepa2/evals/action_anticipation_frozen/eval.py:629: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(dtype=torch.bfloat16, enabled=use_bfloat16):
+/data/hyuntak/project/2026/2027_cvpr/vjepa2/evals/action_anticipation_frozen/eval.py:629: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(dtype=torch.bfloat16, enabled=use_bfloat16):
+/data/hyuntak/project/2026/2027_cvpr/vjepa2/evals/action_anticipation_frozen/eval.py:629: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(dtype=torch.bfloat16, enabled=use_bfloat16):
+[INFO    ][2026-09-19 18:59:57][root                ][train_one_epoch          ] [    0] acc (v/n): 0.8% (9.4% 6.2%) recall (v/n): 0.7% (16.5% 2.1%) [mem: 1.61e+04] [data: 8474.3 ms]
+[INFO    ][2026-09-19 19:01:57][root                ][train_one_epoch          ] [   10] acc (v/n): 1.6% (34.2% 8.5%) recall (v/n): 0.3% (9.2% 2.3%) [mem: 2.02e+04] [data: 788.0 ms]
+[INFO    ][2026-09-19 19:03:55][root                ][train_one_epoch          ] [   20] acc (v/n): 4.2% (40.0% 10.6%) recall (v/n): 0.5% (8.5% 2.6%) [mem: 2.02e+04] [data: 422.1 ms]
+[INFO    ][2026-09-19 19:05:54][root                ][train_one_epoch          ] [   30] acc (v/n): 4.6% (42.1% 10.6%) recall (v/n): 0.5% (6.9% 2.4%) [mem: 2.02e+04] [data: 292.3 ms]
+[INFO    ][2026-09-19 19:07:53][root                ][train_one_epoch          ] [   40] acc (v/n): 4.6% (44.0% 10.5%) recall (v/n): 0.5% (6.2% 2.3%) [mem: 2.02e+04] [data: 225.8 ms]
+[INFO    ][2026-09-19 19:09:52][root                ][train_one_epoch          ] [   50] acc (v/n): 4.9% (47.2% 11.1%) recall (v/n): 0.5% (6.2% 2.3%) [mem: 2.02e+04] [data: 185.3 ms]
+[INFO    ][2026-09-19 19:11:51][root                ][train_one_epoch          ] [   60] acc (v/n): 5.1% (48.9% 11.5%) recall (v/n): 0.4% (6.1% 2.1%) [mem: 2.02e+04] [data: 158.2 ms]
+[INFO    ][2026-09-19 19:13:50][root                ][train_one_epoch          ] [   70] acc (v/n): 5.4% (49.8% 11.8%) recall (v/n): 0.4% (5.7% 2.1%) [mem: 2.02e+04] [data: 138.7 ms]
+[INFO    ][2026-09-19 19:15:48][root                ][train_one_epoch          ] [   80] acc (v/n): 5.8% (50.3% 12.0%) recall (v/n): 0.4% (5.6% 2.2%) [mem: 2.02e+04] [data: 124.0 ms]
+[INFO    ][2026-09-19 19:17:48][root                ][train_one_epoch          ] [   90] acc (v/n): 5.9% (51.2% 12.3%) recall (v/n): 0.4% (5.6% 2.2%) [mem: 2.02e+04] [data: 112.5 ms]
+[INFO    ][2026-09-19 19:19:47][root                ][train_one_epoch          ] [  100] acc (v/n): 6.2% (51.9% 12.6%) recall (v/n): 0.4% (5.8% 2.2%) [mem: 2.02e+04] [data: 103.3 ms]
+[INFO    ][2026-09-19 19:21:45][root                ][train_one_epoch          ] [  110] acc (v/n): 6.4% (52.7% 13.3%) recall (v/n): 0.4% (5.7% 2.3%) [mem: 2.02e+04] [data: 95.8 ms]
+[INFO    ][2026-09-19 19:23:44][root                ][train_one_epoch          ] [  120] acc (v/n): 6.6% (53.5% 13.6%) recall (v/n): 0.4% (5.7% 2.3%) [mem: 2.02e+04] [data: 89.6 ms]
+[INFO    ][2026-09-19 19:25:43][root                ][train_one_epoch          ] [  130] acc (v/n): 6.5% (54.4% 13.9%) recall (v/n): 0.4% (5.6% 2.3%) [mem: 2.02e+04] [data: 84.2 ms]
+[INFO    ][2026-09-19 19:27:42][root                ][train_one_epoch          ] [  140] acc (v/n): 6.8% (54.6% 13.9%) recall (v/n): 0.3% (5.5% 2.2%) [mem: 2.02e+04] [data: 79.5 ms]
+[INFO    ][2026-09-19 19:29:40][root                ][train_one_epoch          ] [  150] acc (v/n): 6.9% (55.1% 14.1%) recall (v/n): 0.3% (5.4% 2.2%) [mem: 2.02e+04] [data: 75.6 ms]
+[INFO    ][2026-09-19 19:31:38][root                ][train_one_epoch          ] [  160] acc (v/n): 7.2% (55.6% 14.3%) recall (v/n): 0.3% (5.4% 2.2%) [mem: 2.02e+04] [data: 72.1 ms]
+[INFO    ][2026-09-19 19:33:37][root                ][train_one_epoch          ] [  170] acc (v/n): 7.1% (56.0% 14.3%) recall (v/n): 0.3% (5.4% 2.2%) [mem: 2.02e+04] [data: 69.1 ms]
+[INFO    ][2026-09-19 19:35:35][root                ][train_one_epoch          ] [  180] acc (v/n): 7.1% (56.4% 14.3%) recall (v/n): 0.3% (5.4% 2.2%) [mem: 2.02e+04] [data: 66.3 ms]
+[INFO    ][2026-09-19 19:37:34][root                ][train_one_epoch          ] [  190] acc (v/n): 7.2% (56.7% 14.6%) recall (v/n): 0.3% (5.4% 2.2%) [mem: 2.02e+04] [data: 63.9 ms]
+[INFO    ][2026-09-19 19:39:33][root                ][train_one_epoch          ] [  200] acc (v/n): 7.2% (57.1% 14.5%) recall (v/n): 0.3% (5.3% 2.2%) [mem: 2.02e+04] [data: 61.7 ms]
+[INFO    ][2026-09-19 19:41:31][root                ][train_one_epoch          ] [  210] acc (v/n): 7.1% (57.6% 14.5%) recall (v/n): 0.3% (5.3% 2.1%) [mem: 2.02e+04] [data: 59.7 ms]
+[INFO    ][2026-09-19 19:43:30][root                ][train_one_epoch          ] [  220] acc (v/n): 7.2% (57.7% 14.5%) recall (v/n): 0.3% (5.3% 2.1%) [mem: 2.02e+04] [data: 57.9 ms]
+[INFO    ][2026-09-19 19:45:29][root                ][train_one_epoch          ] [  230] acc (v/n): 7.2% (58.1% 14.6%) recall (v/n): 0.3% (5.3% 2.1%) [mem: 2.02e+04] [data: 56.2 ms]
+[INFO    ][2026-09-19 19:47:28][root                ][train_one_epoch          ] [  240] acc (v/n): 7.3% (58.2% 14.7%) recall (v/n): 0.3% (5.3% 2.1%) [mem: 2.02e+04] [data: 54.7 ms]
+[INFO    ][2026-09-19 19:49:27][root                ][train_one_epoch          ] [  250] acc (v/n): 7.4% (58.6% 14.9%) recall (v/n): 0.3% (5.3% 2.1%) [mem: 2.02e+04] [data: 53.3 ms]
+[INFO    ][2026-09-19 19:51:25][root                ][train_one_epoch          ] [  260] acc (v/n): 7.4% (58.9% 15.1%) recall (v/n): 0.3% (5.3% 2.1%) [mem: 2.02e+04] [data: 52.0 ms]
+[INFO    ][2026-09-19 19:53:25][root                ][train_one_epoch          ] [  270] acc (v/n): 7.5% (59.1% 15.0%) recall (v/n): 0.3% (5.3% 2.1%) [mem: 2.02e+04] [data: 50.8 ms]
+slurmstepd: error: *** JOB 215045 ON vll3 CANCELLED AT 2026-09-19T19:53:53 ***

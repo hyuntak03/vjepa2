@@ -1,0 +1,10 @@
+job 215256  host vll5  Mon 21 Sep 2026 03:33:41 AM KST
+BENCHES=intphys1_dev  MODELS=vith vjepa21g videomae2g  GPUS=8
+=== intphys1_dev / vith  (03:33:41)
+   [wma] [surprise] BEST(avg) = skip2_w32/avg 0.8889
+=== intphys1_dev / vjepa21g  (03:38:44)
+   [wma] [surprise] BEST(avg) = skip2_w32/avg 0.5222
+=== intphys1_dev / videomae2g  (03:45:39)
+   [wma] [surprise] BEST(avg) = skip5_w16/avg 0.5500
+=== 끝 03:48:59
+exit=0  Mon 21 Sep 2026 03:48:59 AM KST

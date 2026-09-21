@@ -1,0 +1,8 @@
+job 215255  host vll5  Mon 21 Sep 2026 01:30:45 AM KST
+BENCHES=grasp_level2  MODELS=vjepa21g videomae2g  GPUS=8
+=== grasp_level2 / vjepa21g  (01:30:45)
+   [wma] [surprise] BEST(avg) = skip10_w16/avg 0.5586
+=== grasp_level2 / videomae2g  (02:39:32)
+   [wma] [surprise] BEST(avg) = skip10_w16/avg 0.5396
+=== 끝 03:33:36
+exit=0  Mon 21 Sep 2026 03:33:36 AM KST

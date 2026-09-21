@@ -26,7 +26,7 @@ predictor 출력 `p` 가 미래 8 tubelet 각각에서 물체를 **어디에** �
 - **L2**: 슬롯별 유클리드 오차의 평균 (in_frame 슬롯). 칸 단위 = ÷18.
 - **gain**: clip 단위로 (읽은 슬롯 0→7 변위) 를 (진실 변위) 에 회귀한 기울기. 1 = 진실만큼 움직임, 0 = 안 움직임.
   슬롯 0 = 미래 첫 tubelet (문맥 마지막이 아니다). 한 시나리오의 clip 들에 대해 `dr = 읽기[7] − 읽기[0]` 을 `dt = 진실[7] − 진실[0]` 에 `np.polyfit(dt, dr, 1)` 한 기울기.
-  출발점 오차는 빼고 **미래 구간에서 얼마나 움직였나** 만 본다. `fig_motion_gain` 막대 위 숫자는 이 dt·dr 의 clip 간 상관이고, §3-1 표의 corr (슬롯별 상관 평균) 과는 다르다.
+  출발점 오차는 빼고 **미래 구간에서 얼마나 움직였나** 만 본다. `fig_motion_gain` 막대 위 숫자는 **기울기 그 자체** (2026-09-17 변경: 그 전에는 dt·dr 의 clip 간 상관을 적어 막대 값으로 오독됐다 — flat_a p 는 상관 0.97 / gain 0.57). 상관은 `plot_rollout2_summary.py` 가 stdout 에 찍고, §3-1 표의 corr (슬롯별 상관 평균) 과는 다르다.
   진실 변위의 clip 간 퍼짐이 작으면 (std < 2 px 인 축은 그림에서 뺌, ramp y 는 4.5 px) 기울기가 불안정하다.
 - **echo**: 마지막 문맥 위치를 8 슬롯에 그대로 찍었을 때의 L2 (움직임 없는 기준선).
 - **α** (v11 가림): 읽기가 가림막 기준으로 물체 쪽으로 간 비율. 1 = 물체 위, 0 = 가림막 위, 0.5 = 둘의 중간.
@@ -423,7 +423,8 @@ v11 flat 슬롯 7 ratio: p v4 0.53 / 0.24 / 0.23 / 0.19 / 0.16 → v5 0.53 / 0.2
 - `fig_l2.png/.pdf` — 시나리오별 L2 (칸), p / z / h 막대, 1 칸 점선.
 - `fig_err_xy.png` / `.pdf` — `fig_l2` 를 축별로 나눈 |x 오차|, |y 오차| (칸). §3-1 표의 MAE x / y 와 같은 값 (2026-09-14 추가).
 - `fig_motion_gain.png` — 슬롯 0→7 진행 gain, x / y.
-- `fig_motion_xy.png` — 슬롯별 x(t), y(t) 변위 곡선 (진실 vs p / z / h).
+- `fig_motion_gain_scatter.png` — gain 의 원본 (2026-09-17 추가): 시나리오·축마다 (진실 변위 dt, 읽은 변위 dr) 산점도 + 회귀 직선 (p·h, z 는 h 와 겹쳐 생략). 기울기의 부호·크기와 점 퍼짐(상관) 을 같이 본다. 읽을 때: ramp_a·arc x 는 진실이 한쪽 부호에 몰려 기울기가 좁은 범위에서 정해지고, ledge y 는 선반 높이 2 종이라 진실이 두 뭉치다.
+- `fig_motion_xy.png` — 시나리오별 x(t), y(t) 위치-시간. **2026-09-17 변경**: 원점 = 그 clip 의 진실 슬롯 0 위치 (전에는 곡선마다 자기 시작점을 빼서 출발 오차가 안 보였다), 좌상단이 원점이고 + 가 아래. x 부호는 문맥 구간 진행 방향 (wall 은 미래에서 되튕기므로 미래 부호로 잡으면 pass 가 뒤집힌다 — 정정). 곡선 = clip 평균, 띠 = ±1 SD.
 - `../attentive_pooling/{p,z,h}/{overlay,traj}/` — v2 클립 overlay·궤적.
 - `../v11_vanish/{p,z}/{flat,ramp,static}[_early|_mid]/k{0..4}/` — v11 GIF (32 샘플, time bar), overlay, `fig_gain.png`, `readout.npz`; `../v11_vanish/pair/*.gif` (late, ledge/wall) 와 `pair/<motion>_<timing>/k{1..4}/*.gif` (flat/ramp/static × late/early/mid × k=1~4, 셀마다 첫 block 1개) — encoder vs predictor 나란히 (발표용).
 - `two_futures_attn.{md,json}` (이 폴더) — ledge/wall 슬롯별 가능/불가능 궤적 attention 질량·기본값 거리 (§4-3).

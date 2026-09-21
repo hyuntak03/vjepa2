@@ -1,0 +1,6 @@
+job 215239  host vll3  Sun 20 Sep 2026 11:54:59 PM KST
+BENCHES=inflevel_continuity  MODELS=vith vjepa21g videomae2g  GPUS=6
+=== inflevel_continuity / vith  (23:54:59)
+   [wma] [surprise] BEST(avg) = skip10_w16/avg 0.6458
+=== inflevel_continuity / vjepa21g  (00:38:53)
+slurmstepd: error: *** JOB 215239 ON vll3 CANCELLED AT 2026-09-21T01:36:38 ***

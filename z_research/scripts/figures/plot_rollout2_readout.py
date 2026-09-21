@@ -20,14 +20,15 @@ ROOT = rt.ROOT
 FRAMES = Path("/local_datasets/world/world_analysis/RollOut_v2")
 INDEX = ROOT / "data_csv/rollout_v2/index_probe.csv"
 ORANGE, WHITE, YEL = (235, 104, 52), (255, 255, 255), (255, 255, 0); R, RES = 288, 144.0
-SCEN = ["flat_v", "flat_a", "ramp_a", "arc", "fall", "ledge", "wall"]
+SCEN = ["flat_v", "flat_a", "flat_d", "ramp_a", "ramp_d", "arc", "fall", "ledge", "wall"]   # flat_d / ramp_d = 감속 (2026-09-19)
 FR = [48 + 6 * t for t in range(8)]
 
 
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument("--per-scenario", type=int, default=3)
     ap.add_argument("--pooling", choices=["spatial_pooling", "attentive_pooling"], default="spatial_pooling")
-    ap.add_argument("--rep", choices=["p", "z", "h"], default="p", help="p = predictor, z = context encoder 32 frames, h = target encoder 32 frames"); a = ap.parse_args()
+    ap.add_argument("--rep", choices=["p", "z", "h"], default="p", help="p = predictor, z = context encoder 32 frames, h = target encoder 32 frames")
+    ap.add_argument("--scenarios", nargs="+", default=None, help="이 시나리오만 그린다 (예: flat_d ramp_d). 기존 clip 선택을 안 흔들고 추가만 할 때"); a = ap.parse_args()
     sub = "p/test" if (a.pooling == "spatial_pooling" and a.rep == "p") else a.rep
     PREDS = rt.RES_ROOT / f"{a.pooling}/{sub}/preds.npz"; FIG = rt.FIG_ROOT / f"{a.pooling}/{a.rep}"
     z = np.load(PREDS); pred, truth, vid = z["pred"], z["truth"], z["video_id"]
@@ -36,7 +37,7 @@ def main():
     for d in ("overlay", "traj"):
         (FIG / d).mkdir(parents=True, exist_ok=True)
     rng = np.random.RandomState(0)
-    for scn in SCEN:
+    for scn in (a.scenarios or SCEN):
         ids = np.where((z["scenario"] == scn) & (z["plausible"] == 1))[0]
         prim = np.array([float(idx[vid[i]]["primary"]) for i in ids]); levels = np.unique(prim)
         pick = [rng.choice(ids[prim == lv]) for lv in levels[np.linspace(0, len(levels) - 1, a.per_scenario).round().astype(int)]]

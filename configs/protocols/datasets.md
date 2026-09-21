@@ -48,6 +48,90 @@ variant_column: variant
 plausible_column: plausible
 type_column: block_type
 
+## grasp_level2
+
+GRASP level2 (Jassim et al. 2024). 시나리오 16 x (P/IP) x 128 = **4,096 영상**, 전부 501 프레임(실측).
+쌍은 **같은 시나리오·같은 파일 인덱스** (`P_Gravity/037` <-> `IP_Gravity/037`).
+⚠️ GRASP 은 원래 **단일 영상** 평가용이라 이 쌍짓기는 Garrido et al. A.4 의 해석이다. 그 논문이
+"untrained network 가 spurious feature 로 높은 정확도를 낸다" 고 스스로 단서를 단다 — 수치를 쓸 때 같이 적을 것.
+`GravitySupport` 처럼 두 property 가 붙은 시나리오는 집계 때 양쪽에 각각 넣는다 (A.4).
+⚠️ `file` 이 **노드 로컬 절대경로**다 (`/data2/...`). 스테이징 안 된 노드에서는 resolve 가 죽는다 —
+   `bash z_research/Benchmarks/stage.sh` 를 먼저 돌린다.
+인덱스: `z_research/scripts/data/build_grasp_index.py --write` (검증 5항목).
+
+raw_frames: 501
+cache_tag: grasp_level2
+results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/Benchmarks/exp_results
+root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/grasp_level2
+index_csv: index.csv
+block_column: block_id
+pair_column: pair_id
+variant_column: variant
+plausible_column: plausible
+type_column: block_type
+
+## inflevel_continuity
+
+InfLevel-lab (Weihs et al. 2022) 의 `continuity`. 영상 2160 / block 540 (= 4 종이 다 있는 그룹만).
+✅ Garrido 가 **믿을 수 있다고 한 유일한 property** 다 (gravity·solidity 는 contextualization 이 필요).
+**채점은 `scoring.pairing: cross`** — block 안 가능 2 x 불가능 2 = 4 비교가 공식 `evaluator.py` 의 지표다
+(`matched` 가 아니다). 가능/불가능 배정: continuity real=vv,ii / gravity·solidity real=ui,cv.
+불완전 그룹은 인덱스에서 이미 뺐고 **버린 수가 공식 스크립트의 하드코딩 값과 일치한다** (36 / 114 / 6).
+길이 편차 때문에 property 별로 쪼갰다 — 한 데이터셋으로 묶으면 최솟값 375 에 맞춰 continuity 가 40% 잘린다.
+인덱스: `z_research/scripts/data/build_inflevel_index.py --write`.
+
+raw_frames: 630
+cache_tag: inflevel_continuity
+results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/Benchmarks/exp_results
+root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/inflevel_continuity
+index_csv: index.csv
+block_column: block_id
+pair_column: pair_id
+variant_column: variant
+plausible_column: plausible
+type_column: block_type
+
+## inflevel_gravity
+
+InfLevel-lab (Weihs et al. 2022) 의 `gravity`. 영상 2364 / block 591 (= 4 종이 다 있는 그룹만).
+⚠️ 길이가 375~440 으로 가장 넓어 min 으로 자르면 평균 **7.9%** 가 잘린다. 그리고 gravity 는 컵이 잘렸는지가 본 영상 앞 contextualization 에만 나와 원리적으로 못 푸는 property 다 (Garrido §E).
+**채점은 `scoring.pairing: cross`** — block 안 가능 2 x 불가능 2 = 4 비교가 공식 `evaluator.py` 의 지표다
+(`matched` 가 아니다). 가능/불가능 배정: continuity real=vv,ii / gravity·solidity real=ui,cv.
+불완전 그룹은 인덱스에서 이미 뺐고 **버린 수가 공식 스크립트의 하드코딩 값과 일치한다** (36 / 114 / 6).
+길이 편차 때문에 property 별로 쪼갰다 — 한 데이터셋으로 묶으면 최솟값 375 에 맞춰 continuity 가 40% 잘린다.
+인덱스: `z_research/scripts/data/build_inflevel_index.py --write`.
+
+raw_frames: 375
+cache_tag: inflevel_gravity
+results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/Benchmarks/exp_results
+root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/inflevel_gravity
+index_csv: index.csv
+block_column: block_id
+pair_column: pair_id
+variant_column: variant
+plausible_column: plausible
+type_column: block_type
+
+## inflevel_solidity
+
+InfLevel-lab (Weihs et al. 2022) 의 `solidity`. 영상 900 / block 225 (= 4 종이 다 있는 그룹만).
+**채점은 `scoring.pairing: cross`** — block 안 가능 2 x 불가능 2 = 4 비교가 공식 `evaluator.py` 의 지표다
+(`matched` 가 아니다). 가능/불가능 배정: continuity real=vv,ii / gravity·solidity real=ui,cv.
+불완전 그룹은 인덱스에서 이미 뺐고 **버린 수가 공식 스크립트의 하드코딩 값과 일치한다** (36 / 114 / 6).
+길이 편차 때문에 property 별로 쪼갰다 — 한 데이터셋으로 묶으면 최솟값 375 에 맞춰 continuity 가 40% 잘린다.
+인덱스: `z_research/scripts/data/build_inflevel_index.py --write`.
+
+raw_frames: 465
+cache_tag: inflevel_solidity
+results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/Benchmarks/exp_results
+root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/inflevel_solidity
+index_csv: index.csv
+block_column: block_id
+pair_column: pair_id
+variant_column: variant
+plausible_column: plausible
+type_column: block_type
+
 ## v8
 
 정식 IntPhysGen. 2048영상 / 512 block. `condition` 4분할 균등(512씩),
@@ -574,6 +658,51 @@ results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/IntPhysGenV
 root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/intphysgen_v11_split
 index_csv: index_test.csv
 frames_root: /local_datasets/world/world_analysis/IntPhysGen_v11
+frames_pattern: "{file_name}/{frame:06d}.png"
+frames_start: 0
+frames_stride: 3
+block_column: block_id
+pair_column: pair_id
+variant_column: variant
+plausible_column: plausible
+type_column: condition
+
+## predictor_v1_holdout
+
+**predictor_v1_training 의 held-out 5,750 clip** — 진단용 (보간 검사). 같은 폴더, `index_holdout.csv` 만 다르다.
+`holdout_reasons` 컬럼 (`speed` / `acc` / `shape` / `color` / `background`, `+` 로 복수) 로 갈라 본다. 위치 라벨은
+`px_x_by_sample` / `px_y_by_sample` (계획에서, metadata 와 0.05 px 안), 가림은 `hidden_by_sample` 과 실측 `hidden_*_measured`.
+설계: `UnrealEngine/gen/PREDICTOR_V1_TRAINING_DESIGN.md`.
+
+raw_frames: 100
+cache_tag: predictor_v1_holdout
+results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/predictor_training/exp_results/predictor_v1_holdout
+root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/predictor_v1_training
+index_csv: index_holdout.csv
+frames_root: /local_datasets/world/world_analysis/Predictor_v1_training
+frames_pattern: "{file_name}/{frame:06d}.png"
+frames_start: 0
+frames_stride: 3
+block_column: block_id
+pair_column: pair_id
+variant_column: variant
+plausible_column: plausible
+type_column: condition
+
+## rollout_v2_decel
+
+**RollOut_v2 감속 두 시나리오만** (2026-09-19 렌더 추가). 1,568 clip (가능만): `flat_d` 수평 감속 784 (primary `flat_v` 200–340 cm/s,
+secondary `flat_a` −20/−30 cm/s²), `ramp_d` 오르막 감속 784 (primary `ramp_v0` −200…−300 cm/s, secondary `ramp_acc` 15/30).
+예측 16 샘플 안에서 방향 반전 없음. 인덱스 `build_rollout2_index.py --set v2_decel` (검증 18항목).
+**용도: 이 clip 만 캐시를 뽑아 `rollout_v2_vith` / `rollout_v2_ctx32_vith` 뒤에 붙인다** (`merge_token_cache.py`), 인덱스는
+`concat_index.py` 로 `rollout_v2` 뒤에 같은 순서로 붙인다. 붙인 뒤에는 `rollout_v2` 가 9 시나리오 7,056 clip 이 된다.
+
+raw_frames: 100
+cache_tag: rollout_v2_decel
+results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/RollOutV2/exp_results
+root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/rollout_v2_decel
+index_csv: index.csv
+frames_root: /local_datasets/world/world_analysis/RollOut_v2
 frames_pattern: "{file_name}/{frame:06d}.png"
 frames_start: 0
 frames_stride: 3

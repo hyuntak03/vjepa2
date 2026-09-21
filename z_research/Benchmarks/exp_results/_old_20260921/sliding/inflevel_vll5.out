@@ -1,0 +1,40 @@
+job 215053 host vll5 Sun 20 Sep 2026 10:09:01 PM KST
+BENCH=inflevel  MODELS=vjepa2 vjepa21 videomae2
+total 30623252
+drwxrwxr-x 2 hyuntak hyuntak         120 Sep 20 21:57 .
+drwxrwxr-x 7 hyuntak hyuntak         105 Sep 20 19:23 ..
+-rw-rw-r-- 1 hyuntak hyuntak          10 Sep 20 19:06 copy.log
+-rw-rw-r-- 1 hyuntak hyuntak 10374445514 Sep 20 21:57 model.pth
+-rw-rw-r-- 1 hyuntak hyuntak  4105433973 Sep 20 19:06 vit_g_hybrid_pt_1200e.pth
+-rw-rw-r-- 1 hyuntak hyuntak 16878318788 Sep 20 19:06 vjepa2_1_vitg_384.pt
+=== inflevel / vjepa2  (22:09:01)  GPU x 8  batch 8
+z_research/Benchmarks/sliding.sbatch: line 61: 3710132 Killed                  CUDA_VISIBLE_DEVICES=$g $PY "$H/run_sliding.py" --bench "$b" --model "$m" --shard "$g" --nshards "$NG" --device cuda:0 --batch-size "${BS[$m]}" --workers 5 > "$LOGD/${b}_${m}.s${g}.log" 2>&1
+z_research/Benchmarks/sliding.sbatch: line 61: 3710133 Killed                  CUDA_VISIBLE_DEVICES=$g $PY "$H/run_sliding.py" --bench "$b" --model "$m" --shard "$g" --nshards "$NG" --device cuda:0 --batch-size "${BS[$m]}" --workers 5 > "$LOGD/${b}_${m}.s${g}.log" 2>&1
+z_research/Benchmarks/sliding.sbatch: line 61: 3710134 Killed                  CUDA_VISIBLE_DEVICES=$g $PY "$H/run_sliding.py" --bench "$b" --model "$m" --shard "$g" --nshards "$NG" --device cuda:0 --batch-size "${BS[$m]}" --workers 5 > "$LOGD/${b}_${m}.s${g}.log" 2>&1
+z_research/Benchmarks/sliding.sbatch: line 61: 3710135 Killed                  CUDA_VISIBLE_DEVICES=$g $PY "$H/run_sliding.py" --bench "$b" --model "$m" --shard "$g" --nshards "$NG" --device cuda:0 --batch-size "${BS[$m]}" --workers 5 > "$LOGD/${b}_${m}.s${g}.log" 2>&1
+z_research/Benchmarks/sliding.sbatch: line 61: 3710136 Killed                  CUDA_VISIBLE_DEVICES=$g $PY "$H/run_sliding.py" --bench "$b" --model "$m" --shard "$g" --nshards "$NG" --device cuda:0 --batch-size "${BS[$m]}" --workers 5 > "$LOGD/${b}_${m}.s${g}.log" 2>&1
+z_research/Benchmarks/sliding.sbatch: line 61: 3710137 Killed                  CUDA_VISIBLE_DEVICES=$g $PY "$H/run_sliding.py" --bench "$b" --model "$m" --shard "$g" --nshards "$NG" --device cuda:0 --batch-size "${BS[$m]}" --workers 5 > "$LOGD/${b}_${m}.s${g}.log" 2>&1
+z_research/Benchmarks/sliding.sbatch: line 61: 3710138 Killed                  CUDA_VISIBLE_DEVICES=$g $PY "$H/run_sliding.py" --bench "$b" --model "$m" --shard "$g" --nshards "$NG" --device cuda:0 --batch-size "${BS[$m]}" --workers 5 > "$LOGD/${b}_${m}.s${g}.log" 2>&1
+z_research/Benchmarks/sliding.sbatch: line 61: 3710139 Killed                  CUDA_VISIBLE_DEVICES=$g $PY "$H/run_sliding.py" --bench "$b" --model "$m" --shard "$g" --nshards "$NG" --device cuda:0 --batch-size "${BS[$m]}" --workers 5 > "$LOGD/${b}_${m}.s${g}.log" 2>&1
+!! inflevel/vjepa2 샤드 실패 — /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/Benchmarks/exp_results/sliding/logs/inflevel_vjepa2.s*.log
+=== inflevel / vjepa21  (22:10:17)  GPU x 8  batch 4
+z_research/Benchmarks/sliding.sbatch: line 61: 3713732 Killed                  CUDA_VISIBLE_DEVICES=$g $PY "$H/run_sliding.py" --bench "$b" --model "$m" --shard "$g" --nshards "$NG" --device cuda:0 --batch-size "${BS[$m]}" --workers 5 > "$LOGD/${b}_${m}.s${g}.log" 2>&1
+z_research/Benchmarks/sliding.sbatch: line 61: 3713733 Killed                  CUDA_VISIBLE_DEVICES=$g $PY "$H/run_sliding.py" --bench "$b" --model "$m" --shard "$g" --nshards "$NG" --device cuda:0 --batch-size "${BS[$m]}" --workers 5 > "$LOGD/${b}_${m}.s${g}.log" 2>&1
+z_research/Benchmarks/sliding.sbatch: line 61: 3713734 Killed                  CUDA_VISIBLE_DEVICES=$g $PY "$H/run_sliding.py" --bench "$b" --model "$m" --shard "$g" --nshards "$NG" --device cuda:0 --batch-size "${BS[$m]}" --workers 5 > "$LOGD/${b}_${m}.s${g}.log" 2>&1
+z_research/Benchmarks/sliding.sbatch: line 61: 3713735 Killed                  CUDA_VISIBLE_DEVICES=$g $PY "$H/run_sliding.py" --bench "$b" --model "$m" --shard "$g" --nshards "$NG" --device cuda:0 --batch-size "${BS[$m]}" --workers 5 > "$LOGD/${b}_${m}.s${g}.log" 2>&1
+z_research/Benchmarks/sliding.sbatch: line 61: 3713736 Killed                  CUDA_VISIBLE_DEVICES=$g $PY "$H/run_sliding.py" --bench "$b" --model "$m" --shard "$g" --nshards "$NG" --device cuda:0 --batch-size "${BS[$m]}" --workers 5 > "$LOGD/${b}_${m}.s${g}.log" 2>&1
+z_research/Benchmarks/sliding.sbatch: line 61: 3713737 Killed                  CUDA_VISIBLE_DEVICES=$g $PY "$H/run_sliding.py" --bench "$b" --model "$m" --shard "$g" --nshards "$NG" --device cuda:0 --batch-size "${BS[$m]}" --workers 5 > "$LOGD/${b}_${m}.s${g}.log" 2>&1
+z_research/Benchmarks/sliding.sbatch: line 61: 3713738 Killed                  CUDA_VISIBLE_DEVICES=$g $PY "$H/run_sliding.py" --bench "$b" --model "$m" --shard "$g" --nshards "$NG" --device cuda:0 --batch-size "${BS[$m]}" --workers 5 > "$LOGD/${b}_${m}.s${g}.log" 2>&1
+z_research/Benchmarks/sliding.sbatch: line 61: 3713739 Killed                  CUDA_VISIBLE_DEVICES=$g $PY "$H/run_sliding.py" --bench "$b" --model "$m" --shard "$g" --nshards "$NG" --device cuda:0 --batch-size "${BS[$m]}" --workers 5 > "$LOGD/${b}_${m}.s${g}.log" 2>&1
+!! inflevel/vjepa21 샤드 실패 — /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/Benchmarks/exp_results/sliding/logs/inflevel_vjepa21.s*.log
+=== inflevel / videomae2  (22:10:31)  GPU x 8  batch 8
+z_research/Benchmarks/sliding.sbatch: line 61: 3714384 Killed                  CUDA_VISIBLE_DEVICES=$g $PY "$H/run_sliding.py" --bench "$b" --model "$m" --shard "$g" --nshards "$NG" --device cuda:0 --batch-size "${BS[$m]}" --workers 5 > "$LOGD/${b}_${m}.s${g}.log" 2>&1
+z_research/Benchmarks/sliding.sbatch: line 61: 3714385 Killed                  CUDA_VISIBLE_DEVICES=$g $PY "$H/run_sliding.py" --bench "$b" --model "$m" --shard "$g" --nshards "$NG" --device cuda:0 --batch-size "${BS[$m]}" --workers 5 > "$LOGD/${b}_${m}.s${g}.log" 2>&1
+z_research/Benchmarks/sliding.sbatch: line 61: 3714386 Killed                  CUDA_VISIBLE_DEVICES=$g $PY "$H/run_sliding.py" --bench "$b" --model "$m" --shard "$g" --nshards "$NG" --device cuda:0 --batch-size "${BS[$m]}" --workers 5 > "$LOGD/${b}_${m}.s${g}.log" 2>&1
+z_research/Benchmarks/sliding.sbatch: line 61: 3714387 Killed                  CUDA_VISIBLE_DEVICES=$g $PY "$H/run_sliding.py" --bench "$b" --model "$m" --shard "$g" --nshards "$NG" --device cuda:0 --batch-size "${BS[$m]}" --workers 5 > "$LOGD/${b}_${m}.s${g}.log" 2>&1
+z_research/Benchmarks/sliding.sbatch: line 61: 3714388 Killed                  CUDA_VISIBLE_DEVICES=$g $PY "$H/run_sliding.py" --bench "$b" --model "$m" --shard "$g" --nshards "$NG" --device cuda:0 --batch-size "${BS[$m]}" --workers 5 > "$LOGD/${b}_${m}.s${g}.log" 2>&1
+z_research/Benchmarks/sliding.sbatch: line 61: 3714389 Killed                  CUDA_VISIBLE_DEVICES=$g $PY "$H/run_sliding.py" --bench "$b" --model "$m" --shard "$g" --nshards "$NG" --device cuda:0 --batch-size "${BS[$m]}" --workers 5 > "$LOGD/${b}_${m}.s${g}.log" 2>&1
+z_research/Benchmarks/sliding.sbatch: line 61: 3714390 Killed                  CUDA_VISIBLE_DEVICES=$g $PY "$H/run_sliding.py" --bench "$b" --model "$m" --shard "$g" --nshards "$NG" --device cuda:0 --batch-size "${BS[$m]}" --workers 5 > "$LOGD/${b}_${m}.s${g}.log" 2>&1
+z_research/Benchmarks/sliding.sbatch: line 61: 3714391 Killed                  CUDA_VISIBLE_DEVICES=$g $PY "$H/run_sliding.py" --bench "$b" --model "$m" --shard "$g" --nshards "$NG" --device cuda:0 --batch-size "${BS[$m]}" --workers 5 > "$LOGD/${b}_${m}.s${g}.log" 2>&1
+!! inflevel/videomae2 샤드 실패 — /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/Benchmarks/exp_results/sliding/logs/inflevel_videomae2.s*.log
+=== 끝 Sun 20 Sep 2026 10:15:31 PM KST

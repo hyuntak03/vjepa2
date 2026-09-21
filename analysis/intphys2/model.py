@@ -221,6 +221,24 @@ def build_from_config(cfg: dict, device: torch.device) -> VJEPA2Bundle:
         num_mask_tokens: 10
       dtype: bfloat16                                   # cast the frozen graph
     """
+    # ---- family 분기: V-JEPA 2 외의 모델은 analysis/model_loaders.py 가 어댑터를 만든다 ----
+    #      채점기는 그대로다. 모델이 늘어나면 거기 BUILDERS 에 한 줄만 추가한다.
+    family = cfg.get("family", "vjepa2")
+    if family != "vjepa2":
+        from analysis.model_loaders import BUILDERS
+        if family not in BUILDERS:
+            raise ValueError(f"unknown model.family {family!r}; valid: {['vjepa2'] + sorted(BUILDERS)}")
+        _img = int(cfg.get("img_size", 256))
+        _nf = int(cfg.get("window_size", 48))
+        ctx_m, tgt_m, pred_m, embed = BUILDERS[family](cfg, device, _nf, _img)
+        _dt = cfg.get("dtype", "float32")
+        return VJEPA2Bundle(
+            encoder=ctx_m, predictor=pred_m, context_encoder=ctx_m, target_encoder=tgt_m,
+            img_size=_img, patch_size=int(cfg.get("patch_size", 16)),
+            tubelet_size=int(cfg.get("tubelet_size", 2)), num_frames=_nf, embed_dim=embed,
+            device=device, dtype=getattr(torch, _dt) if isinstance(_dt, str) else _dt,
+        )
+
     ckpt_path = cfg["checkpoint"]
     arch_name = cfg.get("arch_name", "vit_large")
     img_size = int(cfg.get("img_size", 256))

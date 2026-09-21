@@ -21,6 +21,7 @@
   python z_research/scripts/data/build_rollout2_index.py            # 검증만
   python z_research/scripts/data/build_rollout2_index.py --write
   python z_research/scripts/data/build_rollout2_index.py --set training_v5 --write   # RollOut_v2_training (v5 사물 없음 + props 사물; plan 2개 합침)
+  python z_research/scripts/data/build_rollout2_index.py --set v2_decel --write      # 감속 flat_d / ramp_d 만 (2026-09-19, 기존 v2 뒤에 붙이는 용도)
 
 학습셋 v1~v4 는 2026-09-11 삭제 — `training_v5` 만 남았다.
 """
@@ -36,6 +37,14 @@ SETS = {
                out=f"{ROOT}/data_csv/rollout_v2",
                n=5488, scen={s: 784 for s in ("arc", "fall", "flat_a", "flat_v", "ledge", "ramp_a", "wall")},
                imp={"ledge": 392, "wall": 392}, holdout=224, flat=("flat_v", "flat_a")),
+    # 2026-09-19: 감속 두 시나리오 (flat_d 수평 감속, ramp_d 오르막 감속) 만 따로. 기존 v2 인덱스·캐시 순서를 건드리지 않고
+    # 새 clip 만 추출해 뒤에 붙이기 위한 세트다 (merge_token_cache.py + concat_index.py). only = metadata 에서 이 시나리오만 쓴다.
+    "v2_decel": dict(src="/data2/local_datasets/world/world_analysis/RollOut_v2",
+                     frames_root="/local_datasets/world/world_analysis/RollOut_v2",
+                     plan="/data/hyuntak/project/2026/2027_cvpr/UnrealEngine/gen/plans/blocks_rollout2.json",
+                     out=f"{ROOT}/data_csv/rollout_v2_decel",
+                     n=1568, scen={"flat_d": 784, "ramp_d": 784}, imp={}, holdout=224, flat=("flat_d",),
+                     only=("flat_d", "ramp_d")),
     "training_v5": dict(src="/data2/local_datasets/world/world_analysis/RollOut_v2_training",
                         frames_root="/local_datasets/world/world_analysis/RollOut_v2_training",
                         plan=["/data/hyuntak/project/2026/2027_cvpr/UnrealEngine/gen/plans/blocks_rollout2_training_v5.json",
@@ -230,6 +239,8 @@ def main():
         S = dict(S, n=len(_rows), scen=dict(collections.Counter(r["scenario"] for r in _rows)), flat=tuple(sorted(set(r["scenario"] for r in _rows))))
         print(f"[{a.set}] 구성 (metadata): n={S['n']} scen={S['scen']}")
     rows = list(csv.DictReader(open(f"{SRC}/metadata.csv", encoding="utf-8")))
+    if S.get("only"):                                      # 부분 세트 (v2_decel): 지정 시나리오 행만, metadata 순서 그대로
+        rows = [r for r in rows if r["scenario"] in S["only"]]
     plan = {}
     for pf in (PLAN if isinstance(PLAN, list) else [PLAN]):
         J = json.load(open(pf)); plan.update({b["id"]: b for b in (J["blocks"] if isinstance(J, dict) else J)})

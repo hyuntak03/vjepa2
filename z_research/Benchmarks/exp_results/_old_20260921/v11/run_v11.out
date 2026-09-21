@@ -1,0 +1,63 @@
+=== videomae2  (19:04:37)  GPU x 8  batch 6
+--- videomae2 합치는 중
+{
+  "model": "videomae2",
+  "dataset": "v11",
+  "protocol": "fixed C16/T32, matched pair",
+  "n_videos_scored": 21504,
+  "n_missing": 0,
+  "overall_acc": 0.49930245535714285,
+  "n_pairs": 10752
+}
+
+condition                    violation     acc     n
+moving_occlusion             color      50.00   672
+moving_occlusion             shape      49.70   672
+moving_occlusion             vanish     50.00   448
+moving_occlusion_flat        color      49.78   672
+moving_occlusion_flat        shape      50.30   672
+moving_occlusion_flat        vanish     50.00   448
+moving_visible               color      50.00   672
+moving_visible               shape      49.85   672
+moving_visible               vanish     50.00   448
+moving_visible_flat          color      50.30   672
+moving_visible_flat          shape      49.85   672
+moving_visible_flat          vanish     50.00   448
+static_occlusion             color      49.11   672
+static_occlusion             shape      50.00   672
+static_occlusion             vanish     50.00   448
+static_visible               color      49.85   672
+static_visible               shape      49.85   672
+static_visible               vanish     50.45   448
+=== vjepa21  (19:13:53)  GPU x 8  batch 3
+--- vjepa21 합치는 중
+{
+  "model": "vjepa21",
+  "dataset": "v11",
+  "protocol": "fixed C16/T32, matched pair",
+  "n_videos_scored": 21504,
+  "n_missing": 0,
+  "overall_acc": 0.6237909226190477,
+  "n_pairs": 10752
+}
+
+condition                    violation     acc     n
+moving_occlusion             color      71.58   672
+moving_occlusion             shape      50.89   672
+moving_occlusion             vanish     50.00   448
+moving_occlusion_flat        color      74.55   672
+moving_occlusion_flat        shape      50.74   672
+moving_occlusion_flat        vanish     50.00   448
+moving_visible               color      73.96   672
+moving_visible               shape      50.89   672
+moving_visible               vanish     50.00   448
+moving_visible_flat          color      78.57   672
+moving_visible_flat          shape      56.10   672
+moving_visible_flat          vanish     50.00   448
+static_occlusion             color      79.76   672
+static_occlusion             shape      54.91   672
+static_occlusion             vanish     50.00   448
+static_visible               color      88.10   672
+static_visible               shape      65.33   672
+static_visible               vanish     54.02   448
+=== 끝 (19:32:43)

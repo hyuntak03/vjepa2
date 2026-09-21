@@ -39,6 +39,11 @@ V-JEPA 2 world model 이 **직관물리 위반**을 얼마나 잡아내는지, �
 비가림에서 이미 있는 물체 순서, precision 편향). 판정·후보·확장 축:
 `z_research/IntPhysGenV11/Archive/STATUS_AND_CRITIQUE_2026-09-03.md`. **가림은 주인공이 아니라 testbed 로.**
 
+⚠️ **2026-09-19 — state evolution 의 정의 (사용자 결정): 네 하위 능력 1 읽기 · 2 지속 · 3 전이 (문맥 내용에 따라 미래를 바꾸는가) · 4 영속.**
+정본 `z_research/context_encoder_analysis/Archive/STATE_EVOLUTION_CAPABILITIES_2026-09-19.md`. 목적은 latent state 진화 (video prediction) 이고
+**물리 장면은 측정 도구다 — "물리 엔진을 가졌는가" 를 묻지 않는다.** 현재 V-JEPA 2: 읽기 ✅ / 지속 ❌ / 전이 ◐ (방향·속도는 이어 가고 가속도는 반영 안 함) / 영속 ❌.
+장면 요소·사건별 변화 (ledge 낙하, wall 정지) 는 **common sense 문제로 보고 정의에서 뺐다.**
+
 ⚠️ **목적함수를 원인으로 걸지 않는다.** discussion 한 문단으로만 쓴다.
 재학습 없이 검증이 안 되는 원인을 축으로 두면 스스로 못 갚는 빚이 된다.
 
@@ -213,6 +218,8 @@ watch -n 1 bash z_research/scripts/monitor.sh
 
 frozen encoder 위에서 predictor 만 학습한다 (scratch / 릴리즈 predictor post-FT).
 **시작점은 `z_training/README.md`**, config 스키마는 `configs/training/README.md`.
+**결과 종합 `z_training/RESULTS_2026-09-19.md`** — 세 post-FT 모두 학습 도메인 안에서만 오른다 (v11 held-out 75.83 → 91.35 인데 IntPhys1 88.89 → 77.22 / IntPhys1 학습 93.89 인데 v11 78.53).
+IntPhys 2 채점 대조 (논문·공식 코드): `analysis/intphys2/PROTOCOL_CHECK_2026-09-14.md` — config 수정 (`dtype: float32` + `autocast: bfloat16`, 열별 선택) 미반영.
 
 ```bash
 GPUS=2 bash z_training/train.sh --smoke-ddp                                          # 런처만 점검 (모델·데이터 없음)
@@ -473,6 +480,8 @@ v8 의 정보손실/정렬손실 분해, 2D 대조는 `z_research/IntPhysGenV8/`
 | wall | p 는 **2 슬롯 통과 뒤 물체를 잃는다** (통과 질량 0.61 / 0.48 → ≤ 0.18). "벽 속 +29 px 에서 멈춤" 은 **정정** (기본값). probe P(imp) 0.70~0.90 |
 | v11 | 물체다운 토큰이 남는 길이: late **0** 슬롯 < early/mid **3** < 가림막 없음 **4~5**. ramp late 만 k 에 따라 악화 (ratio 0.21→0.04). static 도 late 만 1 칸 넘게 이탈 |
 | 채점 vs 위치 | vanish 채점 early 97.8 / mid 95.8 / late 57.5 인데 위치는 셋 다 3 슬롯 안 소실 — **별개 축** |
+| **거리 한계 (09-19)** | p 의 물체다운 토큰은 **마지막 관측 자리에서 약 2~3 칸 (40~60 px) 안**에서만 유지 — 슬롯보다 거리 (자 없는 검사 회귀: 거리 100 px 당 −0.47, 슬롯 −0.28; 자 attention 과 같은 계수). 등속 arc 수평에서도 53 px 에서 멈춤 (진실 92) |
+| **왜 (09-19)** | z 는 문맥 끝 속도를 담는다 (ridge R² 0.996/0.989). predictor 는 4~5 칸 떨어진 과거 자리에서 물체를 가져올 수 있지만 (knockout), 멀면 진실 칸 미래 query 가 물체 궤적을 **균등 수준으로만** 본다 (0.073 → 0.021). 정본 `RollOutV2/Archive/PREDICTOR_DISTANCE_LIMIT_2026-09-19.md` |
 
 ⚠️ **읽는 규칙** — 자는 물체가 없어도 위치를 낸다 (attention 이 퍼지면 토큰 평균 읽기 = 기본값). v11 은 기본값 ≈ 마지막 관측 위치, wall 은 ≈ 정지점.
 **위치 주장은 그 슬롯의 3×3 attention 질량이 균등 (0.035) 을 넘을 때만** 하고, 8 슬롯 평균 지표는 슬롯별 표 (`attn_diag.md`, `two_futures_attn.md`) 와 같이 읽는다.
@@ -504,6 +513,9 @@ v8 의 정보손실/정렬손실 분해, 2D 대조는 `z_research/IntPhysGenV8/`
 | **"wall 에서 벽 속 한 칸 반 파고들어 멈춘다"** | 슬롯 1~2 통과 + 슬롯 3~7 기본값의 평균. 멈춤은 한 번도 없다. **정정** |
 | v11 k=0 p 만으로 위치 자 학습 | 자리 prior 를 외움 (오차 3 px, 물체 attention 0.1; early 슬롯 0~2 에서 47~63 px). 위치를 고루 덮는 학습셋 필요 |
 | 위치 자 학습셋에 kink·고속 (v3) | 자가 학습 분포 안에서도 흐려짐. 삭제, 재시도 금지 |
+| **"p 가 문맥 끝 속도를 그대로 이어 간다" / "p 가 슬롯 4 이후 멈춘다"** | 등속 arc 에서도 약 3 칸 가서 멈추고 (이어 가지 않음), 후반 속도 0 은 물체를 놓친 뒤의 자 기본값 (멈춤 아님). 사라짐의 변수는 슬롯이 아니라 이동 거리. `RollOutV2/Archive/PREDICTOR_DISTANCE_LIMIT_2026-09-19.md` §8 |
+| **"문맥 encoder 가 속도를 약하게 담아서"** | z → 문맥 끝 속도 R² 0.996 / 0.989 (09-19). **기각** |
+| 캐시 `ctx_masked` 를 predictor 입력으로 | LN(z) 가 저장돼 있다 (`forward.py:163`) — 캐시 p 와 상대 L1 0.60. predictor 를 다시 돌리려면 문맥 encoder 를 다시 돌린다 |
 | 슬롯 7 진행 비율 하나로 v11 요약 | 물체가 사라진 뒤의 기본값을 섞어 조건 차이 (early/mid 슬롯 0~2 는 정확) 를 지운다. 슬롯별 질량과 함께만 |
 
 ---
@@ -570,6 +582,7 @@ v8 의 정보손실/정렬손실 분해, 2D 대조는 `z_research/IntPhysGenV8/`
 | **`z_research/IntPhysGenV11/`** | **본 실험 세트.** `README.md` 가 시작점 | 부분 |
 | `z_research/anticipation/EK100/` | V-JEPA 2 EK100 action anticipation 재현 (논문 §6). `README.md` 가 시작점 — 릴리즈 코드와 논문이 다른 곳과 우리 기본값 | 부분 |
 | **`z_research/RollOutV2/`** | **위치 readout 세트** (p 가 물체를 어디에 두나). `README.md` → `figures/v5/summary/POSITION_READOUT_2026-09-12.md` | 부분 |
+| `z_AC_training/` | V-JEPA 2-AC (action-conditioned predictor, DROID) 학습 파악·하네스 (2026-09-19 개설, 아직 실행 없음). `README.md` 가 시작점 | ✅ (runs/ 제외) |
 | `z_research/IntPhysGen{V8,V10}/`, `IntPhys/` | 아카이브 | 부분 |
 | `z_research/<셋>/Archive/*.md` | 분석 문서. **파일명에 날짜** `TOPIC_YYYY-MM-DD.md` | ✅ |
 | `z_research/<셋>/exp_results/` | 원시 산출물 (`summary.json`, `_resolved.yaml`) | ❌ |

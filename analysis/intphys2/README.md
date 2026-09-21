@@ -5,6 +5,9 @@
 > Each video is scored by its per-window prediction error ("surprise") in the
 > V-JEPA latent space; within a scene's `(Possible, Impossible)` pair we check
 > whether the impossible video is more surprising.
+>
+> **Protocol check vs. paper + official repo (2026-09-14): [`PROTOCOL_CHECK_2026-09-14.md`](PROTOCOL_CHECK_2026-09-14.md)** —
+> windows / growing context / aggregation match; keep our (release) RoPE; config still needs `dtype: float32` + `autocast: bfloat16` and per-column selection; pairing unverified.
 
 ---
 

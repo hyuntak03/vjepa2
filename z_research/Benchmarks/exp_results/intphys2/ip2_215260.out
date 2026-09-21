@@ -1,0 +1,336 @@
+job 215260  host vll5  Mon 21 Sep 2026 03:49:02 AM KST
+config /data/hyuntak/project/2026/2027_cvpr/vjepa2/configs/analysis/intphys2/bench_intphys2_main_videomae2g.yaml
+/data2/local_datasets/world/Benchmark/IntPhys2/Main
+W0921 03:49:06.285000 3849513 site-packages/torch/distributed/run.py:862] 
+W0921 03:49:06.285000 3849513 site-packages/torch/distributed/run.py:862] *****************************************
+W0921 03:49:06.285000 3849513 site-packages/torch/distributed/run.py:862] Setting OMP_NUM_THREADS environment variable for each process to be 1 in default, to avoid your system being overloaded, please further tune the variable for optimal performance in your application as needed. 
+W0921 03:49:06.285000 3849513 site-packages/torch/distributed/run.py:862] *****************************************
+/data/hyuntak/anaconda3/envs/vjepa2/lib/python3.12/site-packages/timm/models/layers/__init__.py:49: FutureWarning: Importing from timm.models.layers is deprecated, please import via timm.layers
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.layers", FutureWarning)
+/data/hyuntak/anaconda3/envs/vjepa2/lib/python3.12/site-packages/timm/models/layers/__init__.py:49: FutureWarning: Importing from timm.models.layers is deprecated, please import via timm.layers
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.layers", FutureWarning)
+/data/hyuntak/anaconda3/envs/vjepa2/lib/python3.12/site-packages/timm/models/layers/__init__.py:49: FutureWarning: Importing from timm.models.layers is deprecated, please import via timm.layers
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.layers", FutureWarning)
+/data/hyuntak/anaconda3/envs/vjepa2/lib/python3.12/site-packages/timm/models/layers/__init__.py:49: FutureWarning: Importing from timm.models.layers is deprecated, please import via timm.layers
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.layers", FutureWarning)
+/data/hyuntak/anaconda3/envs/vjepa2/lib/python3.12/site-packages/timm/models/layers/__init__.py:49: FutureWarning: Importing from timm.models.layers is deprecated, please import via timm.layers
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.layers", FutureWarning)
+/data/hyuntak/anaconda3/envs/vjepa2/lib/python3.12/site-packages/timm/models/layers/__init__.py:49: FutureWarning: Importing from timm.models.layers is deprecated, please import via timm.layers
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.layers", FutureWarning)
+/data/hyuntak/anaconda3/envs/vjepa2/lib/python3.12/site-packages/timm/models/layers/__init__.py:49: FutureWarning: Importing from timm.models.layers is deprecated, please import via timm.layers
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.layers", FutureWarning)
+/data/hyuntak/anaconda3/envs/vjepa2/lib/python3.12/site-packages/timm/models/layers/__init__.py:49: FutureWarning: Importing from timm.models.layers is deprecated, please import via timm.layers
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.layers", FutureWarning)
+[rank7] 2026-09-21 03:49:16,736 INFO analysis.intphys2.eval :: rank 7/8 (ddp=True)
+[rank7] 2026-09-21 03:49:16,736 INFO analysis.intphys2.eval :: config: /data/hyuntak/project/2026/2027_cvpr/vjepa2/configs/analysis/intphys2/bench_intphys2_main_videomae2g.yaml
+/data/hyuntak/anaconda3/envs/vjepa2/lib/python3.12/site-packages/timm/models/registry.py:4: FutureWarning: Importing from timm.models.registry is deprecated, please import via timm.models
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.models", FutureWarning)
+/data/hyuntak/project/2026/2027_cvpr/VideoMAEv2/models/modeling_finetune.py:457: UserWarning: Overwriting vit_small_patch16_224 in registry with models.modeling_finetune.vit_small_patch16_224. This is because the name being registered conflicts with an existing name. Please check if this is not expected.
+  @register_model
+/data/hyuntak/project/2026/2027_cvpr/VideoMAEv2/models/modeling_finetune.py:472: UserWarning: Overwriting vit_base_patch16_224 in registry with models.modeling_finetune.vit_base_patch16_224. This is because the name being registered conflicts with an existing name. Please check if this is not expected.
+  @register_model
+/data/hyuntak/project/2026/2027_cvpr/VideoMAEv2/models/modeling_finetune.py:487: UserWarning: Overwriting vit_large_patch16_224 in registry with models.modeling_finetune.vit_large_patch16_224. This is because the name being registered conflicts with an existing name. Please check if this is not expected.
+  @register_model
+/data/hyuntak/project/2026/2027_cvpr/VideoMAEv2/models/modeling_finetune.py:517: UserWarning: Overwriting vit_giant_patch14_224 in registry with models.modeling_finetune.vit_giant_patch14_224. This is because the name being registered conflicts with an existing name. Please check if this is not expected.
+  @register_model
+[rank7] 2026-09-21 03:49:16,748 INFO analysis.model_loaders :: [loader videomae2] /data2/local_datasets/world/Benchmark/ckpt/vit_g_hybrid_pt_1200e.pth
+[rank4] 2026-09-21 03:49:16,883 INFO analysis.intphys2.eval :: rank 4/8 (ddp=True)
+[rank4] 2026-09-21 03:49:16,883 INFO analysis.intphys2.eval :: config: /data/hyuntak/project/2026/2027_cvpr/vjepa2/configs/analysis/intphys2/bench_intphys2_main_videomae2g.yaml
+/data/hyuntak/anaconda3/envs/vjepa2/lib/python3.12/site-packages/timm/models/registry.py:4: FutureWarning: Importing from timm.models.registry is deprecated, please import via timm.models
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.models", FutureWarning)
+/data/hyuntak/project/2026/2027_cvpr/VideoMAEv2/models/modeling_finetune.py:457: UserWarning: Overwriting vit_small_patch16_224 in registry with models.modeling_finetune.vit_small_patch16_224. This is because the name being registered conflicts with an existing name. Please check if this is not expected.
+  @register_model
+/data/hyuntak/project/2026/2027_cvpr/VideoMAEv2/models/modeling_finetune.py:472: UserWarning: Overwriting vit_base_patch16_224 in registry with models.modeling_finetune.vit_base_patch16_224. This is because the name being registered conflicts with an existing name. Please check if this is not expected.
+  @register_model
+/data/hyuntak/project/2026/2027_cvpr/VideoMAEv2/models/modeling_finetune.py:487: UserWarning: Overwriting vit_large_patch16_224 in registry with models.modeling_finetune.vit_large_patch16_224. This is because the name being registered conflicts with an existing name. Please check if this is not expected.
+  @register_model
+/data/hyuntak/project/2026/2027_cvpr/VideoMAEv2/models/modeling_finetune.py:517: UserWarning: Overwriting vit_giant_patch14_224 in registry with models.modeling_finetune.vit_giant_patch14_224. This is because the name being registered conflicts with an existing name. Please check if this is not expected.
+  @register_model
+[rank4] 2026-09-21 03:49:16,889 INFO analysis.model_loaders :: [loader videomae2] /data2/local_datasets/world/Benchmark/ckpt/vit_g_hybrid_pt_1200e.pth
+[rank5] 2026-09-21 03:49:16,890 INFO analysis.intphys2.eval :: rank 5/8 (ddp=True)
+[rank5] 2026-09-21 03:49:16,890 INFO analysis.intphys2.eval :: config: /data/hyuntak/project/2026/2027_cvpr/vjepa2/configs/analysis/intphys2/bench_intphys2_main_videomae2g.yaml
+/data/hyuntak/anaconda3/envs/vjepa2/lib/python3.12/site-packages/timm/models/registry.py:4: FutureWarning: Importing from timm.models.registry is deprecated, please import via timm.models
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.models", FutureWarning)
+/data/hyuntak/project/2026/2027_cvpr/VideoMAEv2/models/modeling_finetune.py:457: UserWarning: Overwriting vit_small_patch16_224 in registry with models.modeling_finetune.vit_small_patch16_224. This is because the name being registered conflicts with an existing name. Please check if this is not expected.
+  @register_model
+/data/hyuntak/project/2026/2027_cvpr/VideoMAEv2/models/modeling_finetune.py:472: UserWarning: Overwriting vit_base_patch16_224 in registry with models.modeling_finetune.vit_base_patch16_224. This is because the name being registered conflicts with an existing name. Please check if this is not expected.
+  @register_model
+/data/hyuntak/project/2026/2027_cvpr/VideoMAEv2/models/modeling_finetune.py:487: UserWarning: Overwriting vit_large_patch16_224 in registry with models.modeling_finetune.vit_large_patch16_224. This is because the name being registered conflicts with an existing name. Please check if this is not expected.
+  @register_model
+/data/hyuntak/project/2026/2027_cvpr/VideoMAEv2/models/modeling_finetune.py:517: UserWarning: Overwriting vit_giant_patch14_224 in registry with models.modeling_finetune.vit_giant_patch14_224. This is because the name being registered conflicts with an existing name. Please check if this is not expected.
+  @register_model
+[rank6] 2026-09-21 03:49:16,894 INFO analysis.intphys2.eval :: rank 6/8 (ddp=True)
+[rank6] 2026-09-21 03:49:16,894 INFO analysis.intphys2.eval :: config: /data/hyuntak/project/2026/2027_cvpr/vjepa2/configs/analysis/intphys2/bench_intphys2_main_videomae2g.yaml
+[rank5] 2026-09-21 03:49:16,895 INFO analysis.model_loaders :: [loader videomae2] /data2/local_datasets/world/Benchmark/ckpt/vit_g_hybrid_pt_1200e.pth
+/data/hyuntak/anaconda3/envs/vjepa2/lib/python3.12/site-packages/timm/models/registry.py:4: FutureWarning: Importing from timm.models.registry is deprecated, please import via timm.models
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.models", FutureWarning)
+/data/hyuntak/project/2026/2027_cvpr/VideoMAEv2/models/modeling_finetune.py:457: UserWarning: Overwriting vit_small_patch16_224 in registry with models.modeling_finetune.vit_small_patch16_224. This is because the name being registered conflicts with an existing name. Please check if this is not expected.
+  @register_model
+/data/hyuntak/project/2026/2027_cvpr/VideoMAEv2/models/modeling_finetune.py:472: UserWarning: Overwriting vit_base_patch16_224 in registry with models.modeling_finetune.vit_base_patch16_224. This is because the name being registered conflicts with an existing name. Please check if this is not expected.
+  @register_model
+/data/hyuntak/project/2026/2027_cvpr/VideoMAEv2/models/modeling_finetune.py:487: UserWarning: Overwriting vit_large_patch16_224 in registry with models.modeling_finetune.vit_large_patch16_224. This is because the name being registered conflicts with an existing name. Please check if this is not expected.
+  @register_model
+/data/hyuntak/project/2026/2027_cvpr/VideoMAEv2/models/modeling_finetune.py:517: UserWarning: Overwriting vit_giant_patch14_224 in registry with models.modeling_finetune.vit_giant_patch14_224. This is because the name being registered conflicts with an existing name. Please check if this is not expected.
+  @register_model
+[rank6] 2026-09-21 03:49:16,899 INFO analysis.model_loaders :: [loader videomae2] /data2/local_datasets/world/Benchmark/ckpt/vit_g_hybrid_pt_1200e.pth
+[rank2] 2026-09-21 03:49:16,905 INFO analysis.intphys2.eval :: rank 2/8 (ddp=True)
+[rank2] 2026-09-21 03:49:16,905 INFO analysis.intphys2.eval :: config: /data/hyuntak/project/2026/2027_cvpr/vjepa2/configs/analysis/intphys2/bench_intphys2_main_videomae2g.yaml
+/data/hyuntak/anaconda3/envs/vjepa2/lib/python3.12/site-packages/timm/models/registry.py:4: FutureWarning: Importing from timm.models.registry is deprecated, please import via timm.models
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.models", FutureWarning)
+/data/hyuntak/project/2026/2027_cvpr/VideoMAEv2/models/modeling_finetune.py:457: UserWarning: Overwriting vit_small_patch16_224 in registry with models.modeling_finetune.vit_small_patch16_224. This is because the name being registered conflicts with an existing name. Please check if this is not expected.
+  @register_model
+/data/hyuntak/project/2026/2027_cvpr/VideoMAEv2/models/modeling_finetune.py:472: UserWarning: Overwriting vit_base_patch16_224 in registry with models.modeling_finetune.vit_base_patch16_224. This is because the name being registered conflicts with an existing name. Please check if this is not expected.
+  @register_model
+/data/hyuntak/project/2026/2027_cvpr/VideoMAEv2/models/modeling_finetune.py:487: UserWarning: Overwriting vit_large_patch16_224 in registry with models.modeling_finetune.vit_large_patch16_224. This is because the name being registered conflicts with an existing name. Please check if this is not expected.
+  @register_model
+/data/hyuntak/project/2026/2027_cvpr/VideoMAEv2/models/modeling_finetune.py:517: UserWarning: Overwriting vit_giant_patch14_224 in registry with models.modeling_finetune.vit_giant_patch14_224. This is because the name being registered conflicts with an existing name. Please check if this is not expected.
+  @register_model
+[rank2] 2026-09-21 03:49:16,912 INFO analysis.model_loaders :: [loader videomae2] /data2/local_datasets/world/Benchmark/ckpt/vit_g_hybrid_pt_1200e.pth
+[rank0] 2026-09-21 03:49:16,916 INFO analysis.intphys2.eval :: rank 0/8 (ddp=True)
+[rank0] 2026-09-21 03:49:16,916 INFO analysis.intphys2.eval :: config: /data/hyuntak/project/2026/2027_cvpr/vjepa2/configs/analysis/intphys2/bench_intphys2_main_videomae2g.yaml
+[rank0] 2026-09-21 03:49:16,917 INFO analysis.intphys2.eval :: {
+  "tag": "bench_intphys2_main_videomae2g",
+  "folder": "/data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/Benchmarks/exp_results/intphys2",
+  "data": {
+    "root": "/data2/local_datasets/world/Benchmark/IntPhys2",
+    "dataset_variant": "intphys2",
+    "split": "Main",
+    "target_fps": 6.0,
+    "min_frames": 8,
+    "img_size": 224,
+    "decord_threads": 2,
+    "frame_step": 10,
+    "crop_margin_ratio": 1.0
+  },
+  "surprise": {
+    "window_size": 48,
+    "context_length": 12,
+    "context_length_sweep": [
+      4,
+      6,
+      8,
+      10,
+      12,
+      14,
+      18,
+      24,
+      30,
+      36,
+      42
+    ],
+    "stride": 2,
+    "distance": "l1",
+    "loss_exp": 1.0,
+    "target_layer_norm": false,
+    "aggregation": "avg",
+    "protocol": "growing",
+    "max_window_batch": 2,
+    "mask_index": 0,
+    "context_forward_mode": "masked"
+  },
+  "evaluation": {
+    "compute_pairwise": true,
+    "compute_auroc": true,
+    "breakdown_by": [
+      "condition",
+      "difficulty",
+      "camera"
+    ],
+    "ddp": true,
+    "num_workers": 6,
+    "prefetch_factor": 2,
+    "pin_memory": true,
+    "verbose": true,
+    "log_every_videos": 25,
+    "limit_videos": null,
+    "pairing": "type_matched"
+  },
+  "output": {
+    "save_per_video": true,
+    "save_per_window": true,
+    "save_config": true,
+    "plot_breakdowns": true,
+    "plot_context_sweep": true,
+    "plot_scene_curves": false,
+    "scene_curve_indices": null
+  }
+}
+/data/hyuntak/anaconda3/envs/vjepa2/lib/python3.12/site-packages/timm/models/registry.py:4: FutureWarning: Importing from timm.models.registry is deprecated, please import via timm.models
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.models", FutureWarning)
+/data/hyuntak/project/2026/2027_cvpr/VideoMAEv2/models/modeling_finetune.py:457: UserWarning: Overwriting vit_small_patch16_224 in registry with models.modeling_finetune.vit_small_patch16_224. This is because the name being registered conflicts with an existing name. Please check if this is not expected.
+  @register_model
+/data/hyuntak/project/2026/2027_cvpr/VideoMAEv2/models/modeling_finetune.py:472: UserWarning: Overwriting vit_base_patch16_224 in registry with models.modeling_finetune.vit_base_patch16_224. This is because the name being registered conflicts with an existing name. Please check if this is not expected.
+  @register_model
+/data/hyuntak/project/2026/2027_cvpr/VideoMAEv2/models/modeling_finetune.py:487: UserWarning: Overwriting vit_large_patch16_224 in registry with models.modeling_finetune.vit_large_patch16_224. This is because the name being registered conflicts with an existing name. Please check if this is not expected.
+  @register_model
+/data/hyuntak/project/2026/2027_cvpr/VideoMAEv2/models/modeling_finetune.py:517: UserWarning: Overwriting vit_giant_patch14_224 in registry with models.modeling_finetune.vit_giant_patch14_224. This is because the name being registered conflicts with an existing name. Please check if this is not expected.
+  @register_model
+[rank0] 2026-09-21 03:49:16,922 INFO analysis.model_loaders :: [loader videomae2] /data2/local_datasets/world/Benchmark/ckpt/vit_g_hybrid_pt_1200e.pth
+[rank3] 2026-09-21 03:49:17,001 INFO analysis.intphys2.eval :: rank 3/8 (ddp=True)
+[rank3] 2026-09-21 03:49:17,001 INFO analysis.intphys2.eval :: config: /data/hyuntak/project/2026/2027_cvpr/vjepa2/configs/analysis/intphys2/bench_intphys2_main_videomae2g.yaml
+/data/hyuntak/anaconda3/envs/vjepa2/lib/python3.12/site-packages/timm/models/registry.py:4: FutureWarning: Importing from timm.models.registry is deprecated, please import via timm.models
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.models", FutureWarning)
+/data/hyuntak/project/2026/2027_cvpr/VideoMAEv2/models/modeling_finetune.py:457: UserWarning: Overwriting vit_small_patch16_224 in registry with models.modeling_finetune.vit_small_patch16_224. This is because the name being registered conflicts with an existing name. Please check if this is not expected.
+  @register_model
+/data/hyuntak/project/2026/2027_cvpr/VideoMAEv2/models/modeling_finetune.py:472: UserWarning: Overwriting vit_base_patch16_224 in registry with models.modeling_finetune.vit_base_patch16_224. This is because the name being registered conflicts with an existing name. Please check if this is not expected.
+  @register_model
+/data/hyuntak/project/2026/2027_cvpr/VideoMAEv2/models/modeling_finetune.py:487: UserWarning: Overwriting vit_large_patch16_224 in registry with models.modeling_finetune.vit_large_patch16_224. This is because the name being registered conflicts with an existing name. Please check if this is not expected.
+  @register_model
+/data/hyuntak/project/2026/2027_cvpr/VideoMAEv2/models/modeling_finetune.py:517: UserWarning: Overwriting vit_giant_patch14_224 in registry with models.modeling_finetune.vit_giant_patch14_224. This is because the name being registered conflicts with an existing name. Please check if this is not expected.
+  @register_model
+[rank3] 2026-09-21 03:49:17,007 INFO analysis.model_loaders :: [loader videomae2] /data2/local_datasets/world/Benchmark/ckpt/vit_g_hybrid_pt_1200e.pth
+[rank1] 2026-09-21 03:49:17,010 INFO analysis.intphys2.eval :: rank 1/8 (ddp=True)
+[rank1] 2026-09-21 03:49:17,010 INFO analysis.intphys2.eval :: config: /data/hyuntak/project/2026/2027_cvpr/vjepa2/configs/analysis/intphys2/bench_intphys2_main_videomae2g.yaml
+/data/hyuntak/anaconda3/envs/vjepa2/lib/python3.12/site-packages/timm/models/registry.py:4: FutureWarning: Importing from timm.models.registry is deprecated, please import via timm.models
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.models", FutureWarning)
+/data/hyuntak/project/2026/2027_cvpr/VideoMAEv2/models/modeling_finetune.py:457: UserWarning: Overwriting vit_small_patch16_224 in registry with models.modeling_finetune.vit_small_patch16_224. This is because the name being registered conflicts with an existing name. Please check if this is not expected.
+  @register_model
+/data/hyuntak/project/2026/2027_cvpr/VideoMAEv2/models/modeling_finetune.py:472: UserWarning: Overwriting vit_base_patch16_224 in registry with models.modeling_finetune.vit_base_patch16_224. This is because the name being registered conflicts with an existing name. Please check if this is not expected.
+  @register_model
+/data/hyuntak/project/2026/2027_cvpr/VideoMAEv2/models/modeling_finetune.py:487: UserWarning: Overwriting vit_large_patch16_224 in registry with models.modeling_finetune.vit_large_patch16_224. This is because the name being registered conflicts with an existing name. Please check if this is not expected.
+  @register_model
+/data/hyuntak/project/2026/2027_cvpr/VideoMAEv2/models/modeling_finetune.py:517: UserWarning: Overwriting vit_giant_patch14_224 in registry with models.modeling_finetune.vit_giant_patch14_224. This is because the name being registered conflicts with an existing name. Please check if this is not expected.
+  @register_model
+[rank1] 2026-09-21 03:49:17,015 INFO analysis.model_loaders :: [loader videomae2] /data2/local_datasets/world/Benchmark/ckpt/vit_g_hybrid_pt_1200e.pth
+[rank4] 2026-09-21 03:50:11,650 INFO analysis.intphys2.dataset :: IntPhys2 [Main] loaded 1012 videos from /data2/local_datasets/world/Benchmark/IntPhys2/Main/metadata.csv
+[rank4] 2026-09-21 03:50:11,651 INFO analysis.intphys2.eval :: intphys2 dataset: 1012 videos
+[rank4] 2026-09-21 03:50:11,652 INFO analysis.intphys2.eval :: scoring 126/1012 videos (rank 4/8) across 11 context length(s): [4, 6, 8, 10, 12, 14, 18, 24, 30, 36, 42]  (num_workers=6)
+[rank0] 2026-09-21 03:50:11,734 INFO analysis.intphys2.dataset :: IntPhys2 [Main] loaded 1012 videos from /data2/local_datasets/world/Benchmark/IntPhys2/Main/metadata.csv
+[rank0] 2026-09-21 03:50:11,735 INFO analysis.intphys2.eval :: intphys2 dataset: 1012 videos
+[rank0] 2026-09-21 03:50:11,736 INFO analysis.intphys2.eval :: scoring 127/1012 videos (rank 0/8) across 11 context length(s): [4, 6, 8, 10, 12, 14, 18, 24, 30, 36, 42]  (num_workers=6)
+[rank5] 2026-09-21 03:50:11,754 INFO analysis.intphys2.dataset :: IntPhys2 [Main] loaded 1012 videos from /data2/local_datasets/world/Benchmark/IntPhys2/Main/metadata.csv
+[rank5] 2026-09-21 03:50:11,755 INFO analysis.intphys2.eval :: intphys2 dataset: 1012 videos
+[rank5] 2026-09-21 03:50:11,756 INFO analysis.intphys2.eval :: scoring 126/1012 videos (rank 5/8) across 11 context length(s): [4, 6, 8, 10, 12, 14, 18, 24, 30, 36, 42]  (num_workers=6)
+[rank6] 2026-09-21 03:50:11,857 INFO analysis.intphys2.dataset :: IntPhys2 [Main] loaded 1012 videos from /data2/local_datasets/world/Benchmark/IntPhys2/Main/metadata.csv
+[rank6] 2026-09-21 03:50:11,858 INFO analysis.intphys2.eval :: intphys2 dataset: 1012 videos
+[rank6] 2026-09-21 03:50:11,859 INFO analysis.intphys2.eval :: scoring 126/1012 videos (rank 6/8) across 11 context length(s): [4, 6, 8, 10, 12, 14, 18, 24, 30, 36, 42]  (num_workers=6)
+[rank7] 2026-09-21 03:50:11,860 INFO analysis.intphys2.dataset :: IntPhys2 [Main] loaded 1012 videos from /data2/local_datasets/world/Benchmark/IntPhys2/Main/metadata.csv
+[rank7] 2026-09-21 03:50:11,861 INFO analysis.intphys2.eval :: intphys2 dataset: 1012 videos
+[rank7] 2026-09-21 03:50:11,861 INFO analysis.intphys2.eval :: scoring 126/1012 videos (rank 7/8) across 11 context length(s): [4, 6, 8, 10, 12, 14, 18, 24, 30, 36, 42]  (num_workers=6)
+[rank2] 2026-09-21 03:50:11,950 INFO analysis.intphys2.dataset :: IntPhys2 [Main] loaded 1012 videos from /data2/local_datasets/world/Benchmark/IntPhys2/Main/metadata.csv
+[rank2] 2026-09-21 03:50:11,951 INFO analysis.intphys2.eval :: intphys2 dataset: 1012 videos
+[rank2] 2026-09-21 03:50:11,951 INFO analysis.intphys2.eval :: scoring 127/1012 videos (rank 2/8) across 11 context length(s): [4, 6, 8, 10, 12, 14, 18, 24, 30, 36, 42]  (num_workers=6)
+[rank3] 2026-09-21 03:50:12,174 INFO analysis.intphys2.dataset :: IntPhys2 [Main] loaded 1012 videos from /data2/local_datasets/world/Benchmark/IntPhys2/Main/metadata.csv
+[rank3] 2026-09-21 03:50:12,175 INFO analysis.intphys2.eval :: intphys2 dataset: 1012 videos
+[rank3] 2026-09-21 03:50:12,176 INFO analysis.intphys2.eval :: scoring 127/1012 videos (rank 3/8) across 11 context length(s): [4, 6, 8, 10, 12, 14, 18, 24, 30, 36, 42]  (num_workers=6)
+[rank1] 2026-09-21 03:50:13,426 INFO analysis.intphys2.dataset :: IntPhys2 [Main] loaded 1012 videos from /data2/local_datasets/world/Benchmark/IntPhys2/Main/metadata.csv
+[rank1] 2026-09-21 03:50:13,427 INFO analysis.intphys2.eval :: intphys2 dataset: 1012 videos
+[rank1] 2026-09-21 03:50:13,428 INFO analysis.intphys2.eval :: scoring 127/1012 videos (rank 1/8) across 11 context length(s): [4, 6, 8, 10, 12, 14, 18, 24, 30, 36, 42]  (num_workers=6)
+[rank5] 2026-09-21 04:01:50,654 INFO analysis.intphys2.eval :: [25/126] rate=0.04 v/s elapsed=698.9s ETA=2823.5s
+[rank6] 2026-09-21 04:01:51,035 INFO analysis.intphys2.eval :: [25/126] rate=0.04 v/s elapsed=699.2s ETA=2824.7s
+[rank4] 2026-09-21 04:01:51,212 INFO analysis.intphys2.eval :: [25/126] rate=0.04 v/s elapsed=699.6s ETA=2826.2s
+[rank7] 2026-09-21 04:01:51,961 INFO analysis.intphys2.eval :: [25/126] rate=0.04 v/s elapsed=700.1s ETA=2828.4s
+[rank2] 2026-09-21 04:01:55,633 INFO analysis.intphys2.eval :: [25/127] rate=0.04 v/s elapsed=703.7s ETA=2871.0s
+[rank1] 2026-09-21 04:01:56,447 INFO analysis.intphys2.eval :: [25/127] rate=0.04 v/s elapsed=703.0s ETA=2868.3s
+[rank3] 2026-09-21 04:01:58,413 INFO analysis.intphys2.eval :: [25/127] rate=0.04 v/s elapsed=706.2s ETA=2881.4s
+[rank0] 2026-09-21 04:02:01,526 INFO analysis.intphys2.eval :: [25/127] rate=0.04 v/s elapsed=709.8s ETA=2895.9s
+[rank2] 2026-09-21 04:12:57,019 INFO analysis.intphys2.eval :: [50/127] rate=0.04 v/s elapsed=1365.1s ETA=2102.2s
+[rank1] 2026-09-21 04:12:57,771 INFO analysis.intphys2.eval :: [50/127] rate=0.04 v/s elapsed=1364.3s ETA=2101.1s
+[rank3] 2026-09-21 04:13:02,285 INFO analysis.intphys2.eval :: [50/127] rate=0.04 v/s elapsed=1370.1s ETA=2110.0s
+[rank0] 2026-09-21 04:13:08,643 INFO analysis.intphys2.eval :: [50/127] rate=0.04 v/s elapsed=1376.9s ETA=2120.4s
+[rank6] 2026-09-21 04:14:25,365 INFO analysis.intphys2.eval :: [50/126] rate=0.03 v/s elapsed=1453.5s ETA=2209.3s
+[rank5] 2026-09-21 04:14:27,533 INFO analysis.intphys2.eval :: [50/126] rate=0.03 v/s elapsed=1455.8s ETA=2212.8s
+[rank7] 2026-09-21 04:14:27,563 INFO analysis.intphys2.eval :: [50/126] rate=0.03 v/s elapsed=1455.7s ETA=2212.7s
+[rank4] 2026-09-21 04:14:31,417 INFO analysis.intphys2.eval :: [50/126] rate=0.03 v/s elapsed=1459.8s ETA=2218.8s
+[rank2] 2026-09-21 04:24:10,470 INFO analysis.intphys2.eval :: [75/127] rate=0.04 v/s elapsed=2038.5s ETA=1413.4s
+[rank1] 2026-09-21 04:24:13,374 INFO analysis.intphys2.eval :: [75/127] rate=0.04 v/s elapsed=2039.9s ETA=1414.4s
+[rank3] 2026-09-21 04:24:15,795 INFO analysis.intphys2.eval :: [75/127] rate=0.04 v/s elapsed=2043.6s ETA=1416.9s
+[rank0] 2026-09-21 04:24:27,686 INFO analysis.intphys2.eval :: [75/127] rate=0.04 v/s elapsed=2055.9s ETA=1425.5s
+[rank6] 2026-09-21 04:26:06,988 INFO analysis.intphys2.eval :: [75/126] rate=0.03 v/s elapsed=2155.1s ETA=1465.5s
+[rank7] 2026-09-21 04:26:08,094 INFO analysis.intphys2.eval :: [75/126] rate=0.03 v/s elapsed=2156.2s ETA=1466.2s
+[rank5] 2026-09-21 04:26:18,763 INFO analysis.intphys2.eval :: [75/126] rate=0.03 v/s elapsed=2167.0s ETA=1473.6s
+[rank4] 2026-09-21 04:26:23,679 INFO analysis.intphys2.eval :: [75/126] rate=0.03 v/s elapsed=2172.0s ETA=1477.0s
+[rank2] 2026-09-21 04:35:42,770 INFO analysis.intphys2.eval :: [100/127] rate=0.04 v/s elapsed=2730.8s ETA=737.3s
+[rank1] 2026-09-21 04:35:47,911 INFO analysis.intphys2.eval :: [100/127] rate=0.04 v/s elapsed=2734.5s ETA=738.3s
+[rank3] 2026-09-21 04:35:50,724 INFO analysis.intphys2.eval :: [100/127] rate=0.04 v/s elapsed=2738.5s ETA=739.4s
+[rank0] 2026-09-21 04:36:08,287 INFO analysis.intphys2.eval :: [100/127] rate=0.04 v/s elapsed=2756.6s ETA=744.3s
+[rank6] 2026-09-21 04:38:10,271 INFO analysis.intphys2.eval :: [100/126] rate=0.03 v/s elapsed=2878.4s ETA=748.4s
+[rank7] 2026-09-21 04:38:12,663 INFO analysis.intphys2.eval :: [100/126] rate=0.03 v/s elapsed=2880.8s ETA=749.0s
+[rank4] 2026-09-21 04:38:27,892 INFO analysis.intphys2.eval :: [100/126] rate=0.03 v/s elapsed=2896.2s ETA=753.0s
+[rank5] 2026-09-21 04:38:31,616 INFO analysis.intphys2.eval :: [100/126] rate=0.03 v/s elapsed=2899.9s ETA=754.0s
+[rank2] 2026-09-21 04:46:44,227 INFO analysis.intphys2.eval :: [125/127] rate=0.04 v/s elapsed=3392.3s ETA=54.3s
+[rank1] 2026-09-21 04:46:49,206 INFO analysis.intphys2.eval :: [125/127] rate=0.04 v/s elapsed=3395.8s ETA=54.3s
+[rank3] 2026-09-21 04:46:54,614 INFO analysis.intphys2.eval :: [125/127] rate=0.04 v/s elapsed=3402.4s ETA=54.4s
+[rank0] 2026-09-21 04:47:15,309 INFO analysis.intphys2.eval :: [125/127] rate=0.04 v/s elapsed=3423.6s ETA=54.8s
+[rank6] 2026-09-21 04:49:13,753 INFO analysis.intphys2.eval :: [125/126] rate=0.04 v/s elapsed=3541.9s ETA=28.3s
+[rank7] 2026-09-21 04:49:17,340 INFO analysis.intphys2.eval :: [125/126] rate=0.04 v/s elapsed=3545.5s ETA=28.4s
+[rank4] 2026-09-21 04:49:34,675 INFO analysis.intphys2.eval :: [125/126] rate=0.04 v/s elapsed=3563.0s ETA=28.5s
+[rank5] 2026-09-21 04:49:37,382 INFO analysis.intphys2.eval :: [125/126] rate=0.04 v/s elapsed=3565.6s ETA=28.5s
+[rank0] 2026-09-21 04:50:22,831 INFO analysis.intphys2.eval :: 
+===== IntPhys2 pairwise-surprise summary =====
+tag: bench_intphys2_main_videomae2g
+split: Main   root: /data2/local_datasets/world/Benchmark/IntPhys2
+model.checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/videomae2/models--OpenGVLab--VideoMAE2/snapshots/706cc172d65ebd4dedbee3f9c0183a93df9fa125/mae-g/vit_g_hybrid_pt_1200e.pth
+surprise: window=48 stride=2 C=[4, 6, 8, 10, 12, 14, 18, 24, 30, 36, 42] dist=l1 agg=avg
+context_lengths evaluated: [4, 6, 8, 10, 12, 14, 18, 24, 30, 36, 42]
+best_context_length (max pairwise): C=8
+  [overall (pairwise)]
+    pairwise_accuracy=48.62%  (correct=246/506, ties=0)
+  [single-video (AUROC)]
+    auroc=0.4972  (n_pos=506, n_neg=506)
+  breakdowns:
+    [condition=continuity|difficulty=Easy|camera=Fixed]
+      pairwise_accuracy=50.00%  (correct=3/6, ties=0)
+    [condition=continuity|difficulty=Easy|camera=Moving]
+      pairwise_accuracy=50.00%  (correct=3/6, ties=0)
+    [condition=continuity|difficulty=Hard|camera=Fixed]
+      pairwise_accuracy=55.56%  (correct=10/18, ties=0)
+    [condition=continuity|difficulty=Hard|camera=Moving]
+      pairwise_accuracy=61.11%  (correct=11/18, ties=0)
+    [condition=continuity|difficulty=Medium|camera=Fixed]
+      pairwise_accuracy=50.00%  (correct=11/22, ties=0)
+    [condition=continuity|difficulty=Medium|camera=Moving]
+      pairwise_accuracy=58.33%  (correct=14/24, ties=0)
+    [condition=continuity|difficulty=Unknown|camera=Fixed]
+      pairwise_accuracy=66.67%  (correct=4/6, ties=0)
+    [condition=continuity|difficulty=Unknown|camera=Moving]
+      pairwise_accuracy=50.00%  (correct=10/20, ties=0)
+    [condition=immutability|difficulty=Easy|camera=Fixed]
+      pairwise_accuracy=33.33%  (correct=2/6, ties=0)
+    [condition=immutability|difficulty=Easy|camera=Moving]
+      pairwise_accuracy=66.67%  (correct=4/6, ties=0)
+    [condition=immutability|difficulty=Hard|camera=Fixed]
+      pairwise_accuracy=50.00%  (correct=9/18, ties=0)
+    [condition=immutability|difficulty=Hard|camera=Moving]
+      pairwise_accuracy=33.33%  (correct=6/18, ties=0)
+    [condition=immutability|difficulty=Medium|camera=Fixed]
+      pairwise_accuracy=45.45%  (correct=10/22, ties=0)
+    [condition=immutability|difficulty=Medium|camera=Moving]
+      pairwise_accuracy=45.83%  (correct=11/24, ties=0)
+    [condition=immutability|difficulty=Unknown|camera=Fixed]
+      pairwise_accuracy=16.67%  (correct=1/6, ties=0)
+    [condition=immutability|difficulty=Unknown|camera=Moving]
+      pairwise_accuracy=50.00%  (correct=10/20, ties=0)
+    [condition=permanence|difficulty=Easy|camera=Fixed]
+      pairwise_accuracy=33.33%  (correct=2/6, ties=0)
+    [condition=permanence|difficulty=Easy|camera=Moving]
+      pairwise_accuracy=50.00%  (correct=3/6, ties=0)
+    [condition=permanence|difficulty=Hard|camera=Fixed]
+      pairwise_accuracy=50.00%  (correct=9/18, ties=0)
+    [condition=permanence|difficulty=Hard|camera=Moving]
+      pairwise_accuracy=61.11%  (correct=11/18, ties=0)
+    [condition=permanence|difficulty=Medium|camera=Fixed]
+      pairwise_accuracy=45.45%  (correct=10/22, ties=0)
+    [condition=permanence|difficulty=Medium|camera=Moving]
+      pairwise_accuracy=45.83%  (correct=11/24, ties=0)
+    [condition=permanence|difficulty=Unknown|camera=Fixed]
+      pairwise_accuracy=66.67%  (correct=4/6, ties=0)
+    [condition=permanence|difficulty=Unknown|camera=Moving]
+      pairwise_accuracy=40.00%  (correct=8/20, ties=0)
+    [condition=solidity|difficulty=Easy|camera=Fixed]
+      pairwise_accuracy=50.00%  (correct=3/6, ties=0)
+    [condition=solidity|difficulty=Easy|camera=Moving]
+      pairwise_accuracy=40.00%  (correct=4/10, ties=0)
+    [condition=solidity|difficulty=Hard|camera=Fixed]
+      pairwise_accuracy=50.00%  (correct=11/22, ties=0)
+    [condition=solidity|difficulty=Hard|camera=Moving]
+      pairwise_accuracy=36.84%  (correct=14/38, ties=0)
+    [condition=solidity|difficulty=Medium|camera=Fixed]
+      pairwise_accuracy=50.00%  (correct=12/24, ties=0)
+    [condition=solidity|difficulty=Medium|camera=Moving]
+      pairwise_accuracy=57.89%  (correct=22/38, ties=0)
+    [condition=solidity|difficulty=Unknown|camera=Moving]
+      pairwise_accuracy=37.50%  (correct=3/8, ties=0)
+[rank0] 2026-09-21 04:50:22,831 INFO analysis.intphys2.eval :: outputs written to /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/Benchmarks/exp_results/intphys2/bench_intphys2_main_videomae2g
+[rank0]:[W921 04:50:23.304612202 ProcessGroupNCCL.cpp:1647] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
+exit=0  Mon 21 Sep 2026 04:50:26 AM KST

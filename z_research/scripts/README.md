@@ -30,6 +30,8 @@ figures/        논문 그림. 전부 산출물에서 재계산해 summary.json 
   plot_rollout2_readout.py  RollOut_v2 위치 readout overlay·궤적 (--pooling --rep p|z|h)
   plot_rollout2_traj_gif.py  위 traj PNG 의 GIF 판: 32 샘플 프레임 위에 정답(흰)·읽기(주황) 궤적 누적 + time bar -> <pooling>/<rep>/traj_gif/
   plot_rollout2_summary.py  RollOut_v2 fig_l2 / fig_err_xy / fig_motion_gain / fig_motion_xy (p·z·h 막대)
+  plot_rollout2_step_profile.py  RollOut_v2 p 의 걸음 모양: 한 축 사영, 슬롯별 이동·누적 위치 (운동 9 종 / 11 패널) -> summary/fig_step_profile
+  plot_rollout2_xy_profile.py    RollOut_v2 화면 x·y 속도-시간 (기본, -> summary/fig_xy_velocity) / 위치-시간 (--pos, -> fig_xy_profile). 문맥 끝 등속 대조, 공통 세로 스케일, 11 패널
   plot_v11_vanish_readout.py  v11 pos_a 에 위치 자 적용: GIF·overlay·readout.npz (--rep p|z --motion flat|ramp|static --timing late|early|mid --k)
   plot_v11_vanish_pair_gif.py  encoder z vs predictor p 나란히 GIF (발표용; --dataset v11|v2)
   plot_v11_vanish_timing.py  v11 전체 timing × k 표·그림 (readout.npz 모음 → v11_vanish/timing/)
@@ -46,6 +48,7 @@ figures/        논문 그림. 전부 산출물에서 재계산해 summary.json 
   plot_vanish_direction.py  vanish 방향별
   plot_intphys1_bars.py     IntPhys1 채점
   plot_ek100_anticipation_gif.py  EK100 anticipation 과제 GIF (CONTEXT 4s / GAP 1s / ACTION 라벨 + 모델 입력 영역) -> z_research/anticipation/EK100/figures/samples/
+  plot_ctxenc_direction.py  실험 6 그림: 좌/우 방향 혼동행렬 4 개 (데이터셋 2 x 정방향·역재생) + probe 별 요약 막대 → context_encoder_analysis/figures/encoder_temporal_dynamics/ (2026-09-20)
 
 analysis/       산출물·토큰 캐시 기반 분석. **전부 GPU 불필요**
   report.py                   summary.json 검증 -> report.json (그림·문서의 단일 입력)
@@ -56,6 +59,8 @@ analysis/       산출물·토큰 캐시 기반 분석. **전부 GPU 불필요**
   rollout2_fit_readout.py     학습셋 p 공간평균 → (1281, 2) OLS 자 (spatial_pooling/p/fit/w_p.npy)
   rollout2_attn_readout.py    쿼리 1개 attentive 자 (3,842 파라미터), 학습셋 p 로 학습 → v2 test (attentive_pooling/p/). GPU 샤딩 Loader
   rollout2_encoder_readout.py 같은 자를 encoder z (context 32 frames) / h (target) 에 (--encoder z|h)
+  rollout2_distance_decay.py  p 물체다운 토큰의 거리 × 슬롯 분해: 자 attention + 자 없는 검사 (cos 템플릿) -> RollOutV2/exp_results/v5/locality/distance_decay
+  rollout2_predictor_locality.py  릴리즈 predictor attention hook (진실 칸 query 의 문맥 조회), 공간 반경 knockout, z/h 문맥 끝 속도 ridge -> v5/locality/report.md
   rollout2_ceiling.py         v2 30% p-fit 천장 (spatial)
   rollout2_probe_pos_imp.py   ledge/wall pos·imp attentive probe: h (32 frames) 학습 → [z16 ; p] test (exp_results/probe_pos_imp/)
   v11_readout_attn_diag.py    v11 에서 p 자 attention 이 슬롯별로 어디에 실리는가 (물체/마지막관측/가림막 3×3, 균등 읽기 거리) → v11_vanish/timing/attn_diag
@@ -72,6 +77,8 @@ analysis/       산출물·토큰 캐시 기반 분석. **전부 GPU 불필요**
   ctxenc_subspace_v2.py       E4 확장: ramp·per-k·z→h 대조 + **정렬 사상 걸고 matched-pair 채점 재계산** → ctxenc_subspace_v2/
   ctxenc_state_subspaces_kinematics.py  경계 토큰의 위치·속도·가속·시나리오·시각 부분공간 겹침, 물체 창 vs 배경 창, 채점 거리 분해 → ctxenc_state_subspaces_kinematics/
   ctxenc_state_subspaces_v11.py  같은 것을 v11 정체성·가림막·시각 서명으로 (스크립트만, 미실행)
+  ctxenc_direction_probe.py   실제 영상 (ssv2_VP · ntu_direction) 에서 문맥 encoder 의 좌/우 운동 방향 — 균등 32 장 → attentive probe 를 **정방향으로만** 학습하고 **역재생** clip 으로 시험 (뒤집힘 비율 = 라벨 없는 검사). 캐시 없음 → context_encoder_analysis/exp_results/encoder_temporal_dynamics/ (2026-09-20)
+  ctxenc_direction_sbatch.sh  위 스크립트의 SLURM 런처 (vll3, GPU 1 장; 영상이 그 노드의 /local_datasets 에 있다). ANA_RUN=1 로 자기제출 방지
   pft_ruler_direct.py         post-FT / 릴리즈 predictor 를 캐시 없이 forward 해 p 에 v5 위치 자를 건다 (RollOut_v2 + v11 vanish) → predictor_training/predictor_IntPhysGenV11_PFT/exp_results/
   alpha_amplify.py            증폭 개입의 천장 (--anchor mu|z).  기각된 개입 (천장 51~65%)
   concept_separability.py     Fisher / ridge / 개념 벡터 정렬 (--align)

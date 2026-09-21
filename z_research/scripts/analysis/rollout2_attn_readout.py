@@ -6,6 +6,7 @@
 저장: exp_results/<train>/attentive_pooling/p/{attn.pt, fit.json, test.json, preds.npz}
 
   python z_research/scripts/analysis/rollout2_attn_readout.py [--epochs 30] [--lr 1e-3]
+  python z_research/scripts/analysis/rollout2_attn_readout.py --test-only      # 저장된 자로 test 만 (시나리오 추가 후)
 """
 from __future__ import annotations
 import argparse, csv, json, sys, time
@@ -68,11 +69,15 @@ class Loader:
 
 
 def main():
-    ap = argparse.ArgumentParser(); ap.add_argument("--epochs", type=int, default=30); ap.add_argument("--lr", type=float, default=1e-3); ap.add_argument("--bs", type=int, default=32); ap.add_argument("--holdout", type=float, default=0.0, help="학습셋 block 의 이 비율을 held-out 으로 뺀다 (scenario 층화, seed 0)"); a = ap.parse_args()
+    ap = argparse.ArgumentParser(); ap.add_argument("--epochs", type=int, default=30); ap.add_argument("--lr", type=float, default=1e-3); ap.add_argument("--bs", type=int, default=32); ap.add_argument("--holdout", type=float, default=0.0, help="학습셋 block 의 이 비율을 held-out 으로 뺀다 (scenario 층화, seed 0)")
+    ap.add_argument("--test-only", action="store_true", help="저장된 attn.pt 를 불러 v2 test 만 한다 (자 재학습 없음, fit.json 유지). 2026-09-19 감속 시나리오 추가용"); a = ap.parse_args()
     global OUT
     if a.holdout > 0:
         OUT = rt.RES_ROOT / f"attentive_pooling/p_holdout{int(a.holdout*100)}"
     dev = "cuda"; torch.manual_seed(0)
+    if a.test_only:
+        model = AttnReadout().to(dev); model.load_state_dict(torch.load(OUT / "attn.pt", map_location=dev)); model.eval()
+        print(f"test-only: {OUT / 'attn.pt'} 를 불러 v2 test 만 한다"); return _test_v2(model, dev)
     idx, L, inf = labels(TR_INDEX); n = len(idx); print(f"학습셋 {n} clip, visible 미래 튜블릿 {inf.sum()} / {inf.size}")
     tr_rows = np.arange(n); ho_rows = np.array([], int)
     if a.holdout > 0:
@@ -113,6 +118,11 @@ def main():
     print(f"학습셋 fit (visible 만): R² x {fitrep['r2_x_fit']:.3f} y {fitrep['r2_y_fit']:.3f}  MAE {fitrep['mae_px_x']:.1f} / {fitrep['mae_px_y']:.1f} px  (params {fitrep['params']})")
     (OUT / "fit.json").write_text(json.dumps(fitrep, indent=1)); del ld
 
+    _test_v2(model, dev)
+
+
+def _test_v2(model, dev):
+    """저장/학습된 자 model 로 v2 전체를 test 한다 (preds.npz, test.json)."""
     # ── v2 test ──
     idx, L, inf = labels(rt.INDEX); n = len(idx)
     if json.loads((rt.CACHE / "meta.json").read_text())["video_ids"] != [r["video_id"] for r in idx]:

@@ -2,6 +2,9 @@
 
 > **2026-09-10 결정: 릴리즈 ViT-H predictor 에서 post-FT, 데이터는 IntPhysGen v11 의 block 단위 train 절반(가능만),
 > 채점은 test 절반(가능+불가능, 10,752 쌍).** 그게 `v11_postft` 다. 대조군 `v11_scratch`. 분할은 §3.
+>
+> **결과 종합 (v11_postft · intphys1_postft · predictor_v1_postft, 2026-09-19): [`RESULTS_2026-09-19.md`](RESULTS_2026-09-19.md)** —
+> 셋 다 학습한 도메인 안에서만 오른다 (v11 held-out 75.83 → 91.35 인데 IntPhys1 88.89 → 77.22; IntPhys1 학습은 93.89 인데 v11 78.53).
 
 ```bash
 # 출발선은 다시 돌리지 않는다 — 기존 v11 채점의 per_block.json 에서 test 절반만 골라 낸 값: **75.83%** (10,752 쌍)
@@ -10,6 +13,8 @@ GPUS=8 bash z_training/train.sh v11_postft                      # post-FT (epoch
 GPUS=8 bash z_training/eval.sh v11_postft v11_split_test        # held-out 채점 (CKPT=e3.pt 로 epoch 선택)
 GPUS=8 bash z_training/train.sh v11_scratch                     # 대조군
 ```
+
+학습 감시: `watch -c -n 1 bash z_training/monitor.sh [job id | run 이름]` — epoch·step 진행, ETA, loss 추이·C 별, 체크포인트, GPU 메모리 (다른 노드는 srun --overlap, 15 초 캐시), 오류.
 
 그 밖의 일반 명령 (다른 데이터를 쓸 때는 `SET="data.datasets=[이름]"` 으로 준다):
 

@@ -1,4 +1,4 @@
-tag: ek100_vith_lr3e-4
+tag: ek100_vith_rel_grid8_valpaper
 eval_name: action_anticipation_frozen
 folder: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/anticipation/EK100/exp_results
 resume_checkpoint: true
@@ -56,8 +56,50 @@ experiment:
     - lr: 0.0003
       start_lr: 0.0003
       final_lr: 0.0
+      weight_decay: 0.0001
+      final_weight_decay: 0.0001
+      warmup: 0.0
+    - lr: 0.0001
+      start_lr: 0.0001
+      final_lr: 0.0
+      weight_decay: 0.0001
+      final_weight_decay: 0.0001
+      warmup: 0.0
+    - lr: 0.0003
+      start_lr: 0.0003
+      final_lr: 0.0
+      weight_decay: 0.001
+      final_weight_decay: 0.001
+      warmup: 0.0
+    - lr: 0.0001
+      start_lr: 0.0001
+      final_lr: 0.0
+      weight_decay: 0.001
+      final_weight_decay: 0.001
+      warmup: 0.0
+    - lr: 0.0003
+      start_lr: 0.0003
+      final_lr: 0.0
       weight_decay: 0.01
       final_weight_decay: 0.01
+      warmup: 0.0
+    - lr: 0.0001
+      start_lr: 0.0001
+      final_lr: 0.0
+      weight_decay: 0.01
+      final_weight_decay: 0.01
+      warmup: 0.0
+    - lr: 0.0003
+      start_lr: 0.0003
+      final_lr: 0.0
+      weight_decay: 0.1
+      final_weight_decay: 0.1
+      warmup: 0.0
+    - lr: 0.0001
+      start_lr: 0.0001
+      final_lr: 0.0
+      weight_decay: 0.1
+      final_weight_decay: 0.1
       warmup: 0.0
 model_kwargs:
   checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vith-fpc64-256/snapshots/b5eac8703e3efdc1547fbb6ddfbeb133dc0bdee5/original/model.pth

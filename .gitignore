@@ -69,6 +69,8 @@ z_findings/
 # z_training run 산출물 (체크포인트·로그). 스크립트·config 는 추적한다
 z_training/runs/
 z_training/slurm_logs/
+z_AC_training/runs/
+z_AC_training/slurm_logs/
 
 *.pdf
 *.png

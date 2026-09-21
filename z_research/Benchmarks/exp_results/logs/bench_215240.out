@@ -1,0 +1,6 @@
+job 215240  host vll2  Sun 20 Sep 2026 11:55:00 PM KST
+BENCHES=inflevel_solidity  MODELS=vith vjepa21g videomae2g  GPUS=3
+=== inflevel_solidity / vith  (23:55:00)
+   [wma] [surprise] BEST(avg) = skip10_w16/avg 0.5189
+=== inflevel_solidity / vjepa21g  (00:21:16)
+slurmstepd: error: *** JOB 215240 ON vll2 CANCELLED AT 2026-09-21T00:25:04 ***

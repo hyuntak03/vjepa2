@@ -1,0 +1,74 @@
+===== IntPhys2 pairwise-surprise summary =====
+tag: bench_intphys2_main_vith
+split: Main   root: /data2/local_datasets/world/Benchmark/IntPhys2
+model.checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vith-fpc64-256/snapshots/b5eac8703e3efdc1547fbb6ddfbeb133dc0bdee5/original/model.pth
+surprise: window=48 stride=2 C=[4, 6, 8, 10, 12, 14, 18, 24, 30, 36, 42] dist=l1 agg=avg
+context_lengths evaluated: [4, 6, 8, 10, 12, 14, 18, 24, 30, 36, 42]
+best_context_length (max pairwise): C=24
+  [overall (pairwise)]
+    pairwise_accuracy=53.75%  (correct=272/506, ties=0)
+  [single-video (AUROC)]
+    auroc=0.5027  (n_pos=506, n_neg=506)
+  breakdowns:
+    [condition=continuity|difficulty=Easy|camera=Fixed]
+      pairwise_accuracy=33.33%  (correct=2/6, ties=0)
+    [condition=continuity|difficulty=Easy|camera=Moving]
+      pairwise_accuracy=83.33%  (correct=5/6, ties=0)
+    [condition=continuity|difficulty=Hard|camera=Fixed]
+      pairwise_accuracy=61.11%  (correct=11/18, ties=0)
+    [condition=continuity|difficulty=Hard|camera=Moving]
+      pairwise_accuracy=50.00%  (correct=9/18, ties=0)
+    [condition=continuity|difficulty=Medium|camera=Fixed]
+      pairwise_accuracy=59.09%  (correct=13/22, ties=0)
+    [condition=continuity|difficulty=Medium|camera=Moving]
+      pairwise_accuracy=66.67%  (correct=16/24, ties=0)
+    [condition=continuity|difficulty=Unknown|camera=Fixed]
+      pairwise_accuracy=50.00%  (correct=3/6, ties=0)
+    [condition=continuity|difficulty=Unknown|camera=Moving]
+      pairwise_accuracy=80.00%  (correct=16/20, ties=0)
+    [condition=immutability|difficulty=Easy|camera=Fixed]
+      pairwise_accuracy=33.33%  (correct=2/6, ties=0)
+    [condition=immutability|difficulty=Easy|camera=Moving]
+      pairwise_accuracy=66.67%  (correct=4/6, ties=0)
+    [condition=immutability|difficulty=Hard|camera=Fixed]
+      pairwise_accuracy=44.44%  (correct=8/18, ties=0)
+    [condition=immutability|difficulty=Hard|camera=Moving]
+      pairwise_accuracy=50.00%  (correct=9/18, ties=0)
+    [condition=immutability|difficulty=Medium|camera=Fixed]
+      pairwise_accuracy=59.09%  (correct=13/22, ties=0)
+    [condition=immutability|difficulty=Medium|camera=Moving]
+      pairwise_accuracy=45.83%  (correct=11/24, ties=0)
+    [condition=immutability|difficulty=Unknown|camera=Fixed]
+      pairwise_accuracy=100.00%  (correct=6/6, ties=0)
+    [condition=immutability|difficulty=Unknown|camera=Moving]
+      pairwise_accuracy=35.00%  (correct=7/20, ties=0)
+    [condition=permanence|difficulty=Easy|camera=Fixed]
+      pairwise_accuracy=50.00%  (correct=3/6, ties=0)
+    [condition=permanence|difficulty=Easy|camera=Moving]
+      pairwise_accuracy=50.00%  (correct=3/6, ties=0)
+    [condition=permanence|difficulty=Hard|camera=Fixed]
+      pairwise_accuracy=61.11%  (correct=11/18, ties=0)
+    [condition=permanence|difficulty=Hard|camera=Moving]
+      pairwise_accuracy=55.56%  (correct=10/18, ties=0)
+    [condition=permanence|difficulty=Medium|camera=Fixed]
+      pairwise_accuracy=63.64%  (correct=14/22, ties=0)
+    [condition=permanence|difficulty=Medium|camera=Moving]
+      pairwise_accuracy=29.17%  (correct=7/24, ties=0)
+    [condition=permanence|difficulty=Unknown|camera=Fixed]
+      pairwise_accuracy=33.33%  (correct=2/6, ties=0)
+    [condition=permanence|difficulty=Unknown|camera=Moving]
+      pairwise_accuracy=55.00%  (correct=11/20, ties=0)
+    [condition=solidity|difficulty=Easy|camera=Fixed]
+      pairwise_accuracy=50.00%  (correct=3/6, ties=0)
+    [condition=solidity|difficulty=Easy|camera=Moving]
+      pairwise_accuracy=50.00%  (correct=5/10, ties=0)
+    [condition=solidity|difficulty=Hard|camera=Fixed]
+      pairwise_accuracy=50.00%  (correct=11/22, ties=0)
+    [condition=solidity|difficulty=Hard|camera=Moving]
+      pairwise_accuracy=47.37%  (correct=18/38, ties=0)
+    [condition=solidity|difficulty=Medium|camera=Fixed]
+      pairwise_accuracy=45.83%  (correct=11/24, ties=0)
+    [condition=solidity|difficulty=Medium|camera=Moving]
+      pairwise_accuracy=60.53%  (correct=23/38, ties=0)
+    [condition=solidity|difficulty=Unknown|camera=Moving]
+      pairwise_accuracy=62.50%  (correct=5/8, ties=0)

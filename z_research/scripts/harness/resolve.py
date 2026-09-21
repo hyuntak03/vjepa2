@@ -40,7 +40,8 @@ import yaml
 
 ROOT = "/data/hyuntak/project/2026/2027_cvpr/vjepa2"
 META = ("raw_frames", "cache_tag", "results_root", "available", "note")  # data: 로 안 들어가는 키
-KV = re.compile(r"^([a-z_][a-z0-9_]*)\s*:\s*(.+?)\s*$")
+# 점(.)을 허용한다 — models.md 가 `surprise.<키>` 로 모델별 채점 관례를 선언할 수 있게 (2026-09-21).
+KV = re.compile(r"^([a-z_][a-z0-9_.]*)\s*:\s*(.+?)\s*$")
 
 
 def parse_registry(path: str, required: str) -> dict:
@@ -150,7 +151,29 @@ def main():
 
     # ── 병합: 프로토콜이 이긴다 ─────────────────────────────────────────────────
     cfg["data"] = {**ds, **(cfg.get("data") or {})}
+
+    # models.md 는 `surprise.<키>` 로 **채점 관례**도 선언할 수 있다.
+    #   (예: VideoMAEv2 는 타깃이 정규화 픽셀이라 target_layer_norm: false,
+    #        V-JEPA 2.1 은 어댑터가 1408 x 4 토막 LN 을 이미 건다)
+    md_surprise = {k.split(".", 1)[1]: md.pop(k) for k in list(md) if k.startswith("surprise.")}
+
     cfg["model"] = {**md, **(cfg.get("model") or {})}
+
+    # ★ 모델 고유 키는 **모델이 이긴다**. 프로토콜 yaml 의 model 블록은 V-JEPA 2 기준값
+    #   (img_size 256 / patch 16 / predictor depth 12 …) 을 들고 있어서, 다른 모델에 그대로
+    #   씌우면 조용히 틀린 모델이 만들어진다 (2026-09-21 에 실제로 당했다: VideoMAEv2 가
+    #   window_size 32 를 받아 sinusoid 표 4096 vs 창 2048 로 깨졌다).
+    #   레지스트리에 그 키가 있을 때만 덮으므로 vith/vitl 의 기존 동작은 그대로다.
+    MODEL_OWNED = ("family", "checkpoint", "arch_name", "img_size", "patch_size", "tubelet_size",
+                   "context_encoder_key", "target_encoder_key", "predictor")
+    for k in MODEL_OWNED:
+        if k in md:
+            cfg["model"][k] = md[k]
+    # data.resolution 은 model.img_size 를 따라간다 (아래 검사가 둘의 일치를 요구한다)
+    if "img_size" in md:
+        cfg["data"]["resolution"] = int(md["img_size"])
+    if md_surprise:
+        cfg["surprise"] = {**(cfg.get("surprise") or {}), **md_surprise}
 
     if cfg["data"].get("n_frames") == "RAW":
         if raw_frames is None:

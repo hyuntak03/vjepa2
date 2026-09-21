@@ -1,0 +1,3 @@
+job 215409  host vll3  Mon 21 Sep 2026 02:57:45 PM KST
+BENCHES=grasp_level2 inflevel_solidity inflevel_gravity  MODELS=vith vjepa21g videomae2g  GPUS=8
+=== grasp_level2 / vith  (14:57:45)

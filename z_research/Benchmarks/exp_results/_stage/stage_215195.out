@@ -1,0 +1,15 @@
+job 215195 on vll3  Sun 20 Sep 2026 06:56:35 PM KST
+[18:56:35] 호스트 vll3 | SRC=/data/dataset/world/Benchmarks | LOCAL=/data2/local_datasets/world/Benchmark
+/dev/nvme1n1p1  3.7T  2.6T  1.1T  71% /data2
+[18:56:35] grasp: 시작
+[18:56:35] intphys1: 시작
+[18:56:35] intphys2: 시작
+[18:56:52] intphys2: 완료
+[18:57:08] intphys1: 완료
+[18:57:23] grasp: 완료
+[18:57:29] ----- 결과 -----
+  grasp     done    7.3G
+  intphys1  done    3.0G
+  intphys2  done    1.2G
+[18:57:29] InfLevel 은 tar 가 없다 -> /data/dataset/world/Benchmarks/InfLevel 에서 바로 읽는다 (1.1 GB)
+exit=0  Sun 20 Sep 2026 06:57:29 PM KST

@@ -108,6 +108,7 @@ def main(args_eval, resume_preempt=False):
     #    exact_val_pass: val 을 rank 별로 정확히 한 번 끝까지 돌고 all_reduce 한 번 (exact_val.py docstring)
     args_evaluation = args_exp.get("evaluation", None) or {}
     exact_val_pass = bool(args_evaluation.get("exact_val_pass", False))
+    val_every = int(args_evaluation.get("val_every", 1))   # 2026-09-19 추가 — 기본 1 = 매 epoch (공식 동작)
     val_topk = int(args_evaluation.get("topk", 5))
     # -- / anticipation details
     train_anticipation_time_sec = args_data.get("train_anticipation_time_sec")
@@ -407,7 +408,15 @@ def main(args_eval, resume_preempt=False):
             )
 
         # report val action anticipation (AA)
-        if exact_val_pass:
+        # 2026-09-19 추가: evaluation.val_every (기본 1 = 매 epoch, 공식 동작). N 이면 N epoch 마다 + 마지막 epoch 에만 val.
+        #   건너뛴 epoch 은 val 지표를 NaN 으로 두고 (csv·로그 경로는 그대로) val_metrics.jsonl 에는 줄을 쓰지 않는다.
+        _ep1 = epoch + (0 if val_only else 1)
+        _do_val = val_only or val_every <= 1 or _ep1 % val_every == 0 or _ep1 == num_epochs
+        if not _do_val:
+            _nan = float("nan")
+            val_metrics = {k: {"accuracy": _nan, "recall": _nan} for k in ("action", "verb", "noun")}
+            logger.info("[val skipped] epoch %d (evaluation.val_every=%d)" % (_ep1, val_every))
+        elif exact_val_pass:
             val_metrics = validate_exact(
                 model=model,
                 classifiers=classifiers,

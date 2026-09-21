@@ -10,6 +10,7 @@ p 자 (`rollout2_fit_readout.py`, `rollout2_attn_readout.py`) 와 같은 라벨�
 저장: exp_results/<train>/{spatial_pooling, attentive_pooling}/{z|h}/{w.npy | attn.pt, fit.json, test.json, preds.npz}
 
   python z_research/scripts/analysis/rollout2_encoder_readout.py --encoder z|h [--epochs 300]
+  python z_research/scripts/analysis/rollout2_encoder_readout.py --encoder z|h --test-only   # 저장된 자로 test 만
 """
 from __future__ import annotations
 import argparse, json, sys, time
@@ -55,9 +56,13 @@ def table(pred, L, inf, scen, plaus, title):
 
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument("--encoder", choices=sorted(ENC), default="z")
-    ap.add_argument("--epochs", type=int, default=300); ap.add_argument("--lr", type=float, default=1e-3); ap.add_argument("--bs", type=int, default=32); a = ap.parse_args()
+    ap.add_argument("--epochs", type=int, default=300); ap.add_argument("--lr", type=float, default=1e-3); ap.add_argument("--bs", type=int, default=32)
+    ap.add_argument("--test-only", action="store_true", help="저장된 w.npy / attn.pt 로 v2 test 만 (재학습 없음). 2026-09-19 감속 시나리오 추가용"); a = ap.parse_args()
     E = ENC[a.encoder]; dev = "cuda"; torch.manual_seed(0)
     OUT_SP = rt.RES_ROOT / "spatial_pooling" / E["out"]; OUT_AT = rt.RES_ROOT / "attentive_pooling" / E["out"]
+    if a.test_only:
+        w = np.load(OUT_SP / "w.npy"); model = AttnReadout().to(dev); model.load_state_dict(torch.load(OUT_AT / "attn.pt", map_location=dev)); model.eval()
+        print(f"test-only: {OUT_SP / 'w.npy'}, {OUT_AT / 'attn.pt'}"); return _test_v2(E, a, w, model, dev, OUT_SP, OUT_AT)
     idx, L, inf = labels(TR_INDEX); n = len(idx); print(f"학습셋 {n} clip, visible 미래 튜블릿 {inf.sum()} / {inf.size}")
     if json.loads((E["tr"] / "meta.json").read_text())["video_ids"] != [r["video_id"] for r in idx]:
         sys.exit("학습셋 캐시 video_ids 불일치")
@@ -88,6 +93,11 @@ def main():
     print(f"{a.encoder} attentive fit: R² x {fit_at['r2_x_fit']:.3f} y {fit_at['r2_y_fit']:.3f}  MAE {fit_at['mae_px_x']:.1f} / {fit_at['mae_px_y']:.1f} px")
     (OUT_AT / "fit.json").write_text(json.dumps(fit_at, indent=1)); del ld, Y, Xp
 
+    _test_v2(E, a, w, model, dev, OUT_SP, OUT_AT)
+
+
+def _test_v2(E, a, w, model, dev, OUT_SP, OUT_AT):
+    """spatial 자 w 와 attentive 자 model 로 v2 전체를 test 한다."""
     # ── v2 test (h 스트리밍) ──
     idx, L, inf = labels(rt.INDEX); n = len(idx)
     if json.loads((E["te"] / "meta.json").read_text())["video_ids"] != [r["video_id"] for r in idx]:

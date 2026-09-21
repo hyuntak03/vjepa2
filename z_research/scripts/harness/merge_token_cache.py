@@ -69,7 +69,9 @@ def main():
 
     plan = []
     for base in ma["base_counts"]:
-        pa, pb = a.into / f"{base}.npy", a.src / f"{base}.npy"
+        # TokenCache._path 와 같은 규칙: base 의 ":" 를 "_" 로 (예: isolated_ctx:0_32 -> isolated_ctx_0_32.npy). 2026-09-19 수정
+        fn = base.replace(":", "_") + ".npy"
+        pa, pb = a.into / fn, a.src / fn
         va, ha, ra, da, oa = hdr_of(pa)
         vb, hb, rb, db, ob = hdr_of(pb)
         if da["descr"] != db["descr"] or da["fortran_order"] or db["fortran_order"]:

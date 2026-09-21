@@ -1,5 +1,7 @@
 # 관측 없는 상태 진화 (state evolution without observation) — 가설 문서
 
+> **2026-09-19 — 정의는 [`STATE_EVOLUTION_CAPABILITIES_2026-09-19.md`](STATE_EVOLUTION_CAPABILITIES_2026-09-19.md) 가 정본이다** (네 능력: 읽기 · 지속 · 전이 · 영속; 물리 장면은 측정 도구). 이 문서의 축은 거기 §4 대응표로 흡수됐다.
+>
 > **살아 있는 문서다.** 가설을 세우고, 재고, 고쳐 쓴다. 고친 것은 지우지 않고 §9 변경 이력과 본문의 `⚠️ 정정` 으로 남긴다.
 > 레포 규칙은 루트 `CLAUDE.md`. 이 문서의 수치는 전부 `exp_results/` 산출물 또는 다른 세트의 `summary.json`/`results.json` 에서 다시 읽은 값이고, 출처를 칸마다 적는다.
 > 시작점: `../README.md`. 판: **v1 (2026-09-15 밤)** — E1–E4 1차 결과와 선행 연구 반영. v0 와의 차이는 §9.

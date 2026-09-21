@@ -28,8 +28,8 @@ W = RES_ROOT / "spatial_pooling/p/fit/w_p.npy"
 OUT = RES_ROOT / "spatial_pooling/p/test"
 POOLED = CACHE / "_pooled_p8.npz"
 S, T, D, RES = 256, 8, 1280, 144.0
-SCEN = ["flat_v", "flat_a", "ramp_a", "arc", "fall", "ledge", "wall"]
-MOVING = {"flat_v": "x", "flat_a": "x", "ramp_a": "x", "arc": "xy", "fall": "y", "ledge": "xy", "wall": ""}   # 미래 8 슬롯에서 움직이는 축 (wall 가능 = 정지)
+SCEN = ["flat_v", "flat_a", "flat_d", "ramp_a", "ramp_d", "arc", "fall", "ledge", "wall"]   # flat_d / ramp_d = 감속 (2026-09-19 추가)
+MOVING = {"flat_v": "x", "flat_a": "x", "flat_d": "x", "ramp_a": "x", "ramp_d": "x", "arc": "xy", "fall": "y", "ledge": "xy", "wall": ""}   # 미래 8 슬롯에서 움직이는 축 (wall 가능 = 정지)
 
 
 def arr(s):

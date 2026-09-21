@@ -99,6 +99,28 @@ type: video_csv
 csv: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/IntPhys2/IntPhys2_2way_train.csv
 frame_step: 3
 
+## intphys2_main_possible
+
+**IntPhys 2 Main 의 가능 영상 506 개** (253 장면 × {1_Possible, 2_Possible}), mp4 직독 (2026-09-19 결정: 학습 = Main 가능, test = HeldOut 리더보드).
+`z_training/data/build_intphys2_main_index.py --check --write` 산출. 512×512 · 60 fps, 길이 635–938 (전수 확인). `frame_step: 10` = 채점과 같은 6 fps.
+⚠️ 논문 A.3 이 Main 메타데이터로 학습하지 말라고 적었다 — **학습 후 Main 점수는 논문 Table 2 와 비교 불가.** 유효한 test 는 HeldOut 뿐.
+⚠️ `window_grid` 는 frames_index 전용이라 여기서는 못 쓴다 — 창 분포는 `n_frames` + 무작위 시작 + `mask.context_frames` 목록으로 맞춘다.
+
+type: video_csv
+csv: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/IntPhys2/main_possible.csv
+frame_step: 10
+
+## intphys2_main_split_train
+
+**IntPhys 2 Main 장면 split 의 train 절반, 가능 영상만** — 254 clip / 127 장면 (2026-09-19 결정: test 도 Main → 장면 단위 반반).
+`z_training/data/build_intphys2_main_split.py --write --link` 산출 (seed 0, condition × Difficulty × Camera 층화). test = 126 장면 504 영상 (252 쌍),
+채점기 `split: MainTest` (`/local_datasets/world/IntPhys2/MainTest/metadata.csv`, `Videos -> ../Main/Videos`).
+⚠️ Main 은 논문이 학습 금지한 세트 — test 수치는 같은 test 장면의 릴리즈 predictor 값과만 비교한다.
+
+type: video_csv
+csv: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/IntPhys2/main_split/train_possible.csv
+frame_step: 10
+
 ## v11_split_train
 
 **IntPhysGen v11 (12조건) 의 block 단위 train 절반, 가능 변이만** — 10,752 clip / 5,376 block.
@@ -110,6 +132,24 @@ type: frames_index
 root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/intphysgen_v11_split
 index_csv: index_train.csv
 frames_root: /local_datasets/world/world_analysis/IntPhysGen_v11
+frames_pattern: "{file_name}/{frame:06d}.png"
+frames_start: 0
+frames_stride: 3
+frames_start_choices: [0, 3, 6]
+raw_frames: 100
+
+## predictor_v1_training
+
+**predictor 학습셋 v1** (2026-09-17 설계, `UnrealEngine/gen/PREDICTOR_V1_TRAINING_DESIGN.md`). 세 팔: `line` 무중력 등속 (속도·방향·위치 연속),
+`occ` 지면 등속 + 트랩도어 가림 k=4 (속도·경계 위치 연속, 가림막 폭이 속도를 따름), `ramp` 10° 쐐기 등가속 (a 5–60 cm/s²·경계 속도 연속).
+20,000 clip 렌더, 그중 **학습 index 14,250** (`index_train.csv`; held-out 모양 torus·cone, 색 cyan·purple, 배경 hex_rust, 속도 0.45–0.55 칸/튜블릿, 가속 25–35 는 `index_holdout.csv`).
+raw 100 장 전부 저장이라 start 0…6 이 다 된다. README: `/data2/.../Predictor_v1_training/README.md`. index: `UnrealEngine/gen/build_predictor_v1_index.py --write`.
+⚠️ 테스트(RollOut_v2, v11, IntPhys1, EK100)와 문맥을 공유하지 않는다.
+
+type: frames_index
+root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/predictor_v1_training
+index_csv: index_train.csv
+frames_root: /local_datasets/world/world_analysis/Predictor_v1_training
 frames_pattern: "{file_name}/{frame:06d}.png"
 frames_start: 0
 frames_stride: 3

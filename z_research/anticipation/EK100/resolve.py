@@ -59,8 +59,9 @@ def main():
     ap.add_argument("--set", action="append", default=[], metavar="a.b=1")
     ap.add_argument("--tag")
     ap.add_argument("--smoke", action="store_true")
-    ap.add_argument("--heads", choices=["config", "sweep", "grid8"], default="config",
-                    help="sweep = 논문 20 개 (lr 5 x wd 4) / grid8 = lr {3e-4, 1e-4} x wd 4 종 (RTX 4090 24 GB 에 들어가는 크기, 2026-09-15)")
+    ap.add_argument("--heads", choices=["config", "sweep", "grid8", "hi2"], default="config",
+                    help="sweep = 논문 20 개 (lr 5 x wd 4) / grid8 = lr {3e-4, 1e-4} x wd 4 종 (RTX 4090 24 GB 에 들어가는 크기, 2026-09-15) / "
+                         "hi2 = lr {1e-3, 3e-3} x wd 1e-2 두 개 (grid8 의 최적이 lr 위쪽 끝 3e-4 에 붙어 있어 한 칸 위를 밟는다, 2026-09-20)")
     ap.add_argument("--gpus", type=int, default=1)
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--val-only", action="store_true", help="val 만 돈다: train 비디오가 base_path 에 없어도 된다")
@@ -72,10 +73,13 @@ def main():
     cfg = yaml.safe_load(f.read_text())
     exp, data, opt = cfg["experiment"], cfg["experiment"]["data"], cfg["experiment"]["optimization"]
 
-    if a.heads in ("sweep", "grid8"):
-        lrs = PAPER_LRS if a.heads == "sweep" else [3e-4, 1e-4]     # lr 1e-3 은 head 1 개에서 80 iter 안에 붕괴 (README §7)
+    if a.heads in ("sweep", "grid8", "hi2"):
+        # lr 1e-3 은 head 1 개에서 80 iter 안에 붕괴한 적이 있다 (README §7). hi2 는 그래서 두 개를 같이 건다 (하나가 무너져도 다른 하나가 답을 낸다).
+        lrs, wds = {"sweep": (PAPER_LRS, PAPER_WDS),
+                    "grid8": ([3e-4, 1e-4], PAPER_WDS),
+                    "hi2": ([1e-3, 3e-3], [1e-2])}[a.heads]
         opt["multihead_kwargs"] = [dict(lr=lr, start_lr=lr, final_lr=0.0, weight_decay=wd, final_weight_decay=wd, warmup=0.0)
-                                   for wd in PAPER_WDS for lr in lrs]
+                                   for wd in wds for lr in lrs]
     if a.smoke:
         data.update(limit_videos=4, num_workers=2)
         opt.update(num_epochs=1, batch_size=2)

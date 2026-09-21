@@ -29,6 +29,7 @@
 from __future__ import annotations
 
 import argparse
+import datetime
 import json
 import logging
 import os
@@ -106,7 +107,11 @@ def _init_ddp_if_requested(ddp: bool):
         return 0, 1, False
     import torch.distributed as dist
     if not dist.is_initialized():
-        dist.init_process_group(backend="nccl")
+        # NCCL 기본 collective timeout 은 600 s 다. 랭크마다 영상 난이도가 달라 끝나는 시각이
+        # 벌어지면 마지막 all_gather 에서 그 벽에 걸린다 (2026-09-21: IntPhys2 x 2.1-g 이
+        # 85 분 다 돌고 gather 에서 죽었다). run.sh 하네스의 EVAL_DDP_TIMEOUT_S 와 같은 취지.
+        _to = int(os.environ.get("EVAL_DDP_TIMEOUT_S", "7200"))
+        dist.init_process_group(backend="nccl", timeout=datetime.timedelta(seconds=_to))
     rank = dist.get_rank()
     world_size = dist.get_world_size()
     torch.cuda.set_device(rank % torch.cuda.device_count())
