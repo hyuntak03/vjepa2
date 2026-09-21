@@ -1,0 +1,72 @@
+data:
+  crop_margin_ratio: 1.0
+  dataset_variant: intphys2
+  decord_threads: 2
+  frame_step: 10
+  img_size: 256
+  min_frames: 8
+  root: /data2/local_datasets/world/Benchmark/IntPhys2
+  split: Main
+  target_fps: 6.0
+evaluation:
+  breakdown_by:
+  - condition
+  - difficulty
+  - camera
+  compute_auroc: true
+  compute_pairwise: true
+  ddp: true
+  limit_videos: null
+  log_every_videos: 25
+  num_workers: 6
+  pairing: type_matched
+  pin_memory: true
+  prefetch_factor: 2
+  verbose: true
+folder: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/Benchmarks/exp_results/intphys2
+model:
+  arch_name: vit_huge
+  autocast: bfloat16
+  checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vith-fpc64-256/snapshots/b5eac8703e3efdc1547fbb6ddfbeb133dc0bdee5/original/model.pth
+  context_encoder_key: encoder
+  dtype: float32
+  dual_encoder: true
+  img_size: 256
+  patch_size: 16
+  predictor:
+    depth: 12
+    embed_dim: 384
+    num_heads: 12
+    num_mask_tokens: 10
+  target_encoder_key: target_encoder
+  tubelet_size: 2
+  uniform_power: false
+  use_rope: true
+output:
+  plot_breakdowns: true
+  plot_context_sweep: true
+  plot_scene_curves: false
+  save_config: true
+  save_per_video: true
+  save_per_window: true
+  scene_curve_indices: null
+surprise:
+  aggregation: avg
+  context_forward_mode: masked
+  context_length: 16
+  context_length_sweep:
+  - 8
+  - 12
+  - 16
+  - 20
+  - 24
+  - 28
+  distance: l1
+  loss_exp: 1.0
+  mask_index: 0
+  max_window_batch: 12
+  protocol: growing
+  stride: 2
+  target_layer_norm: true
+  window_size: 32
+tag: bench_intphys2_main_vith_w32

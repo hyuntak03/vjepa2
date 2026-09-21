@@ -253,7 +253,7 @@ figures/probing/
 | exit 0 on failure | `mp.Process` 를 join 안 해서 rank 실패에도 0 을 반환 → `afterok` 가 풀렸다. `evals/main.py` 에서 exitcode 확인 |
 | prep 과소추출 | `probing.runs` 를 줄이면 캐시에 뽑히는 표현도 줄어든다. **runs 는 두고 `num_epochs` 만 1 로** |
 | 7지선다 확률 변환 | Luce `s=(1-p)/p` 가 **최저 상대 하나에 지배**된다. `_superseded/` 로 내렸다 |
-| block 밖 retrieval | 신호/잡음 0.715, `h` 대조군조차 40.3%(chance 14.3). **다시 시도하지 말 것** — `analysis/retrieval_confusion.py` 최상단 |
+| block 밖 retrieval | 신호/잡음 0.715, `h` 대조군조차 40.3%(chance 14.3). **다시 시도하지 말 것** — `z_research/scripts/analysis/retrieval_confusion.py` 최상단 |
 
 ---
 

@@ -21,9 +21,15 @@ DRYRUN=1 bash z_research/scripts/run.sh attn_probe v8    # 병합 결과만 (GPU
 | 이름 | 무엇을 재나 | 확립된 수치 |
 |---|---|---|
 | `surprise_c16t32` | fixed context16 / target32 latent-L1 | **73.37%** (v11, 10752 pair) · 79.10% (v8) |
-| `intphys1_sliding` | IntPhys1 Garrido 공식 sliding | **88.89%** (intphys1_dev, vith, 180 pair) |
+| `intphys1_sliding` | **Garrido sliding** (IntPhys 1 · GRASP · InfLevel) | **88.89%** (intphys1_dev, vith, 180 pair, Filtered — 논문 텍스트 규칙) |
 | `attn_probe` | z / p / h 세 지점 attentive probing | v11 54 항목 (fit 3 × group 6 × target 3) |
 | `attn_probe_imp` | 불가능 변이에서 target encoder 가 바뀐 정체성을 읽는가 | — |
+| `attn_probe_xfer` | 비가림 → 가림 readout 이식 (V11 가림 타이밍) | — |
+
+⚠️ **`intphys1_sliding` 은 A.8 격자를 모델마다 탐색한다** — `frame_skips × window_sizes` 를
+`SET=` 으로 주고, **창(C+M)마다 실행을 나눈다** (공식이 창마다 모델을 그 프레임 수로 짓기 때문).
+진입점·정본은 `z_research/Benchmarks/` (`README.md` → `PROTOCOLS.md`),
+기준값 검사는 `python z_research/scripts/analysis/check_oracle.py`.
 
 **본 실험 세트는 `v11` 이다.** 그 세트의 시작점은 `z_research/IntPhysGenV11/README.md`.
 

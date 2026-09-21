@@ -165,7 +165,7 @@ def main():
     #   window_size 32 를 받아 sinusoid 표 4096 vs 창 2048 로 깨졌다).
     #   레지스트리에 그 키가 있을 때만 덮으므로 vith/vitl 의 기존 동작은 그대로다.
     MODEL_OWNED = ("family", "checkpoint", "arch_name", "img_size", "patch_size", "tubelet_size",
-                   "context_encoder_key", "target_encoder_key", "predictor")
+                   "context_encoder_key", "target_encoder_key", "predictor", "window_size")
     for k in MODEL_OWNED:
         if k in md:
             cfg["model"][k] = md[k]
@@ -193,13 +193,15 @@ def main():
             val = yaml.safe_load(val)
         except yaml.YAMLError:
             pass                                   # 파싱 안 되면 문자열 그대로
-        node, *rest = key.split(".")
-        cur, path = cfg, [node]
-        for k in [node] + rest[:-1]:
+        # ⚠️ 점 없는 최상위 키(`tag=...`)도 되어야 한다. 예전 판은 `[node] + rest[:-1]` 를
+        #    돌아서 `cfg["tag"]` 를 dict 로 만들어 버렸다 (2026-09-22).
+        parts = key.split(".")
+        cur = cfg
+        for k in parts[:-1]:
             if not isinstance(cur.get(k), dict):
                 cur[k] = {}
             cur = cur[k]
-        leaf = rest[-1] if rest else node
+        leaf = parts[-1]
         if val is None:
             cur.pop(leaf, None)
         else:

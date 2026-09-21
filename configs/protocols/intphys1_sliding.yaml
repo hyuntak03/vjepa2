@@ -73,7 +73,11 @@ surprise:
     context_reduce: min           # 시작점마다 C 들의 최솟값 (공식 all_losses.min(1))
     frame_budget: official        # 공식 num_frames = 99//skip. 프로토콜이 아니라 방어 코드지만
                                   # 공식 수치를 재현하려면 맞춰야 한다. full = 논문 식 S3 그대로
-    aggregate: [avg, max]
+    # 지표는 **쌍 비교 AvgSurprise 하나**다 (PROTOCOLS.md §1-b).
+    #   · 노트북의 key_metric 이 14 곳 전부 "Relative Accuracy (avg)"
+    #   · Table S4: 쌍 비교에서 Avg 오류율 0.28% vs Max 4.4% (V-JEPA-H, IntPhys test)
+    #   · Max 는 **단일 영상 + AUROC** 용이고 (Table S5) 우리는 쌍 비교만 한다
+    aggregate: [avg]
     dump_windows: true            # per_window.json 에 window 별 원값 (사후 분석용)
     video_batch: 6                # ⚠️ >1 이면 reduction 순서가 바뀌어 ~5e-4 흔들린다. 재현성 원하면 1
     max_batch: 48                 # 실측 ViT-H fp32+fp16autocast 15.7/24 GiB. OOM 나면 이것만 낮출 것

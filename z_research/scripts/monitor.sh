@@ -9,16 +9,14 @@
 #   watch -c -n 1 'MONITOR_COLOR=1 bash z_research/scripts/monitor.sh'   # 컬러
 #
 # 인자가 없으면 z_research/scripts/slurm_logs 에서 가장 최근 .err 를 잡고,
-# 없으면 구 경로 z_scripts/slurm_logs 로 폴백한다.
 # wma 로거는 stderr 로 나가므로 slurm 은 .err 를 본다.
 #
-# z_scripts/world_model_analysis/monitor.sh 에서 옮겨 왔다 (z_scripts 는 .gitignore).
 # 바뀐 것: 로그 경로 2곳 탐색 + probing 을 "순차 head" 모드로 읽는다
 #          (현행 eval.py 는 head 를 rank 로 쪼개지 않고 45개를 8 rank DP 로 순차 학습한다)
 # -----------------------------------------------------------------------------
 set -uo pipefail
 PROJ=/data/hyuntak/project/2026/2027_cvpr/vjepa2
-LOGDIRS=("$PROJ/z_research/scripts/slurm_logs" "$PROJ/z_scripts/slurm_logs")
+LOGDIRS=("$PROJ/z_research/scripts/slurm_logs")   # z_scripts 는 2026-09-21 삭제
 ARG="${1:-}"
 
 JOBID=""; LOG=""

@@ -2,7 +2,7 @@
 # IntPhys2 pairwise-surprise evaluation — main entry.
 #
 # Usage:
-#     python -m analysis.intphys2.eval --config configs/analysis/intphys2/vjepa2_vitl_debug.yaml
+#     python -m analysis.intphys2.eval --config analysis/intphys2/configs/vjepa2_vitl_debug.yaml
 #     python -m analysis.intphys2.eval --config <cfg> --device cuda:0
 #     torchrun --nproc-per-node=<N> -m analysis.intphys2.eval --config <cfg>
 #         (DDP shards videos over ranks; rank 0 writes aggregated results)
@@ -70,6 +70,7 @@ from analysis.intphys2.surprise import (  # noqa: E402
     VideoSurprise,
     score_video,
     score_video_batched,
+    score_videos_batched,
 )
 
 
@@ -340,34 +341,56 @@ def _score_all_videos(
     max_wb = s_cfg.get("max_window_batch")
     max_wb = int(max_wb) if max_wb is not None else None
 
-    for k, (video, meta) in enumerate(loader):
+    # video_batch: 한 번에 GPU 에 올리는 **영상 수** (Garrido 하네스 `video_batch` 이식, 2026-09-22).
+    #   IntPhys 2 는 6fps 에서 영상이 64~72 프레임이라 영상당 창이 w16 ~27 / w32 ~19 / w48 ~11 개다.
+    #   w48 은 max_window_batch 를 올려도 11 에서 막히므로 영상을 쌓아야 배치가 커진다.
+    #   1 이면 예전과 배치 구성이 완전히 같다 (수치 동일).
+    vbs = max(1, int(s_cfg.get("video_batch", 1)))
+    nonlocal_fail = {"n": 0}          # 채점 실패 영상 수 (summary 에 남긴다)
+    _buf: List[Tuple[torch.Tensor, Any]] = []
+
+    def _flush(buf):
+        """버퍼의 영상들을 한 배치로 채점해 [(meta, per_C), ...] 로 돌려준다."""
+        if not buf:
+            return []
+        vids = [v for v, _ in buf]
         try:
-            per_C: Dict[int, VideoSurprise] = score_video_batched(
-                video, bundle,
-                window_size=s_cfg["window_size"],
-                context_lengths=Cs,
-                stride=s_cfg["stride"],
-                distance=s_cfg["distance"],
-                loss_exp=float(s_cfg["loss_exp"]),
+            res = score_videos_batched(
+                vids if len(vids) > 1 else vids[0], bundle,
+                window_size=s_cfg["window_size"], context_lengths=Cs, stride=s_cfg["stride"],
+                distance=s_cfg["distance"], loss_exp=float(s_cfg["loss_exp"]),
                 target_layer_norm=bool(s_cfg["target_layer_norm"]),
-                protocol=s_cfg.get("protocol", "fixed"),
-                max_window_batch=max_wb,
+                protocol=s_cfg.get("protocol", "fixed"), max_window_batch=max_wb,
                 mask_index=int(s_cfg.get("mask_index", 0)),
                 context_forward_mode=str(s_cfg.get("context_forward_mode", "masked")),
                 autocast_dtype=_AC_DTYPE[str(cfg["model"].get("autocast", "none")).lower()],
             )
+            res = [res] if len(vids) == 1 else res
+        except torch.cuda.OutOfMemoryError as e:
+            # ⚠️ OOM 을 NaN 으로 조용히 넘기면 **전 배치가 실패해도 summary.json 이 정상처럼 나온다**
+            #    (2026-09-22 실제로 당했다: video_batch=8 이 전부 OOM 인데 행 수는 멀쩡해서
+            #     "4 배 빨라졌다" 로 읽힐 뻔했다). 배치를 반으로 줄여 재시도하고, 1 에서도
+            #     터지면 그때는 **죽는다** — 조용한 오염보다 낫다.
+            torch.cuda.empty_cache()
+            if len(vids) > 1:
+                half = (len(vids) + 1) // 2
+                logger.warning(f"batch of {len(vids)}: OOM -> {half} 로 줄여 재시도")
+                return _flush(buf[:half]) + _flush(buf[half:])
+            raise RuntimeError(
+                f"video_batch=1 에서도 OOM 이다. surprise.max_window_batch 를 낮출 것 "
+                f"(현재 {max_wb}). 원인: {e}") from e
         except Exception as e:  # noqa: BLE001
-            logger.warning(f"video row={meta.row_index}: score failed ({e}); emitting NaN rows")
-            per_C = {
-                C: VideoSurprise(
-                    window_starts=np.zeros(0, dtype=np.int64),
-                    window_context_lengths=np.zeros(0, dtype=np.int64),
-                    surprise=np.zeros(0, dtype=np.float32),
-                    context_length=C,
-                )
-                for C in Cs
-            }
+            nonlocal_fail["n"] += len(vids)
+            logger.warning(f"batch of {len(vids)}: score failed ({e}); emitting NaN rows")
+            empty = {C: VideoSurprise(window_starts=np.zeros(0, dtype=np.int64),
+                                      window_context_lengths=np.zeros(0, dtype=np.int64),
+                                      surprise=np.zeros(0, dtype=np.float32),
+                                      context_length=C) for C in Cs}
+            res = [empty] * len(vids)
+        return [(m, r) for (_, m), r in zip(buf, res)]
 
+    def _record(meta, per_C):
+        """한 영상의 per-C 결과를 records / per_window_traces 에 넣는다."""
         for C in Cs:
             vs = per_C[C]
             avg = vs.aggregate("avg")
@@ -396,6 +419,14 @@ def _score_all_videos(
                     "surprise": vs.surprise.tolist(),
                 })
 
+
+    for k, (video, meta) in enumerate(loader):
+        _buf.append((video, meta))
+        if len(_buf) >= vbs:
+            for m, r in _flush(_buf):
+                _record(m, r)
+            _buf = []
+
         if (k + 1) % log_every == 0:
             elapsed = time.time() - t_start
             rate = (k + 1) / max(elapsed, 1e-6)
@@ -403,6 +434,19 @@ def _score_all_videos(
                 f"[{k+1}/{n_local}] rate={rate:.2f} v/s "
                 f"elapsed={elapsed:.1f}s ETA={((n_local-k-1)/max(rate,1e-6)):.1f}s"
             )
+
+    # 남은 버퍼를 비운다 (마지막 배치가 vbs 보다 작을 때)
+    for m, r in _flush(_buf):
+        _record(m, r)
+    _buf = []
+
+    if nonlocal_fail["n"]:
+        frac = nonlocal_fail["n"] / max(n_local, 1)
+        msg = f"채점 실패 {nonlocal_fail['n']}/{n_local} 영상 ({frac:.1%}) -- NaN 으로 남았다"
+        if frac > 0.02:
+            raise RuntimeError(msg + ". 2% 를 넘어 중단한다 (조용한 오염 방지).")
+        logger.warning(msg)
+    _score_all_videos._n_failed = nonlocal_fail["n"]  # type: ignore[attr-defined]
 
     # Stash per-window traces on the records list side-channel so caller can grab them.
     _score_all_videos._per_window = per_window_traces  # type: ignore[attr-defined]
@@ -561,8 +605,40 @@ def _write_outputs(
 # --------------------------- entry point -------------------------------------
 
 
-def main(cfg_path: str, override_device: Optional[str] = None, verbose: bool = True) -> Dict[str, Any]:
-    cfg = _resolve_config(cfg_path)
+def _apply_sets(cfg: dict, sets) -> dict:
+    """`--set a.b=1` 점 경로 덮어쓰기. `z_research/scripts/run.sh` 의 `SET=` 과 같은 규약이다.
+
+    실험마다 yaml 을 뜨지 않기 위한 장치다 (configs/README.md 의 규칙).
+    값은 YAML 로 파싱한다 -> `[4,6,8]`, `true`, `null` 전부 된다. `null` 은 그 키를 지운다.
+    """
+    import yaml as _y
+    for kv in sets or []:
+        if "=" not in kv:
+            raise SystemExit(f"--set 은 KEY=VALUE 여야 한다 -> {kv}")
+        key, raw = kv.split("=", 1)
+        try:
+            val = _y.safe_load(raw)
+        except Exception:
+            val = raw
+        # ⚠️ 점 없는 최상위 키(`tag=...`)도 되어야 한다. 예전 판은 `[node] + rest[:-1]` 를
+        #    돌아서 `cfg["tag"]` 를 dict 로 만들어 버렸다 (2026-09-22).
+        parts = key.split(".")
+        cur = cfg
+        for k in parts[:-1]:
+            if not isinstance(cur.get(k), dict):
+                cur[k] = {}
+            cur = cur[k]
+        leaf = parts[-1]
+        if val is None:
+            cur.pop(leaf, None)
+        else:
+            cur[leaf] = val
+    return cfg
+
+
+def main(cfg_path: str, override_device: Optional[str] = None, verbose: bool = True,
+         sets=None) -> Dict[str, Any]:
+    cfg = _apply_sets(_resolve_config(cfg_path), sets)
     rank, world_size, use_ddp = _init_ddp_if_requested(bool(cfg["evaluation"]["ddp"]))
     _setup_logging(rank, verbose=verbose and cfg["evaluation"]["verbose"])
     logger.info(f"rank {rank}/{world_size} (ddp={use_ddp})")
@@ -618,8 +694,13 @@ def _cli():
     p.add_argument("--config", "--fname", dest="config", required=True, help="YAML config path")
     p.add_argument("--device", default=None, help="override device (cuda:0, cpu, ...)")
     p.add_argument("--quiet", action="store_true")
+    p.add_argument("--set", dest="sets", action="append", default=[], metavar="KEY=VALUE",
+                   help="점 경로로 config 덮어쓰기 (여러 번 가능). 예:\n"
+                        "  --set surprise.window_size=16\n"
+                        "  --set 'surprise.context_length_sweep=[4,6,8,10,12,14]'\n"
+                        "  --set tag=my_run   --set evaluation.limit_videos=8")
     args = p.parse_args()
-    return main(args.config, override_device=args.device, verbose=not args.quiet)
+    return main(args.config, override_device=args.device, verbose=not args.quiet, sets=args.sets)
 
 
 if __name__ == "__main__":

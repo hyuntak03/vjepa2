@@ -19,7 +19,7 @@
 cd /data/hyuntak/project/2026/2027_cvpr/vjepa2
 DRYRUN=1 GPUS=8 bash z_research/anticipation/EK100/run.sh        # 검사만 (몇 초, GPU 0장)
 GPUS=1 SMOKE=1 bash z_research/anticipation/EK100/run.sh         # 배관 점검 (~3분 + 모델 로딩)
-GPUS=8 bash z_research/anticipation/EK100/run.sh                 # 본 설정 = configs/ek100_vith.yaml
+GPUS=8 bash z_research/anticipation/EK100/run.sh                 # 본 설정 = z_research/anticipation/EK100/configs/ek100_vith.yaml
 GPUS=8 bash z_research/anticipation/EK100/sbatch.sh              # SLURM (vll5)
 watch -n 1 bash z_research/anticipation/EK100/monitor.sh         # 모니터 (가장 최근 run, 또는 인자로 TAG)
 
@@ -243,7 +243,7 @@ val 9,668 → **9,296** segment / 138 video (372개 버림). 논문의 "3,568 ac
 
 | 파일 | 역할 |
 |---|---|
-| `configs/ek100_vith.yaml` | **본 설정 하나** (손으로 관리. 생성기 없음) |
+| `z_research/anticipation/EK100/configs/ek100_vith.yaml` | **본 설정 하나** (손으로 관리. 생성기 없음) |
 | `run.sh` | 진입점. resolve → 빈 DDP 포트 → `evals.main` (포트 충돌 시 조용한 world_size=1 폴백을 `ANT_EXPECT_WS` 로 막는다) |
 | `resolve.py` | 덮어쓰기(`SET`/`TAG`/`SMOKE`/`HEADS`) + 검사 (annotation·ckpt·비디오 633개 존재, module·mask 조합, 프레임 예산) + **같은 TAG 다른 설정 이어하기 차단** |
 | `sbatch.sh` | SLURM. `ANT_RUN=1` 로 제출/본체 분기, `SET` 은 base64 |

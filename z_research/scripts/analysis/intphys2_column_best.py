@@ -4,7 +4,8 @@
 논문 Table 2 캡션: "For a given model, we only report its best run for a given column (except the Held Out ...)".
 우리 채점기 (analysis/intphys2/eval.py) 는 overall 최고 C 하나를 고르고 그 C 의 세부값을 쓴다 → 여기서 per_video.csv 로 다시 계산.
 짝 = (scene_index, pair_id) 안의 가능 1 + 불가능 1, 동점 0.5 (analysis/intphys2/metrics.py:pairwise_accuracy 와 같은 규칙).
-하이퍼파라미터 격자 = context_length × 집계 (avg / max). ⚠️ 열마다 고른 최고값은 같은 평가셋에서 고른 것이라 descriptive 다.
+하이퍼파라미터 격자 = context_length × 창. 집계는 **avg 하나**다 — 쌍 비교이므로
+(논문 D.1 "We use average surprise unless specified otherwise"). Max 는 2026-09-21 철회. ⚠️ 열마다 고른 최고값은 같은 평가셋에서 고른 것이라 descriptive 다.
 
   python z_research/scripts/analysis/intphys2_column_best.py --run z_exp/intphys2/vjepa2_vith_intphys2_main_repro [--agg avg max]
 출력: <run>/column_best.{json,md}
@@ -31,7 +32,7 @@ def pair_acc(df, col):
 
 
 def main():
-    ap = argparse.ArgumentParser(); ap.add_argument("--run", required=True); ap.add_argument("--agg", nargs="+", default=["avg", "max"])
+    ap = argparse.ArgumentParser(); ap.add_argument("--run", required=True); ap.add_argument("--agg", nargs="+", default=["avg"])   # 쌍 비교 = AvgSurprise 하나 (2026-09-21 Max 철회)
     ap.add_argument("--scenes", default=None, help="장면 목록 txt (예: data_csv/IntPhys2/main_split/test_scenes.txt) — 그 장면만 채점")
     ap.add_argument("--out", default="column_best", help="출력 파일 이름 (확장자 제외)")
     a = ap.parse_args(); run = Path(a.run)

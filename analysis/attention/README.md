@@ -2,7 +2,8 @@
 
 > 레포 규칙은 루트 `CLAUDE.md`, 실행 계약은 `configs/protocols/README.md`,
 > 본 실험 세트는 `z_research/IntPhysGenV11/README.md`.
-> 결과 해석은 `z_research/IntPhysGenV11/Archive/ATTENTION_2026-09-01.md`.
+> ⚠️ **2026-09-21** — 이 줄이 가리키던 `z_research/IntPhysGenV11/Archive/ATTENTION_2026-09-01.md` 는
+> **레포에 없다** (작성되지 않았거나 추적되지 않아 사라졌다). 결과 해석은 산출물에서 다시 읽어야 한다.
 
 **짝으로 쓰라고 만든 두 도구다. 하나는 관찰, 하나는 개입이다.**
 

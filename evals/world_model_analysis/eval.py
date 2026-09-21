@@ -1,6 +1,9 @@
 """World model analysis — probing + IntPhys 방식 surprise 채점.
 
-    python -m evals.main --fname configs/world_model_analysis/<cfg>.yaml \
+    # 진입점은 z_research/scripts/run.sh 다 (DDP 포트 자동 탐색 + WMA_EXPECT_WS 가드).
+    #   GPUS=8 bash z_research/scripts/run.sh <프로토콜> <데이터셋> [모델]
+    # 구버전(직접 호출, 2026-09-21 에 config 는 configs/_archive/world_model_analysis/ 로 내렸다):
+    python -m evals.main --fname configs/_archive/world_model_analysis/<cfg>.yaml \
                          --devices cuda:0 cuda:1 cuda:2 cuda:3
 
 evals/main.py 가 GPU 당 프로세스를 띄우고 init_distributed 를 부른 뒤 config 의
@@ -409,7 +412,8 @@ def run_surprise_intphys1(ds, cfg, device):
     논문 A.8 의 grid 를 한 번의 실행에서 전부 돈다 (모델을 한 번만 올리려고):
         frame skip x window size(C+M) 조합마다 따로 채점하고, 최고값도 같이 보고한다
         ("we use different context length ... and report the maximal accuracy across them")
-    비디오당 값 두 개: AvgSurprise(짝 비교용) / MaxSurprise(단일 영상 분류용).
+    비디오당 값 하나: **AvgSurprise**(쌍 비교). MaxSurprise 는 2026-09-21 철회 —
+    그건 단일 영상 + AUROC 용이다 (Garrido Table S5).
     시작점마다 context 길이들은 min 으로 합친다 (논문의 IntPhys 전용 처리).
     """
     rank, ws = _rank()
@@ -423,7 +427,7 @@ def run_surprise_intphys1(ds, cfg, device):
     mult = [int(x) for x in W.get("context_mult", [2, 4, 6, 8, 10])]
     stride = int(W.get("stride", 2))
     reduce_c = str(W.get("context_reduce", "min"))
-    aggs = list(W.get("aggregate", ["avg", "max"]))
+    aggs = list(W.get("aggregate", ["avg"]))    # 쌍 비교 하나 (PROTOCOLS.md §1-b)
     max_batch = int(W.get("max_batch", 16))          # ViT-H 는 낮춰야 한다
     # official = 공식 구현의 프레임 예산((T-1)//skip). full = 논문 식 S3 그대로. _frame_budget 참고.
     frame_budget = str(W.get("frame_budget", "full"))
@@ -779,7 +783,7 @@ def _block_pairs(recs, pairing: str):
 
     matched (기본, Garrido 공식 코드와 같음)
         4중항 안에서 **문맥이 일치하는 2쌍만** 본다. 짝은 index.csv 의 pair_id 로 오고,
-        그건 z_scripts/world_model_analysis/build_intphys1_pairs.py 가 픽셀 분기로 구한다.
+        그건 z_research/scripts/data/build_intphys1_pairs.py 가 픽셀 분기로 구한다.
         공식 구현:
             evaluation_code/evals/intuitive_physics/utils.py:157-175
             get_breaking_points -> get_matches -> [[0,p],[나머지 둘]]
@@ -801,7 +805,7 @@ def _block_pairs(recs, pairing: str):
     if "" in by_pair:
         raise ValueError(
             "scoring.pairing='matched' 인데 index.csv 에 pair_id 가 없다.\n"
-            "  python z_scripts/world_model_analysis/build_intphys1_pairs.py 로 만들 것.\n"
+            "  python z_research/scripts/data/build_intphys1_pairs.py 로 만들 것.\n"
             "  (전수 비교로 돌아가려면 scoring.pairing: cross)")
     out = []
     for pid, prs in sorted(by_pair.items()):
@@ -826,6 +830,11 @@ def single_video_metrics(ds, surprise):
     그리고 Figure S1 오른쪽 열이 이 과제다. 논문은 여기에 **MaxSurprise** 를 권한다
     ("a maximum surprise score can be used on unique videos by eliminating the surprise
       contribution coming from the complexity of the scene").
+
+    ⚠️ 이 경로는 **현재 프로토콜에서 꺼져 있다** (`scoring.single_video: false` 가 기본).
+    Garrido 프로토콜의 보고 지표는 **쌍 비교 AvgSurprise 하나**이고 MaxSurprise 는
+    2026-09-21 에 철회했다 (`z_research/Benchmarks/PROTOCOLS.md` §1-b).
+    단일 영상을 다시 하려면 여기 **Max + AUROC** 를 쓴다 — 쌍 비교에 Max 를 쓰는 게 아니다.
 
     돌려주는 값
       auroc     : 불가능 영상의 surprise 가 가능 영상보다 클 확률 (동점 0.5).
@@ -968,7 +977,9 @@ def main(args_eval, resume_preempt=False):
                                if sv else ""))
             if mode == "intphys1":
                 # 논문: "report the maximal accuracy across them"
-                for a in ("avg", "max"):
+                # 지표는 **쌍 비교 AvgSurprise 하나**다 (Benchmarks/PROTOCOLS.md §1-b).
+                # MaxSurprise 는 2026-09-21 에 철회했다 — 그건 단일 영상 + AUROC 용이다 (Table S5).
+                for a in ("avg",):
                     cand = {k: v for k, v in report["surprise"].items() if k.endswith("/" + a)}
                     if not cand:
                         continue

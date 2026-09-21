@@ -112,6 +112,38 @@ block 안 4개는 2×2 로 context/future 를 공유한다.
 
 ## 2. 실행 방법
 
+### 2-0. eval 지도 — **어떤 평가를 무엇으로 돌리나** (2026-09-21)
+
+평가 진입점은 여섯이고 **서로 역할이 다르다.** 새 평가를 만들기 전에 여기서 맞는 줄을 먼저 찾는다.
+
+| 무엇을 재나 | 진입점 | 실제 코드 | config | 정본 문서 |
+|---|---|---|---|---|
+| **① 우리 표준 채점**<br>(surprise / probing) | `z_research/scripts/run.sh <프로토콜> <데이터셋> [모델]` | `evals/world_model_analysis/eval.py` | **`configs/protocols/`** (프로토콜 yaml + `datasets.md` + `models.md`) | `configs/protocols/README.md` |
+| **② 외부 벤치마크**<br>(IntPhys 1 · GRASP · InfLevel) | `bash z_research/Benchmarks/run_all.sh` | ① 을 감싼다 (A.8 격자, 창별 분리) | ① 과 같음 + `run_all.sh` 가 `SET=` 으로 격자 주입 | **`z_research/Benchmarks/README.md` → `PROTOCOLS.md`** |
+| **③ IntPhys 2** ⚠️범위 밖 | `python -m analysis.intphys2.eval --config <yaml>` | `analysis/intphys2/eval.py` | **`analysis/intphys2/configs/`** (통짜 yaml, 코드 옆) | `analysis/intphys2/README.md` |
+| **④ predictor 학습·채점** | `bash z_training/eval.sh <run> <데이터셋>` | ① 에 `model.predictor_checkpoint` 만 얹는다 | `configs/training/` | `z_training/README.md` |
+| **⑤ EK100 action anticipation** | `bash z_research/anticipation/EK100/run.sh` | `evals/action_anticipation_frozen/` (업스트림) | `configs/eval*/` (업스트림) | `z_research/anticipation/EK100/README.md` |
+| **⑥ attention knockout** | `bash analysis/attention/knockout/run_sharded.sh` | `analysis/attention/knockout/runner.py` | 스크립트 인자 | `analysis/attention/README.md` |
+
+**기본은 ①이다.** ②④는 ①을 감싼 것이라 채점 규칙이 같다. ③만 별도 하네스다 (프로토콜이 다르다).
+
+⚠️ **`evals.main` 을 직접 부르지 말 것** — `run.sh` 만 하는 두 가지가 있다 (DDP 포트 자동 탐색,
+`WMA_EXPECT_WS` export). 없으면 §7-1 의 split-brain 가드가 통째로 비활성된다.
+
+⚠️ **`z_scripts/` 는 2026-09-21 에 삭제했다** (구버전 run 스크립트 139개. 옮긴 config 를 가리켜
+이미 깨져 있었고 `run.sh` 로 전부 대체됐다). git 추적이 0이라 복구는 안 된다 —
+그 안에 있던 **`build_intphys1_pairs.py` 만 공식 로직으로 복원**해 `z_research/scripts/data/` 에 뒀다.
+`data_gen/` 은 gitignore 되어 push 되지 않는다 (38GB 생성 데이터).
+
+### 2-0-a. 바로 확인하는 법
+
+```bash
+python z_research/scripts/analysis/check_oracle.py       # ② 하네스가 기준값(88.89)을 내는가. GPU 불필요
+bash z_research/scripts/run.sh --list                    # ① 의 프로토콜·데이터셋·모델 목록
+DRYRUN=1 bash z_research/scripts/run.sh <프로토콜> <데이터셋> <모델>   # 병합 config 만, GPU 0장
+```
+
+
 ### 2-1. 표준 진입점 — `z_research/scripts/run.sh`
 
 ```bash
@@ -154,11 +186,17 @@ output_dir = <데이터셋.results_root>/<프로토콜>__<데이터셋>_<모델>
 | 이름 | 무엇을 재나 | 확립된 수치 |
 |---|---|---|
 | `surprise_c16t32` | fixed context16 / target32 latent-L1 | **73.37%** (v11, 10752 pair) · 79.10% (v8) |
-| `intphys1_sliding` | IntPhys1 Garrido 공식 sliding | **88.89%** (intphys1_dev, 180 pair) |
+| `intphys1_sliding` | IntPhys1 Garrido sliding | **88.89%** = `skip2_w32` 그리드 최고 (180 pair) · **공식 config 칸은 `skip2_w16` = 83.33** ⚠️2026-09-21 |
 | `attn_probe` | z / p / h 세 지점 attentive probing | v11 54 항목 (fit 3 × group 6 × target 3) |
 | `attn_probe_imp` | 불가능 변이에서 target encoder 가 바뀐 정체성을 읽는가 | — |
 
-등록된 데이터셋: `intphys1_dev`, `v8`, `v8_halfsize`, **`v11`**, `v11_earlymid`, `v11_timing`, `v11_full`, `v11_split_test`, `v13_black`,
+⚠️ **2026-09-21 — Garrido 프로토콜은 A.8 격자를 모델마다 탐색하고 최고를 보고한다.**
+Table S3 는 *그들 모델*(`vit_huge_rope`, fpc 16)의 탐색 *결과*지 고정 규격이 아니다.
+V-JEPA 2 ViT-H IntPhys1 = **88.89** (`skip2_w32`, **Filtered**, property macro). IntPhys 은 C 스윕을 Filtered 로 대체한다 (논문 A.7/A.8). 지표는 **쌍 비교 AvgSurprise 하나** (Max 철회). 창(C+M)마다 **실행을 나눈다** —
+공식은 창마다 모델을 그 프레임 수로 짓기 때문이다. 정본 `z_research/Benchmarks/PROTOCOLS.md`,
+기준값 검사 `python z_research/scripts/analysis/check_oracle.py`.
+
+등록된 데이터셋: `intphys1_dev`, `grasp_level2`, `inflevel_{continuity,gravity,solidity}`, `v8`, `v8_halfsize`, **`v11`**, `v11_earlymid`, `v11_timing`, `v11_full`, `v11_split_test`, `v13_black`,
 `v10`, `v10_flat`, `v10_occ_low`, `jongseo_physv3`, **`rollout_v2`**, **`rollout_v2_training_v5`**, **`v11_vanish_all`** (위치 readout, §5-5)
 (+ `available: false` 인 `2d_v8_transit`, `v11_occtiming`). 모델: `vith`, `vitl`. 지운 데이터셋 (RollOut_v1, 학습셋 v1~v4) 은 레지스트리에서도 뺐다 — 기록은 각 세트 문서.
 
@@ -242,9 +280,15 @@ GPUS=8 bash z_training/eval.sh <run> v11                      # 채점 = run.sh 
 
 ### 2-6. 구버전 진입점
 
-`configs/world_model_analysis/` 는 2026-08-28 에 43개를 지웠다
-(`occlusion_v2.yaml`, `probe_set.yaml`, `intphys1_single_vith.yaml` 만 남음).
+`configs/_archive/world_model_analysis/` 는 2026-09-21 에 **`configs/_archive/world_model_analysis/` 로 내렸다**
+(그 전 2026-08-28 에 43개를 지워 3개만 남아 있었다).
 **신규 실험은 전부 `z_research/scripts/run.sh` 를 쓴다.**
+
+⚠️ **2026-09-21 config 공간 정리.** `configs/README.md` 가 지도다.
+**평가 프로토콜 config 는 `configs/protocols/` 한 곳에만 둔다.** 죽은 VLM·합성데이터 세트
+(`toy_dataset`, `blender_*`, `synthetic`, `probing`, `InsPhys2`, `rotation_counting`,
+`z_tak_attentive_probing`, `analysis/*.yaml`) 는 전부 `configs/_archive/` 로 내렸다.
+IntPhys 2 는 하네스가 달라(통짜 yaml) **`analysis/intphys2/configs/` 로 코드 옆에 옮겼다.**
 config 를 되살려야 하면 `z_exp/.../summary.json` 안에 그때 쓴 config 가 통째로 들어 있다.
 
 ⚠️ **`evals.main` 을 직접 부르지 말 것.** `run.sh` 만 하는 두 가지가 있다 — DDP 포트 자동
@@ -450,7 +494,9 @@ cylinder 90 > cube 86 > pyramid 59 > capsule 58 > cone 48 > sphere 36 > torus 3
 
 | 데이터셋 | 모델 | 프로토콜 | overall | n_pair |
 |---|---|---|---:|---:|
-| **IntPhys1 dev** | ViT-H | Garrido `skip2_w32/avg` | **88.89%** | 180 |
+| **IntPhys1 dev** | ViT-H | Garrido A.8 최고 `skip2_w32` + **Filtered** (논문 텍스트 규칙) | **88.89%** | 180 |
+| IntPhys1 dev | ViT-H | 〃, 노트북 규칙({Filtered}∪{C} 최고) — 참고 | 90.56% | 180 |
+| IntPhys1 dev | ViT-H | 〃, `skip2_w16` 칸 | 83.33% | 180 |
 | IntPhys1 dev | ViT-L | 동일 | 64.44% | 180 |
 | IntPhys1 dev | ViT-H | 우리 fixed C16/stride3 | 66.67% | 180 |
 | IntPhysGen v8 | ViT-H | fixed | 79.10% | 1024 |
@@ -505,9 +551,9 @@ v8 의 정보손실/정렬손실 분해, 2D 대조는 `z_research/IntPhysGenV8/`
 | 궤적·속도 위반 추가 | **IntPhys1 dev 에 그런 사례가 0건** |
 | **"방향 비대칭은 p 가 그 모양을 못 담아서"** | 설계 쌍 probe confusion 0%. **probe 가 잘 읽는 쪽이 채점은 0%** |
 | **"세기를 키우면 된다"** | 균등 증폭 천장 51~65%, 잘 맞던 조건까지 부숨(98.4→59.4). **부족한 건 크기가 아니라 배치다** |
-| **block 밖 7-way retrieval** | 같은 block 다른 모양 0.5438 / 다른 block 같은 모양 0.7602 → 신호/잡음 **0.715**. `h` 대조군조차 40.3%(chance 14.3). `analysis/retrieval_confusion.py` 최상단 |
+| **block 밖 7-way retrieval** | 같은 block 다른 모양 0.5438 / 다른 block 같은 모양 0.7602 → 신호/잡음 **0.715**. `h` 대조군조차 40.3%(chance 14.3). `z_research/scripts/analysis/retrieval_confusion.py` 최상단 |
 | **Luce 로 7지선다 확률 변환** | `s=(1-p)/p` 가 **최저 상대 하나에 지배**된다. **등가속·비가림**에서 cube 짝평균 83.3 → 7지선다 8.7 (cylinder 에게만 6%). `k` 별은 비대각 n=4 라 더 나쁘다. `_superseded/` |
-| **"가림막이 색면이라 색 채점을 죽인다"** | `v13_black`(검정 가림막)에서 색의 `visible→early` 하락이 −14.1 → **−13.5** 로 같다. **기각.** 대신 모양이 −6.2 → **0.0** — 나뭇결이 모양을 깎고 있었다. `z_research/IntPhysGenV13_Black_occluder/` |
+| **"가림막이 색면이라 색 채점을 죽인다"** | `v13_black`(검정 가림막)에서 색의 `visible→early` 하락이 −14.1 → **−13.5** 로 같다. **기각.** 대신 모양이 −6.2 → **0.0** — 나뭇결이 모양을 깎고 있었다. ⚠️ (세트 폴더는 없다 — 결과는 `configs/protocols/datasets.md` 의 `v13_black` 항목과 실행 산출물에만 남아 있다) |
 | **"가림막은 있는데 물체를 안 가리는" 조건 신설** | "가림 유무" 는 곧 "물체가 가려지는가" 이고 가림막 존재는 그 구현이다. §8-5 |
 | **"predictor 가 (v11 가림에서) 물체를 마지막 관측 자리에 둔 채 머문다"** | 자의 기본값 (토큰 평균 읽기 ≈ 화면 중심 ≈ 마지막 관측). 마지막 관측 칸 attention 0.01~0.03. **철회** (§5-5) |
 | **"wall 에서 벽 속 한 칸 반 파고들어 멈춘다"** | 슬롯 1~2 통과 + 슬롯 3~7 기본값의 평균. 멈춤은 한 번도 없다. **정정** |
@@ -579,6 +625,7 @@ v8 의 정보손실/정렬손실 분해, 2D 대조는 `z_research/IntPhysGenV8/`
 |---|---|---|
 | `configs/protocols/` | 프로토콜 yaml + `datasets.md`/`models.md` 레지스트리 | ✅ |
 | `z_research/scripts/` | 최상위엔 **직접 치는 것만**. 나머지는 `harness/`·`data/`·`figures/`·`analysis/` | ✅ |
+| **`z_research/Benchmarks/`** | **외부 벤치마크 × 세 모델 (Garrido 프로토콜).** `README.md` → `PROTOCOLS.md` | 부분 |
 | **`z_research/IntPhysGenV11/`** | **본 실험 세트.** `README.md` 가 시작점 | 부분 |
 | `z_research/anticipation/EK100/` | V-JEPA 2 EK100 action anticipation 재현 (논문 §6). `README.md` 가 시작점 — 릴리즈 코드와 논문이 다른 곳과 우리 기본값 | 부분 |
 | **`z_research/RollOutV2/`** | **위치 readout 세트** (p 가 물체를 어디에 두나). `README.md` → `figures/v5/summary/POSITION_READOUT_2026-09-12.md` | 부분 |
@@ -653,7 +700,7 @@ torch 2.12.0+cu126 · GPU 8장 · numpy 2.4.6 · matplotlib 3.11.0 · decord 0.6
 SLURM 스크립트는 `source /data/hyuntak/anaconda3/bin/activate vjepa2`.
 
 ### `.gitignore` 주의
-`z_scripts`, `*csv`, `*.json`, `*.png`, `*.pt`, `z_exp/`, `data_gen/`, `checkpoint/` 가
+`*csv`, `*.json`, `*.png`, `*.pt`, `z_exp/`, `data_gen/`, `checkpoint/` 가
 **전부 무시된다.** → 새로 만든 index·figure 는 **untracked 가 정상**이고 `git checkout` 으로
 되돌릴 수 없다. 덮어쓰기 전에 확인할 것.
 

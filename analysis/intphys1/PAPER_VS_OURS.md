@@ -38,7 +38,7 @@ Sweep grid (Appendix B, p13): LR ∈ {1e-4, 4.3e-4, 1e-3, 3.3e-3, 3.5e-3} × WD 
 
 ## 2. Our 5-fold CV 결과 (Appendix B sweep)
 
-- Config: `configs/analysis/probing/intphys1_vitl_5fold_appb.yaml`
+- Config: `configs/_archive/probing/intphys1_vitl_5fold_appb.yaml`
 - Aggregation: `logs/analysis_vlm/probe_intphys1_vitl_5fold_appb_agg/`
 - `n_folds=5, num_layers=24, num_hps=20` — Appendix B 그대로.
 - Best-HP-per-layer 관점 (`per_layer_best_hp.csv`).
@@ -130,7 +130,7 @@ Paper text에는 층별 수치가 없고 Fig 6는 chart-only이므로, key ancho
 우선순위 순.
 
 1. **`self.norm` 위치 확인·수정**: `vit_encoder_multilayer.py`에서 각 block output에 대해 `self.norm(x)` post-LN을 적용한 버전과 raw pre-LN 버전 두 가지 feature를 뽑아 동일 sweep을 돌린다. Post-LN 버전에서 mid-layer peak가 90%+로 올라오는지 확인. → 올라오면 gap의 root cause 확정.
-2. **C.11 프로토콜 5-fold 실행**: 아직 미실행. `configs/analysis/probing/intphys1_vitl_5fold_c11.yaml`로 f0–f4 5 folds + agg 를 돌려서 Appendix B sweep 결과와 비교. 두 프로토콜 차이가 몇 pts 나는지 quantify.
+2. **C.11 프로토콜 5-fold 실행**: 아직 미실행. `configs/_archive/probing/intphys1_vitl_5fold_c11.yaml`로 f0–f4 5 folds + agg 를 돌려서 Appendix B sweep 결과와 비교. 두 프로토콜 차이가 몇 pts 나는지 quantify.
 3. **Per-fold group key 명시화**: `src/datasets/data_manager.py`에서 grouping이 sample id / video id / trajectory 중 무엇인지 확인. Paper의 "grouped CV" 정의가 없으므로, 우리는 최소한 우리 grouping 정책을 문서화.
 4. **Subtask breakdown (Fig 10 재현)**: Object Permanence / Shape Constancy / Spatio-Temporal Continuity 각각으로 나누어 same-shape을 재현하는지 확인. Paper §C.1.3은 "same one-third emergence pattern across all three" 라 주장 — 우리 실험에서도 이 서술이 유지되면 정성 재현 성공.
 5. **초반 sub-chance dip 재현 여부**: Paper Fig 6 Row 4 (Spatio-Temporal Continuity)는 L2–L3에서 chance 아래로 내려감. Ours는 L0=58% 그 자체가 chance 위. Norm signature 수정 후 이 dip이 재현되면 (1) 확정.
@@ -140,7 +140,7 @@ Paper text에는 층별 수치가 없고 Fig 6는 chart-only이므로, key ancho
 
 ## Appendix — Our per-layer full table (참고)
 
-`configs/analysis/probing/logs/analysis_vlm/probe_intphys1_vitl_5fold_appb_agg/per_layer_best_hp.csv` 원본.
+`configs/_archive/probing/logs/analysis_vlm/probe_intphys1_vitl_5fold_appb_agg/per_layer_best_hp.csv` 원본.
 
 | layer | fraction | mean_acc | std_acc | best_hp | per-fold (f0,f1,f2,f3,f4) |
 |---:|---:|---:|---:|---:|---|
@@ -171,9 +171,13 @@ Paper text에는 층별 수치가 없고 Fig 6는 chart-only이므로, key ancho
 
 관련 파일 (모두 절대경로):
 
-- `/data/hyuntak/project/2026/2027_cvpr/vjepa2/configs/analysis/probing/logs/analysis_vlm/probe_intphys1_vitl_5fold_appb_agg/aggregated.json`
-- `/data/hyuntak/project/2026/2027_cvpr/vjepa2/configs/analysis/probing/logs/analysis_vlm/probe_intphys1_vitl_5fold_appb_agg/per_layer_best_hp.csv`
-- `/data/hyuntak/project/2026/2027_cvpr/vjepa2/configs/analysis/probing/logs/analysis_vlm/probe_intphys1_vitl_5fold_appb_agg/stage_val_acc_mean_std.png`
-- `/data/hyuntak/project/2026/2027_cvpr/vjepa2/configs/analysis/probing/intphys1_vitl_5fold_appb.yaml`
-- `/data/hyuntak/project/2026/2027_cvpr/vjepa2/configs/analysis/probing/intphys1_vitl_5fold_c11.yaml` (실행 전)
+- `/data/hyuntak/project/2026/2027_cvpr/vjepa2/configs/_archive/probing/logs/analysis_vlm/probe_intphys1_vitl_5fold_appb_agg/aggregated.json`
+- `/data/hyuntak/project/2026/2027_cvpr/vjepa2/configs/_archive/probing/logs/analysis_vlm/probe_intphys1_vitl_5fold_appb_agg/per_layer_best_hp.csv`
+- `/data/hyuntak/project/2026/2027_cvpr/vjepa2/configs/_archive/probing/logs/analysis_vlm/probe_intphys1_vitl_5fold_appb_agg/stage_val_acc_mean_std.png`
+- `/data/hyuntak/project/2026/2027_cvpr/vjepa2/configs/_archive/probing/intphys1_vitl_5fold_appb.yaml`
+- `/data/hyuntak/project/2026/2027_cvpr/vjepa2/configs/_archive/probing/intphys1_vitl_5fold_c11.yaml` (실행 전)
 - Paper PDF: `/data/hyuntak/project/2026/2027_cvpr/vjepa2/Interpreting Physics in Video World Models.pdf` (pages 1, 4, 13, 14, 18)
+
+
+---
+⚠️ **2026-09-21 경로 정정.** `configs/analysis/probing/` 은 `configs/_archive/probing/` 으로 내려갔다 (`configs/README.md`). 그 안에 남은 것은 `intphys1_vitl.yaml` 하나이고, 이 문서가 부르는 `*_5fold_*.yaml` 은 **레포에 존재하지 않는다** — 그때 실행에 쓴 config 는 산출물의 `summary.json` 안에 통째로 들어 있다.

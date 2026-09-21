@@ -72,66 +72,94 @@ type_column: block_type
 
 ## inflevel_continuity
 
-InfLevel-lab (Weihs et al. 2022) 의 `continuity`. 영상 2160 / block 540 (= 4 종이 다 있는 그룹만).
-✅ Garrido 가 **믿을 수 있다고 한 유일한 property** 다 (gravity·solidity 는 contextualization 이 필요).
-**채점은 `scoring.pairing: cross`** — block 안 가능 2 x 불가능 2 = 4 비교가 공식 `evaluator.py` 의 지표다
-(`matched` 가 아니다). 가능/불가능 배정: continuity real=vv,ii / gravity·solidity real=ui,cv.
-불완전 그룹은 인덱스에서 이미 뺐고 **버린 수가 공식 스크립트의 하드코딩 값과 일치한다** (36 / 114 / 6).
-길이 편차 때문에 property 별로 쪼갰다 — 한 데이터셋으로 묶으면 최솟값 375 에 맞춰 continuity 가 40% 잘린다.
-인덱스: `z_research/scripts/data/build_inflevel_index.py --write`.
+InfLevel-lab (Weihs et al. 2022) 의 `continuity`. **쌍 1116 / 영상 2232.**
+✅ Garrido 가 **믿을 수 있다고 한 유일한 property** 다.
 
-raw_frames: 630
+⚠️ **2026-09-21 전면 재작성. 이전 인덱스·수치는 전부 폐기했다** (`exp_results/_invalid_20260921_inflevel/`).
+공식 로더(`<jepa-intuitive-physics>/evaluation_code/evals/intuitive_physics/inflevel_dataset.py`)와 세 군데가 달랐다:
+1. **쌍 목록** — 정본은 `auxiliary_data_loading_files/inflevel/continuity.csv` 이고 **한 줄이 한 쌍**이다
+   (`vid1` 은 항상 possible, `vid2` 는 항상 impossible). 자체 그룹 규칙을 쓰면 안 된다.
+2. **채점** — 공식 `eval.py:406` 은 InfLevel/GRASP 에서 `matches=[[0,1]]`, 즉 **한 줄에 한 비교**다.
+   `scoring.pairing: matched` 가 맞다. cross(2x2) 를 쓰면 쌍 수가 정확히 2 배가 된다.
+3. **프레임 구간** — 공식은 **priming(컵 내부를 보여주는 구간)을 잘라내고** 시작한다.
+   `diff` 로 두 영상의 잔여 길이를 맞춘 뒤 `[start::frame_step]`. 우리는 0 번부터 읽고 있었다.
+   그 시작점이 `frame_start` 컬럼이고 (`data.frames_start_column`), 행마다 다르다.
+
+잔여 프레임은 **최솟값 300 으로 잘라** 모든 쌍이 같은 수의 window 를 갖게 했다
+(공식은 대신 0 패딩하는데 스스로 "slightly innacurate" 라고 적어 둔 경로다).
+인덱스: `python z_research/scripts/data/build_inflevel_index.py --write`.
+
+raw_frames: 300
 cache_tag: inflevel_continuity
 results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/Benchmarks/exp_results
 root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/inflevel_continuity
 index_csv: index.csv
+frames_start_column: frame_start
 block_column: block_id
 pair_column: pair_id
 variant_column: variant
 plausible_column: plausible
 type_column: block_type
-
 ## inflevel_gravity
 
-InfLevel-lab (Weihs et al. 2022) 의 `gravity`. 영상 2364 / block 591 (= 4 종이 다 있는 그룹만).
-⚠️ 길이가 375~440 으로 가장 넓어 min 으로 자르면 평균 **7.9%** 가 잘린다. 그리고 gravity 는 컵이 잘렸는지가 본 영상 앞 contextualization 에만 나와 원리적으로 못 푸는 property 다 (Garrido §E).
-**채점은 `scoring.pairing: cross`** — block 안 가능 2 x 불가능 2 = 4 비교가 공식 `evaluator.py` 의 지표다
-(`matched` 가 아니다). 가능/불가능 배정: continuity real=vv,ii / gravity·solidity real=ui,cv.
-불완전 그룹은 인덱스에서 이미 뺐고 **버린 수가 공식 스크립트의 하드코딩 값과 일치한다** (36 / 114 / 6).
-길이 편차 때문에 property 별로 쪼갰다 — 한 데이터셋으로 묶으면 최솟값 375 에 맞춰 continuity 가 40% 잘린다.
-인덱스: `z_research/scripts/data/build_inflevel_index.py --write`.
+InfLevel-lab (Weihs et al. 2022) 의 `gravity`. **쌍 1182 / 영상 2364.**
+⚠️ 컵이 잘렸는지가 **priming 구간에만** 나와 원리적으로 못 푼다 (Garrido §E). 50 근처가 정상이다.
 
-raw_frames: 375
+⚠️ **2026-09-21 전면 재작성. 이전 인덱스·수치는 전부 폐기했다** (`exp_results/_invalid_20260921_inflevel/`).
+공식 로더(`<jepa-intuitive-physics>/evaluation_code/evals/intuitive_physics/inflevel_dataset.py`)와 세 군데가 달랐다:
+1. **쌍 목록** — 정본은 `auxiliary_data_loading_files/inflevel/gravity.csv` 이고 **한 줄이 한 쌍**이다
+   (`vid1` 은 항상 possible, `vid2` 는 항상 impossible). 자체 그룹 규칙을 쓰면 안 된다.
+2. **채점** — 공식 `eval.py:406` 은 InfLevel/GRASP 에서 `matches=[[0,1]]`, 즉 **한 줄에 한 비교**다.
+   `scoring.pairing: matched` 가 맞다. cross(2x2) 를 쓰면 쌍 수가 정확히 2 배가 된다.
+3. **프레임 구간** — 공식은 **priming(컵 내부를 보여주는 구간)을 잘라내고** 시작한다.
+   `diff` 로 두 영상의 잔여 길이를 맞춘 뒤 `[start::frame_step]`. 우리는 0 번부터 읽고 있었다.
+   그 시작점이 `frame_start` 컬럼이고 (`data.frames_start_column`), 행마다 다르다.
+
+잔여 프레임은 **최솟값 210 으로 잘라** 모든 쌍이 같은 수의 window 를 갖게 했다
+(공식은 대신 0 패딩하는데 스스로 "slightly innacurate" 라고 적어 둔 경로다).
+인덱스: `python z_research/scripts/data/build_inflevel_index.py --write`.
+
+raw_frames: 210
 cache_tag: inflevel_gravity
 results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/Benchmarks/exp_results
 root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/inflevel_gravity
 index_csv: index.csv
+frames_start_column: frame_start
 block_column: block_id
 pair_column: pair_id
 variant_column: variant
 plausible_column: plausible
 type_column: block_type
-
 ## inflevel_solidity
 
-InfLevel-lab (Weihs et al. 2022) 의 `solidity`. 영상 900 / block 225 (= 4 종이 다 있는 그룹만).
-**채점은 `scoring.pairing: cross`** — block 안 가능 2 x 불가능 2 = 4 비교가 공식 `evaluator.py` 의 지표다
-(`matched` 가 아니다). 가능/불가능 배정: continuity real=vv,ii / gravity·solidity real=ui,cv.
-불완전 그룹은 인덱스에서 이미 뺐고 **버린 수가 공식 스크립트의 하드코딩 값과 일치한다** (36 / 114 / 6).
-길이 편차 때문에 property 별로 쪼갰다 — 한 데이터셋으로 묶으면 최솟값 375 에 맞춰 continuity 가 40% 잘린다.
-인덱스: `z_research/scripts/data/build_inflevel_index.py --write`.
+InfLevel-lab (Weihs et al. 2022) 의 `solidity`. **쌍 450 / 영상 900.**
+⚠️ 컵 상태가 **priming 구간에만** 나와 원리적으로 못 푼다 (Garrido §E). 50 근처가 정상이다.
 
-raw_frames: 465
+⚠️ **2026-09-21 전면 재작성. 이전 인덱스·수치는 전부 폐기했다** (`exp_results/_invalid_20260921_inflevel/`).
+공식 로더(`<jepa-intuitive-physics>/evaluation_code/evals/intuitive_physics/inflevel_dataset.py`)와 세 군데가 달랐다:
+1. **쌍 목록** — 정본은 `auxiliary_data_loading_files/inflevel/solidity.csv` 이고 **한 줄이 한 쌍**이다
+   (`vid1` 은 항상 possible, `vid2` 는 항상 impossible). 자체 그룹 규칙을 쓰면 안 된다.
+2. **채점** — 공식 `eval.py:406` 은 InfLevel/GRASP 에서 `matches=[[0,1]]`, 즉 **한 줄에 한 비교**다.
+   `scoring.pairing: matched` 가 맞다. cross(2x2) 를 쓰면 쌍 수가 정확히 2 배가 된다.
+3. **프레임 구간** — 공식은 **priming(컵 내부를 보여주는 구간)을 잘라내고** 시작한다.
+   `diff` 로 두 영상의 잔여 길이를 맞춘 뒤 `[start::frame_step]`. 우리는 0 번부터 읽고 있었다.
+   그 시작점이 `frame_start` 컬럼이고 (`data.frames_start_column`), 행마다 다르다.
+
+잔여 프레임은 **최솟값 300 으로 잘라** 모든 쌍이 같은 수의 window 를 갖게 했다
+(공식은 대신 0 패딩하는데 스스로 "slightly innacurate" 라고 적어 둔 경로다).
+인덱스: `python z_research/scripts/data/build_inflevel_index.py --write`.
+
+raw_frames: 300
 cache_tag: inflevel_solidity
 results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/Benchmarks/exp_results
 root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/inflevel_solidity
 index_csv: index.csv
+frames_start_column: frame_start
 block_column: block_id
 pair_column: pair_id
 variant_column: variant
 plausible_column: plausible
 type_column: block_type
-
 ## v8
 
 정식 IntPhysGen. 2048영상 / 512 block. `condition` 4분할 균등(512씩),

@@ -75,10 +75,18 @@ z_AC_training/slurm_logs/
 *.pdf
 *.png
 
-*.sh
-
 *.log
 
 *.gif
 
 *.npz
+
+*.out
+
+# 원시 산출물은 추적하지 않는다 (CLAUDE.md §8-1). `*.json`/`*csv` 만 막혀 있어서
+# exp_results 안의 `_resolved.yaml` 이 추적되고 있었다 — 2026-09-21 에 막았다.
+*/exp_results/
+z_research/*/exp_results/
+z_exp/
+
+configs/_archive

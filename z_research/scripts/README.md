@@ -11,6 +11,11 @@ harness/        run.sh 가 부르는 것
   resolve.py      프로토콜 + datasets.md + models.md 를 병합. --set / extends / auto sweep
 
 data/           인덱스·데이터 준비
+  build_grasp_index.py        GRASP level2 인덱스 (4096 영상 / 2048 쌍). 공식은 P_<prop>/<scene> vs
+                              IP_<prop>/<scene> 한 쌍 (2026-09-20)
+  build_inflevel_index.py     InfLevel 인덱스. **공식 CSV(auxiliary_data_loading_files/inflevel/)가 정본**이고
+                              한 줄이 한 쌍. priming 구간을 잘라낸 시작점을 frame_start 컬럼에 쓴다.
+                              쌍 1116/1182/450 (2026-09-21 전면 재작성)
   build_rollout2_index.py     RollOut_v2 인덱스 — 라벨은 metadata 가 아니라 plan 에서 (검증 15항목)
   build_probe_imp_index.py    불가능 변이를 probing 대상으로 여는 인덱스
   build_ek100_resized.py      EPIC-KITCHENS 비디오 짧은변 256 -> 가운데 256x256, 프레임을 N/fps 로 재번호해 원본 decord 인덱스와 1:1 (파일마다 프레임 수 대조) -> /data2/local_datasets/EPIC-KITCHENS_resized (vll5 에서 확인)
@@ -51,6 +56,12 @@ figures/        논문 그림. 전부 산출물에서 재계산해 summary.json 
   plot_ctxenc_direction.py  실험 6 그림: 좌/우 방향 혼동행렬 4 개 (데이터셋 2 x 정방향·역재생) + probe 별 요약 막대 → context_encoder_analysis/figures/encoder_temporal_dynamics/ (2026-09-20)
 
 analysis/       산출물·토큰 캐시 기반 분석. **전부 GPU 불필요**
+  check_oracle.py             **Garrido 하네스 기준값 검사.** IntPhys1 dev x ViT-H = 88.89 (skip2_w32,
+                              Filtered, 160/180). config 격자·창별 모델 생성·하네스 값·per_window 독립 재계산까지
+                              29 항목. **하네스/config/로더를 건드리면 이것부터 돌린다** (2026-09-21)
+  garrido_rescore.py          공식 축약 규칙으로 **재실행 없이 다시 채점**. IntPhys=Filtered(min),
+                              GRASP·InfLevel=property 마다 최고 C. 창 16/32 실행을 합쳐 A.8 최고를 고른다 (2026-09-21)
+  bench_table.py              위 재채점 결과로 z_research/Benchmarks/README.md §4 표를 생성 (--readme) (2026-09-21)
   report.py                   summary.json 검증 -> report.json (그림·문서의 단일 입력)
   merge_probe_runs.py         쪼개서 제출한 probing job 을 합침. val_video_ids 가 다르면 죽는다
   probing_md.py               RESULTS_*.md 의 probing 절(표 G-J)을 재생성

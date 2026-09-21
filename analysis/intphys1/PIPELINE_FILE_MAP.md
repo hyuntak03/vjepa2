@@ -28,10 +28,10 @@ L0 acc 이 예상보다 높은 이유 등 debug 시 참고용. 실행 흐름 순
 
 | 파일 | 상태 |
 |---|---|
-| `configs/analysis/probing/intphys1_vitl_5fold_appb.yaml` | Template (placeholders `__TAG__`, `__TRAIN_CSV__`, `__VAL_CSV__`) |
-| `configs/analysis/probing/intphys1_vitl_5fold_c11.yaml` | Template |
-| `configs/analysis/probing/intphys1_vitl_5fold_appb_debug_f0.yaml` | **Fold 0 사전 치환됨** (debug 용) |
-| `configs/analysis/probing/intphys1_vitl_5fold_c11_debug_f0.yaml` | **Fold 0 사전 치환됨** (debug 용) |
+| `configs/_archive/probing/intphys1_vitl_5fold_appb.yaml` | Template (placeholders `__TAG__`, `__TRAIN_CSV__`, `__VAL_CSV__`) |
+| `configs/_archive/probing/intphys1_vitl_5fold_c11.yaml` | Template |
+| `configs/_archive/probing/intphys1_vitl_5fold_appb_debug_f0.yaml` | **Fold 0 사전 치환됨** (debug 용) |
+| `configs/_archive/probing/intphys1_vitl_5fold_c11_debug_f0.yaml` | **Fold 0 사전 치환됨** (debug 용) |
 
 ## 3. Data pipeline
 
@@ -144,7 +144,7 @@ else:
 
 ## 7. Output directories (per-fold)
 
-기본 folder = `configs/analysis/probing/logs/analysis_vlm/`
+기본 folder = `configs/_archive/probing/logs/analysis_vlm/`
 
 | Tag | 내용 |
 |---|---|
@@ -212,3 +212,7 @@ else:
 2. **cache**: `evals/analysis_vlm/cache.py::PooledLinearProbe.forward` — probe 자체
 3. **eval loop**: `evals/analysis_vlm/eval.py::run_one_epoch` — head wiring, loss, acc
 4. **dataset**: `src/datasets/video_dataset.py::loadvideo_decord` — keystone / sampling 확인
+
+
+---
+⚠️ **2026-09-21 경로 정정.** `configs/analysis/probing/` 은 `configs/_archive/probing/` 으로 내려갔다 (`configs/README.md`). 그 안에 남은 것은 `intphys1_vitl.yaml` 하나이고, 이 문서가 부르는 `*_5fold_*.yaml` 은 **레포에 존재하지 않는다** — 그때 실행에 쓴 config 는 산출물의 `summary.json` 안에 통째로 들어 있다.

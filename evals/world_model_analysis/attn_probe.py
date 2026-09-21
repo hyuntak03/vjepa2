@@ -15,7 +15,7 @@
   z 낮음                 -> 애초에 문맥 표현에 정보가 안 들어갔다
   p 높은데 surprise 실패 -> 정보는 있는데 전역 mean-token L1 채점이 못 쓴다
 
-  bash z_scripts/world_model_analysis/run_attn_probe.sh attn_probe_v8_vith
+  GPUS=8 bash z_research/scripts/run.sh attn_probe v8 vith
 """
 
 import argparse

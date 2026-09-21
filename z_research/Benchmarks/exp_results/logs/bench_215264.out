@@ -1,8 +1,0 @@
-job 215264  host vll3  Mon 21 Sep 2026 04:49:30 AM KST
-BENCHES=inflevel_solidity  MODELS=vjepa21g videomae2g  GPUS=6
-=== inflevel_solidity / vjepa21g  (04:49:30)
-   [wma] [surprise] BEST(avg) = skip10_w16/avg 0.5167
-=== inflevel_solidity / videomae2g  (05:08:28)
-   [wma] [surprise] BEST(avg) = skip10_w16/avg 0.4889
-=== 끝 05:22:01
-exit=0  Mon 21 Sep 2026 05:22:01 AM KST

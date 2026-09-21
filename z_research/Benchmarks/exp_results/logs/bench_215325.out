@@ -1,8 +1,0 @@
-job 215325  host vll1  Mon 21 Sep 2026 11:21:51 AM KST
-BENCHES=inflevel_continuity inflevel_solidity inflevel_gravity  MODELS=vith  GPUS=8
-=== inflevel_continuity / vith  (11:21:51)
-   [wma] [surprise] BEST(avg) = skip5_w32/avg 0.5773
-=== inflevel_solidity / vith  (13:17:27)
-   [wma] [surprise] BEST(avg) = skip5_w32/avg 0.5044
-=== inflevel_gravity / vith  (13:50:47)
-slurmstepd: error: *** JOB 215325 ON vll1 CANCELLED AT 2026-09-21T14:35:59 ***

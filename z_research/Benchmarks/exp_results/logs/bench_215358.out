@@ -1,4 +1,0 @@
-job 215358  host vll3  Mon 21 Sep 2026 12:38:52 PM KST
-BENCHES=inflevel_gravity inflevel_solidity  MODELS=vjepa21g  GPUS=6
-=== inflevel_gravity / vjepa21g  (12:38:52)
-slurmstepd: error: *** JOB 215358 ON vll3 CANCELLED AT 2026-09-21T14:35:59 ***

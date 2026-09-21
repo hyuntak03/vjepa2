@@ -317,7 +317,7 @@ def load_intphys1_metadata(root: str) -> pd.DataFrame:
     # videos being aligned at the pixel level").
     #
     # The correct pair ids for our copy of the data are precomputed into index.csv by
-    #     z_scripts/world_model_analysis/build_intphys1_pairs.py
+    #     z_research/scripts/data/build_intphys1_pairs.py
     # (which uses prefix similarity rather than exact equality, because our mp4 copy is
     #  lossily re-encoded; 90/90 quadruplets validate as 1 possible + 1 impossible).
     # Sorting by run index disagrees with that pairing on a substantial fraction of
@@ -335,7 +335,7 @@ def load_intphys1_metadata(root: str) -> pd.DataFrame:
         return out
 
     # PREFERRED: read the breaking-point-derived pair_id from index.csv if it is there.
-    # That file is produced by z_scripts/world_model_analysis/build_intphys1_pairs.py and
+    # That file is produced by z_research/scripts/data/build_intphys1_pairs.py and
     # implements the official rule; the run-sorting fallback below does NOT.
     idx_path = os.path.join(root, "index.csv")
     pair_from_index = None
@@ -350,7 +350,7 @@ def load_intphys1_metadata(root: str) -> pd.DataFrame:
         df["pair_id"] = df.groupby("scene_index", group_keys=False).apply(_assign_pair_ids)
         logger.warning(
             "IntPhys1 pair_id 를 run 번호 정렬로 만들었다. 이건 공식 get_matches 와 다르다. "
-            "z_scripts/world_model_analysis/build_intphys1_pairs.py 로 index.csv 를 만들고 "
+            "z_research/scripts/data/build_intphys1_pairs.py 로 index.csv 를 만들고 "
             "data.root 를 그 디렉터리로 잡을 것.")
     # Fill IntPhys2-compatible metadata columns so eval.py's breakdown code just works.
     #   condition   -> IntPhys1 block (O1/O2/O3)  (analogous to IntPhys2's physical principle)

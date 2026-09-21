@@ -1,3 +1,5 @@
+> 정본은 `analysis/intphys2/README.md` (프로토콜·실행·채점). 이 문서는 분석 메모다.
+
 # IntPhys 1 vs IntPhys 2 — analysis notes (V-JEPA 2 ViT-L / ViT-H)
 
 Live-updated during the investigation. Sections at the top are the current TL;DR;
@@ -139,7 +141,7 @@ The audit workflow (5 lenses × ~5 min each on Opus) identified 9 confirmed defe
 Two remaining findings (#4 dual_encoder, #6 grid) not yet applied.
 
 **T7 - IntPhys 1 dev, V-JEPA 2 ViT-L, with fixes #1-#3, #5 applied:**
-- `configs/analysis/intphys2/vjepa2_vitl_intphys1_dev_fps15.yaml` + new DEFAULT_CFG defaults
+- `analysis/intphys2/configs/_superseded/vjepa2_vitl_intphys1_dev_fps15.yaml` + new DEFAULT_CFG defaults
   (mask_index=0, context_forward_mode=masked, evaluation.pairing=type_matched auto-selected).
 - **Overall pairwise = 58.89%** at best C=8 (up from 46.4% pre-fix; +12.5 pt).
 - AUROC = 0.5122. Per-block breakdown 55-61% -- all above chance, no O3-collapse.

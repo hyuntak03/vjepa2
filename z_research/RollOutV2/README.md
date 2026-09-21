@@ -133,14 +133,14 @@ flat_d 슬롯 0 은 가장 빠른데 (13.8 px/튜블릿) 오차가 가장 작고
 | 파일 | 역할 |
 |---|---|
 | `data/build_rollout2_index.py` | v2 / training_v5 index (plan 에서 라벨, `visible_by_sample`) |
-| `analysis/rollout2_test_readout.py` | 공통 설정 (`ROLLOUT2_TRAIN=v5`, 경로, 지표 함수) |
-| `analysis/rollout2_attn_readout.py` | p 자 학습·v2 test (`--holdout 0.5` 로 검증 A). GPU 2 장 샤딩 |
-| `analysis/rollout2_encoder_readout.py` | 같은 자를 z / h 에 (`--encoder z\|h`) |
-| `analysis/rollout2_fit_readout.py`, `rollout2_ceiling.py` | spatial OLS 자 (대조) |
-| `analysis/rollout2_two_futures_attn.py` | ledge/wall 슬롯별 attention 질량·기본값 거리 (§4-3) |
-| `analysis/rollout2_probe_pos_imp.py` | pos/imp attentive probe (§4-4) |
-| `analysis/v11_readout_attn_diag.py` | v11 슬롯별 attention 진단 (§5-4 정정) |
-| `analysis/v11_token_object_test.py` | 자 없는 검사 C (§2-3) |
+| `z_research/scripts/analysis/rollout2_test_readout.py` | 공통 설정 (`ROLLOUT2_TRAIN=v5`, 경로, 지표 함수) |
+| `z_research/scripts/analysis/rollout2_attn_readout.py` | p 자 학습·v2 test (`--holdout 0.5` 로 검증 A). GPU 2 장 샤딩 |
+| `z_research/scripts/analysis/rollout2_encoder_readout.py` | 같은 자를 z / h 에 (`--encoder z\|h`) |
+| `z_research/scripts/analysis/rollout2_fit_readout.py`, `rollout2_ceiling.py` | spatial OLS 자 (대조) |
+| `z_research/scripts/analysis/rollout2_two_futures_attn.py` | ledge/wall 슬롯별 attention 질량·기본값 거리 (§4-3) |
+| `z_research/scripts/analysis/rollout2_probe_pos_imp.py` | pos/imp attentive probe (§4-4) |
+| `z_research/scripts/analysis/v11_readout_attn_diag.py` | v11 슬롯별 attention 진단 (§5-4 정정) |
+| `z_research/scripts/analysis/v11_token_object_test.py` | 자 없는 검사 C (§2-3) |
 | `figures/plot_rollout2_readout.py`, `plot_rollout2_summary.py` | v2 overlay·궤적, fig_l2 등 |
 | `figures/plot_v11_vanish_readout.py` | v11 자 적용 (`--rep --motion --timing --k`), GIF·readout.npz |
 | `figures/plot_v11_vanish_timing.py` | timing × k 표·그림 |
@@ -150,8 +150,8 @@ flat_d 슬롯 0 은 가장 빠른데 (13.8 px/튜블릿) 오차가 가장 작고
 | `figures/plot_probe_pos_imp_confusion.py` | probe confusion 2×4 |
 | `figures/plot_rollout2_xy_profile.py` | 운동 9 종 화면 x·y 속도-시간 (기본) / 위치-시간 (`--pos`), 문맥 끝 등속 대조 (§4c) |
 | `figures/plot_rollout2_step_profile.py` | 한 축 사영 걸음 모양 (§4b) |
-| `analysis/rollout2_distance_decay.py` | 거리 × 슬롯: 자 attention + 자 없는 검사 (§4c) |
-| `analysis/rollout2_predictor_locality.py` | predictor attention hook · 공간 반경 knockout · z/h 속도 probe (§4c) |
+| `z_research/scripts/analysis/rollout2_distance_decay.py` | 거리 × 슬롯: 자 attention + 자 없는 검사 (§4c) |
+| `z_research/scripts/analysis/rollout2_predictor_locality.py` | predictor attention hook · 공간 반경 knockout · z/h 속도 probe (§4c) |
 
 ## 6. 재현
 

@@ -289,11 +289,11 @@ setting `start_lr = final_lr = lr`, `final_weight_decay = weight_decay`,
 ## 9. Key file paths (in this repo)
 
 ### Config templates (with `__TAG__`, `__TRAIN_CSV__`, `__VAL_CSV__` placeholders)
-- `configs/analysis/probing/intphys1_vitl_5fold_appb.yaml` (20-HP sweep)
-- `configs/analysis/probing/intphys1_vitl_5fold_c11.yaml` (single HP, Adam-style)
+- `configs/_archive/probing/intphys1_vitl_5fold_appb.yaml` (20-HP sweep)
+- `configs/_archive/probing/intphys1_vitl_5fold_c11.yaml` (single HP, Adam-style)
 
 ### Pre-substituted debug (fold 0)
-- `configs/analysis/probing/intphys1_vitl_5fold_{appb,c11}_debug_f0.yaml`
+- `configs/_archive/probing/intphys1_vitl_5fold_{appb,c11}_debug_f0.yaml`
   (`num_epochs: 3`, `num_workers: 0` for fast debug iteration)
 
 ### Scripts
@@ -367,3 +367,7 @@ these ways that would BREAK reproduction:
    mean.
 
 Every one of these was learned by getting it wrong in an earlier session.
+
+
+---
+⚠️ **2026-09-21 경로 정정.** `configs/analysis/probing/` 은 `configs/_archive/probing/` 으로 내려갔다 (`configs/README.md`). 그 안에 남은 것은 `intphys1_vitl.yaml` 하나이고, 이 문서가 부르는 `*_5fold_*.yaml` 은 **레포에 존재하지 않는다** — 그때 실행에 쓴 config 는 산출물의 `summary.json` 안에 통째로 들어 있다.

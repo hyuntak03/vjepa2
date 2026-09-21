@@ -361,8 +361,8 @@ def score_video(
 
 
 @torch.inference_mode()
-def score_video_batched(
-    video: torch.Tensor,  # (C, T, H, W) float, normalized
+def score_videos_batched(
+    videos,                       # Tensor (C,T,H,W) 하나 또는 그 리스트
     bundle: VJEPA2Bundle,
     *,
     window_size: int,
@@ -372,85 +372,60 @@ def score_video_batched(
     loss_exp: float = 1.0,
     target_layer_norm: bool = True,
     protocol: str = "fixed",
-    max_window_batch: Optional[int] = None,  # cap the # windows encoded in one shot (VRAM)
-    mask_index: int = 0,     # CRITICAL default — only mask_tokens[0] is trained.
-    context_forward_mode: str = "masked",  # masked | sliced -- see fixes doc.
-    autocast_dtype: Optional[torch.dtype] = None,   # None -> run in bundle.dtype as-is
-) -> Dict[int, VideoSurprise]:
-    """Score all sliding windows AND all context lengths with **one encoder forward per window batch**.
+    max_window_batch: Optional[int] = None,
+    mask_index: int = 0,
+    context_forward_mode: str = "masked",
+    autocast_dtype: Optional[torch.dtype] = None,
+):
+    """창을 **영상들에 걸쳐 한 배치로 묶어** 채점한다.
 
-    The encoder output for a window `[w, w+M)` is IDENTICAL across every choice of context length
-    `C` -- only the (mask_ctx, mask_tgt) split fed to the predictor changes. So the naive per-C
-    outer loop wastes ~len(context_lengths)× encoder time. This function shares the encoder pass:
+    Garrido 하네스의 `video_batch` 와 같은 발상이다
+    (`evals/world_model_analysis/eval.py:480-490`):
 
-        1. plan_windows() with the FIRST valid C (all Cs share start positions when protocol=fixed).
-        2. Stack all M-frame windows into a single (W, 3, M, H, W_spatial) batch.
-        3. encoder(clip_batch) -> h_all (W, N_total, D).      # ONE forward
-        4. For each C in `context_lengths`:
-             a. gather z_ctx / h_tgt from the SAME h_all (no re-encode).
-             b. predictor(z_ctx, mask_ctx, mask_tgt) -> z_pred.
-             c. surprise[C][window] = distance(z_pred[window], h_tgt[window]).
-        5. Return a dict {C -> VideoSurprise}.
+        max_batch 만 올려도 소용이 없다. 배치는 같은 (C, M) 모양끼리만 묶이는데
+        그 그룹 크기가 **영상 하나 안에서 이미 고정**이기 때문이다.
+        실제로 키우려면 **영상을 여러 개 겹쳐야** 한다 (모양이 같으니 그냥 쌓인다).
 
-    We also defer `.item()` sync -- distances accumulate on-device and hop to CPU once per video.
-    `max_window_batch` caps how many windows are encoded in one go (VRAM tradeoff); with M=48 and
-    the ViT-L 6144 tokens, a full 4-window batch fits comfortably in a 24 GB card in bf16.
+    IntPhys 2 는 6fps 에서 영상이 64~72 프레임이라 영상당 창이
+    w16 ~27 / w32 ~19 / **w48 ~11** 개뿐이다. w48 은 `max_window_batch` 를 아무리 올려도
+    11 에서 막히므로 영상을 쌓는 것 말고는 배치를 키울 방법이 없다. (2026-09-22 이식)
+
+    입력이 Tensor 하나면 dict 를, 리스트면 dict 의 리스트를 돌려준다.
+    수치는 영상 하나씩 돌던 때와 같아야 한다 — 배치 차원만 늘어난다.
     """
-    assert video.ndim == 4 and video.size(0) == 3, f"expected (3,T,H,W), got {tuple(video.shape)}"
-    if not context_lengths:
-        return {}
-    device, dtype = bundle.device, bundle.dtype
-    T_total = video.size(1)
+    single = isinstance(videos, torch.Tensor)
+    vids_in = [videos] if single else list(videos)
 
-    # All Cs share the SAME window LAYOUT (start, end) for full-M windows; the C only affects
-    # WHERE the context/target boundary sits inside a window. So window starts are C-independent
-    # for the fixed protocol -- BUT the short-video fallback in plan_windows() is C-sensitive
-    # (it returns [] when n_frames <= C). Plan with the SMALLEST C in the sweep so we don't
-    # spuriously drop windows that other Cs would still support (review-found bug).
+    device = bundle.device
+    dtype = bundle.dtype
+    vids = [v.to(device=device, dtype=dtype, non_blocking=True) for v in vids_in]
+
     C_min = min(int(c) for c in context_lengths)
-    windows = plan_windows(
-        n_frames=T_total,
-        window_size=window_size,
-        context_length=C_min,
-        stride=stride,
-        tubelet_size=bundle.tubelet_size,
-        protocol=protocol,
-    )
-    if not windows:
-        empty = VideoSurprise(
-            window_starts=np.zeros(0, dtype=np.int64),
-            window_context_lengths=np.zeros(0, dtype=np.int64),
-            surprise=np.zeros(0, dtype=np.float32),
-            context_length=context_lengths[0],
-        )
-        return {C: empty for C in context_lengths}
+    plans = [plan_windows(n_frames=v.size(1), window_size=window_size, context_length=C_min,
+                          stride=stride, tubelet_size=bundle.tubelet_size, protocol=protocol)
+             for v in vids]
 
-    # Fast path only handles full-M windows -- short-video single-window falls back to per-C loop.
-    if any(w.window_size != window_size for w in windows):
-        return {
-            C: score_video(
-                video, bundle,
-                window_size=window_size, context_length=C, stride=stride,
-                distance=distance, loss_exp=loss_exp,
-                target_layer_norm=target_layer_norm, protocol=protocol,
-                mask_index=mask_index,   # else the fallback silently ignores the config
-            )
-            for C in context_lengths
-        }
-
-    video = video.to(device=device, dtype=dtype, non_blocking=True)
-
-    # Official Garrido/IntPhys2 numerics keep fp32 weights and autocast the forward
-    # (evals/intuitive_physics/eval.py:437). Pass autocast_dtype=torch.float16 together
-    # with model.dtype=float32 to match; leave None for the old whole-graph-cast path.
+    # 창이 없거나 M 보다 짧은 영상은 **기존 단일 경로**로 따로 처리한다.
+    slow = [i for i, ws in enumerate(plans)
+            if (not ws) or any(w.window_size != window_size for w in ws)]
+    fast = [i for i in range(len(vids)) if i not in set(slow)]
+    results = [None] * len(vids)
+    for i in slow:
+        results[i] = _score_one_video_fallback(
+            vids[i], bundle, window_size=window_size, context_lengths=context_lengths,
+            stride=stride, distance=distance, loss_exp=loss_exp,
+            target_layer_norm=target_layer_norm, protocol=protocol, mask_index=mask_index)
+    if not fast:
+        return results[0] if single else results
     def _ac():
         return (torch.autocast("cuda", dtype=autocast_dtype) if autocast_dtype
                 else contextlib.nullcontext())
 
     # Stack windows as a real minibatch through the encoder.
     #   clip_batch : (W, 3, M, H, W_sp)
-    def _stack(windows_chunk):
-        return torch.stack([video[:, w.start : w.end] for w in windows_chunk], dim=0)
+    def _stack(pairs):
+        # pairs: [(영상 인덱스, WindowSpec)] -- 영상이 달라도 창 모양이 같아 그냥 쌓인다
+        return torch.stack([vids[vi][:, w.start : w.end] for vi, w in pairs], dim=0)
 
     # Two independent axes (audit findings #3, #4):
     #  (A) dual_encoder (from `bundle`): whether context and target encoders share weights
@@ -474,10 +449,12 @@ def score_video_batched(
     tub = bundle.tubelet_size
 
     # If max_window_batch is set, chunk the windows to bound VRAM. Otherwise do them all at once.
-    if max_window_batch is None or max_window_batch >= len(windows):
-        chunks = [windows]
+    # **영상을 가로질러** 평탄화한 뒤 잘라서, 창이 적은 영상도 배치를 채운다.
+    flat = [(vi, w) for vi in fast for w in plans[vi]]
+    if max_window_batch is None or max_window_batch >= len(flat):
+        chunks = [flat]
     else:
-        chunks = [windows[i : i + max_window_batch] for i in range(0, len(windows), max_window_batch)]
+        chunks = [flat[i : i + max_window_batch] for i in range(0, len(flat), max_window_batch)]
 
     # ---- growing-context prefix (paper Fig 8B == official `max_context_mode`) ------
     # For every C in the sweep the paper ALSO predicts window 0 with each SMALLER
@@ -554,50 +531,77 @@ def score_video_batched(
     # Accumulate per-C, per-window distances as on-device scalars; single .cpu() at the end.
     per_C_surprise_gpu: Dict[int, List[torch.Tensor]] = {int(C): [] for C in context_lengths}
 
+
+    per_C_surprise_gpu: Dict[int, List[torch.Tensor]] = {int(C): [] for C in context_lengths}
     for chunk in chunks:
-        clip_batch = _stack(chunk)  # (Wc, 3, M, H, W_sp)
-        # ---- 1 target-encoder forward for the entire chunk (always) ---------------
+        clip_batch = _stack(chunk)                       # (Wc, 3, M, H, W)
         with _ac():
-            h_all = target_encoder(clip_batch)  # (Wc, N_total, D)
+            h_all = target_encoder(clip_batch)           # 청크마다 target forward 1 회
         if isinstance(h_all, list):
             h_all = h_all[-1]
-
-        # ---- per-C predictor forwards ---------------------------------------------
         for C in context_lengths:
             per_C_surprise_gpu[int(C)].append(_window_distances(clip_batch, h_all, int(C)))
 
-    # ---- growing prefix: window 0 only, one entry per distinct smaller context -----
+    # growing prefix: 각 영상의 **창 0** 을 한 배치로 묶어 C' 마다 1 회씩
     prefix_gpu: Dict[int, torch.Tensor] = {}
     if prefix_Cs:
-        clip0 = _stack(windows[:1])                      # (1, 3, M, H, W_sp)
+        clip0 = _stack([(vi, plans[vi][0]) for vi in fast])   # (V, 3, M, H, W)
         with _ac():
             h0 = target_encoder(clip0)
         if isinstance(h0, list):
             h0 = h0[-1]
         for c in prefix_Cs:
-            prefix_gpu[c] = _window_distances(clip0, h0, c)   # (1,)
+            prefix_gpu[c] = _window_distances(clip0, h0, c)   # (V,)
 
-    # ---- single sync per video --------------------------------------------------
-    starts_np = np.asarray([w.start for w in windows], dtype=np.int64)
-    out: Dict[int, VideoSurprise] = {}
-    for C in context_lengths:
-        C = int(C)
-        pre = prefix_of[C]
-        # Order matters: the growing entries come FIRST, matching the official
-        # `torch.hstack([loss_beginning, loss])`. It is irrelevant for avg/max but keeps
-        # per-window traces readable as a surprise-over-time curve.
-        parts = [prefix_gpu[c] for c in pre] + per_C_surprise_gpu[C]
-        surprise_np = torch.cat(parts, dim=0).detach().float().cpu().numpy()
-        out[C] = VideoSurprise(
-            window_starts=np.concatenate([np.zeros(len(pre), dtype=np.int64), starts_np]),
-            window_context_lengths=np.concatenate([
-                np.asarray(pre, dtype=np.int64),
-                np.full(len(windows), C, dtype=np.int64),
-            ]),
-            surprise=surprise_np.astype(np.float32),
-            context_length=C,
-        )
-    return out
+    # ---- 영상별로 되돌린다 (동기화 1 회) ----------------------------------------
+    counts = [len(plans[vi]) for vi in fast]
+    offs = np.cumsum([0] + counts)
+    cat_C = {int(C): torch.cat(per_C_surprise_gpu[int(C)], dim=0).detach().float().cpu().numpy()
+             for C in context_lengths}
+    pre_np = {c: prefix_gpu[c].detach().float().cpu().numpy() for c in prefix_Cs}
+    for j, vi in enumerate(fast):
+        starts_np = np.asarray([w.start for w in plans[vi]], dtype=np.int64)
+        out: Dict[int, VideoSurprise] = {}
+        for C in context_lengths:
+            C = int(C)
+            pre = prefix_of[C]
+            # 순서: growing 항목이 먼저다 (공식 `torch.hstack([loss_beginning, loss])`)
+            sur = np.concatenate([np.asarray([pre_np[c][j] for c in pre], dtype=np.float32),
+                                  cat_C[C][offs[j]:offs[j + 1]]])
+            out[C] = VideoSurprise(
+                window_starts=np.concatenate([np.zeros(len(pre), dtype=np.int64), starts_np]),
+                window_context_lengths=np.concatenate([
+                    np.asarray(pre, dtype=np.int64),
+                    np.full(len(starts_np), C, dtype=np.int64)]),
+                surprise=sur.astype(np.float32),
+                context_length=C,
+            )
+        results[vi] = out
+    return results[0] if single else results
+
+
+def _score_one_video_fallback(video, bundle, *, window_size, context_lengths, stride,
+                              distance, loss_exp, target_layer_norm, protocol, mask_index):
+    """창이 없거나 M 보다 짧은 영상 — per-C 단일 경로 (기존 동작 그대로)."""
+    ws = plan_windows(n_frames=video.size(1), window_size=window_size,
+                      context_length=min(int(c) for c in context_lengths),
+                      stride=stride, tubelet_size=bundle.tubelet_size, protocol=protocol)
+    if not ws:
+        empty = VideoSurprise(window_starts=np.zeros(0, dtype=np.int64),
+                              window_context_lengths=np.zeros(0, dtype=np.int64),
+                              surprise=np.zeros(0, dtype=np.float32),
+                              context_length=int(context_lengths[0]))
+        return {int(C): empty for C in context_lengths}
+    return {int(C): score_video(video, bundle, window_size=window_size, context_length=int(C),
+                                stride=stride, distance=distance, loss_exp=loss_exp,
+                                target_layer_norm=target_layer_norm, protocol=protocol,
+                                mask_index=mask_index)
+            for C in context_lengths}
+
+
+def score_video_batched(video: torch.Tensor, bundle: VJEPA2Bundle, **kw) -> Dict[int, VideoSurprise]:
+    """영상 하나. `score_videos_batched` 의 얇은 래퍼다 (구현은 하나만 둔다)."""
+    return score_videos_batched(video, bundle, **kw)
 
 
 # --------------------------- context sweep (legacy per-C loop) ---------------

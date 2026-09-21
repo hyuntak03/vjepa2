@@ -1,7 +1,14 @@
+> ⚠️ **대체됨 (2026-09-21).** 정본은 `analysis/intphys2/README.md` 다.
+> 이 문서 이후에 확정된 것: ① 지표는 **쌍 비교 AvgSurprise 하나** (Max 철회)
+> ② C = 창 × {¼…⅞} (공식 config 두 개가 같은 비율)  ③ 창 격자 16/32/48 (D.3)
+> ④ 쌍은 `type` 컬럼의 번호가 정한다 (2×2 cross 아님)
+> ⑤ 공식 `ComputeScoreIntPhys2.ipynb` 는 **MLLM 단일영상용**이라 예측 모델 채점에 안 쓰인다
+> (이 문서에 "정확도 계산 코드 미공개" 라고 쓴 것은 그런 뜻이다).
+
 # IntPhys 2 슬라이딩 창 채점 — 논문 · 공식 코드 · 우리 구현 대조 (2026-09-14 대조, 2026-09-19 문서화)
 
 > 대조 대상: 논문 PDF "IntPhys 2 — Benchmarking Intuitive Physics Understanding In Complex Synthetic Environments",
-> 공식 레포 `/data/hyuntak/project/2026/2027_cvpr/IntPhys2` (`prediction_evals/` 등), 우리 config `configs/analysis/intphys2/vjepa2_vith_intphys2_main.yaml`
+> 공식 레포 `/data/hyuntak/project/2026/2027_cvpr/IntPhys2` (`prediction_evals/` 등), 우리 config `analysis/intphys2/configs/vjepa2_vith_intphys2_main.yaml`
 > + `analysis/intphys2/`. 대조는 2026-09-14 세션에서 했고 이 문서는 그 기록을 옮긴 것이다 (재실행 안 함).
 > 2026-09-19 에 config 를 다시 열어 "고칠 곳" 이 **아직 반영되지 않았음** (`model.dtype: bfloat16`, 84 행) 을 확인했다.
 
@@ -63,4 +70,4 @@
 
 대조는 코드 읽기 + 소규모 수치 검사였다. RoPE 비교 (v11 clip 2 개, CPU) 는 스크립트로 남기지 않았다 — 다시 하려면
 `src/models/utils/modules.py` 의 `rotate_queries_or_keys` 와 공식 레포의 RoPE 를 같은 predictor 가중치에 넣고 `surprise_c16t32` 와 같은 L1 을 비교한다.
-config: `configs/analysis/intphys2/vjepa2_vith_intphys2_main.yaml`. 공식 레포: `/data/hyuntak/project/2026/2027_cvpr/IntPhys2`.
+config: `analysis/intphys2/configs/vjepa2_vith_intphys2_main.yaml`. 공식 레포: `/data/hyuntak/project/2026/2027_cvpr/IntPhys2`.

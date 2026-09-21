@@ -387,9 +387,9 @@ python z_research/scripts/analysis/report.py \
 # 전수 기록 절 재생성
 python z_research/scripts/analysis/timing_md.py --write
 
-python z_research/scripts/figures/plot_v11_occtiming.py \
+python z_research/scripts/figures/plot_v11_timing.py \
   --report z_research/IntPhysGenV11_occlusion_timing_ablation/exp_results/report.json \
-  --outdir z_research/IntPhysGenV11_occlusion_timing_ablation/figures/surprise
+  --outdir z_research/IntPhysGenV11_occlusion_timing_ablation/figures/01_scoring
 ```
 
 ```bash
