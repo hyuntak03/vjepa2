@@ -1,0 +1,102 @@
+# RollOutV3 다시 돌리기 — **자(decoder)를 새로 학습했을 때** 무엇을 어느 순서로
+
+> 2026-09-24. 사용자가 **자의 학습셋을 다시 만들어** 주기로 했다. 그때 이 순서대로 돌리면
+> 지금까지의 결과가 전부 새 자 기준으로 다시 나온다.
+
+`P=/data/hyuntak/anaconda3/envs/vjepa2/bin/python` · 작업 디렉터리는 레포 루트.
+
+## 0. 먼저 알아야 할 것 — **읽은 값에 자가 구워져 있다**
+
+`exp_results/windows/readings.npz` 는 특징이 아니라 **자가 읽어 낸 좌표·presence** 다
+(특징을 다 두면 수백 GB 라 그렇게 만들었다). 따라서 **자가 바뀌면 3 단계를 통째로 다시 돌려야 한다.**
+그 대신 3 단계가 21~45 분이면 끝난다.
+
+문턱값은 **스크립트에 없다.** 전부 `exp_results/presence/summary.json` 의 `thr_val_fpr5` 를 읽는다
+(2026-09-24 에 하드코딩을 걷어냈다 — 안 그러면 새 자를 쓰면서 옛 문턱으로 조용히 그려진다).
+좌표 치우침도 마찬가지로 `attn_bias_px.json` 을 읽는다.
+
+## 1. 자 학습 — 새 학습셋
+
+```bash
+# (a) 인덱스 — 2026-09-24 합본 14,360 clip. 라벨은 metadata (거울상 블록의 계획 x 부호가 반대라서)
+$P z_research/scripts/data/build_rollout2_index.py --set training_v8 --write
+
+# (b) 학습 (vll5, GPU 8 장). 특징 210 GB 를 /data2 디스크에 둔다 (재사용 가능, 자동 삭제 안 함)
+#     추출 ~20 분 (스레드 선읽기) + 표현 셋 x 300 epoch
+$P z_research/scripts/analysis/rollout2_presence_readout.py --set training_v8 \
+    --feat-dir /data2/local_datasets/world/world_analysis/cache/rollout2_training_v8_feats --gpus 8
+#   특징이 이미 있으면:  ... --skip-extract
+#   가중치 대조:        ... --no-weights   (cell_weight / balance_weight 끔)
+#   배관 점검:          $P z_research/scripts/analysis/rollout2_presence_readout.py --limit 16 --epochs 3 --gpus 1 --reps p
+```
+
+⚠️ **학습셋이 바뀌면 로더 계약도 바뀐다** (2026-09-24, training_v8). 데이터 README §3 이 정본이다 —
+구조물 속 샘플은 **제외** (음성 아님), 가중치 `cell_weight_by_sample` (좌표) · `balance_weight` (둘 다).
+
+
+산출물 → `exp_results/presence/{summary.json, {p,z,h}/{readout_attn.pt, preds_attn.npz}}`
+⚠️ **지금 자를 덮어쓴다.** 비교하려면 먼저 `exp_results/presence` 를 `presence_YYYYMMDD` 로 옮겨 둘 것.
+
+## 한 방에 (2026-09-24) — 2~4 단계를 전부
+
+```bash
+R3_OUT=training_v8 bash z_research/scripts/analysis/rollout3_rerun.sh      # 약 45 분 (GPU 8 장)
+```
+`R3_OUT` 은 **반드시** 준다 — 새 결과가 `exp_results/windows_<R3_OUT>/` · `figures/<R3_OUT>/` 로 가고 옛 결과는 제자리에 남는다.
+경로는 `z_research/scripts/analysis/rollout3_paths.py` 한 곳에서 정한다 (`R3_DECODER` 로 자 폴더도 고른다).
+⚠️ **`readings.npz` 에 자 지문이 실리고, 그림·표 스크립트는 지문이 다르면 죽는다** — 옛 읽은 값에 새 문턱을 거는 사고를 막는다.
+
+## 2. 자의 정밀도 + 치우침
+
+```bash
+$P z_research/scripts/analysis/presence_readout_compare.py            # 존재/좌표 오류 표 → COMPARE.md
+$P z_research/scripts/analysis/presence_readout_compare.py --bias     # → attn_bias_px.json   ★ 3 단계 전에 필수
+```
+
+## 3. v3 16 창 다시 읽기 — **자가 바뀌면 필수**
+
+```bash
+$P z_research/scripts/data/build_rollout3_index.py --write            # 인덱스가 없을 때만
+$P z_research/scripts/analysis/rollout3_window_readout.py --reps p z h --gpus 8
+```
+
+- GPU 8 장으로 **p·z·h 약 45 분** (h 만이면 21 분). 창마다 모델을 다시 짓는다 (RoPE 격자)
+- 표현을 나눠 돌리면 `readings.npz` 에 **병합**된다. clip 수가 다르면 병합하지 않는다
+- 임시 파일은 `/dev/shm/rollout3_windows` (10 MB). 끝나면 지워도 된다
+
+## 4. 표와 그림 (전부 CPU, 몇 분)
+
+```bash
+$P z_research/scripts/analysis/rollout3_window_summary.py                     # 자 전이 검증표
+$P z_research/scripts/figures/plot_readout_errorbars.py                       # 학습셋 / v3 / 튜블릿별 recall 3 장 + ERRORS.md
+for c in 4 8 16 32; do for p in 4 8 16 32; do
+  $P z_research/scripts/figures/plot_rollout3_profile.py --ctx $c --prd $p     # 운동 프로필 (행=법칙, 열=x·y·vx·vy)
+  $P z_research/scripts/figures/plot_rollout3_windows.py --ctx $c --prd $p     # x·y·속도·presence (4 행 판)
+done; done
+$P z_research/scripts/figures/plot_rollout3_example_gif.py --reps z p          # z vs p 예시 GIF (GPU 1 장, ~10 분)
+```
+
+**자와 무관해서 다시 안 돌려도 되는 것** — `plot_rollout3_windows_gif.py` (원본 clip 격자 GIF).
+
+## 5. 다시 돌린 뒤 확인할 것 (§0 의 안전장치)
+
+| 확인 | 어디 | 기준 (2026-09-24 값) |
+|---|---|---|
+| 자가 학습셋에서 쓸 만한가 | `figures/readout/ERRORS.md` | (v8) AUROC p 0.986 / z 0.997 / h 0.997 · precision 97.8~98.4 % |
+| **자가 v3 로 전이되나** | `exp_results/windows/WINDOW_SUMMARY.md` | (v8) `z` 16 창 0.42~0.74 칸 · '없다' 0.0~5.7 % / `h` 0.39~0.76 칸 · 0.1~4.1 % |
+| 결론이 그대로인가 | `Archive/RECALL_TUBELET_LIMIT_2026-09-24.md` | `p` 가 t8 근처에서 절벽 · 속도 1.6 배에도 교차 t10 고정 |
+
+⚠️ **`z`·`h` 줄이 1 칸을 넘거나 '없다' 가 크게 오르면 그 창은 판정 불가다** — `p` 도 못 읽는다.
+그때는 결과를 고치지 말고 **자가 그 창에서 깨졌다고 적는다.**
+
+## 6. 지금 값이 무엇으로 나왔는지 (대조군)
+
+| | |
+|---|---|
+| 자 | `attn` (attention pooling + Linear head 2 개, 5,123 파라미터), `training_v8` (14,360 clip) 에서 300 epoch, 가중치 사용 |
+| 문턱 | p **+0.831** · z **−0.662** · h **−0.961** (training_v8 val 음성 5 % 오탐) |
+| 치우침 (px) | p (+11.46, −2.58) · z (−4.49, −8.24) · h (−7.28, −5.08) |
+| v3 | 3,136 clip (가능 2,744), 16 창, 사건 f32 |
+| 모델 | V-JEPA 2 ViT-H, frozen, `configs/protocols/models.md` 의 `vith` |
+
+새 자로 다시 돌리면 **이 표의 문턱·치우침이 전부 바뀐다.** 수치를 인용할 때는 이 표를 같이 인용할 것.

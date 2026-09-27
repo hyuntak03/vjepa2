@@ -377,6 +377,48 @@ variant_column: variant
 plausible_column: plausible
 type_column: condition
 
+## rollout_v2_training_v6
+
+**v5 + 빈 장면 288 clip (2026-09-22).** 8,352 clip = `training_v5` 8,064 + `rollout2_training_empty` 288
+(`empty_flat` 36 / `empty_ledge` 144 / `empty_ramp` 36 / `empty_wall` 72, 배경 4종 균등). 빈 clip 은 **물체만 없고 장면 요소 (선반·쐐기·벽) 는 그대로**다.
+`visible_by_sample` 이 전부 0 이라 위치 손실에서 빠지고 **presence (있음/없음) 자의 음성**이 된다. 물체 clip 의 가려짐·화면 밖 튜블릿 (19.6 %) 도 같은 음성이다.
+index: `build_rollout2_index.py --set training_v6 --write` (plan 3 개). 쓰는 곳: `rollout2_presence_readout.py` (온라인, 디스크 캐시 없음).
+⚠️ **2026-09-24 부터 원천에서 다시 만들 수 없다** — `RollOut_v2_training` 폴더와 metadata 가 합본 14,360 clip 으로 바뀌었고 옛 빈 장면 288 이 빠졌다. 기록은 `data_csv/rollout_v2_training_v6/` 와 특징 옆 사본 `/data2/.../cache/rollout2_training_v6_feats/index_probe_training_v6.csv` 뿐이다. 새 세트는 `rollout_v2_training_v8`.
+
+raw_frames: 100
+cache_tag: rollout_v2_training_v6
+results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/RollOutV2/exp_results/v6
+root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/rollout_v2_training_v6
+frames_root: /local_datasets/world/world_analysis/RollOut_v2_training
+frames_pattern: "{file_name}/{frame:06d}.png"
+index_csv: index.csv
+frames_start: 0
+frames_stride: 3
+block_column: block_id
+
+## rollout_v2_training_v8
+
+**`RollOut_v2_training` 합본 (2026-09-24), 14,360 clip.** = v5 4,480 + props 3,584 + 증축 6,296
+(구조물 `ledge_*`/`wedge_*`/`wall_*` × 운동 4 종 **물체가 있는** clip 4,032 · 화면 끝 `edge_l*`/`edge_r*`/`edge_t*` 1,344 · 빈 장면 `empty` 920).
+데이터 쪽 이름은 "v6 증축" 이지만 인덱스 `training_v6` 이 이미 (v5 + 옛 빈 장면 288) 을 가리키므로 **v8** 로 둔다 (사용자 명명 2026-09-24 — RollOutV3 의 지금 자). README: `/data2/.../RollOut_v2_training/README.md`.
+증축의 목적: 옛 세트는 구조물이 **물체 없는 clip 에만** 있어서 presence 자가 "구조물 = 없음" 을 배웠다 (v3 ledge/ramp/wall recall 81~85 % vs 평면 97~98 %).
+⚠️ **라벨은 metadata 에서 읽는다** — 새 계획의 거울상 2,688 블록은 x 부호가 반대다 (계획을 카메라 축으로 뒤집으면 metadata 와 0.050 cm).
+⚠️ **구조물 속 샘플 (`scenery_intersects_by_sample`) 은 화면 안팎과 무관하게 제외** — 안 빼면 양성 9,022 · 음성 4,095 튜블릿이 오염된다.
+가중치 `cell_weight_by_sample` (좌표 손실) · `balance_weight` (두 손실) 를 인덱스에 싣고 학습이 쓴다 (`--no-weights` 로 끈다).
+미래 8 튜블릿 라벨: 양성 72,907 · 음성 26,664 (빈 장면 7,360) · 제외 15,309.
+index: `build_rollout2_index.py --set training_v8 --write`. 쓰는 곳: `rollout2_presence_readout.py --set training_v8` (기본값).
+특징 캐시 (p·z·h, 210 GB): `/data2/local_datasets/world/world_analysis/cache/rollout2_training_v8_feats`.
+
+raw_frames: 100
+cache_tag: rollout_v2_training_v8
+root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/rollout_v2_training_v8
+frames_root: /local_datasets/world/world_analysis/RollOut_v2_training
+frames_pattern: "{file_name}/{frame:06d}.png"
+index_csv: index.csv
+frames_start: 0
+frames_stride: 3
+block_column: block_id
+
 ## v11_vanish_all
 
 **v11 vanish 의 가능(pos_a) 클립 전부 — 위치 readout 의 v11 전수 검증용.** 2,688 clip = visible 3 조건 × 224 (k=0)

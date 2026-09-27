@@ -56,6 +56,10 @@ figures/        논문 그림. 전부 산출물에서 재계산해 summary.json 
   plot_ctxenc_direction.py  실험 6 그림: 좌/우 방향 혼동행렬 4 개 (데이터셋 2 x 정방향·역재생) + probe 별 요약 막대 → context_encoder_analysis/figures/encoder_temporal_dynamics/ (2026-09-20)
 
 analysis/       산출물·토큰 캐시 기반 분석. **전부 GPU 불필요**
+  check_prefix_predictor.py   **`kind: prefix` predictor 구조 검사** (Ariel block-causal 체크포인트).
+                              mask 의미 + **인과 불변**(미래 slot 을 잘라도 앞 slot 출력 불변) +
+                              prefix vs default 출력 차. 모델 로드 없음, 난수 문맥. 시작점
+                              `z_training/ariel/README.md` (2026-09-23)
   check_oracle.py             **Garrido 하네스 기준값 검사.** IntPhys1 dev x ViT-H = 88.89 (skip2_w32,
                               Filtered, 160/180). config 격자·창별 모델 생성·하네스 값·per_window 독립 재계산까지
                               29 항목. **하네스/config/로더를 건드리면 이것부터 돌린다** (2026-09-21)
@@ -90,6 +94,17 @@ analysis/       산출물·토큰 캐시 기반 분석. **전부 GPU 불필요**
   ctxenc_state_subspaces_v11.py  같은 것을 v11 정체성·가림막·시각 서명으로 (스크립트만, 미실행)
   ctxenc_direction_probe.py   실제 영상 (ssv2_VP · ntu_direction) 에서 문맥 encoder 의 좌/우 운동 방향 — 균등 32 장 → attentive probe 를 **정방향으로만** 학습하고 **역재생** clip 으로 시험 (뒤집힘 비율 = 라벨 없는 검사). 캐시 없음 → context_encoder_analysis/exp_results/encoder_temporal_dynamics/ (2026-09-20)
   ctxenc_direction_sbatch.sh  위 스크립트의 SLURM 런처 (vll3, GPU 1 장; 영상이 그 노드의 /local_datasets 에 있다). ANA_RUN=1 로 자기제출 방지
+  rollout2_presence_readout.py  위치 + **있음/없음 (presence)** 을 같이 내는 자 (**attn** 하나로 확정, 2026-09-23) — RollOut_v2_training v6 (빈 장면 288 clip) 로, 디스크 캐시 없이 /dev/shm 에 p·z·h 를 뽑아 학습 → RollOutV3/exp_results/presence/. 기각한 후보 6 종은 RollOutV3/Archive/READOUT_CHOICE_2026-09-23.md
+  rollout2_presence_sbatch.sh   위 스크립트의 SLURM 런처 (vll5 8 GPU, /dev/shm 122 GB, 죽어도 지우는 trap). ANA_RUN=1 로 자기제출 방지
+  presence_readout_compare.py   위 자의 **존재 판정 오류와 좌표 오류를 따로, 그리고 교차해서** 본다. `--bias` 는 attn 의 좌표 치우침을 v6 test 에서 재어 attn_bias_px.json 에 남긴다 (쓰는 쪽이 빼는 값)
+  rollout3_window_readout.py    RollOut_v3 **16 개 (문맥, 예측) 창**에서 p·z·h 의 위치·존재를 읽는다. 창마다 모델을 다시 짓는다 (window_size → RoPE 격자) → RollOutV3/exp_results/windows/readings.npz (2026-09-23)
+  plot_readout_errorbars.py     (figures/) 자의 존재 판정·위치 오차를 v6 / v3 / 튜블릿별 recall 세 장으로 + ERRORS.md
+  rollout3_paths.py             RollOutV3 경로·자 지문을 **한 곳에서** (R3_DECODER / R3_OUT). readings 는 지문이 다르면 check() 가 막는다
+  rollout3_rerun.sh             자를 새로 배운 뒤 v3 결과 전부를 다시 (치우침 → 16 창 → 표 → 그림 → GIF). R3_OUT 필수
+  rollout3_behavior_metrics.py  predictor 행동 성적표 초안 (H · T50 · F · s · g + z 로 자 검증). 지표 확정 전 → exp_results/windows/BEHAVIOR.md
+  rollout3_decoder_compare.py   같은 v3 에서 옛 자 vs 새 자 (각자 자기 문턱·치우침) → exp_results/<새 readings>/DECODER_COMPARE.md
+  rollout3_cross_head.py        남의 자를 p 에 걸어 본다 (이식) — '자가 고장 났나' 를 가른다 → windows*/CROSS_HEAD.md
+  rollout3_window_summary.py    위 읽은 값으로 **자가 그 창에 전이됐는지** 표를 낸다 (z·h 가 자의 천장, v3 는 음성 0 개라 '없다' 비율이 곧 오작동률) → windows/WINDOW_SUMMARY.md
   pft_ruler_direct.py         post-FT / 릴리즈 predictor 를 캐시 없이 forward 해 p 에 v5 위치 자를 건다 (RollOut_v2 + v11 vanish) → predictor_training/predictor_IntPhysGenV11_PFT/exp_results/
   alpha_amplify.py            증폭 개입의 천장 (--anchor mu|z).  기각된 개입 (천장 51~65%)
   concept_separability.py     Fisher / ridge / 개념 벡터 정렬 (--align)

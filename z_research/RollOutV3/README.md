@@ -1,0 +1,159 @@
+# RollOutV3 — `RollOut_v3` 세트와 **attn 자** (시작점)
+
+> **마지막 갱신 2026-09-24 · 바뀐 것 3 줄**
+> 1. **자를 `training_v8` 로 다시 배웠고 결과를 전부 그 자로 정리했다** — 14,360 clip (구조물 clip 에 **물체가 있다**). 그림·표·읽은 값이 모두 v8 기준이다 ([`figures/README.md`](figures/README.md)).
+> 2. **행동 결론은 두 자에서 똑같이 나온다** — `p` 는 t8 근처에서 절벽처럼 물체를 놓고, 그 자리는 **튜블릿 수**가 정하며 (속도 1.6 배에도 고정), 매끄럽게 줄지 않고 **깜빡인다**. 정본 [`Archive/RECALL_TUBELET_LIMIT_2026-09-24.md`](Archive/RECALL_TUBELET_LIMIT_2026-09-24.md).
+> 3. **v8 자는 경사면을 고쳤고 위치가 2~3 px 좋아졌지만, 선반의 떨어지는 구간 (t9~t14) 은 못 읽는다** (`ledge` `z` recall 98.6 → 93.9 %). 그 구간은 **판정 불가**로 둔다 (§4-1).
+
+관련: 위치 자의 원본과 v2 결과 [`../RollOutV2/README.md`](../RollOutV2/README.md) · 능력 정의 [`../context_encoder_analysis/Archive/STATE_EVOLUTION_CAPABILITIES_2026-09-19.md`](../context_encoder_analysis/Archive/STATE_EVOLUTION_CAPABILITIES_2026-09-19.md) · 자를 attn 으로 정한 기록 [`Archive/READOUT_CHOICE_2026-09-23.md`](Archive/READOUT_CHOICE_2026-09-23.md).
+
+> **다시 돌리려면 → [`RERUN.md`](RERUN.md).** `readings.npz` 에는 자가 구워져 있어 자를 바꾸면 16 창을 통째로 다시 읽어야 한다 (~35 분).
+> 경로는 `z_research/scripts/analysis/rollout3_paths.py` 한 곳에서 정하고, 그림·표 스크립트는 **자 지문이 다르면 죽는다** (다른 자로 읽은 값에 지금 문턱을 거는 사고를 막는다).
+
+## 0. 데이터 `RollOut_v3` (2026-09-22 렌더)
+
+| 항목 | 값 |
+|---|---|
+| 규모 | 3,136 clip = 8 법칙 × 392. 64 프레임 전부 저장, 30 fps, 288 px. 20 GB |
+| 법칙 | `flat_v` 등속 · `flat_a` 가속 · `flat_d` 감속 · `ramp_a` 10° 내리막 · `ramp_d` 오르막 · `wall` 분할점에서 충돌 정지 · `ledge` 분할점에서 낙하 시작 · `arc` 포물선 |
+| 분할 | **f32**. 문맥은 그 앞, 예측은 그 뒤. 한 clip 으로 창 길이를 바꿔 가며 잴 수 있다 |
+| 속도 | 2 프레임당 넘는 픽셀 수로 정의한 7 칸 (6.0 ~ 10.5). 안 움직이는 프레임은 평균에서 뺐다 |
+| 셀 | 7 속도 × 2 보조 × 28 (배경, 모양, 색) |
+| 불가능 변이 | 392 개 — `wall_pass` (벽 통과) 와 ledge 의 `gravity_float` (안 떨어짐). 문맥을 통째로 공유한다 (실측 f0~f32 최대차 **0.000 px**) |
+| 중력 | **진짜 중력.** v2 는 화면 안에 낙하를 넣으려고 101 cm/s² 를 썼고 그래서 전부 떠 보였다. 대신 v3 에는 자유낙하 법칙이 없다 |
+| 검증 | plan 감사 18 항목 통과 · 파일 3,136 × 64 전수 · 렌더 위치 대 plan 최대 0.65~1.21 px, 기울기 1.00 · 쌍 clip 문맥 픽셀 동일 |
+| ⚠️ 단서 | `arc` 만 공칭 속도보다 1~1.2 % 빠르다 (6.10 / 10.63). **라벨은 정확하고 셀의 공칭값만 어긋난다** |
+
+**왜 이 설계인가.** `wall` 과 `ledge` 는 사건을 **예측이 시작되는 바로 그 지점**에 둔다. 마지막 문맥 프레임에서 물체는 아직 달리고 있고, 다음을 정하는 건 물리다. 그리고 창 길이를 바꿔 가며 같은 clip 을 다시 쓸 수 있으므로 **v2 에서 잰 "거리 한계"·"전이" 가 창 크기의 산물인지**를 분리할 수 있다. 이 세트의 목적은 그것 하나다 — 가능/불가능 채점이 아니다.
+
+## 1. 자 = `attn` (attention pooling + head 2 개)
+
+```python
+a      = softmax(tok @ q / √D)            # (B, 256)   learnable query 1 개
+pooled = a @ tok                          # (B, D)
+xy       = Linear(pooled)  → (x, y)       # 좌표 head   (정규화 px/144 − 1)
+presence = Linear(pooled)  → logit        # 있음/없음 head
+```
+파라미터 5,123 (p·z·h 마다 하나). 손실 `cell_weight·balance_weight·MSE(좌표, 양성) + balance_weight·BCE(presence, 양성+음성)`. Adam lr 1e-3, 300 epoch.
+
+**학습셋 = `training_v8`** — `RollOut_v2_training` 합본 14,360 clip = v5 4,480 + props 3,584 + 증축 6,296
+(구조물 × 운동 4 종에 **물체가 있는** clip 4,032 · 화면 끝 1,344 · 빈 장면 920). v3 는 **test 로만** 쓴다 — 자를 v3 로 고치면 v3 로 하는 모든 주장이 순환이 된다 (2026-09-23 사용자 지시).
+증축 전 학습셋은 구조물이 **물체 없는 clip 에만** 있어서 자가 "구조물 = 없음" 을 배울 수 있었다. 증축이 그걸 막는다.
+
+**로더 규칙** (데이터 README §3 이 정본, 2026-09-24):
+- 라벨은 **metadata** 에서 읽는다 — 새 계획의 거울상 2,688 블록은 x 부호가 반대다 (계획을 카메라 축으로 뒤집으면 metadata 와 0.050 cm)
+- **구조물 속 샘플은 제외** (화면 안팎과 무관) — 안 빼면 양성 9,022 · 음성 4,095 튜블릿이 "구조물 = 없음" 을 다시 가르친다
+- 가중치: `cell_weight` (위치 분포 평탄화, 좌표 손실) · `balance_weight` (구조물·방해물 ↔ 물체유무 탈상관, 두 손실). 빈 장면 clip 이 **9.0 배**로 가장 무겁다
+
+미래 8 튜블릿 라벨 (114,880 칸):
+
+| 라벨 | 튜블릿 | 출처 |
+|---|---:|---|
+| 양성 | 72,907 | 물체가 보인다 |
+| 음성 | 26,664 | 화면 밖 19,304 (72 %) · 빈 장면 7,360 (28 %) |
+| **제외** | **15,309** | **구조물 속 13,117** (물체가 안 보인다) · 판과 겹침 2,192 (물체가 보인다) — 라벨이 없다 |
+
+## 2. 자의 정밀도 (training_v8 test, `exp_results/presence/`)
+
+block 단위 held-out. 문턱은 **val 음성 5 % 오탐** 지점 하나. 1 칸 = 18 px = 물체 반폭 (토큰 한 칸 = 288/16 px 와도 같다).
+
+| 표현 | 문턱 | AUROC | recall | precision | specificity | L2 평균 | L2 중앙 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| **p** (predictor) | +0.83 | 0.986 | 94.1 % | 97.8 % | 94.5 % | **16.1 px** | 13.5 |
+| **z** (context encoder) | −0.66 | 0.997 | 99.1 % | 98.4 % | 95.7 % | **10.8 px** | 9.0 |
+| **h** (target encoder) | −0.96 | 0.997 | 99.0 % | 98.2 % | 95.2 % | **10.6 px** | 8.8 |
+
+위치 오차는 전부 **L2 거리** `‖pred − truth‖₂` 의 요약 통계다. `p` 의 실패는 **"있는 걸 놓치는" 쪽**이다 — precision 은 셋이 비슷하고 recall 만 5 pt 낮다.
+
+**제외 칸은 두 종류로 읽는다** — 판과 겹친 물체 (보임) 는 94~97 % "있다", **구조물 속 물체 (안 보임) 는 26~29 % "있다"**. 둘 다 자연스러운 방향이다.
+
+⚠️ **좌표 치우침** — attn 은 pooled 벡터에서 좌표를 **회귀**하므로 학습 평균 쪽으로 수축한다. training_v8 test 에서 잰 값
+`p (+5.5, −6.3)` · `z (−4.9, +0.3)` · `h (−1.1, +5.6)` px (`attn_bias_px.json`) 을 **읽은 좌표에서 뺀다.**
+⚠️ attn 의 attention 지도 (top1) 는 판정에 못 쓴다 — 판정은 presence logit 으로만 한다.
+
+전수와 신뢰구간: [`figures/readout/ERRORS.md`](figures/readout/ERRORS.md), 그림 `figures/readout/fig_readout_train.png` · `fig_readout_v3.png` · `fig_recall_by_tubelet.png`.
+
+## 3. 16 창 격자 (`exp_results/windows/`)
+
+사건은 **f32 고정**, 문맥 `[32−C, 32)`, 예측 `[32, 32+P)`, `C·P ∈ {4,8,16,32}`. 16 조합이 64 프레임 안에 다 들어간다.
+⚠️ **창마다 모델을 다시 짓는다** — `window_size` 가 RoPE grid_depth 를 정한다 (CLAUDE.md §2-2).
+
+**자가 창을 타지 않는다** — 전수는 [`exp_results/windows/WINDOW_SUMMARY.md`](exp_results/windows/WINDOW_SUMMARY.md).
+
+| 표현 | '없다' 오작동 (16 창) | 위치 오차 (16 창) |
+|---|---|---|
+| `z` (창 전체를 본다) | **0.0 ~ 5.7 %** | **0.42 ~ 0.74 칸** |
+| `h` (창 전체를 본다) | **0.1 ~ 4.1 %** | **0.39 ~ 0.76 칸** |
+| `p` (문맥만 본다) | 0.9 ~ 49.3 % | 0.79 ~ 1.95 칸 |
+
+`z`·`h` 는 **창 전체를 보므로 자의 천장**이다. v3 에는 음성이 0 개라 (물체가 f16~f63 내내 화면 안) **`z` 가 "없다" 고 말하는 비율이 곧 자의 오작동률**이다 — 라벨 없는 검증이다.
+
+**시나리오별 recall (16 창)** — 경사면은 높고 **선반만 낮다**:
+
+| | `z` | `h` |
+|---|---|---|
+| 위치 L2 (16 창) | 9.3 px | 8.9 px |
+| `ramp_a` / `ramp_d` recall | 97.5 / 98.1 % | 99.0 / 98.5 % |
+| **`ledge` recall** | **93.9 %** | **94.6 %** — 떨어지는 구간에 몰려 있다 (§4-1) |
+
+**창이 판독을 바꾸지 않는다** — 같은 튜블릿 (t0·t1) 을 P 만 바꿔 다시 재면 `p` 의 위치가 **0.06~0.09 칸** 안에서 같다 (`z` 0.04~0.09, `h` 0.04~0.07 로 자 자신의 흔들림과 같은 크기). 겹치는 8 칸 전부로 넓혀도 오차가 커지는 모양이 P=16 과 P=32 에서 같다 (0.77 → 1.20 vs 0.78 → 1.14).
+**v2 의 dynamics 해석이 C16/P16 이라는 창의 산물이 아니다.**
+
+**`p` 는 t8 근처에서 절벽처럼 무너지고, 그 자리는 창 길이가 아니라 튜블릿 번호가 정한다** (P=32: C4 t3 · C8 t6 · C16 t10 · C32 t8). 전수와 단서는 [`Archive/RECALL_TUBELET_LIMIT_2026-09-24.md`](Archive/RECALL_TUBELET_LIMIT_2026-09-24.md).
+
+⚠️ **가장자리 두 칸은 뺀다** — 총 창이 48f 이상이면 **마지막 튜블릿**, 문맥이 C4 면 **첫 미래 튜블릿**. v8 에서 마지막 칸은 `arc` 96~100 % · `ramp_a` 24~54 % 가 '없다' 다 (32f 를 달린 물체가 화면 가장자리에 붙는다). `z`·`h` 가 같이 흔들리므로 predictor 의 성질이 아니다. 시나리오별 표는 WINDOW_SUMMARY.md.
+
+## 4. 이 결과로 **못 하는** 주장 (결론과 같은 비중)
+
+1. **v8 자는 선반의 떨어지는 구간을 못 읽는다 — 그 칸은 판정 불가다.** `ledge` C16/P32 에서 t9~t14 에 `z` recall 이 57~90 % 로 빠진다 (앞 구간 t0~t8 은 100 %). 이때 물체는 선반 앞면 높이 (화면 y ≈ 126~145 px) 에 있고, 학습셋에서 그 높이의 선반 clip 양성이 제외 샘플의 절반뿐이다. 빈 장면 가중 9.0 배가 겹쳐 "선반 앞면 = 없다" 로 쏠렸다는 **가설**이 있지만 **검증하지 않았다** (§5-1).
+2. **가림에서 이 자는 '있다' 쪽으로 치우친다.** 판과 겹친 칸 (라벨 없음) 을 94~97 % '있다' 로 읽는다 — "보이는가" 보다 **"화면 안에 있는가"** 쪽이다. v11 가림에 걸면 **유지한다고 말하기 쉽다.** 가림 판정에 쓰려면 가림 음성을 넣어 다시 배우거나 자 없는 잠재 비교로 가야 한다.
+3. **이식 대조가 강하지 않다.** C32/P32 후반에 `h` 자를 `p` 토큰에 걸면 23~48 % 를 "있다" 로 읽는다. 그때 위치 오차가 평균 37.5 px (2 칸) 라 물체를 짚는 판정은 아니지만, 두 자가 "둘 다 없다" 에 모이는 정도가 52~76 % 라 **"두 자가 부재에 합의한다" 고 강하게 말하지 않는다.** "자가 창 후반에서 고장 난다" 의 배제는 그대로다 (`h` 자를 `h` 에 94~97 %). 전수 `exp_results/windows/CROSS_HEAD.md`.
+4. **파라미터 없는 대조가 아직 없다.** 예전 `rule_auc` 는 버그였고 재계산 전까지 **"학습된 자가 규칙을 이긴다" 고 쓰지 않는다.**
+5. **음성의 72 % 가 화면 밖, 28 % 가 빈 장면이다.** 빈 장면 clip 에는 그림자도 없어 자가 그림자를 단서로 썼을 수 있다. 출처별로 따로 낸다.
+6. **좌표 치우침을 뺀 뒤의 값만 읽는다** (§2). 안 빼고 읽으면 `wall` 판정이 뒤집힌다 (2026-09-23 실측).
+7. **`ledge` 의 가능/불가능은 위치 자로 못 가른다.** 낙하가 t² 이라 초반 분리가 작다 (창별 최대 분리량 P4 0.9 px · P8 5.0 px, 자 한 칸 18 px 아래). **자 없는 잠재 비교** (`|p − h_pos|` vs `|p − h_imp|`) 로 해야 한다.
+
+## 5. 다음
+
+1. **선반 퇴보의 원인** — 저장된 특징 (210 GB) 으로 `--no-weights` 재학습 → v3 `ledge` 만 다시 (~15 분). 가중치가 원인이면 선반을 되찾으며 v8 의 나머지 이점을 지킬 수 있다
+2. **행동 성적표 지표 확정** — 공식 (H · T50 · F · s · g) 과 검증 규칙은 정했고 초안 `exp_results/windows/BEHAVIOR.md` 가 있다. **사용자 결정 대기** (작은 벗어남 법칙을 뺄지, 허용 범위 0.2)
+3. **`ledge`·`wall` 을 자 없는 잠재 비교로** (§4-7)
+4. **가림 음성을 넣은 자** — v11 가림 판정의 전제 조건 (§4-2)
+
+## 폴더
+
+```
+exp_results/presence/            v8 자: {summary.json, attn_bias_px.json, COMPARE.md, RESULTS.md, {p,z,h}/{readout_attn.pt, preds_attn.npz}}
+exp_results/windows/             v8 로 읽은 v3: readings.npz (지문 dcd24d8a8a47), WINDOW_SUMMARY.md, CROSS_HEAD.md,
+                                 BEHAVIOR.md (행동 지표 초안)
+exp_results/*_v6_20260923/       이전 자의 데이터 — 문서에서는 쓰지 않는다 (삭제 여부 결정 대기)
+Archive/                          READOUT_CHOICE_2026-09-23.md · RECALL_TUBELET_LIMIT_2026-09-24.md
+figures/                          전부 v8 — README.md + {readout, windows, examples, windows_gif}/
+```
+
+## 재현
+
+```bash
+cd /data/hyuntak/project/2026/2027_cvpr/vjepa2
+P=/data/hyuntak/anaconda3/envs/vjepa2/bin/python
+
+# 1) 인덱스 — 자의 학습셋 (training_v8), v3 test 세트
+$P z_research/scripts/data/build_rollout2_index.py --set training_v8 --write
+$P z_research/scripts/data/build_rollout3_index.py --write
+
+# 2) 자 학습 — 특징 210 GB 를 /data2 에 뽑고 (~22 분) 표현 둘씩 병렬로 학습 (~8 분/표현)
+$P z_research/scripts/analysis/rollout2_presence_readout.py --set training_v8 \
+    --feat-dir /data2/local_datasets/world/world_analysis/cache/rollout2_training_v8_feats --gpus 8 --reps p     # 추출만 쓰려면 이 한 번
+CUDA_VISIBLE_DEVICES=0,1,2,3 $P z_research/scripts/analysis/rollout2_presence_readout.py --set training_v8 \
+    --feat-dir /data2/local_datasets/world/world_analysis/cache/rollout2_training_v8_feats --gpus 4 \
+    --skip-extract --budgets 22,22,22,22 --reps p h &
+CUDA_VISIBLE_DEVICES=4,5,6,7 $P z_research/scripts/analysis/rollout2_presence_readout.py --set training_v8 \
+    --feat-dir /data2/local_datasets/world/world_analysis/cache/rollout2_training_v8_feats --gpus 4 \
+    --skip-extract --budgets 22,22,22,22 --reps z
+
+# 3) v3 전부 — 새 자를 배웠으면 꼬리표를 주고 한 번에 (기본 폴더를 안 덮는다, ~35 분)
+R3_OUT=<꼬리표> bash z_research/scripts/analysis/rollout3_rerun.sh
+#    지금 기본 폴더 (exp_results/windows, figures/) 를 만든 개별 명령은 figures/README.md 재현 절
+```
+
+데이터셋 등록: `configs/protocols/datasets.md` `## rollout_v2_training_v8`.
