@@ -87,6 +87,34 @@ def build_predictor(m: dict, encoder_embed_dim: int, state: Optional[dict], devi
     pc = dict(m.get("predictor") or {})
     extra = {"use_activation_checkpointing": bool(pc.get("use_activation_checkpointing", False)),
              "zero_init_mask_tokens": bool(pc.get("zero_init_mask_tokens", True))}
+    # ── kind: oneshot(기본, 릴리즈 위상 = 팔 A) | prefix(prefix 마스크 = 팔 B) | causal ──
+    #    prefix 판은 파라미터 이름·모양이 릴리즈와 **완전히 같아서** strict 로드가 그대로 되고,
+    #    mask_mode=full 로 두면 릴리즈와 **비트 단위로 같은 출력**을 낸다 (2026-09-22 실측).
+    #    그래서 A/B 가 attention 마스크 하나 차이로 갈린다 (src/models/rollout_predictor.py).
+    kind = str(pc.get("kind", "oneshot"))
+    if kind not in ("oneshot", "prefix", "prefix_full", "causal", "ar", "ctx_ar"):
+        raise ValueError(f"model.predictor.kind 는 oneshot | prefix | prefix_full | causal | ar | ctx_ar: {kind!r}")
+    # ar (2026-09-26, 팔 C): mask token 없이 LN(h) 전 블록을 넣는 자기회귀 판. 학습 손실·val 은 app/vjepa_frozen/ar.py
+    if kind != "oneshot":
+        from src.models.rollout_predictor import vit_prefix_predictor
+        pred = vit_prefix_predictor(
+            img_size=int(m.get("img_size", 256)), patch_size=int(m.get("patch_size", 16)),
+            tubelet_size=int(m.get("tubelet_size", 2)), num_frames=int(num_frames),
+            embed_dim=int(encoder_embed_dim),
+            predictor_embed_dim=int(pc.get("embed_dim", 384)), depth=int(pc.get("depth", 12)),
+            num_heads=int(pc.get("num_heads", 12)), num_mask_tokens=int(pc.get("num_mask_tokens", 10)),
+            use_rope=bool(m.get("use_rope", True)), use_sdpa=bool(m.get("use_sdpa", True)),
+            mask_mode=kind, n_registers=int(pc.get("n_registers", 0)), **extra)
+        if state is not None:
+            msg = pred.load_state_dict(_clean_backbone_key(state["predictor"]), strict=True)
+            logger.info(f"predictor({kind}) <- checkpoint['predictor'] (strict): {msg}")
+        else:
+            logger.info(f"predictor({kind}): 새로 초기화 (scratch) — H0 검정 팔")
+        pred = pred.to(device)
+        logger.info(f"predictor params: {count_parameters(pred)/1e6:.2f}M  kind={kind} "
+                    f"(embed {pc.get('embed_dim', 384)} / depth {pc.get('depth', 12)} / "
+                    f"heads {pc.get('num_heads', 12)} / registers {pc.get('n_registers', 0)})")
+        return pred
     pred = _build_predictor(
         img_size=int(m.get("img_size", 256)), patch_size=int(m.get("patch_size", 16)),
         tubelet_size=int(m.get("tubelet_size", 2)), num_frames=int(num_frames),

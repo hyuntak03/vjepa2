@@ -145,6 +145,7 @@ class VideoDataset(torch.utils.data.Dataset):
         filter_short_videos=False,
         filter_long_videos=int(10**9),
         duration=None,  # duration in seconds
+        decord_threads=-1,       # ⚠️ -1 = 리더마다 전 코어. worker 를 여러 개 쓰면 과다구독이다
         uniform_sampling=False,  # sample fpc frames evenly across the whole video (ignores frame_step)
         center_sampling=False,   # take the CENTER fpc frames (contiguous window around video midpoint).
                                  # Ignores frame_step and uniform_sampling when true.
@@ -163,6 +164,7 @@ class VideoDataset(torch.utils.data.Dataset):
         self.data_paths = data_paths
         self.datasets_weights = datasets_weights
         self.frame_step = frame_step
+        self.decord_threads = int(decord_threads)
         self.uniform_sampling = uniform_sampling
         self.center_sampling = center_sampling
         self.headtail_sampling = headtail_sampling
@@ -205,14 +207,23 @@ class VideoDataset(torch.utils.data.Dataset):
         for data_path in self.data_paths:
 
             if data_path[-4:] == ".csv":
-                try:
-                    data = pd.read_csv(data_path, header=None, delimiter=" ")
-                except pd.errors.ParserError:
-                    # In image captioning datasets where we have space, we use :: as delimiter.
-                    data = pd.read_csv(data_path, header=None, delimiter="::")
-                samples += list(data.values[:, 0])
-                labels += list(data.values[:, 1])
-                num_samples = len(data)
+                # ⚠️ 2026-09-22: 경로에 **공백**이 들어갈 수 있다 (K400 클래스 폴더
+                #    "bouncing on trampoline"). 예전 코드는 pd.read_csv(delimiter=" ") 로 자르고
+                #    ParserError 일 때만 "::" 로 폴백했는데, **ParserError 가 안 난다** — pandas 가
+                #    열 수를 최대치로 맞춰 버려서 경로는 "/x/bouncing", 라벨은 "on" 이 되는
+                #    **조용한 오파싱**이 된다 (실측). 그래서 마지막 구분자 기준으로 한 번만 자른다.
+                rows = [ln.rstrip("\n") for ln in open(data_path, encoding="utf-8") if ln.strip()]
+                if not rows:
+                    raise ValueError(f"{data_path}: 빈 csv")
+                sep = "::" if "::" in rows[0] else " "
+                pairs = [r.rsplit(sep, 1) for r in rows]
+                bad = [i for i, q in enumerate(pairs) if len(q) != 2]
+                if bad:
+                    raise ValueError(f"{data_path}: '<경로>{sep}<라벨>' 형식이 아닌 줄 {len(bad)}개 "
+                                     f"(첫 줄 {bad[0]}): {rows[bad[0]][:120]!r}")
+                samples += [q[0] for q in pairs]
+                labels += [q[1] for q in pairs]
+                num_samples = len(pairs)
                 self.num_samples_per_dataset.append(num_samples)
 
             elif data_path[-4:] == ".npy":
@@ -244,10 +255,17 @@ class VideoDataset(torch.utils.data.Dataset):
             if not isinstance(sample, str):
                 logger.warning("Invalid sample.")
             else:
-                if sample.split(".")[-1].lower() in ("jpg", "png", "jpeg"):
-                    loaded_sample = self.get_item_image(index)
-                else:
-                    loaded_sample = self.get_item_video(index)
+                # ⚠️ 2026-09-22: 디코드 **예외**도 재시도로 흡수한다. 예전엔 빈 반환만 잡아서,
+                #    헤더 fps 가 깨진 파일 하나(`fstp = fps//target = 0` -> AssertionError)가
+                #    worker -> rank -> DDP 전체를 죽였다. 파일 경로를 한 번 경고하고 다른 인덱스로 간다.
+                try:
+                    if sample.split(".")[-1].lower() in ("jpg", "png", "jpeg"):
+                        loaded_sample = self.get_item_image(index)
+                    else:
+                        loaded_sample = self.get_item_video(index)
+                except Exception as e:                                   # noqa: BLE001
+                    warnings.warn(f"decode failed, resampling: {sample} ({type(e).__name__}: {e})")
+                    loaded_sample = False
 
             if not loaded_sample:
                 index = np.random.randint(self.__len__())
@@ -326,11 +344,16 @@ class VideoDataset(torch.utils.data.Dataset):
             return [], None
 
         try:
-            vr = VideoReader(fname, num_threads=-1, ctx=cpu(0))
+            # ⚠️ 2026-09-22: 기본 -1 은 **리더마다 전 코어**를 잡는다. DataLoader worker 가
+            #    여러 개면 (rank 8 x worker 8 = 64 리더 x 128 스레드) 컨텍스트 스위치로
+            #    첫 배치조차 안 나온다 (CLAUDE.md §7-1 과 같은 함정). 720p K400 에서 치명적이다.
+            #    worker 병렬로 처리량을 내고 리더는 1~2 스레드로 두는 것이 맞다.
+            vr = VideoReader(fname, num_threads=self.decord_threads, ctx=cpu(0))
         except Exception:
             return [], None
 
         fstp = self.frame_step
+        video_fps = 0
         if self.duration is not None or self.fps is not None:
             try:
                 video_fps = math.ceil(vr.get_avg_fps())
@@ -344,7 +367,14 @@ class VideoDataset(torch.utils.data.Dataset):
                 assert self.duration is None
                 fstp = video_fps // self.fps
 
-        assert fstp is not None and fstp > 0
+        if fstp is not None and fstp <= 0 and self.fps is not None and video_fps > 0:
+            # 헤더 fps 가 목표 fps 보다 낮다 (K400 에 fps 10~11 이 0.6%). 원래 upstream 은 assert 로 죽고,
+            # 2026-09-22 첫 학습은 건너뛰었다. 목표 fps 자체가 ceil(fps)//target 이라 25→12.5, 30→15 로
+            # 이미 ±25% 흔들리므로, 원 fps 그대로(step 1) 쓰는 것이 같은 허용 범위 안이다. (사용자 결정 2026-09-22)
+            fstp = 1
+        if fstp is None or fstp <= 0:            # fps 를 아예 못 읽은 파일 -> 이 영상은 못 쓴다
+            warnings.warn(f"skipping video with fps {video_fps if self.fps is not None else '?'} (fstp={fstp}): {sample}")
+            return [], None
         clip_len = int(fpc * fstp)
 
         if self.filter_short_videos and len(vr) < clip_len:

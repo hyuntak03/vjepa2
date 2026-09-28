@@ -31,13 +31,14 @@
 # 채점:      bash z_training/eval.sh <NAME>
 # -----------------------------------------------------------------------------
 set -euo pipefail
-PY=/data/hyuntak/anaconda3/envs/vjepa2/bin/python
-PROJ=/data/hyuntak/project/2026/2027_cvpr/vjepa2
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../z_research/scripts/harness" && pwd)/env.sh"   # 경로 정본: harness/paths.env
+PY=$VJEPA2_PY
+PROJ=${PROJ:-$VJEPA2_ROOT}
 
 if [[ "${1:-}" == "--list" || $# -eq 0 ]]; then
   echo "config (configs/training):"; ls "$PROJ"/configs/training/*.yaml | xargs -n1 basename | sed 's/\.yaml$//;s/^/  /'
   echo "학습 데이터셋 (configs/training/datasets.md):"; grep '^## ' "$PROJ/configs/training/datasets.md" | sed 's/^## /  /'
-  echo "run (z_training/runs):"; ls "$PROJ/z_training/runs" 2>/dev/null | sed 's/^/  /'
+  echo "run (z_training/runs):"; ls "$PROJ/z_training/runs" 2>/dev/null | sed 's/^/  /' || true
   exit 0
 fi
 

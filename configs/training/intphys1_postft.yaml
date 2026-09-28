@@ -40,9 +40,9 @@ val:                                 # 감시용 고정창 (sliding 아님). 채
   n_blocks_per_type: 10
   context_length: 16
   data:
-    root: /local_datasets/world/world_analysis/IntPhys1_dev_videos
+    root: /nas2/data/takhyun03/project/2026/world_model/vjepa2/data_csv/intphys1_dev
     index_csv: index.csv
-    frames_root: /local_datasets/world/world_analysis/IntPhys1_dev_frame_png
+    frames_root: /data2/local_datasets/world/benchmarks/IntPhys1
     frames_pattern: "{block}/{quadruplet}/{run}/scene/scene_{frame:03d}.png"
     frames_start: 1
     frames_stride: 2

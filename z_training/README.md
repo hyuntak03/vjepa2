@@ -25,7 +25,7 @@ GPUS=2 bash z_training/train.sh --smoke-ddp                      # 모델·데�
 LIMIT=16 SET="data.datasets=[<이름>]" DEBUG=1 bash z_training/train.sh debug             # 배관 점검 (GPU 1장, ~4분)
 GPUS=8 SET="data.datasets=[<이름>]" bash z_training/train.sh frozen_predictor_scratch    # predictor 새로 학습
 GPUS=8 SET="data.datasets=[<이름>]" bash z_training/train.sh frozen_predictor_postft     # 릴리즈 predictor post-FT
-GPUS=8 SET="data.datasets=[<이름>]" bash z_training/sbatch.sh frozen_predictor_scratch   # SLURM (vll5, 8 GPU, 24h)
+GPUS=8 SET="data.datasets=[<이름>]" bash z_training/sbatch.sh frozen_predictor_scratch   # SLURM (ariel-k2, 8 GPU, 24h)
 GPUS=8 bash z_training/eval.sh frozen_predictor_scratch v11      # 채점 (= run.sh surprise_c16t32 v11)
 ```
 

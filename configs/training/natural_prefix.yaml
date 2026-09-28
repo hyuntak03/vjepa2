@@ -1,0 +1,106 @@
+# =============================================================================
+# 자연 영상(SSv2 + K400) 으로 **prefix-마스크 predictor** 학습 — 팔 B
+#
+#   GPUS=8 bash z_training/tmux_train.sh natural_prefix                              # B, scratch (= H0 검정) ★기본
+#   GPUS=8 NAME=nat_oneshot_scratch SET="model.predictor.kind=oneshot" \
+#          bash z_training/tmux_train.sh natural_prefix                              # A, 같은 예산 대조군 (다음 run)
+#   GPUS=8 NAME=nat_prefix_postft SET="model.load_predictor=true optimization.lr=5.0e-5" \
+#          bash z_training/tmux_train.sh natural_prefix                              # B, post-FT (참고 팔)
+#
+#   GPUS=8 bash z_training/eval.sh <run> intphys1_dev intphys1_sliding               # 가드레일
+#
+# ── 무엇을 묻나 ───────────────────────────────────────────────────────────────
+# 릴리즈 predictor 의 고장은 **H1 (위치가 이끄는 조회)** 이다 — 미래 슬롯이 전부 같은 mask token
+# 이라 첫 층 query 가 위치로만 정해지고, 물체의 과거 자리가 2~3 칸 밖이면 못 찾는다
+# (`z_research/RollOutV2/Archive/PREDICTOR_DISTANCE_LIMIT_2026-09-19.md`).
+# 사다리로 한 번에 한 변수만 바꾼다:
+#   A  full attention + mask token   (릴리즈 위상)      model.predictor.kind=oneshot
+#   B  prefix 마스크  + mask token   ← 이 config        model.predictor.kind=prefix
+#   C  prefix 마스크  + 내용 되먹임  (rollout, 미구현)
+# B 는 릴리즈에서 **attention 마스크 하나만** 바뀐다 — `mask_mode=full` 이 릴리즈와 비트 단위로
+# 같다는 것을 실측 확인했다 (상대 L1 0.00e+00, 2026-09-22). 그래서 효과 귀속이 깨끗하다.
+#
+# scratch 팔은 동시에 **H0 의 첫 검정**이다: 릴리즈 사전학습 마스크는 전부 튜브
+# (`temporal_scale: [1.0, 1.0]`, `configs/train/vith16/cooldown-256px-64f.yaml:52`) 라
+# **과거→미래 채우기를 배운 적이 없다.** 재학습 없이 검증 불가였던 가설이다.
+#
+# ── 기대치 (미리 못 박는다) ────────────────────────────────────────────────────
+# IntPhys1 릴리즈 88.89 는 **천장**이고 도메인 밖 학습이 그걸 올린 적이 한 번도 없다
+# (v11 −11.7 / predictor_v1 −8.3, `z_training/RESULTS_2026-09-19.md` §2-2).
+# **IntPhys1 = 가드레일(무너지지 않는가), IntPhys2 Main = 본 지표(논문 57.51).**
+# =============================================================================
+extends: frozen_predictor_scratch   # ★ 기본이 scratch (2026-09-22 결정) — H0 검정은 릴리즈 습관을 물려받으면 안 된다.
+                                    #   post-FT 팔은 SET="model.load_predictor=true optimization.lr=5.0e-5" 로
+
+meta:
+  save_every_freq: 2         # e{N}.pt 2 epoch 마다
+  log_freq: 10
+  compile_encoders: true     # 동결 ViT-H 두 개 torch.compile (1.8x). 문제 생기면 false
+
+model:
+  predictor:
+    kind: prefix              # prefix | oneshot(릴리즈 위상, 대조군)
+    n_registers: 0            # >0 이면 공간 위치 없는 토큰 (영속 실험용, 지금은 끔)
+
+data:
+  n_frames: 48                # **24 블록** = 최대 창. C+K 는 이 안에서 고른다.
+                              # 48 이어야 "32 프레임 보고 16 프레임"(C=16블록 + K=8블록)이 들어간다
+  batch_size: 28              # rank 당. 8 GPU 실측: 최악 조합 C=16,K=8 에서 44.2 G allocated / 46.3 G nvidia-smi (48 G)
+  num_workers: 6              # ⚠️ 이 노드는 SLURM cgroup 메모리 상한 256 GB (job 별). in-flight 배치 =
+  prefetch_factor: 2          #    8 rank x worker x prefetch x 배치크기. uint8 전송(기본)이면 배치 0.27 GB -> 26 GB
+  transfer_uint8: true        #    float32 로 넘기면 4 배라 epoch 경계에서 OOM-killer 가 rank 를 죽인다 (2026-09-22)
+  loader_timeout_s: 600       # ⚠️ 워커가 파손 파일에서 멈추면 5분 뒤 **에러로** 죽인다 (침묵 정지 금지)
+  datasets:                   # ⚠️ `fps` 로 준다. 원본 fps 가 섞여 있어도(K400 30/25/24)
+                              #    VideoDataset 이 fstp = 원본fps // fps 로 맞춘다.
+                              #    프레임 예산 = n_frames x fstp, 짧은 영상은 filter_short_videos 가 버린다
+    - {name: ssv2_min48,  weight: 1.0}   # 97,416 clip, fps 12, 블록당 0.17s, 창 4.0s
+    - {name: k400_320_min96, weight: 1.0}   # 53,117 clip, fps 12, 블록당 0.17s, 창 4.0s — **320p 재인코딩 사본**
+                                            #   (원본 720p 는 디코드 병목 + 헤더 거짓 길이. datasets.md 참고)
+    # - {name: k400_min240, weight: 0.5}   # 21,645 clip, fps 6, 블록당 0.33s, 창 8.0s (IntPhys2 규격)
+    #   ⚠️ 2026-09-22 **일단 제외.** 893 파일 표본에서 디코드가 무한정 멈추는 파일 8개가 **전부 이 팔**이었다
+    #      (`_clip_N_<start>_<2~3초>` 서브클립인데 헤더는 ≥240장). DataLoader 는 배치를 순서대로만 내놓으므로
+    #      워커 하나가 멈추면 rank 로더가 통째로 죽는다 (= "rank 0·7 만 돈다" 의 원인).
+    #      `build_video_index.py --deep-probe` 로 실제 디코드까지 검증한 csv 가 나오면 다시 넣는다.
+                                         # ⚠️ *_min<N> 은 길이를 **미리 거른** 인덱스다. 안 쓰면
+                                         #    런타임 재추첨으로 DDP 가 멈춘다 (datasets.md 참고)
+  aug:
+    hflip_p: 0.5
+    square_crop: center       # ⚠️ K400 은 화면비가 섞여 있다. 안 켜면 16:9 가 1:1 로 눌린다
+    random_resized_crop: {scale: [0.3, 1.0], ratio: [0.75, 1.35]}   # 릴리즈 사전학습과 같은 값.
+                              # 클립마다 확대율이 달라져 **겉보기 속도가 다양해진다** — v11 처럼
+                              # 한 속도만 보고 궤적 prior 를 외우는 것을 막는 가장 싼 장치다
+
+mask:
+  - type: prefix_window       # 문맥 C 블록 -> **그 뒤 K 블록만**. C 와 K 가 독립이다
+    context_blocks: [2, 4, 8, 16]    # C = 4 / 8 / 16 / **32** 프레임
+    predict_blocks: [1, 2, 4, 8]     # K = 2 / 4 / 8 / **16** 프레임 (예측 최대 16, C+K <= 24)
+    weight: 1.0                      # 16 조합 전부 유효. 최악은 C=16,K=8 -> predictor 토큰 6144
+                                     # ⚠️ 마스크는 학습 루프가 step 당 한 번 뽑는다 (rank 동기).
+                                     #    그래서 같은 step 에서 모든 rank 의 VRAM·계산량이 같다
+
+optimization:
+  epochs: 45                  # ≈150k clip / 224 = 672 step/epoch. 8 GPU 실측(2026-09-22, split attention +
+                              # compile + 320p + uint8 전송): 평균 3.7 s/step -> ≈42 min/epoch,
+                              # 45 epoch = 30,240 step ≈ 32 h. (첫 시도 30 epoch = 20,160 step 은
+                              # 2026-09-22 23:10 에 epoch 4 에서 중단하고 fps<12 포함 + 30k step 으로 재시작)
+  lr: 3.0e-4                  # scratch. post-FT 는 SET 으로 5.0e-5
+  warmup: 1
+
+val:                          # in-loop 수렴 감시. 정식 수치는 z_training/eval.sh 로 낸다
+  dataset: intphys1_dev
+  n_blocks_per_type: 10
+  context_length: 32          # 프레임. 16 블록 보고 8 블록(16프레임) 예측 = 최악 조합과 같은 과제
+  batch_size: 4
+  every_epochs: 1
+  at_start: true              # epoch 0 에 릴리즈 출발점을 먼저 찍는다 (post-FT 팔에서 중요)
+  data:                       # ⚠️ IntPhys1 은 100 프레임뿐이라 n_frames 48 에 stride 3 이 안 들어간다
+    root: ${DATA_CSV}/intphys1_dev          #    (1 + 47x3 = 142 > 100). stride 2 로 낮춘다 (1 + 47x2 = 95)
+    index_csv: index.csv
+    frames_root: ${BENCH_ROOT}/IntPhys1
+    frames_pattern: "{block}/{quadruplet}/{run}/scene/scene_{frame:03d}.png"
+    frames_start: 1
+    frames_stride: 2
+    block_column: block_id
+    pair_column: pair_id
+    plausible_column: plausible
+    type_column: block_type

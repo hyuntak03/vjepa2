@@ -1,0 +1,48 @@
+# =============================================================================
+# 팔 D — **릴리즈 사전학습과 같은 tube(multiblock3d) 마스크 inpainting**, 같은 데이터·예산 (2026-09-27, 사용자 결정)
+#
+#   GPUS=6 NAME=nat_tube_scratch bash z_training/sbatch.sh natural_tube
+#
+# natural_prefix / natural_ar 와 데이터·창 분포·lr·배치·epoch 이 같고, **마스크 토폴로지만** 릴리즈 사전학습 그대로:
+#   시간축 전체를 관통하는 tube (temporal_scale 1.0) 를 공간에서 뽑아 가린다 → 과거→미래 채우기가 아니라
+#   **가려진 공간 자리의 시간축 전체 inpainting**. predictor 는 릴리즈 위상 (kind=oneshot, full attention + mask token).
+#   H0 의 대조군: "미래 예측 목적함수" 가 아니라 "우리 데이터·예산" 이 결과를 만든 것인지 가른다.
+# 릴리즈 (`configs/train/vith16/cooldown-256px-64f.yaml`) 와 다른 점
+#   * 릴리즈는 배치마다 short·long 두 마스크를 **둘 다** 돌려 손실을 합친다. 우리는 step 마다 하나를 뽑는다 (weight 1:1).
+#   * 창 길이: 릴리즈는 고정 (16f/64f). 우리는 prefix 팔의 C+K 분포와 같은 목록에서 뽑아 프레임 예산을 맞춘다 (window_blocks).
+#   * mask token: 스펙 순서대로 mask_index 0 (short) / 1 (long) — 릴리즈와 같다.
+# ⚠️ 채점은 prefix 창 (문맥 16 블록 → 미래 8 블록) 으로 한다 — 릴리즈 predictor 를 채점하는 방식과 같다 (in-loop val 도 동일).
+# =============================================================================
+extends: natural_prefix
+
+model:
+  predictor:
+    kind: oneshot             # 릴리즈 predictor 클래스 (full attention + mask token). nat_full_scratch 와 같은 몸통
+
+mask:                         # extends 는 list 를 **교체** 한다 → prefix_window 는 여기 없다
+  - type: block3d
+    name: short
+    num_blocks: 8
+    spatial_scale: [0.15, 0.15]
+    temporal_scale: [1.0, 1.0]
+    aspect_ratio: [0.75, 1.5]
+    max_temporal_keep: 1.0
+    full_complement: false
+    max_keep: null
+    weight: 1.0
+    # C+K 16 조합의 창 길이 (블록) — 중복이 가중. prefix/full/ar 팔과 같은 프레임 예산
+    window_blocks: [3, 4, 6, 10, 5, 6, 8, 12, 9, 10, 12, 16, 17, 18, 20, 24]
+  - type: block3d
+    name: long
+    num_blocks: 2
+    spatial_scale: [0.7, 0.7]
+    temporal_scale: [1.0, 1.0]
+    aspect_ratio: [0.75, 1.5]
+    max_temporal_keep: 1.0
+    full_complement: false
+    max_keep: null
+    weight: 1.0
+    window_blocks: [3, 4, 6, 10, 5, 6, 8, 12, 9, 10, 12, 16, 17, 18, 20, 24]
+
+optimization:
+  epochs: 40                  # 6 GPU × 896 = 35,840 step (full·ar 팔과 같다)

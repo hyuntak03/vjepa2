@@ -14,8 +14,9 @@
 #   Predictor_v1    holdout 예측 L1 (가능 영상뿐 — 짝 없음). z_research/scripts/analysis/predictor_holdout_l1.py (따로 돈다)
 # -----------------------------------------------------------------------------
 set -uo pipefail
-PROJ=/data/hyuntak/project/2026/2027_cvpr/vjepa2; cd "$PROJ"
-PY=/data/hyuntak/anaconda3/envs/vjepa2/bin/python
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../z_research/scripts/harness" && pwd)/env.sh"   # 경로 정본: harness/paths.env
+PROJ=${PROJ:-$VJEPA2_ROOT}; cd "$PROJ"
+PY=$VJEPA2_PY
 G=${GPUS:-8}
 LOG=z_training/runs/_matrix/eval_matrix.log; mkdir -p z_training/runs/_matrix
 say() { echo "[$(date +%H:%M:%S)] $*" | tee -a "$LOG"; }

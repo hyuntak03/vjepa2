@@ -18,11 +18,15 @@ from __future__ import annotations
 import argparse
 import csv
 import os
+import pathlib
 import sys
 
 import yaml
 
-ROOT = "/data/hyuntak/project/2026/2027_cvpr/vjepa2"
+# 경로 정본은 z_research/scripts/harness/paths.env 하나다 (paths.py 가 읽는다).
+# 이 파일은 `python z_training/harness/*.py` 로 불리므로 sys.path[0] 이 z_training/harness 다.
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "z_research/scripts/harness"))
+from paths import ROOT, expand  # noqa: E402
 TRAIN_CFG = f"{ROOT}/configs/training"
 sys.path.insert(0, f"{ROOT}/z_research/scripts/harness")
 from resolve import parse_registry  # noqa: E402  (protocols 레지스트리와 같은 파서)
@@ -172,6 +176,11 @@ def main():
             die(f"val.dataset='{V['dataset']}' 은 frames_root 가 없다 (PNG 직독만 지원)")
     if V is not None and not V.get("data"):
         cfg["val"] = None
+
+    # ── ${VAR} 풀기 ────────────────────────────────────────────────────────────────
+    # config yaml 과 --set 값에도 ${TRAIN_DATA_ROOT} 같은 걸 쓸 수 있게 한다
+    # (레지스트리 값은 parse_registry 가 이미 풀어 온다). 검사·저장이 전부 이 뒤다.
+    cfg = expand(cfg)
 
     # ── 실물 검사 ──────────────────────────────────────────────────────────────────
     d = cfg["data"]

@@ -32,8 +32,9 @@ import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel
 
 from app.vjepa_frozen import utils as U
-from app.vjepa_frozen.data import MaskSampler, TrainCollator, WindowGridCollator, WindowGridSampler, build_dataset, build_loader
+from app.vjepa_frozen.data import MaskSampler, TrainCollator, WindowGridCollator, WindowGridSampler, build_dataset, build_loader, normalize_clips
 from app.vjepa_frozen.val import ValSet, format_val, run_val
+from app.vjepa_frozen import ar as AR
 from src.utils.distributed import init_distributed
 from src.utils.logging import AverageMeter, CSVLogger, get_logger, gpu_timer
 
@@ -64,6 +65,12 @@ def main(args, resume_preempt=False):
     L = cfg.get("loss") or {}
     loss_exp = float(L.get("loss_exp", 1.0))
     target_ln = bool(L.get("target_layer_norm", True))
+    rollout_steps = int(L.get("rollout_steps", 8))                        # 팔 C: R = min(K, rollout_steps)
+    kind = str((MD.get("predictor") or {}).get("kind", "oneshot"))
+    is_ar = kind == "ar"            # 팔 C (app/vjepa_frozen/ar.py): 문맥·미래 모두 블록별 인코딩 (AC 판)
+    is_ctx_ar = kind == "ctx_ar"    # 팔 C' (2026-09-27): 문맥은 창 단위 z, 미래 GT 만 블록별 LN(h)
+    if (is_ar or is_ctx_ar) and not target_ln:
+        raise ValueError("kind=ar 는 loss.target_layer_norm=true 가 전제다 (입력·타깃·출력이 모두 LN 공간)")
     O = cfg["optimization"]
     V = cfg.get("val")
 
@@ -76,8 +83,26 @@ def main(args, resume_preempt=False):
     nthreads = int(os.environ.get("OMP_NUM_THREADS", 0) or 0)
     if nthreads > 0:
         torch.set_num_threads(nthreads)
+    # ── CPU affinity 를 부모(launch.py) 의 것으로 되돌린다 (2026-09-23) ─────────────────────
+    #    SLURM job 430837 (6 GPU) 에서 rank 0·1 이 8 코어(22-25,86-89), rank 2~5 가 64 코어에 묶여
+    #    rank 0·1 의 loader 가 1.2~3.4 s 로 병목이 됐다 (다른 rank 는 0.1 s). 레포 코드에는 affinity 를
+    #    건드리는 곳이 없고 부모 프로세스는 job cpuset 전체를 갖고 있었다. DataLoader worker 는 여기서
+    #    상속하므로 loader 를 만들기 전에 넓혀 둔다. 실패해도 학습엔 영향 없으니 조용히 넘어간다.
+    #    ⚠️ 2026-09-24 정정: 좁아지는 시점은 프로세스 시작이 아니라 **CUDA/NCCL 초기화 뒤**다 (job 431419 에서
+    #    시작 시점엔 부모와 같아 아무것도 안 했는데 loader 를 만들 때는 rank 0·1 이 8 코어였다 — GPU 의
+    #    NUMA 노드 ∩ job cpuset 으로 묶인 모양). 그래서 init_distributed 뒤와 loader 생성 직전에 다시 건다.
+    def _restore_affinity(where):
+        try:
+            _par = os.sched_getaffinity(os.getppid()); _me = os.sched_getaffinity(0)
+            if _par and _par != _me:
+                os.sched_setaffinity(0, _par)
+                logger.info(f"cpu affinity {len(_me)} -> {len(_par)} cores (부모 mask 로 복원, {where})")
+        except Exception:
+            pass
+    _restore_affinity("start")
 
     world_size, rank = init_distributed()
+    _restore_affinity('after init_distributed')
     expect = os.environ.get("TRAIN_EXPECT_WS")
     if expect and int(expect) != world_size:
         raise RuntimeError(f"world_size {world_size} != TRAIN_EXPECT_WS {expect} — DDP 가 조용히 갈라졌다 (포트 충돌?)")
@@ -88,6 +113,15 @@ def main(args, resume_preempt=False):
     # ---- 모델 ---------------------------------------------------------------------
     state = U.load_base_checkpoint(MD["checkpoint"])
     ctx_enc, tgt_enc = U.build_frozen_encoders(MD, state, device, enc_dtype, n_frames)
+    # ── 동결 encoder torch.compile (2026-09-22) ─────────────────────────────────
+    # 실측 B=28, 48장: eager 5.8 s -> compiled(default, dynamic) 3.2 s (1.8x). 오차는 bf16 잡음 수준
+    # (eager bf16 vs fp32 6.5e-2, compiled vs fp32 4.8e-2 — compiled 가 오히려 fp32 에 가깝다).
+    # 첫 호출 ~17 s, (C+K) 조합마다 ~5 s 재컴파일 (16 조합). `meta.compile_encoders: false` 로 끈다.
+    # ⚠️ mode=reduce-overhead(CUDA graph) 는 459 ms 로 나왔는데 A6000 peak 를 넘는 값이라 믿지 않는다.
+    if bool(M.get("compile_encoders", True)):
+        tgt_enc = torch.compile(tgt_enc, mode="default", dynamic=True)
+        ctx_enc = tgt_enc if ctx_enc is tgt_enc else torch.compile(ctx_enc, mode="default", dynamic=True)
+        logger.info("encoders: torch.compile(mode=default, dynamic=True)")
     predictor = U.build_predictor(MD, ctx_enc.embed_dim, state if MD.get("load_predictor") else None, device, n_frames)
     del state
     tubelet, patch = int(MD.get("tubelet_size", 2)), int(MD.get("patch_size", 16))
@@ -102,7 +136,8 @@ def main(args, resume_preempt=False):
 
     # ---- 데이터 -------------------------------------------------------------------
     dataset = build_dataset(D, n_frames, res)
-    sampler_masks = MaskSampler(cfg["mask"], n_frames, res, patch, tubelet)
+    # seed 를 주어 **rank 마다 같은 (C, K)** 가 나오게 한다 (VRAM·부하 균형. data.py MaskSampler docstring).
+    sampler_masks = MaskSampler(cfg["mask"], n_frames, res, patch, tubelet, seed=seed)
     if D.get("window_grid"):
         # 채점 그리드(skip × window × 시작점 × C)에서 배치마다 하나를 뽑는다. data.n_frames 는 최대 창(RoPE 상한)
         grid = WindowGridSampler(D["window_grid"], tubelet)
@@ -111,10 +146,13 @@ def main(args, resume_preempt=False):
         collator = WindowGridCollator(grid, sampler_masks, dataset.transform)
         logger.info(f"window_grid: {grid.describe()} | raw_span {grid.raw_span} jitter {grid.jitter}")
     else:
-        collator = TrainCollator(sampler_masks)
+        collator = TrainCollator(None)          # 마스크는 아래 루프가 step 당 한 번 만든다
+    _restore_affinity('before build_loader')   # DataLoader worker 가 여기서 mask 를 상속한다
     loader, sampler = build_loader(dataset, collator, batch_size, rank, world_size,
                                    num_workers=int(D.get("num_workers", 8)), pin_mem=bool(D.get("pin_mem", True)),
-                                   persistent=bool(D.get("persistent_workers", True)), seed=seed)
+                                   persistent=bool(D.get("persistent_workers", True)), seed=seed,
+                                   prefetch_factor=int(D.get("prefetch_factor", 2)),
+                                   timeout_s=float(D.get("loader_timeout_s", 0)))
     ipe = int(O.get("ipe") or len(loader))
     if len(loader) == 0 or ipe <= 0:
         raise RuntimeError(f"loader 가 비었다 (ipe={ipe}, loader {len(loader)}): {len(dataset)} clips / ws {world_size} / "
@@ -160,6 +198,16 @@ def main(args, resume_preempt=False):
     def _val(epoch):
         if valset is None:
             return {}
+        if is_ar or is_ctx_ar:
+            if is_ar:
+                res = AR.run_val_ar(valset, tgt_enc, pred_mod, device, ac_dtype, rank, world_size, tubelet, spatial,
+                                    int(V.get("context_length", 16)), int(V.get("batch_size", 8)), loss_exp)
+            else:
+                res = AR.run_val_ctx_ar(valset, ctx_enc, tgt_enc, pred_mod, device, ac_dtype, rank, world_size, tubelet,
+                                        spatial, int(V.get("context_length", 16)), int(V.get("batch_size", 8)), loss_exp)
+            if rank == 0:
+                logger.info(f"[epoch {epoch}] {AR.format_val_ar(res)}")
+            return res
         res = run_val(valset, ctx_enc, tgt_enc, predictor, device, ac_dtype, rank, world_size, tubelet, spatial,
                       int(V.get("context_length", 16)), int(V.get("batch_size", 8)), mask_index, loss_exp, target_ln)
         if rank == 0:
@@ -168,7 +216,9 @@ def main(args, resume_preempt=False):
 
     if rank == 0:
         logger.info(f"predictor trainable {U.count_parameters(pred_mod)/1e6:.2f}M | load_predictor={bool(MD.get('load_predictor'))} "
-                    f"| autocast={ac_dtype} enc_dtype={enc_dtype} | lr {O['lr']} wd {O.get('weight_decay')} epochs {num_epochs}")
+                    f"| autocast={ac_dtype} enc_dtype={enc_dtype} | lr {O['lr']} wd {O.get('weight_decay')} epochs {num_epochs}"
+                    + (f" | AR: 블록별 인코딩, loss = tf + rollout(R<={rollout_steps})" if is_ar else "")
+                    + (f" | CTX_AR: 문맥 창 단위 z + 미래 블록별 LN(h), loss = tf + rollout(R<={rollout_steps})" if is_ctx_ar else ""))
     # ★ 모든 rank 가 들어가야 한다 — run_val 안의 all_gather_object 는 collective 라 rank 0 만 부르면 나머지가 영원히 기다린다
     if start_epoch == 0 and V and V.get("at_start", True):
         _val(0)
@@ -180,6 +230,7 @@ def main(args, resume_preempt=False):
     for epoch in range(start_epoch, num_epochs):
         logger.info(f"Epoch {epoch + 1}/{num_epochs}")
         loss_meter, it_meter, gpu_meter, data_meter = AverageMeter(), AverageMeter(), AverageMeter(), AverageMeter()
+        jl_meter, sl_meter = AverageMeter(), AverageMeter()                       # 팔 C 전용 (tf / rollout)
         for itr in range(ipe):
             t_it = time.time()
             try:
@@ -188,10 +239,83 @@ def main(args, resume_preempt=False):
                 sampler.set_epoch(epoch + 1)
                 loader_it = iter(loader)
                 clips, m_enc, m_pred, info = next(loader_it)
-            clips = clips.to(device, non_blocking=True)
+            if m_enc is None:                    # TrainCollator(None) 경로 — rank 동기 마스크
+                m_enc, m_pred, info = sampler_masks(clips.size(0))
+                # ── 창을 C+K 블록으로 자른다 (2026-09-22) ─────────────────────
+                # 안 자르면 target encoder 가 **늘 n_frames 전부**(24 블록, 6144 토큰)를 돈다.
+                # 쓰는 건 m_pred (K 블록, 평균 3.75) 뿐이라 대부분 버려진다 — E[C+K]=11.25
+                # 이므로 평균 2.1 배 낭비다. 게다가 예측 구간 **밖** 프레임까지 타깃에 섞여
+                # 예측 불가능한 성분이 늘어(손실 바닥이 올라간다), 채점과도 어긋난다 —
+                # 채점은 창 = 문맥+미래 로 `LN(tgt_enc(window))` 를 쓴다. 자르는 쪽이 맞다.
+                # 시작 블록을 무작위로 잡아 **창이 영상 위를 미끄러지는 효과**도 같이 얻는다.
+                # ⚠️ 토큰 수로 역산하지 않는다 (2026-09-27): block3d 는 min_keep 절단으로 enc+pred < N 이라
+                #    역산하면 창이 한 블록 짧아져 pred 인덱스가 밖으로 나간다. 샘플러가 win_blocks 로 알려 준다.
+                n_blk = int(info.get("win_blocks") or (m_enc.size(1) + m_pred.size(1)) // sampler_masks.S)
+                if n_blk < sampler_masks.T:
+                    o = sampler_masks.rng.randint(0, sampler_masks.T - n_blk)
+                    clips = clips[:, :, o * tubelet: (o + n_blk) * tubelet]
+                    info = {**info, "win_blocks": n_blk, "win_offset": o}
+            clips = normalize_clips(clips.to(device, non_blocking=True))   # uint8 전송 -> GPU 정규화
             m_enc = m_enc.to(device, non_blocking=True)
             m_pred = m_pred.to(device, non_blocking=True)
             data_ms = (time.time() - t_it) * 1000
+
+            aux = {}
+
+            def train_step_ar():
+                # 팔 C (2026-09-26): 블록별 인코딩 -> LN -> predictor 한 forward 로 (p_tf, p_ar) -> jloss + sloss
+                lr_now = scheduler.step()
+                wd_now = wd_scheduler.step()
+                if "context_blocks" not in info:
+                    raise ValueError("kind=ar 는 mask.type=prefix_window 만 지원한다 (C·K 블록 수가 필요)")
+                with torch.no_grad(), _ac():
+                    h = AR.encode_blocks(tgt_enc, clips.to(enc_dtype), tubelet)                # (B, nb*S, D) LN
+                with _ac():
+                    loss, jl, sl, R = AR.ar_losses(predictor, h, spatial, int(info["context_blocks"]),
+                                                   int(info["predict_blocks"]), loss_exp, rollout_steps)
+                if scaler is not None:
+                    scaler.scale(loss).backward()
+                    scaler.unscale_(optimizer)
+                else:
+                    loss.backward()
+                if clip_grad:
+                    torch.nn.utils.clip_grad_norm_(pred_mod.parameters(), float(clip_grad))
+                if scaler is not None:
+                    scaler.step(optimizer); scaler.update()
+                else:
+                    optimizer.step()
+                optimizer.zero_grad(set_to_none=True)
+                aux.update(jloss=float(jl.detach()), sloss=float(sl.detach()), R=R)
+                return float(loss.detach()), lr_now, wd_now
+
+            def train_step_ctx_ar():
+                # 팔 C' (2026-09-27): 문맥 = ctx encoder 가 C 블록 창을 한 번에 (m_enc 로 미래 토큰 제거, prefix 팔과 같다),
+                # 미래 GT = target encoder 블록별 -> LN. predictor 한 forward 로 (p_tf, p_ar) -> jloss + sloss
+                lr_now = scheduler.step()
+                wd_now = wd_scheduler.step()
+                if "context_blocks" not in info:
+                    raise ValueError("kind=ctx_ar 는 mask.type=prefix_window 만 지원한다")
+                C_, K_ = int(info["context_blocks"]), int(info["predict_blocks"])
+                with torch.no_grad(), _ac():
+                    xe = clips.to(enc_dtype)
+                    z = ctx_enc(xe, masks=[m_enc])                                              # (B, C*S, D) 문맥 z
+                    h_fut = AR.encode_blocks(tgt_enc, xe[:, :, C_ * tubelet:], tubelet)          # (B, K*S, D) LN
+                with _ac():
+                    loss, jl, sl, R = AR.ctx_ar_losses(predictor, z, h_fut, spatial, C_, K_, loss_exp, rollout_steps)
+                if scaler is not None:
+                    scaler.scale(loss).backward()
+                    scaler.unscale_(optimizer)
+                else:
+                    loss.backward()
+                if clip_grad:
+                    torch.nn.utils.clip_grad_norm_(pred_mod.parameters(), float(clip_grad))
+                if scaler is not None:
+                    scaler.step(optimizer); scaler.update()
+                else:
+                    optimizer.step()
+                optimizer.zero_grad(set_to_none=True)
+                aux.update(jloss=float(jl.detach()), sloss=float(sl.detach()), R=R)
+                return float(loss.detach()), lr_now, wd_now
 
             def train_step():
                 lr_now = scheduler.step()
@@ -204,7 +328,7 @@ def main(args, resume_preempt=False):
                         h = torch.nn.functional.layer_norm(h, (h.size(-1),))       # affine-free, target 에만
                     z = ctx_enc(xe, masks=[m_enc])                                    # context 토큰만 (B, K, D)
                 with _ac():
-                    p = predictor(z, m_enc, m_pred, mask_index=mask_index)            # (B, M, D)
+                    p = predictor(z, m_enc, m_pred, mask_index=int(info.get("mask_index", mask_index)))   # (B, M, D); block3d 는 스펙별 mask token
                 loss = (p.float() - h.float()).abs().pow(loss_exp).mean() / loss_exp
                 if scaler is not None:
                     scaler.scale(loss).backward()
@@ -220,21 +344,24 @@ def main(args, resume_preempt=False):
                 optimizer.zero_grad(set_to_none=True)
                 return float(loss.detach()), lr_now, wd_now
 
-            (loss, lr_now, wd_now), gpu_ms = gpu_timer(train_step)
+            (loss, lr_now, wd_now), gpu_ms = gpu_timer(train_step_ar if is_ar else (train_step_ctx_ar if is_ctx_ar else train_step))
             step += 1
+            if is_ar or is_ctx_ar:
+                jl_meter.update(aux["jloss"]); sl_meter.update(aux["sloss"])
             it_ms = (time.time() - t_it) * 1000
             loss_meter.update(loss); it_meter.update(it_ms); gpu_meter.update(gpu_ms); data_meter.update(data_ms)
             csv_logger.log(epoch + 1, itr, loss, info["context_frames"], lr_now, it_ms, gpu_ms, data_ms)
             if (itr % log_freq == 0) or (itr == ipe - 1) or not np.isfinite(loss):
-                logger.info("[%d, %5d] loss %.4f (avg %.4f) | mask %s C=%s | lr %.2e wd %.2e | mem %.1fG | iter %.0f ms gpu %.0f ms data %.0f ms"
-                            % (epoch + 1, itr, loss, loss_meter.avg, info["type"], info["context_frames"], lr_now, wd_now,
+                ar_s = (" [tf %.4f ar %.4f R=%d]" % (aux["jloss"], aux["sloss"], aux["R"])) if (is_ar or is_ctx_ar) else ""
+                logger.info("[%d, %5d] loss %.4f (avg %.4f)%s | mask %s C=%s | lr %.2e wd %.2e | mem %.1fG | iter %.0f ms gpu %.0f ms data %.0f ms"
+                            % (epoch + 1, itr, loss, loss_meter.avg, ar_s, info["type"], info["context_frames"], lr_now, wd_now,
                                torch.cuda.max_memory_allocated() / 1024**3, it_meter.avg, gpu_meter.avg, data_meter.avg))
             if not np.isfinite(loss):
                 raise RuntimeError("loss 가 nan/inf")
             if M.get("sync_gc") and (itr + 1) % 50 == 0:
                 gc.collect()
 
-        logger.info(f"epoch {epoch + 1} avg loss {loss_meter.avg:.4f}")
+        logger.info(f"epoch {epoch + 1} avg loss {loss_meter.avg:.4f}" + (f" (tf {jl_meter.avg:.4f} ar {sl_meter.avg:.4f})" if (is_ar or is_ctx_ar) else ""))
         if rank == 0:
             U.save_checkpoint(latest, predictor, optimizer, scaler, epoch + 1, step, loss_meter.avg, cfg, arch)
             if save_every > 0 and ((epoch + 1) % save_every == 0 or epoch + 1 == num_epochs):
@@ -245,8 +372,11 @@ def main(args, resume_preempt=False):
             res = _val(epoch + 1)
         if rank == 0:
             with open(metrics_path, "a") as f:
-                f.write(json.dumps({"epoch": epoch + 1, "step": step, "train_loss": loss_meter.avg, "lr": lr_now,
-                                    "val": res, "time": time.strftime("%Y-%m-%d %H:%M:%S")}) + "\n")
+                rec = {"epoch": epoch + 1, "step": step, "train_loss": loss_meter.avg, "lr": lr_now,
+                       "val": res, "time": time.strftime("%Y-%m-%d %H:%M:%S")}
+                if is_ar or is_ctx_ar:
+                    rec.update(train_jloss=jl_meter.avg, train_sloss=sl_meter.avg)
+                f.write(json.dumps(rec) + "\n")
         if torch.distributed.is_available() and torch.distributed.is_initialized():
             torch.distributed.barrier()
     logger.info("done")

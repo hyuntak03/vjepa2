@@ -5,6 +5,7 @@
 #   watch -c -n 1 bash z_training/monitor.sh                   # 가장 최근 학습 slurm job
 #   watch -c -n 1 bash z_training/monitor.sh 215017            # job id
 #   watch -c -n 1 bash z_training/monitor.sh intphys2_postft   # run 이름 (z_training/runs/<이름>)
+#   watch -c -n 1 bash z_training/monitor.sh natural_prefix    # tmux 로 띄운 run 도 같은 방법 (tmux_train.sh)
 #   MONITOR_COLOR=0 ...                                          # 색 끄기
 #
 # 읽는 것: runs/<run>/log_r0.csv (epoch,itr,loss,ctx_frames,lr,iter-time…), params-train.yaml (epochs · batch),
@@ -13,7 +14,8 @@
 # ETA = 남은 step × 최근 20 step 평균 iter 시간. step/epoch 는 log 의 itr 최댓값 + 1 (첫 epoch 이 끝나기 전엔 추정).
 # -----------------------------------------------------------------------------
 set -uo pipefail
-PROJ=/data/hyuntak/project/2026/2027_cvpr/vjepa2
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../z_research/scripts/harness" && pwd)/env.sh"   # 경로 정본: harness/paths.env
+PROJ=${PROJ:-$VJEPA2_ROOT}
 LOGDIR=$PROJ/z_training/slurm_logs
 ARG="${1:-}"
 
@@ -43,6 +45,14 @@ if [[ -n "$JOBID" ]]; then
   else STATE=$(sacct -j "$JOBID" -X -n -o State 2>/dev/null | head -1 | tr -d ' '); STATE=${STATE:-큐에없음}; fi
 fi
 
+# ── tmux 로 띄운 run (2026-09-22): SLURM job 이 없어도 tmux 세션 train_<run> 이 살아 있으면 RUNNING 취급
+if [[ -z "$JOBID" && -n "$RUN" ]] && tmux has-session -t "train_$RUN" 2>/dev/null; then
+  STATE="RUNNING"; NODE=$(hostname -s); JOBID="tmux"
+  t0=$(stat -c %Y "$PROJ/z_training/runs/$RUN/config.yaml" 2>/dev/null || date +%s)
+  ELAPSED=$(printf "%d:%02d:%02d" $(( ($(date +%s)-t0)/3600 )) $(( (($(date +%s)-t0)%3600)/60 )) $(( ($(date +%s)-t0)%60 )))
+  LIMIT="tmux"
+fi
+
 GPU=""
 if [[ "$STATE" == "RUNNING" ]]; then
   C=/tmp/zt_monitor_gpu_$JOBID
@@ -58,7 +68,7 @@ if [[ "$STATE" == "RUNNING" ]]; then
   GPU=$(tr '\n' ';' < $C 2>/dev/null)
 fi
 
-exec /data/hyuntak/anaconda3/envs/vjepa2/bin/python - "$PROJ" "$RUN" "$JOBID" "$STATE" "$NODE" "$ELAPSED" "$LIMIT" "$GPU" "$ERR" <<'PYEOF'
+exec "$VJEPA2_PY" - "$PROJ" "$RUN" "$JOBID" "$STATE" "$NODE" "$ELAPSED" "$LIMIT" "$GPU" "$ERR" <<'PYEOF'
 import csv, glob, json, os, re, sys, time
 PROJ, RUN, JOB, STATE, NODE, ELA, LIM, GPU, ERR = sys.argv[1:10]
 COL = os.environ.get("MONITOR_COLOR", "1") != "0"
@@ -104,18 +114,35 @@ rows = []
 lp = os.path.join(rd, "log_r0.csv")
 if os.path.isfile(lp):
     for r in csv.DictReader(open(lp)):
-        try: rows.append((int(r["epoch"]), int(r["itr"]), float(r["loss"]), int(r["ctx_frames"]), float(r["lr"]), float(r["iter-time(ms)"])))
+        try: rows.append((int(r["epoch"]), int(r["itr"]), float(r["loss"]), int(r["ctx_frames"]), float(r["lr"]), float(r["iter-time(ms)"]),
+                          float(r.get("gpu-time(ms)", 0) or 0), float(r.get("data-time(ms)", 0) or 0)))
         except Exception: pass
+# 재시작(resume)하면 끊긴 시도의 (epoch, itr) 가 csv 에 남고 같은 step 이 다시 기록된다 (2026-09-23).
+# 마지막 기록만 남긴다 — ETA 의 "최근 20 step" 과 epoch 평균이 죽은 시도의 step 을 세지 않게.
+_last = {}
+for r in rows: _last.pop((r[0], r[1]), None); _last[(r[0], r[1])] = r      # 재기록은 맨 뒤로 (기록 순서 유지)
+rows = list(_last.values())
 print(c("─" * W, DIM))
 if not rows:
     print(c(" 아직 step 로그가 없다 (모델 로딩 중일 수 있다 — ViT-H 로드 ~2 분)", Y))
 else:
-    ep, it, loss, C, lr, itms = rows[-1]
+    ep, it, loss, C, lr, itms, *_ = rows[-1]
     by_ep = {}
     for e, i, l, *_ in rows: by_ep.setdefault(e, []).append(l)
     done_eps = [e for e in by_ep if e < ep]
-    ipe = max(i for e, i, *_ in rows if e in done_eps) + 1 if done_eps else max(it + 1, 1)
-    step = (ep - 1) * ipe + it + 1; total = (ep_total or ep) * ipe
+    by_ep_max = {}
+    for e, i, *_ in rows: by_ep_max[e] = max(by_ep_max.get(e, -1), i)
+    # ipe 는 **현재 실행** 의 값 (train.log 마지막 "ipe N (loader M)"). GPU 수가 바뀌어 재개하면 epoch 당
+    # step 이 달라지므로 (2026-09-23: 8 GPU 672 -> 6 GPU 896) 지난 epoch 은 실제 기록으로, 남은 epoch 은 현재 ipe 로 센다
+    ipe = None
+    try:
+        mm = re.findall(r"\bipe (\d+) \(loader", open(os.path.join(rd, "train.log"), errors="ignore").read())
+        if mm: ipe = int(mm[-1])
+    except Exception:
+        pass
+    if ipe is None: ipe = (by_ep_max[done_eps[-1]] + 1) if done_eps else max(it + 1, 1)
+    step = sum(by_ep_max[e] + 1 for e in done_eps) + it + 1
+    total = (step - it - 1) + max((ep_total or ep) - len(done_eps), 1) * ipe
     recent = [x[5] for x in rows[-20:]]; t_it = sum(recent) / len(recent) / 1000
     eta = (total - step) * t_it
     print(f" epoch {c(f'{ep:>3}/{ep_total or "?"}', B)}  {bar(ep / (ep_total or ep))}  {100 * ep / (ep_total or ep):5.1f}%")
@@ -138,11 +165,19 @@ ck = sorted(glob.glob(os.path.join(rd, "e*.pt")), key=lambda f: int(re.findall(r
 if ck:
     last = ck[-1]; age = time.time() - os.path.getmtime(last)
     print(f" 저장  {len(ck)} 개 (마지막 {os.path.basename(last)}, {hms(age)} 전)  latest.pt {'있음' if os.path.isfile(os.path.join(rd, 'latest.pt')) else '없음'}")
+# ---- step 시간 분해 (최근 50 step): iter / gpu / data  — data 가 크면 로더 병목
+try:
+    last = rows[-50:]
+    it_ms = sum(r[5] for r in last) / len(last); gpu_ms = sum(r[6] for r in last) / len(last); da_ms = sum(r[7] for r in last) / len(last)
+    warn = c("  <- 데이터 대기 큼", Y) if da_ms > 0.3 * it_ms else ""
+    print(f" 시간  iter {it_ms/1000:.2f} s = gpu {gpu_ms/1000:.2f} + data {da_ms/1000:.2f}   (최근 {len(last)} step){warn}")
+except Exception:
+    pass
 mp = os.path.join(rd, "metrics.jsonl")
 if os.path.isfile(mp):
     L = [json.loads(l) for l in open(mp) if l.strip()]
     vals = [(m["epoch"], m["val"]["acc"]) for m in L if isinstance(m.get("val"), dict) and "acc" in m["val"]]
-    if vals: print(f" val   " + "  ".join(f"e{e}:{100 * a:.1f}" for e, a in vals[-8:]))
+    if vals: print(f" val   IntPhys1 dev 60쌍 (감시용, 정식은 eval.sh)  " + "  ".join(f"e{e}:{100 * a:.1f}" for e, a in vals[-10:]))
 
 # ---- GPU
 print(c("─" * W, DIM))
@@ -160,8 +195,11 @@ bad = []
 for f in [ERR, os.path.join(rd, "train.log")]:
     if f and os.path.isfile(f):
         try:
-            tail = open(f, errors="ignore").read()[-200000:].splitlines()
-            bad += [l for l in tail if re.search(r"Traceback|out of memory|OutOfMemory|Error:|Killed|NCCL.*(timeout|error)", l)]
+            txt = open(f, errors="ignore").read()
+            # 같은 run 을 재개하면 train.log 에 이어 쓰므로, **마지막 기동 지점**("Running... (rank: 0/") 이후만 본다
+            cut = txt.rfind("Running... (rank: 0/")
+            tail = (txt[cut:] if cut >= 0 else txt[-200000:]).splitlines()
+            bad += [l for l in tail if re.search(r"Traceback|out of memory|OutOfMemory|Error:|Killed|NCCL.*(timeout|error)|rank 실패", l)]
         except Exception: pass
 if bad:
     print(c("─" * W, DIM)); print(c(f" ⚠ 오류 흔적 {len(bad)} 줄 — 마지막:", R))

@@ -7,6 +7,16 @@
 > **`z_research/IntPhysGenV11/README.md` 를 먼저 읽는다.** 현재 논문·데이터·수치·다음 할 일이 거기 있다.
 > 이 파일은 그 아래 깔린 **레포 운영 규칙**이다.
 
+> # ⚠️ 2026-09-22 — 기계를 옮겼다. 읽고 시작할 것
+> 레포가 `/nas2/data/takhyun03/project/2026/world_model/vjepa2` (노드 `ariel-k2`) 로 왔다.
+> **절대경로의 정본은 `z_research/scripts/harness/paths.env` 하나다 (§9-0). 새로 하드코딩하지 말 것.**
+>
+> **여기서 지금 돌아가는 것** — predictor 학습(`z_training/`) · IntPhys1 dev · InfLevel 3종 · IntPhys 2.
+> **아직 못 돌리는 것** — IntPhysGen v8/v10/v11/v13 · RollOut_v2 · predictor_v1 · EK100 · GRASP.
+> 프레임이 이 기계에 없다 (`${WORLD_ROOT}/world_analysis/` 가 비어 있다). 레지스트리 섹션은
+> 설계 기록으로 남겨 뒀고, 데이터를 옮기면 인덱스를 다시 만들어야 한다 (`data_csv/` 는 gitignore 라
+> 같이 오지 않았다). **§5 의 확립된 수치는 그대로 유효하다** — 재현하려면 데이터부터 옮긴다.
+
 ---
 
 ## 0. 30초 요약
@@ -147,7 +157,7 @@ DRYRUN=1 bash z_research/scripts/run.sh <프로토콜> <데이터셋> <모델>  
 ### 2-1. 표준 진입점 — `z_research/scripts/run.sh`
 
 ```bash
-cd /data/hyuntak/project/2026/2027_cvpr/vjepa2
+cd /nas2/data/takhyun03/project/2026/world_model/vjepa2
 bash z_research/scripts/run.sh --list                                # 뭐가 있는지
 GPUS=8 bash z_research/scripts/run.sh <프로토콜> <데이터셋> [모델]    # 모델 기본 vith
 DRYRUN=1 bash z_research/scripts/run.sh attn_probe v11                # 병합 결과만, GPU 안 씀
@@ -404,14 +414,27 @@ config 를 되살려야 하면 `z_exp/.../summary.json` 안에 그때 쓴 config
 
 ### 4-1. 디스크 — **여유가 거의 없다. 쓰기 전에 반드시 `df -h`**
 
+⚠️ **2026-09-22 기계 이전.** 아래는 **현재 기계(`ariel-k2`)** 기준이다. 옛 기계(vll5, `/data/hyuntak/...`)
+수치는 §4-1-a 에 기록으로만 남긴다.
+
 | 마운트 | 타입 | 용량 | 성격 |
 |---|---|---|---|
-| `/` | ext4 NVMe | 915G | **`/local_datasets` 가 여기 있다. 사실상 꽉 참** |
-| `/data` | **NFS** | 91T | 레포·UnrealEngine 원본. **쓰기 57MB/s** |
-| `/data2` | xfs 로컬 | 7.0T (여유 ~900G) | 토큰 캐시 전용 |
+| `/nas2/data` | **NFS** | 220T (여유 78T) | **레포가 여기 있다.** 체크포인트(34G)도 |
+| `/data2` | xfs **노드 로컬** | 3.5T (여유 ~950G) | **`${WORLD_ROOT}` = 데이터 전부.** 벤치마크·학습셋·토큰 캐시 |
+| `/data3` | xfs 노드 로컬 | 3.5T (여유 ~760G) | 예비 |
+| `/` | NVMe | 3.5T (여유 ~400G) | 시스템 |
 
-`/local_datasets/world/world_analysis/cache → /data2/local_datasets/world/world_analysis/cache`
-⚠️ v11 토큰 캐시(`cache/v11_vith`)는 **421G** 다. 지우기 전에 무엇이 그걸 쓰는지 확인할 것.
+`${WORLD_ROOT}` = `/data2/local_datasets/world` 아래 셋으로 나뉜다:
+`benchmarks/` (IntPhys1 3.3G · IntPhys2 1.7G · InfLevel 1.1G) ·
+`training_datasets/` (SSv2 31G) · `cache/` (토큰 캐시, 아직 비어 있음).
+
+⚠️ **`/data2` 는 노드 로컬이라 다른 노드에서 안 보인다.** SLURM job 은 `ariel-k2` 로 고정한다
+(`WM_SLURM_NODE`). 토큰 캐시는 세트당 30~400G 이므로 반드시 `/data2` 에 둔다 — NFS 에 두면 시간을 버린다.
+
+#### 4-1-a. 옛 기계 (기록)
+
+`/` ext4 915G (`/local_datasets` 가 거기 있었고 사실상 꽉 참) · `/data` NFS 91T (쓰기 57MB/s) ·
+`/data2` xfs 7.0T. v11 토큰 캐시 `cache/v11_vith` 가 **421G**, v11_full 은 840G 였다.
 
 ### 4-2. index 스키마
 
@@ -429,8 +452,21 @@ plausible, pair_id, condition, motion, has_occlusion, violation_type, game_name,
 
 ### 4-3. 원본 프레임 위치
 
-**등록된 것은 `configs/protocols/datasets.md` 가 정본이다.** 그 밖의 실물 위치:
+**등록된 것은 `configs/protocols/datasets.md` 가 정본이다.**
 
+**이 기계(2026-09-22)에 실물이 있는 것** — 전부 `${BENCH_ROOT}` / `${TRAIN_DATA_ROOT}` 아래:
+
+| 세트 | 자리 | 크기 | 인덱스 |
+|---|---|---|---|
+| IntPhys1 dev | `${BENCH_ROOT}/IntPhys1/{O1,O2,O3}/<4중항>/<run>/scene/scene_###.png` | 3.3G | `build_intphys1_index.py --write` → `build_intphys1_pairs.py --write` |
+| InfLevel-lab | `${BENCH_ROOT}/InfLevel/{continuity,gravity,solidity}/*.mp4` | 1.1G | `build_inflevel_index.py --write` (쌍 목록은 `${BENCH_CODE_ROOT}` 의 공식 csv) |
+| IntPhys 2 | `${BENCH_ROOT}/IntPhys2/{Main,HeldOut,Debug}/Videos/*.mp4` | 1.7G | 별도 하네스 (`analysis/intphys2/`) |
+| SSv2 | `${TRAIN_DATA_ROOT}/something-something-v2-mp4/*.mp4` (220,847) | 31G | `z_training/data/build_ssv2_index.py --write` |
+
+**없는 것** — GRASP 영상(공식 레포는 Unity 프로젝트만), IntPhysGen v8/v10/v11/v13,
+RollOut_v2, Predictor_v1_training, EPIC-KITCHENS. 레지스트리에는 남아 있고 실물 검사에서 죽는다.
+
+옛 기계의 자리 (기록):
 - **IntPhysGen v11**: `/local_datasets/world/world_analysis/IntPhysGen_v11`
   설계 문서 `/data/.../UnrealEngine/gen/V11_DESIGN.md`
 - IntPhysGen v10: `/local_datasets/world/world_analysis/IntPhysGen_v10` (42G)
@@ -692,12 +728,42 @@ v8 의 정보손실/정렬손실 분해, 2D 대조는 `z_research/IntPhysGenV8/`
 
 ## 9. 환경
 
+### 9-0. **경로의 정본은 파일 하나다 — `z_research/scripts/harness/paths.env`** (2026-09-22)
+
+기계를 옮겼을 때 100 개 넘는 파일의 `ROOT = "/data/..."` 를 고치는 일을 없애려고 둔다.
+**절대경로를 새로 하드코딩하지 말 것.** 거기서 읽는다.
+
+| 변수 | 값 | 무엇 |
+|---|---|---|
+| `VJEPA2_ROOT` | `/nas2/data/takhyun03/project/2026/world_model/vjepa2` | 레포. **파일 위치에서 파생** (paths.env 에 없다) |
+| `VJEPA2_PY` | `/nas2/data/takhyun03/anaconda3/envs/vjepa2/bin/python` | 파이썬 |
+| `WORLD_ROOT` | `/data2/local_datasets/world` | 데이터 전부 (노드 로컬) |
+| `BENCH_ROOT` | `${WORLD_ROOT}/benchmarks` | IntPhys1 · IntPhys2 · InfLevel |
+| `TRAIN_DATA_ROOT` | `${WORLD_ROOT}/training_datasets` | SSv2 |
+| `WMA_CACHE_DIR` | `${WORLD_ROOT}/cache` | 토큰 캐시 |
+| `BENCH_CODE_ROOT` | `<레포 이웃>/benchmarks` | 벤치마크 **공식 레포**(jepa-intuitive-physics·grasp·inflevel·IntPhys2). InfLevel 쌍 목록이 여기 |
+| `CKPT_ROOT` | `${VJEPA2_ROOT}/checkpoints` | 체크포인트. 레포 위치에서 파생 |
+| `DATA_CSV` | `${VJEPA2_ROOT}/data_csv` | 인덱스 csv. 레포 위치에서 파생 |
+| `WM_SLURM_PARTITION` / `WM_SLURM_NODE` | `batch_ugrad` / `ariel-k2` | 제출 위치 |
+
+쓰는 법 — **세 입구뿐이다**:
+- **bash**: `source .../harness/env.sh` (`run.sh`·`train.sh`·`sbatch.sh` 가 이미 한다)
+- **python**: `from paths import ROOT, expand` (`sys.path` 에 `harness` 를 넣고)
+- **md/yaml**: 값 안에 `${BENCH_ROOT}/IntPhys1` 처럼 쓰면 `resolve.py`/`resolve_train.py` 가 푼다
+
+확인: `python z_research/scripts/harness/paths.py` 가 표를 찍는다.
+⚠️ `#SBATCH` 헤더는 변수 확장이 안 된다 — 거기 적힌 파티션·노드는 리터럴이고,
+자기제출 분기가 명령줄 `--partition/-w` 로 덮으므로 실제로 이기는 값은 `paths.env` 쪽이다.
+
+### 9-1. 런타임
+
 ```
-python : /data/hyuntak/anaconda3/envs/vjepa2/bin/python   (3.12.13)
-torch 2.12.0+cu126 · GPU 8장 · numpy 2.4.6 · matplotlib 3.11.0 · decord 0.6.0 · timm 1.0.27
+python : ${VJEPA2_PY}   (3.12.13)
+torch 2.12.0+cu126 · GPU 8장 (RTX A6000 48G) · numpy · matplotlib · decord 0.6.0 · timm
 없는 것: scikit-learn, seaborn, PyAV, node/npm, 한글 폰트
+SLURM  : 파티션 batch_ugrad / debug_ugrad (계정 ugrad), 노드 ariel-k2 (CPU 128 · RAM 735G · GPU 8)
 ```
-SLURM 스크립트는 `source /data/hyuntak/anaconda3/bin/activate vjepa2`.
+SLURM 스크립트는 `source "$CONDA_ACTIVATE" "$CONDA_ENV"` (= `.../anaconda3/bin/activate vjepa2`).
 
 ### `.gitignore` 주의
 `*csv`, `*.json`, `*.png`, `*.pt`, `z_exp/`, `data_gen/`, `checkpoint/` 가

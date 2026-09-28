@@ -11,13 +11,17 @@
 """
 import argparse
 import os
+import pathlib
 import sys
 import time
 
 import torch
 import yaml
 
-ROOT = "/data/hyuntak/project/2026/2027_cvpr/vjepa2"
+# 경로 정본은 z_research/scripts/harness/paths.env 하나다 (paths.py 가 읽는다).
+# 이 파일은 `python z_training/harness/*.py` 로 불리므로 sys.path[0] 이 z_training/harness 다.
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "z_research/scripts/harness"))
+from paths import ROOT, expand  # noqa: E402
 sys.path.insert(0, f"{ROOT}/z_research/scripts/harness")
 from resolve import parse_registry  # noqa: E402
 

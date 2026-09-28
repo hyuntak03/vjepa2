@@ -14,8 +14,9 @@
 # 릴리즈 predictor 기준선은 그냥 run.sh 로: GPUS=8 bash z_research/scripts/run.sh surprise_c16t32 v11 vith
 # -----------------------------------------------------------------------------
 set -euo pipefail
-PY=/data/hyuntak/anaconda3/envs/vjepa2/bin/python
-PROJ=/data/hyuntak/project/2026/2027_cvpr/vjepa2
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../z_research/scripts/harness" && pwd)/env.sh"   # 경로 정본: harness/paths.env
+PY=$VJEPA2_PY
+PROJ=${PROJ:-$VJEPA2_ROOT}
 RUN=${1:?"사용법: eval.sh <run> [데이터셋] [프로토콜]"}
 DATASET=${2:-v11}
 PROTOCOL=${3:-surprise_c16t32}
@@ -25,11 +26,20 @@ RUN=$(cd "$RUN" && pwd)
 CK="$RUN/$CKPT"
 [[ -f "$CK" ]] || { echo "ERROR: $CK 가 없다"; exit 1; }
 MODEL=$("$PY" -c "import yaml,sys;print(yaml.safe_load(open(sys.argv[1]))['model'].get('base','vith'))" "$RUN/config.yaml" 2>/dev/null || echo vith)
+# predictor 구조(kind / n_registers)를 run config 에서 읽어 채점기에 넘긴다 — 안 넘기면 릴리즈 클래스로
+# 지어져 prefix-마스크 predictor 가 full attention 으로 **조용히 틀리게** 채점된다 (2026-09-22)
+KIND_SET=$("$PY" - "$RUN/config.yaml" <<'PY'
+import yaml, sys
+pc = (yaml.safe_load(open(sys.argv[1])).get("model") or {}).get("predictor") or {}
+print(" ".join(f"model.predictor.{k}={pc[k]}" for k in ("kind", "n_registers") if k in pc))
+PY
+)
+echo "predictor: ${KIND_SET:-oneshot(릴리즈 구조)}"
 NAME=$(basename "$RUN"); STEM=${CKPT%.pt}
 OUTDIR="$RUN/eval/${PROTOCOL}__${DATASET}_${STEM}"
 TAG="${DATASET}_${NAME}_${STEM}"
 echo "run $RUN | ckpt $CKPT | base model $MODEL | -> $OUTDIR"
-SET="model.predictor_checkpoint=$CK ${SET:-}" OUTDIR="$OUTDIR" TAG="$TAG" GPUS=${GPUS:-1} \
+SET="model.predictor_checkpoint=$CK $KIND_SET ${SET:-}" OUTDIR="$OUTDIR" TAG="$TAG" GPUS=${GPUS:-1} \
   bash z_research/scripts/run.sh "$PROTOCOL" "$DATASET" "$MODEL"
 [[ -n "${DRYRUN:-}" ]] && exit 0
 [[ -n "${LIMIT:-}" ]] && OUTDIR="${OUTDIR}_smoke${LIMIT}"      # run.sh 가 LIMIT 이면 _smoke{N} 을 붙인다
