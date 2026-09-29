@@ -25,7 +25,7 @@ import os
 import random
 from collections import Counter, defaultdict
 
-ROOT = "/data/hyuntak/project/2026/2027_cvpr/vjepa2"
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))   # 레포
 ap = argparse.ArgumentParser()
 ap.add_argument("--source", default="v11_full", choices=["v11_full", "v11"])
 ap.add_argument("--train-frac", type=float, default=0.5)

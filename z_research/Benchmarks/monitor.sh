@@ -7,7 +7,7 @@
 #   exp_results/_runs/<tag>.tsv     : run 하나가 갱신 (done/total/elapsed)
 # 속도·ETA 는 이전 샘플과의 차이로 낸다 (상태는 /tmp 에 둔다).
 # =============================================================================
-REPO=${REPO:-/data/hyuntak/project/2026/2027_cvpr/vjepa2}
+REPO=${REPO:-"$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"}
 BASE="$REPO/z_research/Benchmarks/exp_results"
 PREV="/tmp/.bench_monitor_$(id -u).prev"
 NOW=$(date +%s)

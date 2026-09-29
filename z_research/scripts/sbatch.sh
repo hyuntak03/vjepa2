@@ -75,7 +75,12 @@
 #   진행 상황:  watch -n 1 bash z_research/scripts/monitor.sh
 # -----------------------------------------------------------------------------
 set -euo pipefail
-PROJECT=/data/hyuntak/project/2026/2027_cvpr/vjepa2
+# 경로는 harness/paths.env 한 곳에서 온다. SLURM 은 이 파일을 복사해서 돌리므로 본체에서는
+# BASH_SOURCE 상대경로가 깨진다 -> 제출 셸이 export 한 VJEPA2_ROOT 로 폴백 (z_training/sbatch.sh 와 같다)
+_H="$(cd "$(dirname "${BASH_SOURCE[0]}")/harness" 2>/dev/null && pwd)" \
+  || _H="${VJEPA2_ROOT:?VJEPA2_ROOT 가 없다 (제출 셸에서 env.sh 를 거치지 않았다)}/z_research/scripts/harness"
+source "$_H/env.sh"
+PROJECT=$VJEPA2_ROOT
 
 # ── 사람이 bash 로 직접 부른 경우: 제출만 하고 끝낸다 ────────────────────────
 # ⚠️ SLURM_JOB_ID 로 가르면 안 된다 — 인터랙티브 salloc 안에서도 설정돼 있다.
@@ -164,7 +169,7 @@ fi
 P=${P:?"--export=ALL,P=<프로토콜>,D=<데이터셋> 필요  (목록: bash z_research/scripts/run.sh --list)"}
 D=${D:?"--export=ALL,P=<프로토콜>,D=<데이터셋> 필요  (목록: bash z_research/scripts/run.sh --list)"}
 M=${M:-vith}
-source /data/hyuntak/anaconda3/bin/activate vjepa2
+source "$CONDA_ACTIVATE" "$CONDA_ENV"
 cd "$PROJECT"; export PYTHONPATH="$PROJECT:${PYTHONPATH:-}"
 mkdir -p "$PROJECT/z_research/scripts/slurm_logs"
 

@@ -1,7 +1,7 @@
 tag: bench_intphys2_main_videomae2g
-folder: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/Benchmarks/exp_results/intphys2
+folder: ${VJEPA2_ROOT}/z_research/Benchmarks/exp_results/intphys2
 data:
-  root: /data2/local_datasets/world/Benchmark/IntPhys2
+  root: ${BENCH_ROOT}/IntPhys2
   dataset_variant: intphys2
   split: Main
   frame_step: 10
@@ -12,7 +12,7 @@ data:
   decord_threads: 2
 model:
   family: videomae2
-  checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/videomae2/models--OpenGVLab--VideoMAE2/snapshots/706cc172d65ebd4dedbee3f9c0183a93df9fa125/mae-g/vit_g_hybrid_pt_1200e.pth
+  checkpoint: ${CKPT_ROOT}/videomae2/models--OpenGVLab--VideoMAE2/snapshots/706cc172d65ebd4dedbee3f9c0183a93df9fa125/mae-g/vit_g_hybrid_pt_1200e.pth
   arch_name: vit_giant_patch14
   img_size: 224
   patch_size: 14

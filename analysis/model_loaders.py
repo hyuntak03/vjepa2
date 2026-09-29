@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import logging
 import os
+import sys
 from typing import Optional
 
 import torch
@@ -30,11 +31,17 @@ import torch.nn.functional as F
 
 logger = logging.getLogger(__name__)
 
-REPO = "/data/hyuntak/project/2026/2027_cvpr/vjepa2"
-VMAE_REPO = "/data/hyuntak/project/2026/2027_cvpr/VideoMAEv2"
+# 경로 정본은 z_research/scripts/harness/paths.env (CLAUDE.md §9-0)
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                                "z_research", "scripts", "harness"))
+from paths import CKPT_ROOT, ROOT as REPO  # noqa: E402
+
+# VideoMAEv2 공식 레포 — 레포 이웃에 둔다 (videomae2g 채점에만 필요)
+VMAE_REPO = os.environ.get("VMAE_REPO", os.path.join(os.path.dirname(REPO), "VideoMAEv2"))
 
 # 샤드가 같은 체크포인트를 NFS 에서 각각 읽으면 그게 병목이다 (2.1-g 는 16.9 GB).
-CKPT_LOCAL = os.environ.get("BENCH_CKPT_LOCAL", "/data2/local_datasets/world/Benchmark/ckpt")
+# 이 기계는 디스크가 하나라 따로 복사할 곳이 없다 -> 기본은 CKPT_ROOT (local_first 가 원본을 그대로 쓴다)
+CKPT_LOCAL = os.environ.get("BENCH_CKPT_LOCAL", CKPT_ROOT)
 
 
 def local_first(path: str) -> str:

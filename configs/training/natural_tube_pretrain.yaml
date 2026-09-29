@@ -1,0 +1,99 @@
+# =============================================================================
+# 팔 D′ — **릴리즈 사전학습 레시피 그대로**, encoder 동결 + predictor 만 scratch 학습 (2026-09-29, 사용자 결정)
+#
+#   GPUS=8 bash z_training/tmux_train.sh natural_tube_pretrain            # tmux 백그라운드
+#   watch -c -n 1 bash z_training/monitor.sh natural_tube_pretrain        # 모니터
+#
+# 원본: `configs/train/vith16/pretrain-256px-16f.yaml` (V-JEPA 2 ViT-H 사전학습 본 단계).
+# natural_tube 와의 차이 = **우리가 덧붙였던 샘플링 전략을 전부 걷어냈다**:
+#   * 창 = **16 장 @ fps 4 고정** (4 초). natural_tube 는 prefix 팔과 예산을 맞추려고 window_blocks 로 창 길이를 뽑았다
+#   * 마스크 = **short(8 블록 × 0.15) + long(2 블록 × 0.7) 을 매 step 둘 다** 돌려 손실 평균 (`mask_mode: all`).
+#     natural_tube 는 step 마다 하나를 뽑았다. 릴리즈 app/vjepa/train.py 와 같은 방식이다
+#   * mask token: 스펙 순서대로 short = 0, long = 1 (릴리즈와 같다)
+#   * aug = 릴리즈 make_transforms 기본값: hflip 0.5, RandomResizedCrop scale [0.3, 1.0] · ratio [0.75, 1.35]
+#   * 데이터 비율 = 릴리즈의 K710 : SSv2 = 0.335 : 0.100 (HowTo100M 은 없다 → 남은 둘만 그 비율로)
+# 릴리즈와 **다른** 점 (의도적 / 불가피)
+#   * encoder 동결, EMA 없음 — 이 레포의 frozen-encoder 하네스 (predictor 만 AdamW)
+#   * K710 대신 K400, HowTo100M 없음 (이 기계에 있는 학습 데이터가 SSv2 + K400 뿐)
+#   * global batch: 릴리즈 24 × 128 GPU = 3072 / 여기 21 × 8 = **168** — ariel 팔(natural_tube·ar·ctx_ar: 6 GPU × 28)과 같다
+#   * 길이: 36 "epoch" × ipe 1000 = **36,000 step** → 약 605 만 clip (ariel 팔 35,840 × 168 = 602 만과 같은 예산)
+# lr: ariel scratch 팔과 같게 (2026-09-29 사용자 결정 "ariel 그대로") — 3e-4, start 1e-5 에서 1 epoch(1,000 step)
+#     warmup 후 cosine 으로 1e-6 (_base_frozen_predictor 기본값). 릴리즈 5.25e-4 는 global 3072 기준이라 쓰지 않는다.
+# =============================================================================
+extends: frozen_predictor_scratch
+
+mask_mode: all                # ★ 스펙 전부 매 step (릴리즈). 기본 sample 은 step 마다 하나
+
+meta:
+  save_every_freq: 4          # e{N}.pt = 4,000 step 마다 (latest.pt 는 1,000 step 마다)
+  log_freq: 10
+  compile_encoders: true      # 동결 ViT-H 두 개 torch.compile
+
+model:
+  predictor:
+    kind: oneshot             # 릴리즈 predictor 위상 (full attention + mask token)
+    use_activation_checkpointing: false  # batch 21 이면 메모리 여유 (batch 64 에선 꺼면 47 GB OOM 이라 켰었다). 수치는 같고 속도만 다르다
+    num_mask_tokens: 10       # 릴리즈와 같다 (쓰는 건 0, 1)
+
+data:
+  n_frames: 16                # 릴리즈 dataset_fpcs 16
+  batch_size: 21              # rank 당. 8 GPU = global 168 = ariel 팔 (6 GPU × 28). 64 였으면 36K step 에 3 배 데이터·~40 h
+  num_workers: 12             # CPU 128 / 8 rank. 디코드(K400 원본 해상도)가 병목이 되지 않게
+  prefetch_factor: 4
+  transfer_uint8: true        # uint8 로 넘겨 GPU 에서 정규화 (호스트 메모리 4 배 절약)
+  loader_timeout_s: 600       # 워커가 파손 파일에서 멈추면 10 분 뒤 에러로 죽인다 (침묵 정지 금지)
+  datasets:
+    - {name: k400_fps4_min112, weight: 0.335}
+    - {name: ssv2_fps4_min48,  weight: 0.100}
+  aug:
+    hflip_p: 0.5
+    random_resized_crop: {scale: [0.3, 1.0], ratio: [0.75, 1.35]}
+
+mask:
+  - type: block3d
+    name: short
+    num_blocks: 8
+    spatial_scale: [0.15, 0.15]
+    temporal_scale: [1.0, 1.0]
+    aspect_ratio: [0.75, 1.5]
+    max_temporal_keep: 1.0
+    full_complement: false
+    max_keep: null
+  - type: block3d
+    name: long
+    num_blocks: 2
+    spatial_scale: [0.7, 0.7]
+    temporal_scale: [1.0, 1.0]
+    aspect_ratio: [0.75, 1.5]
+    max_temporal_keep: 1.0
+    full_complement: false
+    max_keep: null
+
+optimization:
+  epochs: 36
+  ipe: 1000                   # "epoch" = 1,000 step 으로 고정 (loader 길이와 무관) → 총 36,000 step
+  lr: 3.0e-4                  # ariel scratch 팔과 같다
+  start_lr: 1.0e-5
+  final_lr: 1.0e-6            # cosine 감쇠
+  warmup: 1                   # epoch = 1,000 step (ariel 팔도 1 epoch)
+  weight_decay: 0.04
+  final_weight_decay: 0.04
+
+val:                          # in-loop 감시 (IntPhys1 dev 60 쌍). 정식 수치는 z_training/eval.sh
+  dataset: intphys1_dev
+  n_blocks_per_type: 10
+  context_length: 8           # 16 장 창: 앞 8 장 보고 뒤 8 장
+  batch_size: 8
+  every_epochs: 1
+  at_start: true
+  data:
+    root: ${DATA_CSV}/intphys1_dev
+    index_csv: index.csv
+    frames_root: ${BENCH_ROOT}/IntPhys1
+    frames_pattern: "{block}/{quadruplet}/{run}/scene/scene_{frame:03d}.png"
+    frames_start: 1
+    frames_stride: 3
+    block_column: block_id
+    pair_column: pair_id
+    plausible_column: plausible
+    type_column: block_type

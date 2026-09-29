@@ -10,18 +10,21 @@ Main 가능 영상 전부로 학습하면 test 짝의 가능 영상을 학습에
   train_possible.csv   "<mp4> 0" (video_csv, 학습)       train_scenes.txt / test_scenes.txt
   test_metadata.csv    test 장면의 4 유형 전부 (Main metadata.csv 와 같은 컬럼)
 --link: <root>/MainTest/{metadata.csv, Videos -> ../Main/Videos} 를 만든다 → analysis/intphys2 채점기에 split: MainTest (코드 수정 없음)
-  python z_training/data/build_intphys2_main_split.py [--root /local_datasets/world/IntPhys2] [--write] [--link]
+  python z_training/data/build_intphys2_main_split.py [--root ${BENCH_ROOT}/IntPhys2] [--write] [--link]
 """
 from __future__ import annotations
 import argparse, collections, csv, os, random
 from pathlib import Path
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "z_research/scripts/harness"))
+from paths import BENCH_ROOT  # noqa: E402  경로 정본: harness/paths.env
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / "data_csv/IntPhys2/main_split"
 
 
 def main():
-    ap = argparse.ArgumentParser(); ap.add_argument("--root", default="/local_datasets/world/IntPhys2"); ap.add_argument("--seed", type=int, default=0)
+    ap = argparse.ArgumentParser(); ap.add_argument("--root", default=os.path.join(BENCH_ROOT, "IntPhys2")); ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--write", action="store_true"); ap.add_argument("--link", action="store_true"); a = ap.parse_args()
     rows = list(csv.DictReader(open(f"{a.root}/Main/metadata.csv"))); fields = list(rows[0].keys())
     scenes = collections.defaultdict(list)

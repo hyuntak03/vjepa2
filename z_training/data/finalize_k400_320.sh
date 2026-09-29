@@ -1,30 +1,54 @@
 #!/bin/bash
-# K400_320 리사이즈(tmux resize_k400)가 끝나면: 실재 파일만으로 csv 를 만들고, DRYRUN 검사 뒤 학습을 tmux 로 올린다.
-#   bash z_training/data/finalize_k400_320.sh [--no-launch]
-set -euo pipefail
+# =============================================================================
+# K400 → K400_320 재인코딩 파이프라인 (2026-09-29, 이 기계 판). **재실행 안전** (이미 만든 파일은 건너뛴다).
+#
+#   tmux new-session -d -s resize_k400 "bash z_training/data/finalize_k400_320.sh"
+#   bash z_training/data/finalize_k400_320.sh --no-launch      # 학습은 안 올린다
+#
+# 1. data_csv/k400/{train,val}_min112.csv 의 영상을 짧은 변 320 · keyint 24 로 재인코딩
+#    (z_research/scripts/data/resize_videos.sh, CPU 전부). ${TRAIN_DATA_ROOT}/K400/train → K400_320/train
+# 2. 실재하는 출력만으로 data_csv/k400_320/{train,val}_min112.csv 를 만든다 (실패분은 빠진다)
+# 3. DRYRUN 검사 뒤 natural_tube_pretrain 을 tmux 로 올리고 .autoresume 표시를 단다
+#
+# 왜: K400 원본의 ~25 % 가 720p 이고 keyint 가 길어 학습 step 의 절반 이상이 CPU 디코드 대기였다
+#     (2026-09-29 실측 6.4 s/step, GPU 0~100 % 진동). GPU(NVENC) 인코딩은 파일마다 CUDA 초기화가
+#     CPU sys ~2 s 라 CPU 인코딩(1.2 s)보다 비쌌다 → CPU 로만 한다.
+# 부팅 훅: z_training/logs/.resize_pending 이 있으면 autoresume.sh 가 이 스크립트를 다시 올린다.
+# =============================================================================
+set -uo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../../z_research/scripts/harness" && pwd)/env.sh"
 cd "$VJEPA2_ROOT"
-LOG=z_training/logs/resize_k400.log
-until grep -q RESIZE_DONE "$LOG" 2>/dev/null; do
-  printf "\r[%s] 리사이즈 대기: %s / 95453   " "$(date +%H:%M:%S)" "$(find $TRAIN_DATA_ROOT/K400_320 -name '*.mp4' ! -name '*.tmp.mp4' | wc -l)"; sleep 30
-done; echo
+mkdir -p z_training/logs
+touch z_training/logs/.resize_pending
+SRC=$TRAIN_DATA_ROOT/K400; DST=$TRAIN_DATA_ROOT/K400_320
+LIST=z_training/logs/k400_min112_all.csv
+cat data_csv/k400/train_min112.csv data_csv/k400/val_min112.csv > "$LIST"
+echo "[$(date '+%F %T')] 재인코딩 시작: $(wc -l < "$LIST") 편 -> $DST"
+find "$DST" -name '*.tmp.mp4' -delete 2>/dev/null
+bash z_research/scripts/data/resize_videos.sh "$SRC" "$DST" "$LIST" "${P:-128}" 320
+echo "[$(date '+%F %T')] RESIZE_DONE"
+
 mkdir -p data_csv/k400_320
-for n in 64 96; do for split in train val; do
-  src=data_csv/k400/${split}_min$n.csv; dst=data_csv/k400_320/${split}_min$n.csv
-  "$VJEPA2_PY" - "$src" "$dst" "$TRAIN_DATA_ROOT" <<'PY'
+for split in train val; do
+  "$VJEPA2_PY" - "data_csv/k400/${split}_min112.csv" "data_csv/k400_320/${split}_min112.csv" "$SRC" "$DST" <<'PY'
 import os, sys
-src, dst, root = sys.argv[1:4]
+src, dst, a, b = sys.argv[1:5]
 n = m = 0
 with open(src) as f, open(dst, "w") as g:
     for ln in f:
         path, lab = ln.rstrip("\n").rsplit(" ", 1); n += 1
-        q = path.replace(f"{root}/K400/videos/", f"{root}/K400_320/videos/")
-        if os.path.getsize(q) > 0 if os.path.exists(q) else False:
+        q = path.replace(a + "/", b + "/", 1)
+        if os.path.exists(q) and os.path.getsize(q) > 0:
             g.write(f"{q} {lab}\n"); m += 1
 print(f"{dst}: {m:,} / {n:,}")
 PY
-done; done
-echo "failed: $(wc -l < $TRAIN_DATA_ROOT/K400_320/videos/_failed.txt 2>/dev/null || echo 0)"
-DRYRUN=1 bash z_training/train.sh natural_prefix >/dev/null && echo "DRYRUN OK"
+done
+echo "failed: $(wc -l < "$DST/_failed.txt" 2>/dev/null || echo 0)"
+rm -f z_training/logs/.resize_pending
 [[ "${1:-}" == "--no-launch" ]] && exit 0
-GPUS=8 NAME=natural_prefix bash z_training/tmux_train.sh natural_prefix
+
+DRYRUN=1 bash z_training/train.sh natural_tube_pretrain > /dev/null || { echo "DRYRUN 실패 — 학습을 안 올린다"; exit 1; }
+echo "DRYRUN OK"
+GPUS=8 bash z_training/tmux_train.sh natural_tube_pretrain natural_tube_pretrain
+printf 'CONFIG=natural_tube_pretrain\nGPUS=8\n' > z_training/runs/natural_tube_pretrain/.autoresume
+echo "[$(date '+%F %T')] 학습 올림 (tmux train_natural_tube_pretrain)"

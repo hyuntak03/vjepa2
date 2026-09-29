@@ -43,15 +43,16 @@
 #   DRYRUN=1            병합·검사만 하고 끝낸다
 # -----------------------------------------------------------------------------
 set -euo pipefail
-PY=/data/hyuntak/anaconda3/envs/vjepa2/bin/python
-PROJ=/data/hyuntak/project/2026/2027_cvpr/vjepa2
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/harness" && pwd)/env.sh"   # 경로 정본: harness/paths.env
+PY=$VJEPA2_PY
+PROJ=$VJEPA2_ROOT
 P=$PROJ/configs/protocols
 
 if [[ "${1:-}" == "--list" || $# -eq 0 ]]; then
   echo "프로토콜:";  ls "$P"/*.yaml | xargs -n1 basename | sed 's/\.yaml$//;s/^/  /'
   echo "데이터셋:";  "$PY" - "$P/datasets.md" <<'L'
-import sys
-sys.path.insert(0, "/data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/scripts/harness")
+import os, sys
+sys.path.insert(0, os.path.join(os.environ["VJEPA2_ROOT"], "z_research/scripts/harness"))
 from resolve import parse_registry
 for k, v in sorted(parse_registry(sys.argv[1], "root").items()):
     bad = v.get("available") is False

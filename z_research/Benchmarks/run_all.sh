@@ -10,13 +10,12 @@
 #   watch -c -n 1 bash z_research/Benchmarks/monitor.sh
 #
 # 데이터가 어디 있어야 하는가
-#   inflevel_*   : /data (NFS) 직독        -> 아무 노드나
-#   grasp_level2 : /data2 노드 로컬        -> stage.sh 돌린 노드만
-#   intphys1_dev : /local_datasets 노드 로컬 -> vll5
-#   v11          : /local_datasets          -> vll5  (P3, 이 세트 범위 밖이지만 실행은 된다)
+#   전부 ${BENCH_ROOT} 아래 (harness/paths.env). 자리는 configs/protocols/datasets.md 가 정본.
+#   (옛 기계: inflevel=/data NFS, grasp=/data2 노드 로컬, intphys1_dev·v11=vll5 /local_datasets)
 # =============================================================================
 set -uo pipefail
-REPO=/data/hyuntak/project/2026/2027_cvpr/vjepa2
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../scripts/harness" && pwd)/env.sh"   # 경로 정본: harness/paths.env
+REPO=$VJEPA2_ROOT
 cd "$REPO"
 L=$REPO/z_research/Benchmarks/exp_results/logs; mkdir -p "$L"
 
@@ -53,20 +52,18 @@ set_v11_model() { [[ $1 == videomae2g ]] && echo "data.n_frames=16 data.frames_s
 #     A.8 최고값은 `garrido_rescore.py` 가 창을 가로질러 고른다.
 WINDOWS=${WINDOWS:-"16 32"}
 
-# 칸이 실패하면 그 랭크들이 GPU 메모리를 쥔 채 남아 다음 칸이 연쇄 OOM 난다. 빠질 때까지 기다린다.
-wait_gpu_free() {
-  local me; me=$(id -un)
-  for i in $(seq 1 72); do
-    local used; used=$(nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits 2>/dev/null | sort -rn | head -1)
-    [[ ${used:-0} -lt 1500 ]] && return 0
-    if (( i > 6 )); then
-      for p in $(nvidia-smi --query-compute-apps=pid --format=csv,noheader 2>/dev/null); do
-        [[ "$(ps -o user= -p "$p" 2>/dev/null | tr -d ' ')" == "$me" ]] && kill -9 "$p" 2>/dev/null   # 공용 노드다. 소유자 확인
-      done
-    fi
-    sleep 5
-  done
-  echo "   !! GPU 메모리가 6 분 넘게 안 빠진다 — 그래도 진행"
+# 칸이 실패하면 그 랭크들이 GPU 메모리를 쥔 채 남아 다음 칸이 연쇄 OOM 난다.
+# ⚠️ 2026-09-29 정정 — 예전 wait_gpu_free 는 GPU 메모리가 1.5GB 아래로 안 빠지면 **같은 사용자의 GPU
+#    프로세스를 전부** kill -9 했다. 다른 벤치마크를 동시에 돌리면 그 랭크까지 죽인다 (IntPhys2 w48·w16 이
+#    IntPhys1 w16→w32 전환 순간 SIGKILL 로 죽었다). 이제 칸마다 run.sh 를 **자기 프로세스 그룹**(setsid)
+#    으로 띄우고, 끝나면 **그 그룹만** 치운다. 남의 job 은 건드리지 않는다.
+run_cell() {   # run_cell <로그> <run.sh 인자...>   (환경변수는 호출자가 넘긴다)
+  local log=$1; shift
+  setsid bash z_research/scripts/run.sh "$@" > "$log" 2>&1 &
+  local pid=$!
+  wait "$pid"; local rc=$?
+  pkill -9 -g "$pid" 2>/dev/null   # 이 칸이 남긴 랭크만 (pgid == setsid 로 띄운 pid)
+  return $rc
 }
 
 for b in $BENCHES; do
@@ -82,7 +79,6 @@ for b in $BENCHES; do
       out="$REPO/z_research/Benchmarks/exp_results/$(proto_of "$b")__${tag}"
       if [[ -f "$out/summary.json" ]]; then echo "-- $tag 이미 있음, 건너뜀"; continue; fi
       echo "=== $b / $m / w$w  ($(date '+%H:%M:%S'))"
-      wait_gpu_free
       # 배치 상한(max_batch). 기본 48 은 ViT-H(latent 1280) 기준이다.
       #   2.1-g   : 타깃이 5632 차원(4.4 배) -> 창 무관하게 낮춘다
       #   VideoMAE: 창 32 에서 토큰 4096 + 픽셀 디코더라 48 이면 24 GiB 를 요청한다 (2026-09-21 OOM)
@@ -91,7 +87,7 @@ for b in $BENCHES; do
       S="$S $EXTRA_SET"
       GPUS=$GPUS TAG="$tag" OUTDIR="$out" SET="$S" \
       PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True \
-        bash z_research/scripts/run.sh "$(proto_of "$b")" "$b" "$m" > "$L/${tag}.log" 2>&1
+        run_cell "$L/${tag}.log" "$(proto_of "$b")" "$b" "$m"
       rc=$?
       if (( rc )); then echo "   !! 실패 (rc=$rc) — $L/${tag}.log"
       else grep -E "BEST\(avg\)|overall" "$L/${tag}.log" | tail -1 | sed 's/^/   /'; fi

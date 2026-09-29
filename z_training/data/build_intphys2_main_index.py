@@ -6,18 +6,21 @@
 출력: data_csv/IntPhys2/main_possible.csv  ("<mp4 절대경로> 0", 공백 구분, VideoDataset 형식) + main_possible_meta.csv (검사용 메타)
 검사: 506 행 = 253 장면 × {1_Possible, 2_Possible}, 파일 존재, 512×512 · 60 fps · 길이 ≥ 480 (= 6 fps 48 장 창) (--check 로 전수 decord 확인)
       길이는 영상마다 다르다 (가능 506 개: 635–938 프레임, 636 인 것 389 개; 2026-09-19 전수).
-  python z_training/data/build_intphys2_main_index.py [--root /local_datasets/world/IntPhys2] [--check] [--write]
+  python z_training/data/build_intphys2_main_index.py [--root ${BENCH_ROOT}/IntPhys2] [--check] [--write]
 """
 from __future__ import annotations
 import argparse, collections, csv, os
 from pathlib import Path
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "z_research/scripts/harness"))
+from paths import BENCH_ROOT  # noqa: E402  경로 정본: harness/paths.env
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / "data_csv/IntPhys2"
 
 
 def main():
-    ap = argparse.ArgumentParser(); ap.add_argument("--root", default="/local_datasets/world/IntPhys2")
+    ap = argparse.ArgumentParser(); ap.add_argument("--root", default=os.path.join(BENCH_ROOT, "IntPhys2"))
     ap.add_argument("--check", action="store_true"); ap.add_argument("--write", action="store_true"); a = ap.parse_args()
     rows = list(csv.DictReader(open(f"{a.root}/Main/metadata.csv")))
     pos = [r for r in rows if r["type"].endswith("_Possible")]

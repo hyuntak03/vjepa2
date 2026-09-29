@@ -19,12 +19,12 @@
 
 # --- output root -------------------------------------------------------------
 tag: intphys2_TEMPLATE
-folder: /data/hyuntak/project/2026/2027_cvpr/vjepa2/analysis/intphys2/logs
+folder: ${VJEPA2_ROOT}/analysis/intphys2/logs
 # Results land under <folder>/<tag>/.
 
 # --- IntPhys2 dataset --------------------------------------------------------
 data:
-  root: /local_datasets/world/IntPhys2      # split dirs live under this
+  root: ${BENCH_ROOT}/IntPhys2      # split dirs live under this
   split: Debug                              # Debug | Main | HeldOut
   target_fps: 6.0                           # paper D.3 Table 8: framerate=6 for V-JEPA 2
   min_frames: 8                             # drop videos with fewer effective frames
@@ -36,7 +36,7 @@ model:
   # required: path to a V-JEPA 2 .pth/.pt containing "encoder", "target_encoder",
   # "predictor" state dicts (this is the format produced by the official
   # V-JEPA 2 release, e.g. facebook/vjepa2-vitl-fpc64-256).
-  checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vitl-fpc64-256/snapshots/b3c1679b7c34d3255ef3547f27c7b226aefab26f/original/model.pth
+  checkpoint: ${CKPT_ROOT}/models--facebook--vjepa2-vitl-fpc64-256/snapshots/b3c1679b7c34d3255ef3547f27c7b226aefab26f/original/model.pth
 
   arch_name: vit_large                      # vit_large | vit_huge | vit_giant(_xformers)
   img_size: 256

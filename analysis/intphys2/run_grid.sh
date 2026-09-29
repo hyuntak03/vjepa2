@@ -9,12 +9,13 @@
 #   context 길이 C = 창 x {1/4, 3/8, 1/2, 5/8, 3/4, 7/8}
 #   (공식 vjepa_2.yaml M=48 -> [12,18,24,30,36,42], videomaev2.yaml M=16 -> [4,6,8,10,12,14])
 #
-# 데이터는 노드 로컬 /data2/local_datasets/world/Benchmark/IntPhys2/Main (stage.sh 가 푼다).
+# 데이터는 ${BENCH_ROOT}/IntPhys2/Main (harness/paths.env).
 # =============================================================================
 set -uo pipefail
-REPO=/data/hyuntak/project/2026/2027_cvpr/vjepa2
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../../z_research/scripts/harness" && pwd)/env.sh"   # 경로 정본: harness/paths.env
+REPO=$VJEPA2_ROOT
 cd "$REPO"
-PY=/data/hyuntak/anaconda3/envs/vjepa2/bin
+PY=$(dirname "$VJEPA2_PY")
 OUT=$REPO/z_research/Benchmarks/exp_results/intphys2
 L=$REPO/z_research/Benchmarks/exp_results/logs; mkdir -p "$L"
 
@@ -39,12 +40,17 @@ VIDEO_BATCH=${VIDEO_BATCH:-1}
 #                        framerate at 2, 3 and 6 fps"  -> 창이 아니라 fps 를 쓴다
 win_for() { [[ $1 == videomae2g ]] && echo "16" || echo "${WINDOWS:-16 32 48}"; }
 
-# window 당 토큰 = (w/2) x (256/16)^2.  배치 상한을 그에 반비례로 잡는다 (24GB 기준).
+# window 당 토큰 = (w/2) x (256/16)^2.  배치 상한을 그에 반비례로 잡는다.
+#   48GB (RTX PRO 5000, 2026-09-29): 영상 하나의 창(w16 ~27 / w32 ~19 / w48 ~11)이 한 배치에 들어가게.
+#   옛 24GB 값은 16 / 12 / 8 이었다. BATCH_SCALE 로 조정 (24GB 카드면 0.5).
+BATCH_SCALE=${BATCH_SCALE:-2}
 batch_for() {
+  local b
   case "$1/$2" in
-    vjepa21g/*) echo 2 ;;                      # 타깃 latent 5632 차원
-    */16) echo 16 ;; */32) echo 12 ;; */48) echo 8 ;; *) echo 8 ;;
+    vjepa21g/*) b=2 ;;                         # 타깃 latent 5632 차원
+    */16) b=16 ;; */32) b=12 ;; */48) b=8 ;; *) b=8 ;;
   esac
+  python3 -c "print(max(1, int($b * $BATCH_SCALE)))"
 }
 
 for m in $MODELS; do
@@ -62,7 +68,6 @@ for m in $MODELS; do
         --set "surprise.context_length_sweep=$C" \
         --set surprise.context_length=$((w/2)) \
         --set surprise.max_window_batch=$(batch_for "$m" "$w") \
-        --set surprise.video_batch=$VIDEO_BATCH \
         --set surprise.video_batch=$VIDEO_BATCH \
       > "$L/${tag}.log" 2>&1
     rc=$?

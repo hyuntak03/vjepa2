@@ -2,7 +2,7 @@
 """IntPhys1 train 분할(가능 영상만) 의 학습 인덱스를 만든다 — world_model_analysis 14컬럼 스키마.
 
   python z_training/data/build_intphys1_train_index.py            # -> data_csv/intphys1_train/index.csv
-  python z_training/data/build_intphys1_train_index.py --root /local_datasets/world/IntPhys1 --n-frames 100
+  python z_training/data/build_intphys1_train_index.py --root ${BENCH_ROOT}/IntPhys1 --n-frames 100
 
 scene 폴더 `<id>/scene/scene_001.png .. scene_100.png` 이 전부 있는 id 만 넣는다.
 status.json 의 header.is_possible 이 false 면 죽는다 (train 은 전부 가능이어야 한다).
@@ -13,10 +13,13 @@ import csv
 import json
 import os
 import re
+import sys
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "z_research", "scripts", "harness"))
+from paths import BENCH_ROOT, DATA_CSV  # noqa: E402  경로 정본: harness/paths.env
 
 ap = argparse.ArgumentParser()
-ap.add_argument("--root", default="/local_datasets/world/IntPhys1")
-ap.add_argument("--out", default="/data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/intphys1_train/index.csv")
+ap.add_argument("--root", default=os.path.join(BENCH_ROOT, "IntPhys1"))
+ap.add_argument("--out", default=os.path.join(DATA_CSV, "intphys1_train", "index.csv"))
 ap.add_argument("--n-frames", type=int, default=100)
 a = ap.parse_args()
 

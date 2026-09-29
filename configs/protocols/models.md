@@ -18,12 +18,12 @@ encoder 만 hidden 1024→1280, depth 24→32 로 커진다.
 ## vith
 
 arch_name: vit_huge
-checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vith-fpc64-256/snapshots/b5eac8703e3efdc1547fbb6ddfbeb133dc0bdee5/original/model.pth
+checkpoint: ${CKPT_ROOT}/models--facebook--vjepa2-vith-fpc64-256/snapshots/b5eac8703e3efdc1547fbb6ddfbeb133dc0bdee5/original/model.pth
 
 ## vitl
 
 arch_name: vit_large
-checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vitl-fpc64-256/snapshots/b3c1679b7c34d3255ef3547f27c7b226aefab26f/original/model.pth
+checkpoint: ${CKPT_ROOT}/models--facebook--vjepa2-vitl-fpc64-256/snapshots/b3c1679b7c34d3255ef3547f27c7b226aefab26f/original/model.pth
 
 ---
 
@@ -44,7 +44,7 @@ predictor depth 24 / mask token 8, 예측 공간 **5632 = 4 x 1408**.
 
 family: vjepa2_1
 arch_name: vit_giant
-checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/v_jepa2.1/vjepa2_1_vitg_384.pt
+checkpoint: ${CKPT_ROOT}/v_jepa2.1/vjepa2_1_vitg_384.pt
 img_size: 256
 patch_size: 16
 tubelet_size: 2
@@ -67,7 +67,7 @@ arch_name: vit_giant_patch14
 # 임베딩은 체크포인트에 없고 `get_sinusoid_encoding_table` 로 **생성**되는 값이라
 # (VideoMAEv2/models/modeling_pretrain.py) 32 프레임도 돈다. 논문도 [16,32] 를
 # 탐색했고 Table S3 에서 16 을 **골랐을 뿐**이다. 2026-09-21 정정.
-checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/videomae2/models--OpenGVLab--VideoMAE2/snapshots/706cc172d65ebd4dedbee3f9c0183a93df9fa125/mae-g/vit_g_hybrid_pt_1200e.pth
+checkpoint: ${CKPT_ROOT}/videomae2/models--OpenGVLab--VideoMAE2/snapshots/706cc172d65ebd4dedbee3f9c0183a93df9fa125/mae-g/vit_g_hybrid_pt_1200e.pth
 img_size: 224
 patch_size: 14
 tubelet_size: 2

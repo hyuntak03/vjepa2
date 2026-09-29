@@ -18,10 +18,13 @@ import argparse
 import csv
 import glob
 import os
+import sys
 
-LOCAL = "/data2/local_datasets/world/Benchmark/GRASP/videos/level2"
-NFS = "/data/dataset/world/Benchmarks/GRASP/videos/level2"
-OUT = "/data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/grasp_level2"
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "harness"))
+from paths import BENCH_ROOT, DATA_CSV  # noqa: E402  경로 정본: harness/paths.env
+LOCAL = os.path.join(BENCH_ROOT, "GRASP/videos/level2")
+NFS = LOCAL   # 옛 기계의 NFS 사본 자리. 이 기계에는 디스크가 하나다
+OUT = os.path.join(DATA_CSV, "grasp_level2")
 
 COLS = ["video_id", "file", "block_id", "source_block", "variant", "plausible",
         "pair_id", "condition", "block_type", "scenario", "role"]

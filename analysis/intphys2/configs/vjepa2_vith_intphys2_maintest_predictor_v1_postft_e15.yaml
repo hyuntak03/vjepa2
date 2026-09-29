@@ -1,7 +1,7 @@
 # =============================================================================
 # IntPhys 2 Main 장면 split 의 test 절반 (126 장면, 252 쌍) — predictor_v1_postft e15 predictor 채점 (4×4 전이 행렬, 2026-09-19) (2026-09-19)
 #   vjepa2_vith_intphys2_main_repro.yaml 과 같은 격자 (C 11 개 × avg/max) — 릴리즈 기준선 57.94 (같은 test 장면, 같은 격자) 와 비교.
-#   바뀐 것: split MainTest (/local_datasets/world/IntPhys2/MainTest, z_training/data/build_intphys2_main_split.py --link),
+#   바뀐 것: split MainTest (${BENCH_ROOT}/IntPhys2/MainTest, z_training/data/build_intphys2_main_split.py --link),
 #            model.predictor_checkpoint = z_training/runs/intphys2_postft/e80.pt (encoder 는 릴리즈 그대로).
 #   다른 epoch: 이 파일을 복사해 predictor_checkpoint 와 tag 만 바꾼다.
 # =============================================================================
@@ -54,10 +54,10 @@
 # =============================================================================
 
 tag: vjepa2_vith_intphys2_maintest_predictor_v1_postft_e15
-folder: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_exp/intphys2
+folder: ${VJEPA2_ROOT}/z_exp/intphys2
 
 data:
-  root: /local_datasets/world/IntPhys2
+  root: ${BENCH_ROOT}/IntPhys2
   dataset_variant: intphys2
   split: MainTest                 # Main 장면 split 의 test 126 장면 (504 영상)
 
@@ -77,9 +77,9 @@ data:
   decord_threads: 2
 
 model:
-  checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vith-fpc64-256/snapshots/b5eac8703e3efdc1547fbb6ddfbeb133dc0bdee5/original/model.pth
+  checkpoint: ${CKPT_ROOT}/models--facebook--vjepa2-vith-fpc64-256/snapshots/b5eac8703e3efdc1547fbb6ddfbeb133dc0bdee5/original/model.pth
   arch_name: vit_huge
-  predictor_checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_training/runs/predictor_v1_postft/e15.pt
+  predictor_checkpoint: ${VJEPA2_ROOT}/z_training/runs/predictor_v1_postft/e15.pt
   img_size: 256
   patch_size: 16
   tubelet_size: 2

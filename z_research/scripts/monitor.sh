@@ -15,7 +15,7 @@
 #          (현행 eval.py 는 head 를 rank 로 쪼개지 않고 45개를 8 rank DP 로 순차 학습한다)
 # -----------------------------------------------------------------------------
 set -uo pipefail
-PROJ=/data/hyuntak/project/2026/2027_cvpr/vjepa2
+PROJ="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 LOGDIRS=("$PROJ/z_research/scripts/slurm_logs")   # z_scripts 는 2026-09-21 삭제
 ARG="${1:-}"
 

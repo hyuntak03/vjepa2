@@ -213,6 +213,10 @@ def _resolve_config(cfg_path: str, overrides: Optional[Dict[str, Any]] = None) -
     cfg = _deep_merge(DEFAULT_CFG, raw)
     if overrides:
         cfg = _deep_merge(cfg, overrides)
+    # ${BENCH_ROOT} · ${CKPT_ROOT} · ${VJEPA2_ROOT} 등을 푼다 — 경로 정본 harness/paths.env (CLAUDE.md §9-0)
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "z_research" / "scripts" / "harness"))
+    from paths import expand
+    cfg = expand(cfg)
 
     # sanity
     if cfg["folder"] is None:

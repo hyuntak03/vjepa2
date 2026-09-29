@@ -38,8 +38,11 @@ import sys
 
 import yaml
 
-ROOT = "/data/hyuntak/project/2026/2027_cvpr/vjepa2"
-META = ("raw_frames", "cache_tag", "results_root", "available", "note")  # data: 로 안 들어가는 키
+# 경로 정본은 harness/paths.env 하나다 (paths.py 가 읽는다). 레지스트리 값의 ${BENCH_ROOT} 등은
+# parse_registry 가 푼다 — resolve_train.py 가 그 동작에 기댄다 (그쪽 "${VAR} 풀기" 주석).
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from paths import ROOT, expand  # noqa: E402
+META =("raw_frames", "cache_tag", "results_root", "available", "note")  # data: 로 안 들어가는 키
 # 점(.)을 허용한다 — models.md 가 `surprise.<키>` 로 모델별 채점 관례를 선언할 수 있게 (2026-09-21).
 KV = re.compile(r"^([a-z_][a-z0-9_.]*)\s*:\s*(.+?)\s*$")
 
@@ -57,9 +60,9 @@ def parse_registry(path: str, required: str) -> dict:
         m = KV.match(ln)
         if m:
             try:
-                out[cur][m.group(1)] = yaml.safe_load(m.group(2))
+                out[cur][m.group(1)] = expand(yaml.safe_load(m.group(2)))
             except yaml.YAMLError:
-                out[cur][m.group(1)] = m.group(2)
+                out[cur][m.group(1)] = expand(m.group(2))
     return {k: v for k, v in out.items() if required in v}
 
 
@@ -232,6 +235,9 @@ def main():
         #                    닫힌 해 ridge 를 쓴다 (analysis/concept_separability.py).
         cond = [[g] for g in sorted(seen)]
         P["fit_groups_sweep"] = cond if P["fit_groups_sweep"] == "auto_conditions" else [None] + cond
+
+    # ── ${VAR} 풀기 — 프로토콜 yaml·--set·TAG/OUTDIR 값에도 쓸 수 있게 (레지스트리는 이미 풀려 있다) ──
+    cfg = expand(cfg)
 
     # ── 모델 로드 전에 실물 검사 ────────────────────────────────────────────────
     d, m = cfg["data"], cfg["model"]

@@ -414,6 +414,24 @@ class MaskSampler:
         pred = torch.arange(n_ctx, N, dtype=torch.long).unsqueeze(0).expand(B, -1).contiguous()
         return enc, pred
 
+    def all(self, B: int):
+        """**모든 스펙을 한 step 에** — 릴리즈 사전학습(app/vjepa/train.py)과 같다 (2026-09-29, `mask_mode: all`).
+
+        릴리즈는 배치마다 short·long 마스크를 **둘 다** 만들어 predictor 를 각각 돌리고 손실을 평균한다.
+        block3d 전용 (prefix 류는 창을 자르므로 스펙끼리 창이 달라진다). 창 = n_frames 전체.
+        돌려주는 것: [(enc, pred, info), ...] 스펙 순서대로. rank 동기 RNG 를 그대로 쓴다.
+        """
+        out = []
+        for s in self.specs:
+            if s["type"] != "block3d":
+                raise ValueError(f"mask_mode=all 은 block3d 스펙만 된다 (받은 것: {s['type']})")
+            if s["window_blocks"] != [self.T]:
+                raise ValueError("mask_mode=all 은 window_blocks 없이 (창 = n_frames 전체) 쓴다")
+            enc, pred = s["gens"][self.T](B)
+            out.append((enc.long(), pred.long(), {"type": f"block3d_{s['name']}", "context_frames": -1,
+                                                  "win_blocks": self.T, "mask_index": s["mask_index"]}))
+        return out
+
     def __call__(self, B: int):
         k = self.rng.choices(range(len(self.specs)), weights=self.weights, k=1)[0]
         s = self.specs[k]

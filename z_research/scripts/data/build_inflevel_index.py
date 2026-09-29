@@ -31,10 +31,11 @@ import argparse, os, sys
 import numpy as np
 import pandas as pd
 
-AUX = ("/data/hyuntak/project/2026/2027_cvpr/jepa-intuitive-physics/evaluation_code/"
-       "auxiliary_data_loading_files/inflevel")
-ROOT = "/data/dataset/world/Benchmarks/InfLevel/InfLevel"
-OUT = "/data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv"
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "harness"))
+from paths import BENCH_CODE_ROOT, BENCH_ROOT, DATA_CSV  # noqa: E402  경로 정본: harness/paths.env
+AUX = os.path.join(BENCH_CODE_ROOT, "jepa-intuitive-physics/evaluation_code/auxiliary_data_loading_files/inflevel")
+ROOT = os.path.join(BENCH_ROOT, "InfLevel", "inflevel_lab")   # {continuity,gravity,solidity}/*.mp4
+OUT = DATA_CSV
 PROPS = ["continuity", "gravity", "solidity"]
 
 

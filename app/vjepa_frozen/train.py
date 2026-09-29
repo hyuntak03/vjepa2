@@ -38,6 +38,22 @@ from app.vjepa_frozen import ar as AR
 from src.utils.distributed import init_distributed
 from src.utils.logging import AverageMeter, CSVLogger, get_logger, gpu_timer
 
+class _MultiMaskPredictor(torch.nn.Module):
+    """`mask_mode: all` 용 — 한 step 의 마스크 여러 개를 **DDP forward 한 번**으로 돌린다.
+
+    DDP 는 backward 한 번에 forward 한 번을 기대한다. predictor(DDP) 를 마스크마다 따로 부르면
+    같은 파라미터가 두 번 ready 로 표시돼 죽는다. 그래서 루프를 모듈 안에 넣는다 (릴리즈
+    PredictorMultiSeqWrapper 와 같은 발상). 체크포인트는 안쪽 predictor 만 저장하므로 형식이 그대로다.
+    """
+
+    def __init__(self, pred):
+        super().__init__()
+        self.pred = pred
+
+    def forward(self, zs, encs, preds, idxs):
+        return [self.pred(z, e, p, mask_index=i) for z, e, p, i in zip(zs, encs, preds, idxs)]
+
+
 warnings.filterwarnings("ignore", message=r".*sdp_kernel.*", category=FutureWarning)
 logger = get_logger(__name__, force=True)
 
@@ -123,6 +139,11 @@ def main(args, resume_preempt=False):
         ctx_enc = tgt_enc if ctx_enc is tgt_enc else torch.compile(ctx_enc, mode="default", dynamic=True)
         logger.info("encoders: torch.compile(mode=default, dynamic=True)")
     predictor = U.build_predictor(MD, ctx_enc.embed_dim, state if MD.get("load_predictor") else None, device, n_frames)
+    # mask_mode: sample(기본) = step 마다 스펙 하나 / all = 릴리즈 사전학습처럼 스펙 전부, 손실 평균
+    mask_all = str(cfg.get("mask_mode", "sample")) == "all"
+    if mask_all and (kind in ("ar", "ctx_ar") or D.get("window_grid")):
+        raise ValueError("mask_mode=all 은 oneshot/prefix 계열 + block3d 전용이다 (ar·window_grid 불가)")
+    pred_core = predictor
     del state
     tubelet, patch = int(MD.get("tubelet_size", 2)), int(MD.get("patch_size", 16))
     spatial = (res // patch) ** 2
@@ -130,9 +151,11 @@ def main(args, resume_preempt=False):
     arch = {"img_size": res, "patch_size": patch, "tubelet_size": tubelet, "num_frames": n_frames,
             "encoder_embed_dim": ctx_enc.embed_dim, **(MD.get("predictor") or {})}
     # mask token 은 매 step 하나만 쓰이므로(나머지 9개 미사용) find_unused_parameters 가 필요하다
+    if mask_all:
+        predictor = _MultiMaskPredictor(predictor)
     predictor = DistributedDataParallel(predictor, static_graph=False, find_unused_parameters=True) \
         if world_size > 1 else predictor
-    pred_mod = predictor.module if hasattr(predictor, "module") else predictor
+    pred_mod = pred_core            # 옵티마이저·저장·val 은 늘 안쪽 predictor (래퍼·DDP 없이)
 
     # ---- 데이터 -------------------------------------------------------------------
     dataset = build_dataset(D, n_frames, res)
@@ -208,7 +231,7 @@ def main(args, resume_preempt=False):
             if rank == 0:
                 logger.info(f"[epoch {epoch}] {AR.format_val_ar(res)}")
             return res
-        res = run_val(valset, ctx_enc, tgt_enc, predictor, device, ac_dtype, rank, world_size, tubelet, spatial,
+        res = run_val(valset, ctx_enc, tgt_enc, pred_mod if mask_all else predictor, device, ac_dtype, rank, world_size, tubelet, spatial,
                       int(V.get("context_length", 16)), int(V.get("batch_size", 8)), mask_index, loss_exp, target_ln)
         if rank == 0:
             logger.info(f"[epoch {epoch}] {format_val(res)}")
@@ -239,7 +262,13 @@ def main(args, resume_preempt=False):
                 sampler.set_epoch(epoch + 1)
                 loader_it = iter(loader)
                 clips, m_enc, m_pred, info = next(loader_it)
-            if m_enc is None:                    # TrainCollator(None) 경로 — rank 동기 마스크
+            if m_enc is None and mask_all:       # 릴리즈 사전학습: 스펙 전부 (창 = n_frames 전체, 자르지 않는다)
+                mlist = sampler_masks.all(clips.size(0))
+                m_enc = [e.to(device, non_blocking=True) for e, _, _ in mlist]
+                m_pred = [p_.to(device, non_blocking=True) for _, p_, _ in mlist]
+                info = {"type": "+".join(i["type"] for _, _, i in mlist), "context_frames": -1,
+                        "mask_index": [i["mask_index"] for _, _, i in mlist]}
+            elif m_enc is None:                  # TrainCollator(None) 경로 — rank 동기 마스크
                 m_enc, m_pred, info = sampler_masks(clips.size(0))
                 # ── 창을 C+K 블록으로 자른다 (2026-09-22) ─────────────────────
                 # 안 자르면 target encoder 가 **늘 n_frames 전부**(24 블록, 6144 토큰)를 돈다.
@@ -256,8 +285,9 @@ def main(args, resume_preempt=False):
                     clips = clips[:, :, o * tubelet: (o + n_blk) * tubelet]
                     info = {**info, "win_blocks": n_blk, "win_offset": o}
             clips = normalize_clips(clips.to(device, non_blocking=True))   # uint8 전송 -> GPU 정규화
-            m_enc = m_enc.to(device, non_blocking=True)
-            m_pred = m_pred.to(device, non_blocking=True)
+            if not mask_all:
+                m_enc = m_enc.to(device, non_blocking=True)
+                m_pred = m_pred.to(device, non_blocking=True)
             data_ms = (time.time() - t_it) * 1000
 
             aux = {}
@@ -317,6 +347,37 @@ def main(args, resume_preempt=False):
                 aux.update(jloss=float(jl.detach()), sloss=float(sl.detach()), R=R)
                 return float(loss.detach()), lr_now, wd_now
 
+            def train_step_all():
+                # 릴리즈 사전학습 (app/vjepa/train.py): target 은 창 전체 1 회, 마스크마다 context·predictor, 손실 평균
+                lr_now = scheduler.step()
+                wd_now = wd_scheduler.step()
+                with torch.no_grad(), _ac():
+                    xe = clips.to(enc_dtype)
+                    h_full = tgt_enc(xe)                                              # (B, N, D)
+                    hs = []
+                    for mp_ in m_pred:
+                        h = torch.gather(h_full, 1, mp_.unsqueeze(-1).expand(-1, -1, h_full.size(-1)))
+                        hs.append(torch.nn.functional.layer_norm(h, (h.size(-1),)) if target_ln else h)
+                    del h_full
+                    zs = [ctx_enc(xe, masks=[me]) for me in m_enc]                   # context 토큰만
+                with _ac():
+                    ps = predictor(zs, m_enc, m_pred, info["mask_index"])
+                loss = sum((p.float() - h.float()).abs().pow(loss_exp).mean() / loss_exp
+                           for p, h in zip(ps, hs)) / len(ps)
+                if scaler is not None:
+                    scaler.scale(loss).backward()
+                    scaler.unscale_(optimizer)
+                else:
+                    loss.backward()
+                if clip_grad:
+                    torch.nn.utils.clip_grad_norm_(pred_mod.parameters(), float(clip_grad))
+                if scaler is not None:
+                    scaler.step(optimizer); scaler.update()
+                else:
+                    optimizer.step()
+                optimizer.zero_grad(set_to_none=True)
+                return float(loss.detach()), lr_now, wd_now
+
             def train_step():
                 lr_now = scheduler.step()
                 wd_now = wd_scheduler.step()
@@ -344,7 +405,7 @@ def main(args, resume_preempt=False):
                 optimizer.zero_grad(set_to_none=True)
                 return float(loss.detach()), lr_now, wd_now
 
-            (loss, lr_now, wd_now), gpu_ms = gpu_timer(train_step_ar if is_ar else (train_step_ctx_ar if is_ctx_ar else train_step))
+            (loss, lr_now, wd_now), gpu_ms = gpu_timer(train_step_ar if is_ar else (train_step_ctx_ar if is_ctx_ar else (train_step_all if mask_all else train_step)))
             step += 1
             if is_ar or is_ctx_ar:
                 jl_meter.update(aux["jloss"]); sl_meter.update(aux["sloss"])
@@ -363,9 +424,9 @@ def main(args, resume_preempt=False):
 
         logger.info(f"epoch {epoch + 1} avg loss {loss_meter.avg:.4f}" + (f" (tf {jl_meter.avg:.4f} ar {sl_meter.avg:.4f})" if (is_ar or is_ctx_ar) else ""))
         if rank == 0:
-            U.save_checkpoint(latest, predictor, optimizer, scaler, epoch + 1, step, loss_meter.avg, cfg, arch)
+            U.save_checkpoint(latest, pred_mod, optimizer, scaler, epoch + 1, step, loss_meter.avg, cfg, arch)
             if save_every > 0 and ((epoch + 1) % save_every == 0 or epoch + 1 == num_epochs):
-                U.save_checkpoint(os.path.join(folder, f"e{epoch + 1}.pt"), predictor, optimizer, scaler,
+                U.save_checkpoint(os.path.join(folder, f"e{epoch + 1}.pt"), pred_mod, optimizer, scaler,
                                   epoch + 1, step, loss_meter.avg, cfg, arch)
         res = {}
         if V and int(V.get("every_epochs", 1)) > 0 and ((epoch + 1) % int(V.get("every_epochs", 1)) == 0 or epoch + 1 == num_epochs):

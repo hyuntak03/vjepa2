@@ -94,7 +94,7 @@ features:                         # ⚠️ 없으면 surprise 로 폴백해 cach
   cache_dtype: float16
   # ⚠️ 반드시 로컬 디스크. /data 는 NFS(쓰기 57MB/s)라 셋당 약 40GB 캐시를 두면 10분을 버린다.
   #    아래는 /data2(xfs) 로 가는 symlink. 캐시 이름은 tag = <cache_tag>_<모델> 이다.
-  cache_dir: /local_datasets/world/world_analysis/cache
+  cache_dir: ${WMA_CACHE_DIR}
 
 probing:
   enabled: true

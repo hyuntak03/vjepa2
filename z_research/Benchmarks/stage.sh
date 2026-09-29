@@ -9,13 +9,17 @@
 #   - tar 로 있는 것   -> /data2/local_datasets/world/Benchmark 에 푼다
 #   - 폴더로만 있는 것 -> /data/dataset/world/Benchmarks 에서 그냥 읽는다 (InfLevel)
 #
+# ⚠️ 2026-09-29: SRC(/data/dataset/...)·LOCAL 기본값은 **옛 기계(vll*) 전용**이다. 이 기계에는 SRC 가 없고
+#    레지스트리는 ${BENCH_ROOT}/IntPhys1/{O1,O2,O3} 배치를 기대한다 (여기 풀리는 IntPhys1_dev/dev/... 와 다르다).
+#    쓰려면 BENCH_SRC / BENCH_LOCAL 을 지정하고 배치를 datasets.md 에 맞출 것.
+#
 # 여러 번 돌려도 안전하다 (`.state/<key>.done` 으로 건너뛴다).
 # 진행률은 **공유 디스크**(`exp_results/_stage/<host>.tsv`)에 5 초마다 적는다.
 # 노드 로컬이라 다른 노드에서는 안 보이기 때문이다 — monitor.sh 가 그 파일을 읽는다.
 # =============================================================================
 set -uo pipefail
 
-REPO=${REPO:-/data/hyuntak/project/2026/2027_cvpr/vjepa2}
+REPO=${REPO:-"$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"}
 SRC=${BENCH_SRC:-/data/dataset/world/Benchmarks}
 LOCAL=${BENCH_LOCAL:-/data2/local_datasets/world/Benchmark}
 STATE="$LOCAL/.state"

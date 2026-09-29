@@ -80,7 +80,7 @@ features:
   decode_workers: 0
   prefetch_batches: 2
   cache_dtype: float16
-  cache_dir: /local_datasets/world/world_analysis/cache
+  cache_dir: ${WMA_CACHE_DIR}
 
 probing:
   enabled: true

@@ -151,6 +151,32 @@ csv: ${DATA_CSV}/k400/train_min240.csv
 fps: 6
 filter_short_videos: true
 
+## ssv2_fps4_min48
+
+**릴리즈 사전학습 규격 (`configs/train/vith16/pretrain-256px-16f.yaml`: 16 장 @ fps 4 = 4 초 창)** 용 SSv2 (2026-09-29).
+12 fps 원본에서 fstp = 12 // 4 = 3 → 16 장에 raw 48 장이 필요하다 → `train_min48.csv` (94,294 train / 952 val, 43.1 %).
+원본은 `${TRAIN_DATA_ROOT}/ssv2/videos/*.webm` (공식 webm, 이 기계). 인덱스: `build_video_index.py ssv2 --probe --min-frames 48 --write`.
+
+type: video_csv
+csv: ${DATA_CSV}/ssv2/train_min48.csv
+fps: 4
+filter_short_videos: true
+
+## k400_fps4_min112
+
+**릴리즈 사전학습 규격 (16 장 @ fps 4)** 용 K400 (2026-09-29). 30 fps 원본에서 fstp = 30 // 4 = 7 → raw 112 장
+(25·24 fps 는 fstp 6 → 96 장이라 112 로 거르면 보수적이다). 원본은 공식 s3 tar 를 푼 10 초 clip
+`${TRAIN_DATA_ROOT}/K400/train/*.mp4` (241,258 편, 해상도 혼재 — `random_resized_crop` 필수).
+열리지 않는 파일(moov atom 없음 등)은 probe 가 길이 −1 로 적어 인덱스에서 빠진다.
+인덱스: `build_video_index.py k400 --probe --min-frames 112 --write`.
+**학습은 짧은 변 320 · keyint 24 재인코딩 사본** (`${TRAIN_DATA_ROOT}/K400_320/train`) 을 읽는다 — 원본은 ~25 % 가 720p 라
+CPU 디코드가 병목이었다 (6.4 s/step, 2026-09-29). 사본·csv 는 `z_training/data/finalize_k400_320.sh` 가 만든다.
+
+type: video_csv
+csv: ${DATA_CSV}/k400_320/train_min112.csv
+fps: 4
+filter_short_videos: true
+
 ## intphys1_train
 
 IntPhys 2019 **train 분할** (가능 영상만, 4중항 없음). 로컬에 3,750 scene
@@ -279,6 +305,21 @@ type: frames_index
 root: ${DATA_CSV}/predictor_v1_training
 index_csv: index_train.csv
 frames_root: ${WORLD_ROOT}/world_analysis/Predictor_v1_training
+frames_pattern: "{file_name}/{frame:06d}.png"
+frames_start: 0
+frames_stride: 3
+frames_start_choices: [0, 3, 6]
+raw_frames: 100
+
+## smoke_possible
+
+**하네스 자가검증용 합성 데이터의 가능 변이** (2026-09-28). `configs/protocols/datasets.md ## smoke` 와 같은 프레임.
+`python z_research/scripts/harness/make_smoke_data.py` 로 만든다. ⚠️ 배관 점검 전용 — 학습 결과는 의미가 없다.
+
+type: frames_index
+root: ${DATA_CSV}/smoke
+index_csv: index.csv
+frames_root: ${WORLD_ROOT}/smoke/frames
 frames_pattern: "{file_name}/{frame:06d}.png"
 frames_start: 0
 frames_stride: 3

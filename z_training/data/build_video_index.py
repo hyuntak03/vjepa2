@@ -43,11 +43,11 @@ from paths import DATA_CSV, TRAIN_DATA_ROOT  # noqa: E402
 # 세트별 차이는 **데이터로만** 둔다 (코드 분기 금지).
 SETS = {
     "ssv2": {
-        "glob": "something-something-v2-mp4/*.mp4",
+        "glob": "ssv2/videos/*.webm",          # 2026-09-29 이 기계: 공식 webm (옛 기계는 something-something-v2-mp4/*.mp4)
         "note": "Something-Something v2. 12 fps, 높이 320, median 45장(max 76).",
     },
     "k400": {
-        "glob": "K400/videos/*/*/*.mp4",
+        "glob": "K400/train/*.mp4",            # 2026-09-29 이 기계: 공식 s3 tar 를 푼 10 초 clip (옛 기계는 K400/videos/*/*/*.mp4 서브클립)
         "note": "Kinetics-400. fps 30 주류, 해상도 혼재, median 112장(p95 300).",
         # ⚠️ 이 K400 사본은 장면 단위로 잘린 서브클립이고 파일명이 `..._clip_<i>_<start>_<dur>.mp4` 다.
         #    **컨테이너 헤더 길이는 원본 것이라 신뢰할 수 없고, 파일명의 <dur> 가 실제 길이(초)** 다.
