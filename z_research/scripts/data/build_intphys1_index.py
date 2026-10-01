@@ -5,10 +5,13 @@
   python z_research/scripts/data/build_intphys1_index.py --write    # 쓰기
   python z_research/scripts/data/build_intphys1_pairs.py --write    # 다음 단계: pair_id (픽셀 분기점)
 
-배치: ${BENCH_ROOT}/IntPhys1/{O1,O2,O3}/<4중항 01..30>/<run 1..4>/{scene,depth,masks}/ + status.json
+배치: ${BENCH_ROOT}/IntPhys1/dev/{O1,O2,O3}/<4중항 01..30>/<run 1..4>/{scene,depth,masks}/ + status.json
 공식 로더와 같은 규칙 (jepa-intuitive-physics/.../intphys_dataset.py:89-123):
   * 4중항은 sorted(listdir), run 도 sorted
   * 라벨 = status.json 의 header.is_possible
+  ⚠️ starting_kit/dev/reference.txt 를 라벨로 쓰지 말 것 (2026-09-29). 그건 옛 dev 배포본
+     (폴더 `01_test_visible_static_nobj1`, run 1·2 가능 고정) 기준이라 이 tar(`01`, run 섞임)와
+     영상 172/360 만 일치한다. status.json 라벨로 기준값 88.89 가 정확히 재현된다.
 pair_id 는 여기서 비워 둔다 — build_intphys1_pairs.py 가 공식 get_breaking_points/get_matches 로 채운다.
 
 컬럼: video_id, file(비움 — PNG 직독), block, quadruplet, run, block_id, block_type, variant, plausible, pair_id
@@ -34,7 +37,7 @@ N_FRAMES = 100
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--root", default=os.path.join(BENCH_ROOT, "IntPhys1"))
+    ap.add_argument("--root", default=os.path.join(BENCH_ROOT, "IntPhys1", "dev"))
     ap.add_argument("--out", default=os.path.join(DATA_CSV, "intphys1_dev"))
     ap.add_argument("--write", action="store_true")
     a = ap.parse_args()

@@ -43,8 +43,15 @@ from paths import DATA_CSV, TRAIN_DATA_ROOT  # noqa: E402
 # 세트별 차이는 **데이터로만** 둔다 (코드 분기 금지).
 SETS = {
     "ssv2": {
-        "glob": "ssv2/videos/*.webm",          # 2026-09-29 이 기계: 공식 webm (옛 기계는 something-something-v2-mp4/*.mp4)
+        "glob": "SSv2/20bn-something-something-v2/*.webm",   # 2026-09-29 이 기계: 공식 webm 220,847 (SSv2/videos/ 는 zip 조각이다) (옛 기계는 something-something-v2-mp4/*.mp4)
         "note": "Something-Something v2. 12 fps, 높이 320, median 45장(max 76).",
+    },
+    "k710": {
+        # 2026-09-29 이 기계: UniFormerV2 K710 정의 (K400+K600+K700-2020 하드링크, scripts/build_k710.py).
+        # glob 이 아니라 **train 목록**을 읽는다 — videos/ 에는 K710 val 66k 도 같이 있다.
+        "list": "K710/annotations/train.csv",   # "k400/<id>.mp4,<label>" (videos/ 기준 상대경로)
+        "list_root": "K710/videos",
+        "note": "Kinetics-710 train 649,057. fps 30 주류, 해상도 혼재. 학습은 K710_320 재인코딩 사본을 읽는다.",
     },
     "k400": {
         "glob": "K400/train/*.mp4",            # 2026-09-29 이 기계: 공식 s3 tar 를 푼 10 초 clip (옛 기계는 K400/videos/*/*/*.mp4 서브클립)
@@ -87,8 +94,14 @@ def main():
 
     spec = SETS[a.set]
     out = a.out or os.path.join(DATA_CSV, a.set)
-    files = sorted(glob.glob(os.path.join(a.root, spec["glob"])))
-    print(f"[{a.set}] mp4 {len(files):,}  <- {os.path.join(a.root, spec['glob'])}")
+    if "list" in spec:     # 목록 파일 (첫 열 = list_root 기준 상대경로)
+        src = os.path.join(a.root, spec["list"])
+        files = sorted(os.path.join(a.root, spec["list_root"], ln.split(",")[0].strip())
+                       for ln in open(src, encoding="utf-8") if ln.strip())
+    else:
+        src = os.path.join(a.root, spec["glob"])
+        files = sorted(glob.glob(src))
+    print(f"[{a.set}] mp4 {len(files):,}  <- {src}")
     if not files:
         sys.exit("ERROR: mp4 가 하나도 없다")
 

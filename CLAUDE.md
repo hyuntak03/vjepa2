@@ -266,7 +266,7 @@ watch -n 1 bash z_research/scripts/monitor.sh
 
 frozen encoder 위에서 predictor 만 학습한다 (scratch / 릴리즈 predictor post-FT).
 **시작점은 `z_training/README.md`**, config 스키마는 `configs/training/README.md`.
-**결과 종합 `z_training/RESULTS_2026-09-19.md`** — 세 post-FT 모두 학습 도메인 안에서만 오른다 (v11 held-out 75.83 → 91.35 인데 IntPhys1 88.89 → 77.22 / IntPhys1 학습 93.89 인데 v11 78.53).
+**최신 결과 `z_training/RESULTS_2026-10-01.md`** (Vast 기계: 릴리즈 레시피 tube + 64 장 cooldown → IntPhys1 A.8 82.2 %, rollout-only ctx_state 우연 수준, 채점기 kind 버그 수정). **이전 결과 종합 `z_training/RESULTS_2026-09-19.md`** — 세 post-FT 모두 학습 도메인 안에서만 오른다 (v11 held-out 75.83 → 91.35 인데 IntPhys1 88.89 → 77.22 / IntPhys1 학습 93.89 인데 v11 78.53).
 IntPhys 2 채점 대조 (논문·공식 코드): `analysis/intphys2/PROTOCOL_CHECK_2026-09-14.md` — config 수정 (`dtype: float32` + `autocast: bfloat16`, 열별 선택) 미반영.
 
 ```bash

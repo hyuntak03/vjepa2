@@ -23,6 +23,7 @@ bilinear, antialias=False, ImageNet mean/std. 증강은 기본 꺼져 있고
   temporal_prefix   context = 앞 C 프레임 전부, target = 뒤 T−C 프레임 전부.
                     surprise_c16t32 채점과 같은 토폴로지. C 는 context_frames 에서 배치마다 고른다.
   prefix_window     context = 앞 C 블록, target = **그 뒤 K 블록만** (C·K 독립, 2026-09-22).
+                    `gap_blocks` (2026-09-30) 를 주면 문맥과 예측 사이에 G 블록을 비운다 (문맥도 타깃도 아님).
                     `context_blocks` x `predict_blocks` 에서 배치마다 하나씩 고른다
                     (C+K <= T 인 조합만). prefix-마스크 predictor 와 짝이다.
   block3d           릴리즈 사전학습의 3D 블록 마스크 (src/masks/multiseq_multiblock3d._MaskGenerator).
@@ -353,16 +354,22 @@ class MaskSampler:
                 # (릴리즈식 temporal_prefix 는 K = T - C 로 묶여 있다).
                 cb = [int(x) for x in m.get("context_blocks", [self.T // 2])]
                 kb = [int(x) for x in m.get("predict_blocks", [self.T // 2])]
+                # 문맥 끝과 예측 시작 사이의 빈 블록 수 (2026-09-30, 사용자 결정 — "복사로 풀리는 바로 다음 칸" 을 줄인다).
+                # 기본 [0] = 기존 동작과 비트 단위로 같다. 빈 블록은 predictor 입력에도 손실에도 없다 (RoPE 절대 위치라 자리만 건너뛴다)
+                gb = [int(x) for x in m.get("gap_blocks", [0])]
+                for g in gb:
+                    if g < 0:
+                        raise ValueError(f"gap_blocks={g}: 0 이상")
                 for c in cb:
                     if not (0 < c < self.T):
                         raise ValueError(f"context_blocks={c}: 0 < C < {self.T} 여야 한다")
                 for k in kb:
                     if k <= 0:
                         raise ValueError(f"predict_blocks={k}: 1 이상")
-                if not any(c + k <= self.T for c in cb for k in kb):
-                    raise ValueError(f"prefix_window: C+K <= {self.T} 인 조합이 하나도 없다 "
-                                     f"(context_blocks={cb}, predict_blocks={kb})")
-                self.specs.append({"type": t, "context_blocks": cb, "predict_blocks": kb})
+                if not any(c + g + k <= self.T for c in cb for g in gb for k in kb):
+                    raise ValueError(f"prefix_window: C+G+K <= {self.T} 인 조합이 하나도 없다 "
+                                     f"(context_blocks={cb}, gap_blocks={gb}, predict_blocks={kb})")
+                self.specs.append({"type": t, "context_blocks": cb, "predict_blocks": kb, "gap_blocks": gb})
             elif t == "block3d":
                 # 릴리즈 사전학습 마스크 (multiblock3d, tube). `window_blocks` (2026-09-27) 를 주면 창 길이(블록 수)를
                 # 그 목록에서 step 마다 하나 뽑아 **그 길이의 생성기**를 쓴다 — prefix_window 팔과 같은 창 분포로
@@ -393,7 +400,7 @@ class MaskSampler:
         z = sum(self.weights)
         self.weights = [w / z for w in self.weights]
 
-    def prefix_window(self, B: int, n_ctx_blocks: int, n_pred_blocks: int):
+    def prefix_window(self, B: int, n_ctx_blocks: int, n_pred_blocks: int, n_gap_blocks: int = 0):
         """문맥 = 앞 C 블록 전부, 예측 = **그 뒤 K 블록만** (그 뒤는 아예 안 만든다).
 
         `temporal_prefix` 와 달리 K 가 T-C 에 묶이지 않는다 — 채점 그리드처럼
@@ -401,9 +408,10 @@ class MaskSampler:
         RoPE 가 절대 인덱스를 쓰므로 창을 잘라 줄 필요가 없다.
         """
         a = n_ctx_blocks * self.S
-        b = (n_ctx_blocks + n_pred_blocks) * self.S
+        a2 = (n_ctx_blocks + n_gap_blocks) * self.S          # 예측 시작 (gap 만큼 건너뛴다)
+        b = a2 + n_pred_blocks * self.S
         enc = torch.arange(a, dtype=torch.long).unsqueeze(0).expand(B, -1).contiguous()
-        pred = torch.arange(a, b, dtype=torch.long).unsqueeze(0).expand(B, -1).contiguous()
+        pred = torch.arange(a2, b, dtype=torch.long).unsqueeze(0).expand(B, -1).contiguous()
         return enc, pred
 
     def temporal_prefix(self, B: int, n_frames: int, C: int):
@@ -441,13 +449,20 @@ class MaskSampler:
             return enc, pred, {"type": "temporal_prefix", "context_frames": C}
         if s["type"] == "prefix_window":
             C = self.rng.choice(s["context_blocks"])
-            ok = [k for k in s["predict_blocks"] if C + k <= self.T]
+            gs = s.get("gap_blocks", [0])
+            if gs == [0]:                               # 기존 경로 — RNG 호출 순서까지 그대로 (재현성)
+                G = 0
+            else:
+                okg = [g for g in gs if any(C + g + k <= self.T for k in s["predict_blocks"])] or [0]
+                G = self.rng.choice(okg)
+            ok = [k for k in s["predict_blocks"] if C + G + k <= self.T]
             if not ok:                                  # 그 C 로는 어떤 K 도 안 들어간다 -> 남는 만큼
-                ok = [self.T - C]
+                ok = [self.T - C - G]
             K = self.rng.choice(ok)
-            enc, pred = self.prefix_window(B, C, K)
-            return enc, pred, {"type": f"prefix C{C}K{K}", "context_frames": C * self.tub,
-                               "predict_blocks": K, "context_blocks": C, "win_blocks": C + K}
+            enc, pred = self.prefix_window(B, C, K, G)
+            tag = f"prefix C{C}K{K}" if G == 0 else f"prefix C{C}G{G}K{K}"
+            return enc, pred, {"type": tag, "context_frames": C * self.tub,
+                               "predict_blocks": K, "context_blocks": C, "gap_blocks": G, "win_blocks": C + G + K}
         nb = self.rng.choice(s["window_blocks"])
         enc, pred = s["gens"][nb](B)
         # 릴리즈처럼 마스크 스펙마다 다른 mask token 을 쓴다 (mask_index = 스펙 순서). 창 길이는 win_blocks 로 알린다

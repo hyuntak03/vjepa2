@@ -12,9 +12,11 @@
 #   * mask token: 스펙 순서대로 short = 0, long = 1 (릴리즈와 같다)
 #   * aug = 릴리즈 make_transforms 기본값: hflip 0.5, RandomResizedCrop scale [0.3, 1.0] · ratio [0.75, 1.35]
 #   * 데이터 비율 = 릴리즈의 K710 : SSv2 = 0.335 : 0.100 (HowTo100M 은 없다 → 남은 둘만 그 비율로)
+#     2026-09-29 (Vast 재이전): K400 → **K710** (UniFormerV2 정의, train 611,789 편 min112, 320p 재인코딩 사본).
+#     릴리즈와 같은 K710 이 됐다. ariel 팔(K400)과는 이 점이 다르다
 # 릴리즈와 **다른** 점 (의도적 / 불가피)
 #   * encoder 동결, EMA 없음 — 이 레포의 frozen-encoder 하네스 (predictor 만 AdamW)
-#   * K710 대신 K400, HowTo100M 없음 (이 기계에 있는 학습 데이터가 SSv2 + K400 뿐)
+#   * HowTo100M 없음 (이 기계의 학습 데이터는 SSv2 + K710). ~~K710 대신 K400~~ — 2026-09-29 K710 으로 교체
 #   * global batch: 릴리즈 24 × 128 GPU = 3072 / 여기 21 × 8 = **168** — ariel 팔(natural_tube·ar·ctx_ar: 6 GPU × 28)과 같다
 #   * 길이: 36 "epoch" × ipe 1000 = **36,000 step** → 약 605 만 clip (ariel 팔 35,840 × 168 = 602 만과 같은 예산)
 # lr: ariel scratch 팔과 같게 (2026-09-29 사용자 결정 "ariel 그대로") — 3e-4, start 1e-5 에서 1 epoch(1,000 step)
@@ -43,7 +45,7 @@ data:
   transfer_uint8: true        # uint8 로 넘겨 GPU 에서 정규화 (호스트 메모리 4 배 절약)
   loader_timeout_s: 600       # 워커가 파손 파일에서 멈추면 10 분 뒤 에러로 죽인다 (침묵 정지 금지)
   datasets:
-    - {name: k400_fps4_min112, weight: 0.335}
+    - {name: k710_320_fps4,   weight: 0.335}   # 2026-09-29: k400_fps4_min112 → K710 (기계 이전, K400 은 K710 에 포함)
     - {name: ssv2_fps4_min48,  weight: 0.100}
   aug:
     hflip_p: 0.5
@@ -89,7 +91,7 @@ val:                          # in-loop 감시 (IntPhys1 dev 60 쌍). 정식 수
   data:
     root: ${DATA_CSV}/intphys1_dev
     index_csv: index.csv
-    frames_root: ${BENCH_ROOT}/IntPhys1
+    frames_root: ${BENCH_ROOT}/IntPhys1/dev
     frames_pattern: "{block}/{quadruplet}/{run}/scene/scene_{frame:03d}.png"
     frames_start: 1
     frames_stride: 3

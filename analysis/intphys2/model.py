@@ -130,6 +130,31 @@ def _build_encoder(
     return factory(**kwargs)
 
 
+class _CtxStateScorer(nn.Module):
+    """kind=ctx_state predictor 를 채점기의 `predictor(z, ctx_idx, tgt_idx, mask_index)` 규약으로 감싼다 (2026-09-30).
+
+    채점기(evals/world_model_analysis/eval.py) 는 문맥 = context_encoder(window, masks=[ci]),
+    타깃 = LN(target_encoder(window))[ti] 를 쓴다 — ctx_state 학습(app/vjepa_frozen/ar.py:ctx_state_losses) 과 같다.
+    predictor 만 다르다: mask token 한 번이 아니라 **문맥 z 에서 상태 rollout K 블록** (KV 캐시판) 후 render.
+    ci 는 0..C·S-1, ti 는 그 바로 뒤 연속 블록이어야 한다 (_context_target_indices 가 그렇게 만든다).
+    """
+
+    def __init__(self, core: nn.Module):
+        super().__init__()
+        self.core = core
+
+    def forward(self, z, masks_x, masks_y, mask_index=0, **_):
+        S = self.core.tokens_per_block
+        ci, ti = masks_x, masks_y
+        if ci.size(1) % S or ti.size(1) % S:
+            raise ValueError(f"ctx_state 채점: 토큰 수가 블록({S}) 정렬이 아니다 (ctx {ci.size(1)}, tgt {ti.size(1)})")
+        C, K = ci.size(1) // S, ti.size(1) // S
+        if not (bool((ci[0] == torch.arange(C * S, device=ci.device)).all())
+                and bool((ti[0] == torch.arange(C * S, (C + K) * S, device=ti.device)).all())):
+            raise ValueError("ctx_state 채점: 문맥은 앞 C 블록, 타깃은 그 바로 뒤 K 블록이어야 한다")
+        return self.core.render(self.core.rollout_state_kv(z, ci, K))
+
+
 def _build_predictor(
     *,
     img_size: int,
@@ -293,16 +318,35 @@ def build_from_config(cfg: dict, device: torch.device) -> VJEPA2Bundle:
         target_encoder = encoder
 
     # ---- predictor ----------------------------------------------------------
-    predictor = _build_predictor(
-        img_size=img_size, patch_size=patch_size, tubelet_size=tubelet_size,
-        num_frames=num_frames,
-        encoder_embed_dim=encoder.embed_dim,
-        predictor_embed_dim=int(predictor_cfg.get("embed_dim", 384)),
-        predictor_depth=int(predictor_cfg.get("depth", 12)),
-        predictor_num_heads=int(predictor_cfg.get("num_heads", 12)),
-        num_mask_tokens=int(predictor_cfg.get("num_mask_tokens", 10)),
-        use_rope=use_rope, uniform_power=uniform_power,
-    )
+    # ⚠️ 2026-09-30: 예전에는 model.predictor.kind 를 **읽지 않고** 늘 릴리즈 구조로 지었다. 학습 run 의
+    #    prefix/ctx_state predictor 는 파라미터 이름이 릴리즈와 같아 조용히 로드되고 **틀린 구조로 채점**됐다.
+    #    이제 kind 를 읽는다: oneshot(기본) = 릴리즈 / prefix·prefix_full·causal = 같은 규약의 마스크 판 /
+    #    ctx_state = 상태 rollout (_CtxStateScorer) / ar·ctx_ar = 이 채점 규약 미지원 (죽인다).
+    kind = str(predictor_cfg.get("kind", "oneshot"))
+    if kind in ("ar", "ctx_ar"):
+        raise NotImplementedError(f"model.predictor.kind={kind} 는 채점기 규약(predictor(z, ci, ti)) 에 아직 없다")
+    if kind == "oneshot":
+        predictor = _build_predictor(
+            img_size=img_size, patch_size=patch_size, tubelet_size=tubelet_size,
+            num_frames=num_frames,
+            encoder_embed_dim=encoder.embed_dim,
+            predictor_embed_dim=int(predictor_cfg.get("embed_dim", 384)),
+            predictor_depth=int(predictor_cfg.get("depth", 12)),
+            predictor_num_heads=int(predictor_cfg.get("num_heads", 12)),
+            num_mask_tokens=int(predictor_cfg.get("num_mask_tokens", 10)),
+            use_rope=use_rope, uniform_power=uniform_power,
+        )
+    else:
+        from src.models.rollout_predictor import vit_prefix_predictor
+        predictor = vit_prefix_predictor(
+            img_size=img_size, patch_size=patch_size, tubelet_size=tubelet_size, num_frames=num_frames,
+            embed_dim=encoder.embed_dim,
+            predictor_embed_dim=int(predictor_cfg.get("embed_dim", 384)),
+            depth=int(predictor_cfg.get("depth", 12)), num_heads=int(predictor_cfg.get("num_heads", 12)),
+            num_mask_tokens=int(predictor_cfg.get("num_mask_tokens", 10)),
+            use_rope=use_rope, use_sdpa=True, mask_mode=kind,
+            n_registers=int(predictor_cfg.get("n_registers", 0)))
+        logger.info(f"predictor kind={kind} (src/models/rollout_predictor.py)")
     # model.predictor_checkpoint — predictor 만 다른 파일에서 읽는다 (app/vjepa_frozen 학습 run 의
     # latest.pt / e{N}.pt). encoder 는 위 `checkpoint` 그대로. 통짜 파일을 만들 필요가 없다.
     #   z_training/eval.sh 가 SET="model.predictor_checkpoint=<run>/latest.pt" 로 넣는다.
@@ -318,6 +362,10 @@ def build_from_config(cfg: dict, device: torch.device) -> VJEPA2Bundle:
         missing = sorted(set(msd) - set(psd))
         if missing:
             raise RuntimeError(f"predictor_checkpoint 에 없는 파라미터 {len(missing)}개: {missing[:5]} — 구조가 다르다")
+        extra = sorted(set(psd) - set(msd))     # 2026-09-30: 반대 방향도 — 학습 run 에만 있는 키 (예: type_embed) 는
+        if extra:                               #   구조가 다르다는 뜻이다 (kind 를 안 넘기면 여기서 걸린다)
+            raise RuntimeError(f"predictor_checkpoint 에만 있는 파라미터 {len(extra)}개: {extra[:5]} — "
+                               "model.predictor.kind 가 학습 run 과 맞는지 확인할 것 (z_training/eval.sh 는 run config 에서 넘긴다)")
         bad = [(k, tuple(psd[k].shape), tuple(msd[k].shape)) for k in msd if psd[k].shape != msd[k].shape]
         if bad:   # _load_state_dict 는 모양이 다른 키를 경고만 하고 버린다 — 여기서는 죽인다
             raise RuntimeError(f"predictor_checkpoint 모양 불일치 {len(bad)}개 (key, ckpt, model): {bad[:3]} — "
@@ -329,6 +377,8 @@ def build_from_config(cfg: dict, device: torch.device) -> VJEPA2Bundle:
     predictor = predictor.to(device=device, dtype=dtype).eval()
     for p in predictor.parameters():
         p.requires_grad_(False)
+    if kind == "ctx_state":
+        predictor = _CtxStateScorer(predictor).eval()
 
     del state  # release the fp32 checkpoint copy on CPU
 

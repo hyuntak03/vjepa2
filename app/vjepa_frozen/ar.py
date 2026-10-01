@@ -188,3 +188,80 @@ def run_val_ctx_ar(vs: ValSet, ctx_enc, tgt_enc, pred_mod, device, autocast_dtyp
     r_tf = _score(vs, tf, el)
     res["tf"] = {k: r_tf[k] for k in ("acc", "n_ties", "surprise_pos", "surprise_neg", "margin", "by_type")}
     return res
+
+
+# ----------------------------------------------------------------------------- ctx_state (2026-09-30)
+# ctx_ar 에서 **되먹임 공간**만 바꾼 팔 (사용자 결정): rollout 이 그린 출력 대신 predictor 상태(384) 를 되먹인다.
+# 입력과 타깃을 나눈다 — 되먹임이 출력 공간을 안 쓰므로 가능하다:
+#   TF 관측 입력 : target encoder **블록별** LN(h)   (encoder 는 양방향이라 미래 구간을 한 번에 넣으면 블록 t 가 t 뒤를 본다 = 누수)
+#   손실 타깃    : target encoder **창(C+K) 전체** LN(h) 의 미래 블록  (릴리즈 사전학습 · surprise 채점 · in-loop val 과 같은 타깃)
+def ctx_state_losses(predictor, z_ctx, h_obs, tgt, S: int, C: int, K: int, loss_exp: float, rollout_steps: int,
+                     tf_weight: float = 1.0):
+    """z_ctx (B, C*S, D), h_obs (B, K*S, D) 블록별 LN(h) 또는 None (tf_weight=0), tgt (B, K*S, D) 창 LN(h) 의 미래 블록.
+    loss = tf_weight * jloss + sloss. return (loss, jloss, sloss, R) — TF 를 끄면 jloss 는 0."""
+    B = z_ctx.size(0)
+    use_tf = float(tf_weight) > 0
+    if z_ctx.size(1) != C * S or tgt.size(1) != K * S or K < 1 or (use_tf and (h_obs is None or h_obs.size(1) != K * S)):
+        raise ValueError(f"ctx_state_losses: z {tuple(z_ctx.shape)} h_obs {None if h_obs is None else tuple(h_obs.shape)} "
+                         f"tgt {tuple(tgt.shape)} C={C} K={K} tf_weight={tf_weight}")
+    R = max(1, min(int(K), int(rollout_steps)))
+    idx = block_indices(B, C + K, S, z_ctx.device)
+    p_tf, p_ar = predictor(z_ctx, ar={"h_obs": h_obs if use_tf else None, "idx": idx, "n_ctx_blocks": C, "rollout_steps": R})
+    sloss = l1(p_ar, tgt[:, : R * S], loss_exp)
+    if not use_tf:
+        return sloss, sloss.new_zeros(()), sloss, R
+    jloss = l1(p_tf, tgt, loss_exp)
+    return float(tf_weight) * jloss + sloss, jloss, sloss, R
+
+
+@torch.no_grad()
+def run_val_ctx_state(vs: ValSet, ctx_enc, tgt_enc, pred_mod, device, autocast_dtype, rank: int, ws: int,
+                      tubelet: int, spatial: int, context_length: int, batch_size: int, loss_exp: float) -> Dict:
+    """ctx_state 판 in-loop val. 문맥 z → 상태 rollout K 블록 (주지표) / TF (보조). 타깃 = 창 전체 LN(h) 의 미래 블록."""
+    pred_mod.eval()
+    n_frames = vs.ds.n_frames
+    S = spatial
+    C = context_length // tubelet
+    nb = n_frames // tubelet
+    K = nb - C
+    if K < 1:
+        raise ValueError(f"val: context_length {context_length} 가 n_frames {n_frames} 이상")
+    idx_all = list(range(rank, len(vs), ws))
+    out_ro, out_tf = {}, {}
+    t0 = time.time()
+    ac = torch.autocast("cuda", dtype=autocast_dtype) if autocast_dtype else torch.autocast("cuda", enabled=False)
+    for s in range(0, len(idx_all), batch_size):
+        chunk = idx_all[s: s + batch_size]
+        x = torch.stack([vs.ds.transform(vs.ds.read_uint8(i)) for i in chunk]).to(device, non_blocking=True)
+        n = len(chunk)
+        with ac:
+            xe = x.to(next(tgt_enc.parameters()).dtype)
+            idx = block_indices(n, nb, S, device)
+            z = ctx_enc(xe, masks=[idx[:, : C * S]])
+            h_obs = encode_blocks(tgt_enc, xe[:, :, C * tubelet:], tubelet)
+            tgt = F.layer_norm(tgt_enc(xe), (z.size(-1),))[:, C * S:]
+            h_tf = pred_mod.forward_state(z, pred_mod.embed_obs(h_obs[:, :-S]), idx[:, : (nb - 1) * S], C)
+            p_tf = pred_mod.render(h_tf)
+            p_ar = pred_mod.render(pred_mod.rollout_state_kv(z, idx[:, : C * S], K))
+        t_ = tgt.float()
+        d_ro = (p_ar.float() - t_).abs().pow(loss_exp).mean(dim=(1, 2)) / loss_exp
+        d_tf = (p_tf.float() - t_).abs().pow(loss_exp).mean(dim=(1, 2)) / loss_exp
+        for k, i in enumerate(chunk):
+            vid = vs.ds.rows[i]["video_id"]
+            out_ro[vid], out_tf[vid] = float(d_ro[k]), float(d_tf[k])
+    if dist.is_available() and dist.is_initialized() and ws > 1:
+        g = [None] * ws
+        dist.all_gather_object(g, (out_ro, out_tf))
+        ro, tf = {}, {}
+        for a, b in g:
+            ro.update(a); tf.update(b)
+    else:
+        ro, tf = out_ro, out_tf
+    pred_mod.train()
+    if rank != 0:
+        return {}
+    el = time.time() - t0
+    res = _score(vs, ro, el)
+    r_tf = _score(vs, tf, el)
+    res["tf"] = {k: r_tf[k] for k in ("acc", "n_ties", "surprise_pos", "surprise_neg", "margin", "by_type")}
+    return res

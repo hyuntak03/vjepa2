@@ -1,0 +1,26 @@
+# =============================================================================
+# **2 단계 cooldown, 64 장 판** — k710_ssv2_how_ep70 의 e63.pt 에서 시작 (2026-10-01, 사용자 결정)
+#
+#   GPUS=8 bash z_training/tmux_train.sh k710_ssv2_how_ep70_cooldown64
+#
+# k710_ssv2_how_ep70_cooldown32 와 **cooldown 창 길이만** 다르다 (32 → 64 장 = 릴리즈 cooldown-256px-64f 와 같은 16 초 창).
+# 64 장 @ fps 4 는 K710 원본 448 장이 필요해 미리 거른 csv 로는 거의 다 빠진다 → **릴리즈처럼 filter_short_videos: false**
+#   (모자라면 마지막 프레임 반복으로 채운다, src/datasets/video_dataset.py:466-480). 샘플링 규칙·비율 (1:1:1) 은 1 단계와 같다
+# batch 는 32 장 cooldown 과 같은 64 (global 512, 릴리즈는 절반으로 줄이지만 비교를 위해 맞춤), 활성값 재계산 켬, lr 5.2e-4 → 1e-6 선형
+# 7 epoch × 294 = 2,058 step × 512 ≈ 105 만 clip (32 장 cooldown 과 같다)
+# =============================================================================
+extends: k710_ssv2_how_ep70_cooldown32
+
+data:
+  n_frames: 64                # 32 블록 @ fps 4 = 16 초 (릴리즈 cooldown 과 같다)
+  batch_size: 64              # rank 당. 8 GPU = global 512 — 사용자 결정 (안 B): 32 장 cooldown 과 batch·step·본 clip 을 같게 해 창 길이만 다르게
+                              #   (릴리즈는 절반으로 줄인다. rank 당 32 = 24.4 GB 실측)
+  datasets:
+    - {name: k710_320_fps4_min224, weight: 1.0, filter_short_videos: false}
+    - {name: ssv2_fs1_min32,       weight: 1.0, filter_short_videos: false}
+    - {name: ht100m_1pct_fps4,     weight: 1.0, filter_short_videos: false}
+
+optimization:
+  anneal_ckpt: ${VJEPA2_ROOT}/z_training/runs/k710_ssv2_how_ep70/e63.pt
+
+val: null                     # IntPhys1 100 장에서 64 장 창이 stride 3 으로 안 나온다 — 끝난 뒤 sliding 채점으로 본다

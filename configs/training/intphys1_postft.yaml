@@ -42,7 +42,7 @@ val:                                 # 감시용 고정창 (sliding 아님). 채
   data:
     root: ${DATA_CSV}/intphys1_dev
     index_csv: index.csv
-    frames_root: ${BENCH_ROOT}/IntPhys1
+    frames_root: ${BENCH_ROOT}/IntPhys1/dev
     frames_pattern: "{block}/{quadruplet}/{run}/scene/scene_{frame:03d}.png"
     frames_start: 1
     frames_stride: 2

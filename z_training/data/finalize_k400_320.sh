@@ -4,6 +4,8 @@
 #
 #   tmux new-session -d -s resize_k400 "bash z_training/data/finalize_k400_320.sh"
 #   bash z_training/data/finalize_k400_320.sh --no-launch      # 학습은 안 올린다
+#   SET=k710 bash z_training/data/finalize_k400_320.sh --no-launch   # K710 → K710_320 (2026-09-29)
+#     SET 은 data_csv/<SET>/{train,val}_min112.csv 를 읽고 ${TRAIN_DATA_ROOT}/<SRC_DIR> → <SRC_DIR>_320 으로 쓴다
 #
 # 1. data_csv/k400/{train,val}_min112.csv 의 영상을 짧은 변 320 · keyint 24 로 재인코딩
 #    (z_research/scripts/data/resize_videos.sh, CPU 전부). ${TRAIN_DATA_ROOT}/K400/train → K400_320/train
@@ -20,17 +22,22 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../../z_research/scripts/harness" &
 cd "$VJEPA2_ROOT"
 mkdir -p z_training/logs
 touch z_training/logs/.resize_pending
-SRC=$TRAIN_DATA_ROOT/K400; DST=$TRAIN_DATA_ROOT/K400_320
-LIST=z_training/logs/k400_min112_all.csv
-cat data_csv/k400/train_min112.csv data_csv/k400/val_min112.csv > "$LIST"
+SET=${SET:-k400}
+case $SET in
+  k400) SRC=$TRAIN_DATA_ROOT/K400;        DST=$TRAIN_DATA_ROOT/K400_320 ;;
+  k710) SRC=$TRAIN_DATA_ROOT/K710/videos; DST=$TRAIN_DATA_ROOT/K710_320/videos ;;
+  *) echo "SET=$SET 모름 (k400|k710)"; exit 1 ;;
+esac
+LIST=z_training/logs/${SET}_min112_all.csv
+cat data_csv/$SET/train_min112.csv data_csv/$SET/val_min112.csv > "$LIST"
 echo "[$(date '+%F %T')] 재인코딩 시작: $(wc -l < "$LIST") 편 -> $DST"
 find "$DST" -name '*.tmp.mp4' -delete 2>/dev/null
 bash z_research/scripts/data/resize_videos.sh "$SRC" "$DST" "$LIST" "${P:-128}" 320
 echo "[$(date '+%F %T')] RESIZE_DONE"
 
-mkdir -p data_csv/k400_320
+mkdir -p data_csv/${SET}_320
 for split in train val; do
-  "$VJEPA2_PY" - "data_csv/k400/${split}_min112.csv" "data_csv/k400_320/${split}_min112.csv" "$SRC" "$DST" <<'PY'
+  "$VJEPA2_PY" - "data_csv/$SET/${split}_min112.csv" "data_csv/${SET}_320/${split}_min112.csv" "$SRC" "$DST" <<'PY'
 import os, sys
 src, dst, a, b = sys.argv[1:5]
 n = m = 0
@@ -45,7 +52,7 @@ PY
 done
 echo "failed: $(wc -l < "$DST/_failed.txt" 2>/dev/null || echo 0)"
 rm -f z_training/logs/.resize_pending
-[[ "${1:-}" == "--no-launch" ]] && exit 0
+[[ "${1:-}" == "--no-launch" || $SET != k400 ]] && exit 0   # 자동 학습은 k400 설정만
 
 DRYRUN=1 bash z_training/train.sh natural_tube_pretrain > /dev/null || { echo "DRYRUN 실패 — 학습을 안 올린다"; exit 1; }
 echo "DRYRUN OK"

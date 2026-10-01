@@ -155,7 +155,7 @@ filter_short_videos: true
 
 **릴리즈 사전학습 규격 (`configs/train/vith16/pretrain-256px-16f.yaml`: 16 장 @ fps 4 = 4 초 창)** 용 SSv2 (2026-09-29).
 12 fps 원본에서 fstp = 12 // 4 = 3 → 16 장에 raw 48 장이 필요하다 → `train_min48.csv` (94,294 train / 952 val, 43.1 %).
-원본은 `${TRAIN_DATA_ROOT}/ssv2/videos/*.webm` (공식 webm, 이 기계). 인덱스: `build_video_index.py ssv2 --probe --min-frames 48 --write`.
+원본은 `${TRAIN_DATA_ROOT}/SSv2/20bn-something-something-v2/*.webm` (공식 webm, 이 기계). 인덱스: `build_video_index.py ssv2 --probe --min-frames 48 --write`.
 
 type: video_csv
 csv: ${DATA_CSV}/ssv2/train_min48.csv
@@ -174,6 +174,76 @@ CPU 디코드가 병목이었다 (6.4 s/step, 2026-09-29). 사본·csv 는 `z_tr
 
 type: video_csv
 csv: ${DATA_CSV}/k400_320/train_min112.csv
+fps: 4
+filter_short_videos: true
+
+## k710_320_fps12
+
+**Kinetics-710 train** (UniFormerV2 정의, K400+K600+K700-2020, 2026-09-29) 의 짧은 변 320 · keyint 24 재인코딩 사본.
+원본 `${TRAIN_DATA_ROOT}/K710/videos/{k400,k600,k700}/*.mp4` (train 649,057 편, `K710/annotations/train.csv` 목록 — K710 val 은 안 넣는다).
+인덱스: `build_video_index.py k710 --probe --min-frames 112 --write` → 611,789 편 (94.3 %), 그중 1 % 가 val_min112.
+사본: `SET=k710 bash z_training/data/finalize_k400_320.sh --no-launch` → `${TRAIN_DATA_ROOT}/K710_320/videos`.
+**fps 12 판** — `natural_prefix`/`natural_ar`/`natural_ctx_ar` (n_frames 48) 용. 24~30 fps 원본은 fstp 2 → raw 96 장,
+15 fps 는 fstp 1 → 48 장이라 min112 로 거른 이 csv 는 넉넉하다 (런타임 거부 0).
+
+type: video_csv
+csv: ${DATA_CSV}/k710_320/train_min112.csv
+fps: 12
+filter_short_videos: true
+
+## k710_320_fps4
+
+`k710_320_fps12` 와 같은 사본·csv 의 **fps 4 판** — `natural_tube_pretrain` (16 장 @ fps 4) 용. 30 fps 는 fstp 7 → raw 112 장.
+
+type: video_csv
+csv: ${DATA_CSV}/k710_320/train_min112.csv
+fps: 4
+filter_short_videos: true
+
+## k710_320_fps4_min224
+
+`k710_320_fps4` 를 **원본 224 장 이상**으로 한 번 더 거른 것 (2026-09-30) — `natural_ctx_state` (fps 4 x 32 장 = 8 초) 용.
+30 fps 는 fstp 7 → raw 224 장 필요 (25·24 fps 는 192 장이라 보수적). 사본 min112 의 약 84 %.
+csv: `python z_training/data/filter_min_frames.py --csv data_csv/k710_320/train_min112.csv --lengths data_csv/k710/lengths.tsv
+--map K710_320/videos=K710/videos --min-frames 224 -o data_csv/k710_320/train_min224.csv` (val 도 같은 식).
+
+type: video_csv
+csv: ${DATA_CSV}/k710_320/train_min224.csv
+fps: 4
+filter_short_videos: true
+
+## k710_320_fs3
+
+`k710_320_fps4` 와 같은 사본·csv (`train_min112`, 605,672 편) 를 **frame_step 3** 으로 (2026-09-30, 사용자 결정 — 데이터셋마다 stride 를 달리 줘 SSv2 와 한 batch 에 섞는다).
+30 fps 원본이면 0.1 s 간격, 32 장 = 3.2 s, 1 블록 0.2 s. 32 장에 raw 96 장이 필요하고 min112 라 런타임 거부 0.
+⚠️ fps 가 아니라 **프레임 간격 고정**이라 25·24·15 fps 원본은 실제 시간 간격이 다르다 (0.12 / 0.125 / 0.2 s).
+
+type: video_csv
+csv: ${DATA_CSV}/k710_320/train_min112.csv
+frame_step: 3
+filter_short_videos: true
+
+## ssv2_fs1_min32
+
+SSv2 webm 원본을 **frame_step 1** (12 fps 그대로) 로 (2026-09-30). 0.083 s 간격, 32 장 = 2.7 s, 1 블록 0.17 s — `k710_320_fs3` 과 블록 시간이 비슷하다.
+원본 32 장 이상만: `build_video_index.py ssv2 --min-frames 32 --write` → 187,100 / 220,847 (84.7 %), train 185,229 / val 1,871.
+
+type: video_csv
+csv: ${DATA_CSV}/ssv2/train_min32.csv
+frame_step: 1
+filter_short_videos: true
+
+## ht100m_1pct_fps4
+
+**HowTo100M 1 % 카테고리 균형 부분집합** (2026-09-30, 사용자 제공: `${TRAIN_DATA_ROOT}/HT100M/subset/ht100m_1pct_balanced.csv`).
+12,374 편 (카테고리 17, task 10,300), 전부 `${TRAIN_DATA_ROOT}/HT100M/videos/<id>.mp4` 에 실재. 이미 **짧은 변 320** 재인코딩
+(`HT100M/transcode_one.sh`: H.264 CRF 23 veryfast, keyint 기본). fps 30 / 25 / 24 (일부 60), 길이 64~1,111 s (중앙 ~340 s, 표본 60).
+fps 4 로 16 장 (4 s) 이든 32 장 (8 s) 이든 전부 들어간다 (60 fps 도 32 장 = raw 480 = 16 s). 무작위 위치 16 장 디코드 ~128 ms/clip.
+csv: `data_csv/ht100m_1pct/train.csv` ("<abs mp4> 0", 원본 csv 의 path 열에서 만들었다).
+⚠️ 릴리즈는 HowTo100M 전체를 0.565 로 썼다 — 1 % 부분집합이라 비중을 그만큼 주면 과반복이다 (사용자 결정 1 : 1 : 1).
+
+type: video_csv
+csv: ${DATA_CSV}/ht100m_1pct/train.csv
 fps: 4
 filter_short_videos: true
 

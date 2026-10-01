@@ -1,0 +1,34 @@
+# =============================================================================
+# **2 단계 cooldown (32 장, 7 epoch)** — k710_ssv2_how_ep70 의 latest.pt 에서 시작 (2026-10-01, 사용자 결정)
+#
+#   GPUS=8 bash z_training/tmux_train.sh k710_ssv2_how_ep70_cooldown32
+#   (보통은 chain: bash z_training/chain_after.sh k710_ssv2_how_ep70 k710_ssv2_how_ep70_cooldown32)
+#
+# 릴리즈 cooldown (configs/train/vith16/cooldown-256px-64f.yaml) 과 같은 규약:
+#   is_anneal: true → LinearDecaySchedule (lr → final_lr 선형), anneal_ckpt = 앞 단계 체크포인트에서 predictor 로드 (옵티마이저는 새로)
+#   창을 늘린다: 릴리즈 16 → 64 장, 우리 16 → **32 장** (IntPhys1 최고 칸이 창 32 = skip2_w32 라서)
+# 7 × 294 = 2,058 step × 512 ≈ 105 만 clip. 32 장 × 64 는 재계산 없이는 OOM (91 GB) → use_activation_checkpointing true (24.5 GB, 4.74 s/step 실측)
+# =============================================================================
+extends: k710_ssv2_how_ep70
+
+model:
+  predictor:
+    use_activation_checkpointing: true
+
+data:
+  n_frames: 32                # 16 블록 @ fps 4 = 8 초
+
+optimization:
+  epochs: 7
+  ipe: 294
+  is_anneal: true
+  anneal_ckpt: ${VJEPA2_ROOT}/z_training/runs/k710_ssv2_how_ep70/latest.pt
+  lr: 5.2e-4                  # 1 단계 상수 lr 에서 시작
+  final_lr: 1.0e-6
+  warmup: 0
+
+val:
+  context_length: 16          # 32 장 창: 앞 16 장 보고 뒤 16 장
+  batch_size: 4
+  data:
+    frames_stride: 3          # IntPhys1 100 장에서 32 장 (raw 1..94)

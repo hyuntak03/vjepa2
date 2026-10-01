@@ -1,0 +1,59 @@
+# =============================================================================
+# 팔 C'' — **ctx_ar + 상태 되먹임** (2026-09-30, 사용자 결정)
+#
+#   GPUS=8 bash z_training/tmux_train.sh natural_ctx_state
+#
+# ctx_ar (natural_ctx_ar.yaml) 와 다른 점
+#   1. 되먹임: rollout 이 그린 출력 LN(proj(.)) (1280) 대신 **predictor 상태** (predictor_norm 출력, 384) 를
+#      다음 걸음 입력으로 (type embedding [2] = 상태 토큰). 문맥 z 는 걸음 내내 고정
+#   2. 타깃: 블록별 LN(h) → **창(C+K) 전체** LN(target_encoder) 의 미래 블록 (릴리즈 사전학습 · 채점과 같다).
+#      TF 관측 입력은 여전히 블록별 LN(h) — encoder 가 양방향이라 미래 구간을 한 번에 넣으면 누수다
+#   3. 시간 척도: fps 12 (K710 30 fps 는 실제 ~15 fps, 블록 0.14 s) → **fps 4 (블록 0.5 s)** = encoder 사전학습과 같다.
+#      "바로 다음 칸" 이 복사로 풀리는 것을 줄인다 (사용자 판단)
+#   4. 예측 구간: K {1,2,4,8} 블록 (0.14~1.1 s) → **K {4,6,8} (2~4 s)**, 문맥 C {2,4,8} (1~4 s), 창 32 장 = 16 블록 = 8 초
+#   5. 데이터: SSv2 + K400 → **K710 (fps 4) + SSv2 (frame_step 1), 1 : 1, 한 batch 에 섞는다** (2026-09-30 사용자 결정)
+#      fps 4 로는 SSv2 (중앙값 45 장) 가 32 장(8 s)을 못 채워서 SSv2 만 12 fps 그대로 (블록 0.17 s, 창 2.7 s).
+#      ⚠️ 시간 척도가 섞인다 — 같은 "K 블록 뒤" 가 K710 은 2~4 s, SSv2 는 0.7~1.3 s. RoPE 는 블록 번호만 안다.
+#      두 항목 모두 clip 당 32 장이라 텐서 모양이 같다 (배치 분리 불필요)
+#   6. 손실: TF + rollout → **rollout 만** (tf_weight 0, 2026-09-30). TF 는 ablation 팔
+# ⚠️ 1·2·3·4·5 가 한꺼번에 바뀐다 — ctx_ar 와 한 변수 대조가 아니다. 한 변수 대조가 필요하면 이 config 에
+#    SET="model.predictor.kind=ctx_ar" 로 같은 데이터·창의 ctx_ar 대조군을 돌린다 (그때 타깃은 ctx_ar 규약 = 블록별).
+# ⚠️ 정식 채점기 (eval.sh) 는 아직 kind=ctx_state 를 모른다. in-loop val (IntPhys1, 16 장 → 16 장) 만 있다.
+# =============================================================================
+extends: natural_ctx_ar
+
+model:
+  predictor:
+    kind: ctx_state
+
+data:
+  n_frames: 32                # 16 블록 @ fps 4 = 8 초
+  batch_size: 64              # rank 당. 8 GPU = global 512 (2026-09-30 사용자 결정 — VRAM 최대. C8K8 실측 84.1 GB / 96 GB).
+                              #   KV 캐시 rollout 은 작은 커널이 많아 batch 가 클수록 clip 당 빠르다 (21 대비 ~1.5 배)
+  datasets:                   # 2026-09-30 사용자 결정: fps 대신 데이터셋별 frame_step, 한 batch 에 섞는다, 1 : 1
+    - {name: k710_320_fps4_min224, weight: 1.0}   # fps 4 (30 fps 원본이면 stride 7 과 같다), 블록 0.5 s, 창 8 s
+    - {name: ssv2_fs1_min32, weight: 1.0}    # stride 1 (12 fps), 블록 0.17 s, 창 2.7 s
+
+mask:
+  - type: prefix_window
+    context_blocks: [2, 4, 8]         # 1 / 2 / 4 초
+    predict_blocks: [4, 6, 8]         # 2 / 3 / 4 초. C+K <= 16 전부 유효 (9 조합)
+    weight: 1.0
+
+loss:
+  rollout_steps: 8                    # R = min(K, 8) = K — 예측 구간 전부를 상태로 굴린다
+  tf_weight: 0.0                      # ★ 2026-09-30 사용자 결정: **rollout 만으로 시작** (TF 는 ablation).
+                                      #   TF 를 켜면 블록별 관측 인코딩 + TF 패스가 붙는다: SET="loss.tf_weight=1.0"
+                                      #   rollout 은 KV 캐시판 (rollout_state_kv) — 원 rollout 과 값·grad 동일, C8K8 에서 3.4 배 빠르다
+
+optimization:
+  epochs: 40
+  ipe: 294                            # ★ 고정. 40 × 294 = 11,760 step × 512 = 602 만 clip = ariel 팔 예산 (168 × 35,840)
+                                      #   실측 2.91 s/step (C 균등, 8 GPU, CPU 여유) -> ~9.5 h (+ val)
+  lr: 5.2e-4                          # 3e-4 × sqrt(512/168). warmup 1 epoch = 294 step, cosine -> 1e-6 (상속)
+
+val:
+  context_length: 16                  # 프레임. 8 블록 보고 8 블록 (= 가장 긴 조합)
+  batch_size: 4
+  data:
+    frames_stride: 3                  # IntPhys1 100 장에서 32 장 (raw 1..94). natural_prefix 의 48 장용 stride 2 를 덮는다

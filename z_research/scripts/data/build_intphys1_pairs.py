@@ -35,7 +35,7 @@ import numpy as np
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "harness"))
 from paths import BENCH_ROOT, DATA_CSV  # noqa: E402  경로 정본: harness/paths.env
 ROOT = os.path.join(DATA_CSV, "intphys1_dev")          # index.csv 가 있는 곳
-FRAMES = os.path.join(BENCH_ROOT, "IntPhys1")          # {O1,O2,O3}/<4중항>/<run>/scene/*.png
+FRAMES = os.path.join(BENCH_ROOT, "IntPhys1", "dev")          # {O1,O2,O3}/<4중항>/<run>/scene/*.png
 PATTERN = "{block}/{quadruplet}/{run}/scene/scene_{frame:03d}.png"
 N_PROBE = 100          # dev 영상은 100 프레임
 

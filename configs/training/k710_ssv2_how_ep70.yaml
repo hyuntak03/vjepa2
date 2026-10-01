@@ -1,0 +1,29 @@
+# =============================================================================
+# tube (릴리즈 사전학습 마스크) · K710 + SSv2 + HowTo100M 1 % (1 : 1 : 1) · 70 epoch 중 **1 단계 (16 장, 63 epoch)** (2026-10-01, 사용자 결정)
+#
+#   GPUS=8 bash z_training/tmux_train.sh k710_ssv2_how_ep70
+#   이어서 2 단계: k710_ssv2_how_ep70_cooldown32 (32 장, 7 epoch, lr 선형 감소, 이 run 의 latest.pt 에서 시작)
+#
+# 릴리즈 V-JEPA 2 와 같은 두 단계 구조:
+#   사전학습 (configs/train/vith16/pretrain-256px-16f.yaml): 16 장 @ fps 4, warmup 뒤 **상수 lr** (lr == final_lr)
+#   cooldown (configs/train/vith16/cooldown-256px-64f.yaml): 더 긴 창, is_anneal → LinearDecaySchedule, anneal_ckpt 에서 시작
+# 우리 값: 8 GPU × 64 = global 512, 1 epoch = 294 step. 1 단계 63 × 294 = 18,522 step / 2 단계 7 × 294 = 2,058 step
+#   합계 20,580 step ≈ 1,054 만 clip (데이터셋당 ~351 만). cooldown 비율 10 % 는 우리가 정한 값 (공식 config 의 epoch 는 예시값)
+# lr 5.2e-4 = 3e-4 × sqrt(512/168) (앞 run 들과 같다)
+# ⚠️ natural_tube_k710 (K710 + SSv2, 40 epoch cosine) 과는 데이터 (HowTo100M 추가) · 스케줄 (상수 + cooldown) 이 다르다
+# =============================================================================
+extends: natural_tube_k710
+
+data:
+  datasets:
+    - {name: k710_320_fps4_min224, weight: 1.0}   # K710 fps 4
+    - {name: ssv2_fs1_min32,       weight: 1.0}   # SSv2 frame_step 1
+    - {name: ht100m_1pct_fps4,     weight: 1.0}   # HowTo100M 1 % 균형 부분집합 fps 4 (12,374 편)
+
+optimization:
+  epochs: 63
+  ipe: 294
+  lr: 5.2e-4
+  start_lr: 1.0e-5
+  final_lr: 5.2e-4            # ★ = lr → warmup 뒤 상수 (릴리즈 사전학습과 같다). 감소는 cooldown 단계에서
+  warmup: 1

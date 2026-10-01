@@ -3,6 +3,10 @@
 > **2026-09-10 결정: 릴리즈 ViT-H predictor 에서 post-FT, 데이터는 IntPhysGen v11 의 block 단위 train 절반(가능만),
 > 채점은 test 절반(가능+불가능, 10,752 쌍).** 그게 `v11_postft` 다. 대조군 `v11_scratch`. 분할은 §3.
 >
+> **2026-10-01 (Vast 8×RTX PRO 6000): [`RESULTS_2026-10-01.md`](RESULTS_2026-10-01.md)** — 릴리즈 레시피 (tube, 16 장 → **64 장 cooldown**) 로 predictor scratch,
+> K710+SSv2+HowTo 1 % (1:1:1), 20,580 step / 1,054 만 clip / 16.7 h → **IntPhys1 A.8 82.2 %** (릴리즈 88.89). rollout 만 쓴 상태 되먹임 (ctx_state) 은 우연 수준.
+> ⚠️ 같은 날 `analysis/intphys2/model.py` 가 `model.predictor.kind` 를 무시하던 버그를 고쳤다 — 그 전 prefix/ar 계열 채점은 다시 볼 것.
+>
 > **결과 종합 (v11_postft · intphys1_postft · predictor_v1_postft, 2026-09-19): [`RESULTS_2026-09-19.md`](RESULTS_2026-09-19.md)** —
 > 셋 다 학습한 도메인 안에서만 오른다 (v11 held-out 75.83 → 91.35 인데 IntPhys1 88.89 → 77.22; IntPhys1 학습은 93.89 인데 v11 78.53).
 

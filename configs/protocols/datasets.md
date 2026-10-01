@@ -38,7 +38,7 @@ cache_tag: intphys1_dev
 results_root: ${VJEPA2_ROOT}/z_research/IntPhys/exp_results
 root: ${DATA_CSV}/intphys1_dev
 index_csv: index.csv
-frames_root: ${BENCH_ROOT}/IntPhys1
+frames_root: ${BENCH_ROOT}/IntPhys1/dev
 frames_pattern: "{block}/{quadruplet}/{run}/scene/scene_{frame:03d}.png"
 frames_start: 1
 frames_stride: 3

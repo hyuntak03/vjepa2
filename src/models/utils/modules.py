@@ -181,6 +181,43 @@ class ACRoPEAttention(nn.Module):
         width_ids = (ids - tokens_per_frame * frame_ids) - tokens_per_row * height_ids
         return 1.0 * frame_ids, 1.0 * height_ids, 1.0 * width_ids
 
+    def forward_kv(self, x, mask, H, W, past=None):
+        """KV 캐시 경로 (2026-09-30, ctx_state rollout). x (B, N, C) **새 토큰만**, mask (B, N) 그 절대 인덱스,
+        past = 이전 토큰들의 (k, v) (RoPE 적용 뒤, (B, heads, M, D)) 또는 None.
+        새 query 는 [past ; 새 토큰] key 를 **전부** 본다 — prefix(문맥 양방향 + 미래 block-causal) 에서
+        새 블록 하나를 붙일 때와 정확히 같다 (문맥 prefill 은 past=None 으로 문맥끼리만).
+        RoPE 위치 계산은 forward 와 같다. 마스크가 없어 SDPA 가 flash 를 탄다. return (출력 (B, N, C), (k_all, v_all))."""
+        B, N, C = x.size()
+        m = mask.unsqueeze(1).repeat(1, self.num_heads, 1)
+        d_mask, h_mask, w_mask = self.separate_positions(m, H, W)
+        h_mask *= self.grid_size / H
+        w_mask *= self.grid_size / W
+        qkv = self.qkv(x).unflatten(-1, (3, self.num_heads, -1)).permute(2, 0, 3, 1, 4)
+        q, k, v = qkv[0], qkv[1], qkv[2]
+        s = 0
+        qd = rotate_queries_or_keys(q[..., s : s + self.d_dim], pos=d_mask)
+        kd = rotate_queries_or_keys(k[..., s : s + self.d_dim], pos=d_mask)
+        s += self.d_dim
+        qh = rotate_queries_or_keys(q[..., s : s + self.h_dim], pos=h_mask)
+        kh = rotate_queries_or_keys(k[..., s : s + self.h_dim], pos=h_mask)
+        s += self.h_dim
+        qw = rotate_queries_or_keys(q[..., s : s + self.w_dim], pos=w_mask)
+        kw = rotate_queries_or_keys(k[..., s : s + self.w_dim], pos=w_mask)
+        s += self.w_dim
+        if s < self.head_dim:
+            q = torch.cat([qd, qh, qw, q[..., s:]], dim=-1)
+            k = torch.cat([kd, kh, kw, k[..., s:]], dim=-1)
+        else:
+            q = torch.cat([qd, qh, qw], dim=-1)
+            k = torch.cat([kd, kh, kw], dim=-1)
+        if past is not None:
+            k = torch.cat([past[0], k], dim=2)
+            v = torch.cat([past[1], v], dim=2)
+        x = F.scaled_dot_product_attention(q, k, v, dropout_p=self.proj_drop_prob)
+        x = x.transpose(1, 2).reshape(B, N, C)
+        x = self.proj_drop(self.proj(x))
+        return x, (k, v)
+
     def forward(self, x, mask=None, attn_mask=None, T=None, H=None, W=None, action_tokens=0):
         B, N, C = x.size()
 
@@ -526,6 +563,13 @@ class ACBlock(nn.Module):
             )
         else:
             self.mlp = MLP(in_features=dim, hidden_features=mlp_hidden_dim, act_layer=act_layer, drop=drop)
+
+    def forward_kv(self, x, mask, H, W, past=None):
+        """KV 캐시 경로 (ACRoPEAttention.forward_kv). return (x, (k, v))."""
+        y, kv = self.attn.forward_kv(self.norm1(x), mask, H, W, past)
+        x = x + self.drop_path(y)
+        x = x + self.drop_path(self.mlp(self.norm2(x)))
+        return x, kv
 
     def forward(self, x, mask=None, attn_mask=None, T=None, H=None, W=None, action_tokens=0):
         y = self.norm1(x)
