@@ -1,0 +1,85 @@
+# =============================================================================
+# PROTOCOL — EK100 action anticipation (V-JEPA 2 §6, Appendix D.1, Table 19): frozen encoder + predictor + attentive probe
+#
+#   GPUS=8 bash cvpr/eval/ek100/run.sh ek100 vith            [옛 z_research/anticipation/EK100/run.sh + configs/ek100_vith.yaml]
+#
+# 엔진은 evals/action_anticipation_frozen (evals.main). 영상·annotation 경로는 레지스트리 (ek100), 체크포인트·arch 는 모델 레지스트리,
+# 프레임 배치 (frames_per_clip · fps · anticipation 시각) 는 창 preset ek100_32f8fps 가 채운다.
+#
+# 논문과 같은 값: 32 frames @ 8 fps, 256x256, probe 4 blocks / 16 heads, focal loss, 20 epoch, warmup 0, global batch 128 (8 GPU x 16),
+#   train at 0.25~1.75 s ap 0~0.25, val at 1 s ap 0.
+# 논문과 다르게 둔 것 (EK100/README.md §3): head 1 개 (논문은 20 개 sweep 의 best — HEADS=sweep) · val 을 정확히 한 번 · mask_index 0.
+# 릴리즈 코드와 다르게 둔 것 (§2): ap 규약을 논문대로 (paper) · 구간 경계를 timestamp 로 · 256x256 재인코딩본.
+# =============================================================================
+engine: ek100
+legacy_name: ek100
+window: ek100_32f8fps
+eval_name: action_anticipation_frozen
+resume_checkpoint: true
+nodes: 1            # 공식 submitit 경로용 필드. world_size 는 GPUS 가 정한다
+tasks_per_node: 8
+cpus_per_task: 12
+
+heads: config       # config | sweep (논문 20 개: lr 5 x wd 4) | grid8 | hi2  — HEADS= 로 바꾼다. 지표는 head 중 max (= val 로 고른 값)
+heads_presets:
+  sweep: { lrs: [5.0e-3, 3.0e-3, 1.0e-3, 3.0e-4, 1.0e-4], wds: [1.0e-4, 1.0e-3, 1.0e-2, 1.0e-1] }
+  grid8: { lrs: [3.0e-4, 1.0e-4],                           wds: [1.0e-4, 1.0e-3, 1.0e-2, 1.0e-1] }   # RTX 4090 24 GB 에 들어가는 크기 (2026-09-15)
+  hi2:   { lrs: [1.0e-3, 3.0e-3],                           wds: [1.0e-2] }                            # grid8 최적이 lr 위쪽 끝이라 한 칸 위 (2026-09-20)
+
+experiment:
+  classifier:
+    num_probe_blocks: 4
+    num_heads: 16
+  data:                           # base_path · dataset_train · dataset_val · file_format 은 레지스트리 (ek100)
+    dataset: EK100
+    resolution: 256
+    spatial_mode: short_side      # 256x256 입력에서 항등. center_crop(공식) 은 292 로 다시 키워 자른다
+    width: null
+    train_spatial_mode: rrc
+    anticipation_point_mode: paper  # ap=0 -> action 첫 프레임 (논문). released 는 ap=0 -> action 끝 (val 78.8% 누수)
+    time_source: timestamp          # start/stop_timestamp x 실제 fps. frame(공식) 은 59.94 fps 비디오에서 최대 2 s 어긋난다
+    auto_augment: true
+    motion_shift: false
+    reprob: 0.25
+    random_resize_scale: [0.08, 1.0]
+    num_workers: 6
+    pin_memory: true
+    limit_videos: null
+  evaluation:
+    topk: 5                         # mean class recall@5 (verb / noun / action)
+    exact_val_pass: true            # rank 마다 val 을 끝까지 한 번, all_reduce 한 번 (exact_val.py)
+  optimization:
+    num_epochs: 20
+    batch_size: 16                  # rank 당. 8 GPU 면 global 128 = 논문
+    use_bfloat16: true
+    use_focal_loss: true            # alpha 0.25 / gamma 2.0
+    multihead_kwargs:               # heads: sweep 이면 resolve 가 20 개로 바꾼다
+    - {lr: 0.0003, start_lr: 0.0003, final_lr: 0.0, weight_decay: 0.01, final_weight_decay: 0.01, warmup: 0.0}   # 1e-3 은 80 iter 안에 상수 예측으로 붕괴 (README §7)
+
+model_kwargs:                       # checkpoint · encoder.model_name 은 모델 레지스트리
+  module_name: evals.action_anticipation_frozen.modelcustom.vit_encoder_predictor_concat_ar_nonsquare   # 원본 module 에 mask_index 인자만 연 판
+  wrapper_kwargs:
+    no_predictor: false             # true = encoder 출력만 probe 에 (논문 Table 20 의 대조군)
+    num_steps: 1
+    mask_index: 0                   # 릴리즈 ckpt 에서 학습된 mask token 은 [0] 뿐. 공식 코드 기본은 1
+  pretrain_kwargs:
+    encoder:
+      checkpoint_key: target_encoder
+      tubelet_size: 2
+      patch_size: 16
+      uniform_power: true
+      use_rope: true
+    predictor:
+      model_name: vit_predictor
+      checkpoint_key: predictor
+      num_frames: 64
+      depth: 12
+      num_heads: 12
+      predictor_embed_dim: 384
+      num_mask_tokens: 10
+      uniform_power: true
+      use_mask_tokens: true
+      use_sdpa: true
+      use_silu: false
+      wide_silu: false
+      use_rope: true

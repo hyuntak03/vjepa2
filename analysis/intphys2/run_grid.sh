@@ -42,7 +42,9 @@ win_for() { [[ $1 == videomae2g ]] && echo "16" || echo "${WINDOWS:-16 32 48}"; 
 # window 당 토큰 = (w/2) x (256/16)^2.  배치 상한을 그에 반비례로 잡는다 (24GB 기준).
 batch_for() {
   case "$1/$2" in
-    vjepa21g/*) echo 2 ;;                      # 타깃 latent 5632 차원
+    # ⚠️ 예전엔 창과 무관하게 2 였다. 과했다 — w16 에서 10.3/24.5 GB 밖에 안 썼다 (2026-09-22 실측).
+    #    2.1-g 는 타깃 latent 5632 차원(ViT-H 1280 의 4.4 배)이라 낮추되, 창에 반비례로 잡는다.
+    vjepa21g/16) echo 12 ;; vjepa21g/32) echo 8 ;; vjepa21g/48) echo 6 ;;
     */16) echo 16 ;; */32) echo 12 ;; */48) echo 8 ;; *) echo 8 ;;
   esac
 }

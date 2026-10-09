@@ -1,0 +1,70 @@
+# =============================================================================
+# PROTOCOL — IntPhys 2 (Bordes et al. 2025) 쌍 비교 surprise, 논문 D.3 격자
+#
+#   GPUS=8 bash cvpr/eval/intphys2/run.sh intphys2_main vith          [옛 analysis/intphys2/run_grid.sh + configs/bench_intphys2_main_vith.yaml]
+#
+# 엔진은 analysis/intphys2/eval.py (torchrun). 데이터·모델은 cvpr/registry 에서, 창은 cvpr/registry/windows.yaml 에서 온다.
+#   창 preset ip2_w48 -> surprise.window_size 48 · context_length_sweep = 48 x {1/4,3/8,1/2,5/8,3/4,7/8} = [12,18,24,30,36,42]
+#                        surprise.context_length 24 (= w/2) · stride 2 · data.target_fps 6 · data.frame_step 10
+#   V-JEPA 계열은 창 {16,32,48} @ 6 fps, VideoMAEv2 는 창 16 고정 + fps {2,3,6} (ip2_vmae_fps*) — run.sh 가 돈다.
+#
+# 확립된 수치: ViT-H Main 506 쌍 54.35 (C 24) · 복사 기준선 55.53 (C 42) — 같은 C 에선 구분 안 됨 (CLAUDE.md §5-6).
+# ⚠️ dtype float32 + autocast bfloat16 는 옛 config 그대로다. 논문·공식 코드 대조 (analysis/intphys2/PROTOCOL_CHECK_2026-09-14.md)
+#    의 수정안 (열별 선택) 은 아직 반영되지 않았다 — 바꾸려면 여기서 바꾸고 그렇게 적는다.
+# ⚠️ video_batch 는 1 로 둔다 (>1 이면 fp16 reduction 순서가 바뀌어 max|Δ| 7.3e-5, IntPhys 2 는 쌍 마진 중앙값 8e-4 라 ±0.5 pt 흔들린다).
+# =============================================================================
+engine: intphys2
+legacy_name: bench_intphys2_main
+window: ip2_w48
+
+data:                              # root · dataset_variant · split 은 레지스트리 (intphys2_main)
+  img_size: 256                    # model.img_size 가 덮는다 (videomae2g 224)
+  crop_margin_ratio: 1.0
+  min_frames: 8
+  decord_threads: 2
+
+model:                             # V-JEPA 2 ViT-H 기준값. 레지스트리의 모델 고유 키 (family · checkpoint · arch_name · img_size ...) 가 이긴다
+  img_size: 256
+  patch_size: 16
+  tubelet_size: 2
+  use_rope: true
+  uniform_power: false
+  dual_encoder: true
+  context_encoder_key: encoder
+  target_encoder_key: target_encoder
+  predictor: { embed_dim: 384, depth: 12, num_heads: 12, num_mask_tokens: 10 }
+  dtype: float32
+  autocast: bfloat16
+
+surprise:                          # window_size · context_length(_sweep) · stride 는 창 preset 이 채운다
+  protocol: growing
+  distance: l1
+  loss_exp: 1.0
+  target_layer_norm: true          # 레지스트리 `surprise.target_layer_norm: false` (vjepa21g · videomae2g) 가 덮는다
+  aggregation: avg
+  mask_index: 0                    # ★ 릴리즈 ckpt 에서 학습된 mask token 은 [0] 하나뿐
+  context_forward_mode: masked     # 학습 때처럼 문맥 토큰만 attention (train.py:435-438)
+  max_window_batch: 8              # VRAM 상한. run.sh 가 모델 x 창 별로 덮는다 (수치 영향 없음)
+  video_batch: 1
+
+evaluation:
+  compute_pairwise: true
+  compute_auroc: true
+  pairing: type_matched
+  breakdown_by: [condition, difficulty, camera]
+  ddp: true
+  num_workers: 6
+  prefetch_factor: 2
+  pin_memory: true
+  verbose: true
+  log_every_videos: 25
+  limit_videos: null
+
+output:
+  save_per_video: true
+  save_per_window: true
+  save_config: true
+  plot_breakdowns: true
+  plot_context_sweep: true
+  plot_scene_curves: false
+  scene_curve_indices: null

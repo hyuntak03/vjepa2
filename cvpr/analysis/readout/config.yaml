@@ -1,0 +1,459 @@
+# =============================================================================
+# cvpr/analysis/readout/config.yaml — 학습된 자 (readout, "자") 분석의 **스텝 레지스트리** (2026-10-09).
+#
+#   bash cvpr/analysis/readout/run.sh --list
+#   STEP=fit_position DRYRUN=1 bash cvpr/analysis/readout/run.sh
+#   STEP=window_readout GPUS=8 bash cvpr/analysis/readout/run.sh
+#
+# 과학은 여기 없다 — 각 스텝은 z_research/scripts/{analysis,figures}/ 의 기존 스크립트를 **그대로** 부른다.
+# 이 파일은 (스크립트, 인자, 환경변수, 입·출력 실물) 을 한 곳에 적어 둔 것이고 readout.py 가 읽는다.
+# 정본 문서: z_research/RollOutV2/figures/v5/summary/POSITION_READOUT_2026-09-12.md ## 재현 (B 묶음),
+#            z_research/RollOutV3/README.md · Archive/IDENTITY_R8_2026-09-26.md ## 재현 (C 묶음).
+#
+# 자리표시자 (readout.py 가 치환한다)
+#   ${CVPR_X}            cvpr/env.sh 변수
+#   {KNOB}               아래 knobs: 의 이름 — 같은 이름의 환경변수가 있으면 그 값, 없으면 default (값 안의 자리표시자도 다시 치환)
+#   {dataset} {model}    run.sh 인자 (없으면 스텝의 dataset: / model:)
+#   {ds.키} {model.키}    cvpr/registry/{datasets,models}.yaml 항목 (model 은 base: 를 편 것). 레지스트리에 없는 데이터셋은 datasets_inline:
+#   {model.키?}          없으면 빈 문자열 → env 항목이 통째로 빠진다 (PRED_CKPT 가 이 규칙)
+#   {gpus} {gpu_ids} {cuda}   GPUS / GPU_IDS 에서 (장 수 · 공백 구분 · 콤마 구분). 둘 다 없으면 스텝의 gpu:
+#
+# 스텝 키
+#   kind           script (기본, python) | bash | launch (cvpr/harness/launch.sh 경유 — 토큰 캐시 추출)
+#   protocol set_file tag suffix   launch 전용: 프로토콜 yaml · launch.sh SET_FILE (한 줄 = --set 하나) · 캐시 이름 TAG · 결과 폴더 접미사 SUFFIX
+#   script         ${CVPR_REPO} 기준 상대 경로
+#   args / env     인자 목록 / 환경변수 (치환 뒤 빈 문자열이면 빠진다). ARGS 노브가 args 뒤에 붙는다
+#   dataset model  기본값. dataset_lock: true = 스크립트가 그 데이터셋 경로를 **하드코딩**한 것이라 다른 DATASET 을 거부한다
+#   model_rule     vith (기본: vith 만) | vith_predictor (vith 또는 base: vith — encoder 는 릴리즈 고정, predictor_checkpoint 만 PRED_CKPT 로) | any
+#   gpu            스크립트가 기본으로 쓰는 GPU 장 수 (0 = CPU). GPUS/GPU_IDS 로 바꾼다. cuda: false 면 CUDA_VISIBLE_DEVICES 를 건드리지 않는다
+#   help           argparse 가 있어 --help 가 안전한가. false 면 HELP=1 은 docstring 만 보인다 (인자 없는 스크립트는 --help 로 본체가 돈다)
+#   inputs outputs 실물 검사 대상 (DRYRUN 은 OK/MISSING 만 보이고, 실행은 MISSING 이면 멈춘다 — FORCE=1 로 넘긴다) / 결과 자리 (기록용)
+# =============================================================================
+
+knobs:
+  TRAIN:         {default: v5,           doc: "ROLLOUT2_TRAIN — RollOutV2 위치 자의 학습셋 판. 스크립트의 표는 v5 만 있다 (rollout2_test_readout.py:23)"}
+  EPOCHS:        {default: "300",        doc: "attentive 위치 자 학습 epoch (정본 재현 300)"}
+  DECODER:       {default: identity_r8,  doc: "R3_DECODER — RollOutV3 자 폴더 <R3_EXP>/<DECODER>. 스크립트 기본값은 presence (옛 자) 지만 여기 기본은 지금 자"}
+  R3_OUT:        {default: identity_r8,  doc: "readings 꼬리표 → <R3_EXP>/windows_<R3_OUT>/ · v11_<R3_OUT>/ · v11_mid_<R3_OUT>/"}
+  R3_EXP:        {default: "${CVPR_REPO}/z_research/RollOutV3/exp_results", doc: "자 · readings 뿌리 (R3_EXP). 다른 predictor 판 (Ariel) 은 딴 뿌리로. ⚠️ doc_numbers · redraw_figs 는 이걸 안 읽는다 (README 엔진 수정 제안)"}
+  PSET:          {default: training_r8,  doc: "PRESENCE_SET — 정체 자 학습셋 이름 (data_csv/rollout_v2_<PSET>/index_probe.csv). 지금 자 identity_r8 = training_r8"}
+  FRAMES:        {default: "{ds.frames_root}", doc: "PRESENCE_FRAMES — 학습셋 프레임 폴더. 기본 = 그 스텝 데이터셋의 frames_root (training_r8 → ${CVPR_DATA2}/…/RollOut_v2_training_v8)"}
+  FEAT_DIR:      {default: "${CVPR_DATA2}/local_datasets/world/world_analysis/cache/rollout2_{PSET}_feats", doc: "학습셋 p·z·h 특징 (추출 1 회, 약 123 GB). /dev/shm/… 로 주면 세션이 끝나면 사라진다"}
+  NAME:          {default: identity_r8,  doc: "새로 학습하는 정체 자의 폴더 이름 → <R3_EXP>/<NAME>. ⚠️ 기본값은 지금 자 — 덮어쓰지 않으려면 새 이름"}
+  PLAN:          {default: "p=0,1 z=2,3 h=4,5", doc: "identity_train 의 표현 → **물리** GPU 묶음 (rollout2_identity_readout.py --plan). GPU_IDS 와 무관"}
+  PRESENCE_REPS: {default: "p,z,h",      doc: "presence_extract 가 뽑는 표현. Ariel kind=ar 는 p,h (z 는 릴리즈 것을 쓴다)"}
+  TIMING:        {default: late,         doc: "v11_online 의 가림 타이밍 late | mid | early (late 만 visible 을 같이 뽑는다)"}
+  V3_FRAMES:     {default: "${CVPR_DATA2}/local_datasets/world/world_analysis/RollOut_v3", doc: "R3_SRC — RollOut_v3 프레임 뿌리 (Images/ 가 그 아래). 레지스트리에 rollout_v3 가 없어 datasets_inline 과 여기서 정한다"}
+  R3_TMP:        {default: "",           doc: "window_readout 의 memmap 임시 폴더 (빈 값 = 스크립트 기본 /dev/shm/rollout3_windows)"}
+  V11_TMP:       {default: "",           doc: "v11_online 의 memmap 임시 폴더 (빈 값 = 스크립트 기본 /dev/shm/v11_readout)"}
+  R3_STEPS:      {default: "bias extract tables figs gifs", doc: "rerun_v3 (rollout3_rerun.sh) 의 단계 목록"}
+  ARGS:          {default: "",           doc: "스크립트 인자 뒤에 그대로 붙는 추가 인자 (예: ARGS='--test-only', ARGS='--bias', ARGS='--windows 16x32')"}
+
+# cvpr/registry/datasets.yaml 에 없는 것 — 이 폴더 안에서만 쓴다 (제안: 레지스트리로 옮긴다. README ## 엔진 수정 제안)
+datasets_inline:
+  rollout_v3:
+    root: ${CVPR_DATA_CSV}/rollout_v3
+    index_csv: index.csv
+    frames_root: ${CVPR_DATA2}/local_datasets/world/world_analysis/RollOut_v3/Images
+    raw_frames: 64
+    cache_tag: rollout_v3
+    note: "16 창 (C·P ∈ 4/8/16/32, 사건 f32 고정) 온라인 읽기 전용. 토큰 캐시 없음. 프레임은 /data2 HDD — 먼저 페이지 캐시 예열 (vll5 메모)"
+  rollout_v2_training_r8:
+    root: ${CVPR_DATA_CSV}/rollout_v2_training_r8
+    index_csv: index_probe.csv
+    frames_root: ${CVPR_DATA2}/local_datasets/world/world_analysis/RollOut_v2_training_v8
+    raw_frames: 100
+    cache_tag: rollout_v2_training_r8
+    note: "정체 자 identity_r8 의 학습셋 (새 렌더 RollOut_v2_training_v8, 8,640 clip). 레지스트리의 rollout_v2_training_v8 (14,360 clip, 옛 렌더) 과 다르다"
+
+steps:
+  # ── A. 토큰 캐시 (launch.sh → attn_probe 프로토콜. probe head 는 버리고 캐시만 쓴다) ───────────────────────
+  cache_ph:
+    kind: launch
+    doc: "p (predictor, frames 17–32) + h (target encoder 32 frames) 토큰 캐시 → ${CVPR_CACHE}/<cache_tag>_<model>/{predictor,target}.npy. 옛 재현의 SET=\"$PH\""
+    protocol: ${CVPR_ROOT}/analysis/probing/attn_probe.yaml
+    set_file: ${CVPR_ROOT}/analysis/readout/sets/cache_ph.set
+    dataset: rollout_v2_training_v5
+    datasets: [rollout_v2_training_v5, rollout_v2]
+    model: vith
+    model_rule: vith_predictor
+    gpu: 8
+    tag: "{ds.cache_tag}_{model}"
+    outputs: ["${CVPR_CACHE}/{ds.cache_tag}_{model}/predictor.npy", "${CVPR_CACHE}/{ds.cache_tag}_{model}/target.npy"]
+    note: "캐시가 다 뽑힌 뒤 probe head 단계에서 '학습셋이 비어 있다' 로 exit 1 이 난다 — 캐시는 완성된다 (RollOutV2/README.md §6). 캐시 서명은 video_ids 완전 일치 (CLAUDE.md §7-1)"
+  cache_ctx32:
+    kind: launch
+    doc: "z = context encoder 가 32 frames 전부를 본 특징 (isolated_ctx_0_32.npy) → <cache_tag>_ctx32_<model>. 옛 재현의 SET=\"$CX\" + TAG=…_ctx32_vith"
+    protocol: ${CVPR_ROOT}/analysis/probing/attn_probe.yaml
+    set_file: ${CVPR_ROOT}/analysis/readout/sets/cache_ctx32.set
+    dataset: rollout_v2_training_v5
+    datasets: [rollout_v2_training_v5, rollout_v2, v11_vanish_all]
+    model: vith
+    model_rule: vith_predictor
+    gpu: 8
+    tag: "{ds.cache_tag}_ctx32_{model}"
+    suffix: _ctx32            # 결과 폴더 (attn_probe__<ds>_<model>_ctx32) 만 가른다 — cache_ph 와 겹치지 않게. 캐시 이름은 tag
+    outputs: ["${CVPR_CACHE}/{ds.cache_tag}_ctx32_{model}/isolated_ctx_0_32.npy"]
+    note: "cache_ph 와 같은 exit 1. v11_vanish_all 은 z 만 — p/h 는 v11_full_<model> 캐시를 쓴다"
+  cache_z16:
+    kind: launch
+    doc: "z16 = context encoder 문맥 16 frames (ctx_masked.npy, LN) → <cache_tag>_z16_<model>. probe_pos_imp 의 [z ; p] 입력"
+    protocol: ${CVPR_ROOT}/analysis/probing/attn_probe.yaml
+    set_file: ${CVPR_ROOT}/analysis/readout/sets/cache_z16.set
+    dataset: rollout_v2
+    datasets: [rollout_v2]
+    model: vith
+    model_rule: vith_predictor
+    gpu: 8
+    tag: "{ds.cache_tag}_z16_{model}"
+    suffix: _z16
+    outputs: ["${CVPR_CACHE}/{ds.cache_tag}_z16_{model}/ctx_masked.npy"]
+
+  # ── B. 위치 자 (RollOutV2, 캐시 위에서. 공통 설정 = rollout2_test_readout.py, ROLLOUT2_TRAIN) ────────────────
+  fit_position:
+    script: z_research/scripts/analysis/rollout2_fit_readout.py
+    doc: "학습셋 p 공간평균 → (1281, 2) OLS 자 (spatial, 대조용). CPU 몇 분"
+    env: {ROLLOUT2_TRAIN: "{TRAIN}"}
+    dataset: rollout_v2_training_v5
+    dataset_lock: true
+    gpu: 0
+    help: false
+    inputs: ["${CVPR_CACHE}/{ds.cache_tag}_{model}/predictor.npy", "${CVPR_CACHE}/{ds.cache_tag}_{model}/meta.json", "{ds.root}/index_probe.csv"]
+    outputs: ["${CVPR_REPO}/z_research/RollOutV2/exp_results/{TRAIN}/spatial_pooling/p/fit/{w_p.npy,fit.json}"]
+  test_position:
+    script: z_research/scripts/analysis/rollout2_test_readout.py
+    doc: "spatial 자 w_p 를 RollOut_v2 (9 시나리오, 가능 clip) 의 p 에 test 로만. CPU"
+    env: {ROLLOUT2_TRAIN: "{TRAIN}"}
+    dataset: rollout_v2
+    dataset_lock: true
+    gpu: 0
+    help: false
+    inputs: ["${CVPR_CACHE}/{ds.cache_tag}_{model}/predictor.npy", "{ds.root}/index_probe.csv",
+             "${CVPR_REPO}/z_research/RollOutV2/exp_results/{TRAIN}/spatial_pooling/p/fit/w_p.npy"]
+    outputs: ["${CVPR_REPO}/z_research/RollOutV2/exp_results/{TRAIN}/spatial_pooling/p/test/{test.json,preds.npz}"]
+  attn_position:
+    script: z_research/scripts/analysis/rollout2_attn_readout.py
+    doc: "★ 본체. 쿼리 1 개 attentive 위치 자 (3,842 파라미터) 를 학습셋 p 로 학습하고 RollOut_v2 에 test. GPU 2 장 샤딩 (42 GB 특징)"
+    args: ["--epochs", "{EPOCHS}"]
+    env: {ROLLOUT2_TRAIN: "{TRAIN}"}
+    dataset: rollout_v2_training_v5
+    dataset_lock: true
+    gpu: 2
+    help: true
+    inputs: ["${CVPR_CACHE}/{ds.cache_tag}_{model}/predictor.npy", "{ds.root}/index_probe.csv",
+             "${CVPR_CACHE}/rollout_v2_{model}/predictor.npy", "${CVPR_DATA_CSV}/rollout_v2/index_probe.csv"]
+    outputs: ["${CVPR_REPO}/z_research/RollOutV2/exp_results/{TRAIN}/attentive_pooling/p/{attn.pt,fit.json,test.json,preds.npz}"]
+  attn_position_holdout:
+    script: z_research/scripts/analysis/rollout2_attn_readout.py
+    doc: "검증 A — 학습셋 block 50 % held-out (scenario 층화, seed 0) 로 같은 자. 정본 §2-3 (held-out 0.87 칸)"
+    args: ["--epochs", "{EPOCHS}", "--holdout", "0.5"]
+    env: {ROLLOUT2_TRAIN: "{TRAIN}"}
+    dataset: rollout_v2_training_v5
+    dataset_lock: true
+    gpu: 2
+    help: true
+    inputs: ["${CVPR_CACHE}/{ds.cache_tag}_{model}/predictor.npy", "{ds.root}/index_probe.csv", "${CVPR_CACHE}/rollout_v2_{model}/predictor.npy"]
+    outputs: ["${CVPR_REPO}/z_research/RollOutV2/exp_results/{TRAIN}/attentive_pooling/p_holdout50/{holdout.json,attn.pt,…}"]
+  attn_position_test:
+    script: z_research/scripts/analysis/rollout2_attn_readout.py
+    doc: "저장된 attn.pt 로 RollOut_v2 test 만 (재학습 없음 — 2026-09-19 감속 시나리오 추가 때 쓴 길). GPU 1"
+    args: ["--test-only"]
+    env: {ROLLOUT2_TRAIN: "{TRAIN}"}
+    dataset: rollout_v2
+    dataset_lock: true
+    gpu: 1
+    help: true
+    inputs: ["${CVPR_REPO}/z_research/RollOutV2/exp_results/{TRAIN}/attentive_pooling/p/attn.pt", "${CVPR_CACHE}/{ds.cache_tag}_{model}/predictor.npy"]
+    outputs: ["${CVPR_REPO}/z_research/RollOutV2/exp_results/{TRAIN}/attentive_pooling/p/{test.json,preds.npz}"]
+  encoder_ruler_z:
+    script: z_research/scripts/analysis/rollout2_encoder_readout.py
+    doc: "encoder 대조 — 같은 자를 context encoder z (32 frames, ctx32 캐시) 에. spatial + attentive 둘 다. GPU 2. ARGS='--test-only' 로 test 만"
+    args: ["--encoder", "z", "--epochs", "{EPOCHS}"]
+    env: {ROLLOUT2_TRAIN: "{TRAIN}"}
+    dataset: rollout_v2_training_v5
+    dataset_lock: true
+    gpu: 2
+    help: true
+    inputs: ["${CVPR_CACHE}/{ds.cache_tag}_ctx32_{model}/isolated_ctx_0_32.npy", "${CVPR_CACHE}/rollout_v2_ctx32_{model}/isolated_ctx_0_32.npy"]
+    outputs: ["${CVPR_REPO}/z_research/RollOutV2/exp_results/{TRAIN}/{spatial_pooling,attentive_pooling}/z/"]
+  encoder_ruler_h:
+    script: z_research/scripts/analysis/rollout2_encoder_readout.py
+    doc: "encoder 대조 — target encoder h (32 frames, target.npy) 에. GPU 2"
+    args: ["--encoder", "h", "--epochs", "{EPOCHS}"]
+    env: {ROLLOUT2_TRAIN: "{TRAIN}"}
+    dataset: rollout_v2_training_v5
+    dataset_lock: true
+    gpu: 2
+    help: true
+    inputs: ["${CVPR_CACHE}/{ds.cache_tag}_{model}/target.npy", "${CVPR_CACHE}/rollout_v2_{model}/target.npy"]
+    outputs: ["${CVPR_REPO}/z_research/RollOutV2/exp_results/{TRAIN}/{spatial_pooling,attentive_pooling}/h/"]
+  ceiling:
+    script: z_research/scripts/analysis/rollout2_ceiling.py
+    doc: "v2 30 % p-fit 천장 (spatial) — 학습셋 w 의 이식 결론은 안 바꾼다, 대조용. CPU"
+    env: {ROLLOUT2_TRAIN: "{TRAIN}"}
+    dataset: rollout_v2
+    dataset_lock: true
+    gpu: 0
+    help: true
+    inputs: ["${CVPR_CACHE}/{ds.cache_tag}_{model}/predictor.npy", "${CVPR_REPO}/z_research/RollOutV2/exp_results/{TRAIN}/spatial_pooling/p/fit/w_p.npy"]
+    outputs: ["${CVPR_REPO}/z_research/RollOutV2/exp_results/{TRAIN}/spatial_pooling/p/ceiling/{ceiling.json,preds.npz}"]
+  two_futures_attn:
+    script: z_research/scripts/analysis/rollout2_two_futures_attn.py
+    doc: "ledge / wall 슬롯별 — p 자 attention 이 가능/불가능 궤적 3×3 어느 쪽에 실리나, 읽기−기본값 거리 (정본 §4-3). CPU"
+    env: {ROLLOUT2_TRAIN: "{TRAIN}"}
+    dataset: rollout_v2
+    dataset_lock: true
+    gpu: 0
+    help: false
+    inputs: ["${CVPR_REPO}/z_research/RollOutV2/exp_results/{TRAIN}/attentive_pooling/p/preds.npz",
+             "${CVPR_REPO}/z_research/RollOutV2/exp_results/{TRAIN}/attentive_pooling/p/attn.pt",
+             "${CVPR_CACHE}/{ds.cache_tag}_{model}/predictor.npy"]
+    outputs: ["${CVPR_REPO}/z_research/RollOutV2/figures/{TRAIN}/summary/two_futures_attn.{json,md}"]
+  distance_decay:
+    script: z_research/scripts/analysis/rollout2_distance_decay.py
+    doc: "p 물체다운 토큰의 거리 × 슬롯 분해 — 자 attention + 자 없는 검사 (cos 템플릿). 2026-09-19 거리 한계의 근거. CPU"
+    env: {ROLLOUT2_TRAIN: "{TRAIN}"}
+    dataset: rollout_v2
+    dataset_lock: true
+    gpu: 0
+    help: false
+    inputs: ["${CVPR_REPO}/z_research/RollOutV2/exp_results/v5/attentive_pooling/p/preds.npz",
+             "${CVPR_CACHE}/{ds.cache_tag}_{model}/predictor.npy", "${CVPR_CACHE}/{ds.cache_tag}_{model}/target.npy"]
+    outputs: ["${CVPR_REPO}/z_research/RollOutV2/exp_results/v5/locality/distance_decay.{json,md}"]
+    note: "출력 폴더가 v5 로 고정돼 있다 (rollout2_distance_decay.py:21) — TRAIN 을 안 읽는다"
+  attn_diag:
+    script: z_research/scripts/analysis/v11_readout_attn_diag.py
+    doc: "v11 에서 p 자 attention 이 슬롯별로 어디에 실리나 (물체 / 마지막 관측 / 가림막 3×3, 균등 읽기 거리) — '마지막 관측에 머문다' 정정의 근거 (정본 §5-4). GPU 1"
+    env: {ROLLOUT2_TRAIN: "{TRAIN}"}
+    dataset: v11_full
+    dataset_lock: true
+    gpu: 1
+    help: false
+    inputs: ["${CVPR_CACHE}/{ds.cache_tag}_{model}/predictor.npy", "{ds.root}/index_probe.csv", "{ds.frames_root}/metadata.csv",
+             "${CVPR_REPO}/z_research/RollOutV2/exp_results/{TRAIN}/attentive_pooling/p/attn.pt"]
+    outputs: ["${CVPR_REPO}/z_research/RollOutV2/figures/{TRAIN}/v11_vanish/timing/attn_diag.{json,md}"]
+  token_object_test:
+    script: z_research/scripts/analysis/v11_token_object_test.py
+    doc: "검증 C — 자 없이 (파라미터 0) v11 p 안의 물체 검사: r = |p−h_imp| / |p−h_pos| (정본 §2-3). ARGS='<n_per_cond>' 로 표본. CPU"
+    env: {ROLLOUT2_TRAIN: "{TRAIN}"}
+    dataset: v11_full
+    dataset_lock: true
+    gpu: 0
+    help: false
+    inputs: ["${CVPR_CACHE}/{ds.cache_tag}_{model}/predictor.npy", "${CVPR_CACHE}/{ds.cache_tag}_{model}/target.npy", "{ds.frames_root}/metadata.csv"]
+    outputs: ["${CVPR_REPO}/z_research/RollOutV2/figures/{TRAIN}/v11_vanish/timing/token_test.{json,md}"]
+  probe_pos_imp:
+    script: z_research/scripts/analysis/rollout2_probe_pos_imp.py
+    doc: "ledge / wall pos·imp attentive probe — h (32 frames) 로 학습해 [z16 ; p] 에 (정본 §4-4). GPU 1 (--device cuda:0 = GPU_IDS 의 첫 장)"
+    args: ["--device", "cuda:0"]
+    dataset: rollout_v2
+    dataset_lock: true
+    gpu: 1
+    help: true
+    inputs: ["${CVPR_CACHE}/{ds.cache_tag}_{model}/target.npy", "${CVPR_CACHE}/{ds.cache_tag}_{model}/predictor.npy",
+             "${CVPR_CACHE}/{ds.cache_tag}_z16_{model}/ctx_masked.npy", "{ds.root}/index_probe.csv"]
+    outputs: ["${CVPR_REPO}/z_research/RollOutV2/exp_results/probe_pos_imp/probe_pos_imp.json", "${CVPR_REPO}/z_research/RollOutV2/figures/probe_pos_imp/"]
+
+  # ── C. 정체 자 (RollOutV3. 특징은 온라인 추출 → /dev/shm 또는 FEAT_DIR. 자 · readings 자리는 rollout3_paths.py = R3_*) ──
+  presence_extract:
+    script: z_research/scripts/analysis/rollout2_presence_readout.py
+    doc: "학습셋 p·z·h 특징 추출만 (--extract-only) → FEAT_DIR/{p,z,h}.npy. 정체 자 학습의 입력. GPU 8 · 약 30 분 · 123 GB. 다른 predictor 는 MODEL=vith_ariel_* (PRED_CKPT)"
+    args: ["--set", "{PSET}", "--feat-dir", "{FEAT_DIR}", "--extract-only", "--extract-bs", "32", "--gpus", "{gpus}"]
+    env: {PRESENCE_SET: "{PSET}", PRESENCE_FRAMES: "{FRAMES}", PRESENCE_REPS: "{PRESENCE_REPS}", PRED_CKPT: "{model.predictor_checkpoint?}"}
+    dataset: "rollout_v2_{PSET}"
+    dataset_lock: true
+    model_rule: vith_predictor
+    gpu: 8
+    help: true
+    inputs: ["{ds.root}/index_probe.csv", "{ds.root}/index.csv", "{FRAMES}/Images", "{model.checkpoint}"]
+    outputs: ["{FEAT_DIR}/p.npy", "{FEAT_DIR}/z.npy", "{FEAT_DIR}/h.npy"]
+    note: "DATASET 은 PSET 이 정한다 (rollout_v2_<PSET>). encoder 체크포인트는 스크립트가 릴리즈 ViT-H 로 고정 (rollout2_presence_readout.py:78) — MODEL 은 predictor 만 바꾼다"
+  presence_train:
+    script: z_research/scripts/analysis/rollout2_presence_readout.py
+    doc: "옛 presence 자 (위치 + 있음 logit, attn) 를 FEAT_DIR 특징으로 학습 → <R3_EXP>/presence (⚠️ 옛 자 폴더를 덮어쓴다 — 스크립트가 출력을 고정, :66). GPU 8"
+    args: ["--set", "{PSET}", "--feat-dir", "{FEAT_DIR}", "--skip-extract", "--keep-shm", "--gpus", "{gpus}"]
+    env: {PRESENCE_SET: "{PSET}", PRESENCE_FRAMES: "{FRAMES}"}
+    dataset: "rollout_v2_{PSET}"
+    dataset_lock: true
+    gpu: 8
+    help: true
+    inputs: ["{FEAT_DIR}/p.npy", "{FEAT_DIR}/z.npy", "{FEAT_DIR}/h.npy", "{ds.root}/index_probe.csv"]
+    outputs: ["${CVPR_REPO}/z_research/RollOutV3/exp_results/presence/{summary.json,RESULTS.md,<rep>/readout_attn.pt}"]
+  identity_dry:
+    script: z_research/scripts/analysis/rollout2_identity_readout.py
+    doc: "정체 자 라벨 개수만 (조합 · 없음 · 제외, split) — 배관 점검, GPU 0 장 · 몇 초"
+    args: ["--dry"]
+    env: {PRESENCE_SET: "{PSET}", IDENTITY_FEAT_DIR: "{FEAT_DIR}", IDENTITY_OUT: "{R3_EXP}/{NAME}"}
+    dataset: "rollout_v2_{PSET}"
+    dataset_lock: true
+    gpu: 0
+    help: true
+    inputs: ["{ds.root}/index_probe.csv"]
+    outputs: []
+  identity_smoke:
+    script: z_research/scripts/analysis/rollout2_identity_readout.py
+    doc: "정체 자 배관 점검 — 앞·뒤 64 clip, 3 epoch, h 만 → <R3_EXP>/<NAME>/_smoke/ (본 자를 안 건드린다). GPU 1"
+    args: ["--limit", "64", "--epochs", "3", "--reps", "h"]
+    env: {PRESENCE_SET: "{PSET}", IDENTITY_FEAT_DIR: "{FEAT_DIR}", IDENTITY_OUT: "{R3_EXP}/{NAME}"}
+    dataset: "rollout_v2_{PSET}"
+    dataset_lock: true
+    gpu: 1
+    help: true
+    inputs: ["{FEAT_DIR}/h.npy", "{ds.root}/index_probe.csv"]
+    outputs: ["{R3_EXP}/{NAME}/_smoke/summary.json"]
+  identity_train:
+    script: z_research/scripts/analysis/rollout2_identity_readout.py
+    doc: "★ 정체 자 (위치 + 56 조합 + 없음, 76,802 파라미터) 학습. --launch = p·z·h 를 PLAN 의 GPU 묶음에서 동시에, 끝나면 치우침 (attn_bias_px.json) 까지 → <R3_EXP>/<NAME>. 약 6.5 분"
+    args: ["--launch", "--plan", "{PLAN}"]
+    env: {PRESENCE_SET: "{PSET}", IDENTITY_FEAT_DIR: "{FEAT_DIR}", IDENTITY_OUT: "{R3_EXP}/{NAME}"}
+    dataset: "rollout_v2_{PSET}"
+    dataset_lock: true
+    gpu: 6
+    cuda: false
+    help: true
+    inputs: ["{FEAT_DIR}/p.npy", "{FEAT_DIR}/z.npy", "{FEAT_DIR}/h.npy", "{ds.root}/index_probe.csv"]
+    outputs: ["{R3_EXP}/{NAME}/{summary.json,attn_bias_px.json,<rep>/readout.pt,<rep>/preds.npz}"]
+    note: "GPU 는 PLAN 이 물리 번호로 정한다 (자식 프로세스마다 CUDA_VISIBLE_DEVICES). NAME 기본값이 identity_r8 이라 그대로 돌리면 지금 자를 덮어쓴다"
+  identity_bias:
+    script: z_research/scripts/analysis/rollout2_identity_readout.py
+    doc: "학습 뒤 좌표 치우침만 다시 (attn_bias_px.json). CPU"
+    args: ["--bias"]
+    env: {PRESENCE_SET: "{PSET}", IDENTITY_FEAT_DIR: "{FEAT_DIR}", IDENTITY_OUT: "{R3_EXP}/{NAME}"}
+    dataset: "rollout_v2_{PSET}"
+    dataset_lock: true
+    gpu: 0
+    help: true
+    inputs: ["{R3_EXP}/{NAME}/summary.json"]
+    outputs: ["{R3_EXP}/{NAME}/attn_bias_px.json"]
+  window_readout:
+    script: z_research/scripts/analysis/rollout3_window_readout.py
+    doc: "★ RollOut_v3 16 창 (C·P ∈ 4/8/16/32) 에서 p·z·h 위치·존재 읽기 + 이식 (p@h, p@z). 창마다 모델을 다시 짓는다 → <R3_EXP>/windows_<R3_OUT>/readings.npz (자 지문 포함). GPU 8. ARGS='--windows 16x32' 로 창 제한"
+    args: ["--reps", "p", "z", "h", "--cross", "h", "z", "--gpus", "{gpus}"]
+    env: {R3_DECODER: "{DECODER}", R3_OUT: "{R3_OUT}", R3_EXP: "{R3_EXP}", R3_SRC: "{V3_FRAMES}", R3_TMP: "{R3_TMP}", PRED_CKPT: "{model.predictor_checkpoint?}"}
+    dataset: rollout_v3
+    dataset_lock: true
+    model_rule: vith_predictor
+    gpu: 8
+    help: true
+    inputs: ["{ds.root}/index.csv", "{V3_FRAMES}/Images", "{R3_EXP}/{DECODER}/summary.json", "{R3_EXP}/{DECODER}/p/readout.pt", "{model.checkpoint}"]
+    outputs: ["{R3_EXP}/windows_{R3_OUT}/{readings.npz,meta.json}"]
+    note: "index 는 data_csv/rollout_v3 고정 (rollout3_window_readout.py:45). 프레임은 /data2 HDD — 먼저 `find … -name '*.png' | xargs cat` 로 예열 (decoder_train_redraw.sh 1/6)"
+  window_summary:
+    script: z_research/scripts/analysis/rollout3_window_summary.py
+    doc: "16 창 읽은 값으로 자가 그 창에 전이됐는지 표 (z·h 가 천장) → windows_<R3_OUT>/WINDOW_SUMMARY.md. CPU"
+    env: {R3_DECODER: "{DECODER}", R3_OUT: "{R3_OUT}", R3_EXP: "{R3_EXP}"}
+    dataset: rollout_v3
+    dataset_lock: true
+    gpu: 0
+    help: false
+    inputs: ["{R3_EXP}/windows_{R3_OUT}/readings.npz", "{R3_EXP}/{DECODER}/attn_bias_px.json"]
+    outputs: ["{R3_EXP}/windows_{R3_OUT}/WINDOW_SUMMARY.md"]
+  cross_head:
+    script: z_research/scripts/analysis/rollout3_cross_head.py
+    doc: "남의 자 (h · z) 를 p 에 건 결과 표 — '자가 고장 났나' 를 가른다 → windows_<R3_OUT>/CROSS_HEAD.md. CPU"
+    env: {R3_DECODER: "{DECODER}", R3_OUT: "{R3_OUT}", R3_EXP: "{R3_EXP}"}
+    dataset: rollout_v3
+    dataset_lock: true
+    gpu: 0
+    help: false
+    inputs: ["{R3_EXP}/windows_{R3_OUT}/readings.npz"]
+    outputs: ["{R3_EXP}/windows_{R3_OUT}/CROSS_HEAD.md"]
+  v11_online:
+    script: z_research/scripts/analysis/v11_readout_online.py
+    doc: "★ v11 가능 clip (visible + 문맥 끝 가림 late; TIMING=mid|early 는 그 가림만) 에 자를 온라인으로 → <R3_EXP>/v11[_<TIMING>]_<R3_OUT>/readings.npz. GPU 8"
+    args: ["--gpus", "{gpus}", "--timing", "{TIMING}"]
+    env: {R3_DECODER: "{DECODER}", R3_OUT: "{R3_OUT}", R3_EXP: "{R3_EXP}", V11_FRAMES: "{ds.frames_root}", V11_TMP: "{V11_TMP}", PRED_CKPT: "{model.predictor_checkpoint?}"}
+    dataset: v11_full
+    dataset_lock: true
+    model_rule: vith_predictor
+    gpu: 8
+    help: true
+    inputs: ["{ds.root}/index_probe.csv", "{ds.frames_root}/metadata.csv", "{R3_EXP}/{DECODER}/summary.json", "{R3_EXP}/{DECODER}/p/readout.pt"]
+    outputs: ["{R3_EXP}/v11_{R3_OUT}/readings.npz  (TIMING=mid → v11_mid_{R3_OUT}/)"]
+    note: "index 는 data_csv/intphysgen_v11_full 고정 (v11_readout_online.py:46). 모델 정의는 rollout3_window_readout.py 의 것을 import"
+  panel_false_alarm:
+    script: z_research/scripts/analysis/v11_panel_false_alarm.py
+    doc: "v11 빈 장면의 '있음' 오탐이 가림막을 가리키나 (자 위치 vs 판 픽셀) → audit/. CPU 1 분"
+    env: {R3_DECODER: "{DECODER}", R3_OUT: "{R3_OUT}", R3_EXP: "{R3_EXP}"}
+    dataset: v11_full
+    dataset_lock: true
+    gpu: 0
+    help: false
+    inputs: ["{R3_EXP}/v11_{R3_OUT}/readings.npz", "{ds.frames_root}"]
+    outputs: ["${CVPR_REPO}/z_research/RollOutV3/audit/… (panel_false_alarm_*.json)"]
+    note: "프레임 폴더가 /local_datasets v11 로 고정 (v11_panel_false_alarm.py:25)"
+  presence_compare:
+    script: z_research/scripts/analysis/presence_readout_compare.py
+    doc: "자의 존재 판정 오류와 좌표 오류를 따로 · 교차해서 (--md 표). ARGS='--bias' 는 attn_bias_px.json 다시 쓰기. CPU"
+    args: ["--md"]
+    env: {R3_DECODER: "{DECODER}", R3_EXP: "{R3_EXP}"}
+    dataset: "rollout_v2_{PSET}"
+    dataset_lock: true
+    gpu: 0
+    help: true
+    inputs: ["{R3_EXP}/{DECODER}/summary.json"]
+    outputs: ["(stdout 표) · ARGS='--bias' 면 {R3_EXP}/{DECODER}/attn_bias_px.json"]
+  doc_numbers:
+    script: z_research/scripts/analysis/rollout3_doc_numbers.py
+    doc: "RollOutV3 README · IDENTITY_R8 문서의 모든 표를 산출물에서 다시 찍는다 (문서 수치 대조). CPU 몇 초"
+    args: ["--decoder", "{DECODER}"]
+    env: {R3_TRAIN_META: "{FRAMES}/metadata.csv"}
+    dataset: "rollout_v2_{PSET}"
+    dataset_lock: true
+    gpu: 0
+    help: true
+    inputs: ["${CVPR_REPO}/z_research/RollOutV3/exp_results/{DECODER}/summary.json",
+             "${CVPR_REPO}/z_research/RollOutV3/exp_results/windows_{DECODER}/readings.npz",
+             "${CVPR_REPO}/z_research/RollOutV3/exp_results/v11_{DECODER}/readings.npz", "{FRAMES}/metadata.csv"]
+    outputs: ["(stdout 표)"]
+    note: "exp_results 뿌리가 고정돼 R3_EXP 를 안 읽는다 (rollout3_doc_numbers.py:23)"
+  paths:
+    script: z_research/scripts/analysis/rollout3_paths.py
+    doc: "지금 자 · readings 경로와 지문 (sha1 12 자리) 을 보인다 — readings 가 지금 자로 읽힌 것인지 검사. CPU 몇 초, 쓰지 않는다"
+    env: {R3_DECODER: "{DECODER}", R3_OUT: "{R3_OUT}", R3_EXP: "{R3_EXP}"}
+    dataset: rollout_v3
+    dataset_lock: true
+    gpu: 0
+    help: false
+    inputs: ["{R3_EXP}/{DECODER}/p/readout.pt"]
+    outputs: []
+  redraw_figs:
+    script: z_research/scripts/figures/new_archive_redraw.py
+    doc: "자 하나로 RollOutV3/figures 의 그림 폴더들을 다시 (--steps figs = CPU 몇 분. extract 까지 하려면 ARGS 로 --steps 를 바꾼다 → GPU). readings 지문이 자와 다르면 멈춘다"
+    args: ["--decoder", "{DECODER}", "--steps", "figs"]
+    dataset: rollout_v3
+    dataset_lock: true
+    gpu: 0
+    help: true
+    inputs: ["${CVPR_REPO}/z_research/RollOutV3/exp_results/{DECODER}/summary.json",
+             "${CVPR_REPO}/z_research/RollOutV3/exp_results/windows_{DECODER}/readings.npz",
+             "${CVPR_REPO}/z_research/RollOutV3/exp_results/v11_{DECODER}/readings.npz"]
+    outputs: ["${CVPR_REPO}/z_research/RollOutV3/figures/{train_readout,context_to_future,v3_signed_error,v3_trajectory,v11_presence,v11_signed_error,…}/"]
+    note: "exp_results 뿌리 · v3 프레임이 고정 (new_archive_redraw.py:41-42) — R3_EXP · V3_FRAMES 를 안 읽는다"
+
+  # ── D. 체인 (옛 shell 체인을 그대로 부른다. cd · 인터프리터가 안에 하드코딩 — README 엔진 수정 제안) ───────────
+  identity_chain:
+    kind: bash
+    script: z_research/scripts/analysis/decoder_train_redraw.sh
+    doc: "정본 재현 2) 한 줄 — 프레임 예열 → 특징 추출 (FEAT_DIR 에 있으면 건너뜀) → identity 학습 (NAME) → 특징 이동 → v3 16 창 · v11 다시 읽기 + 그림 → 판 오탐. GPU 8 · 약 45 분"
+    env: {SET: "{PSET}", NAME: "{NAME}", FRAMES: "{FRAMES}"}
+    dataset: "rollout_v2_{PSET}"
+    dataset_lock: true
+    gpu: 8
+    cuda: false
+    help: false
+    inputs: ["{FRAMES}/Images", "{ds.root}/index_probe.csv", "${CVPR_DATA_CSV}/rollout_v3/index.csv"]
+    outputs: ["${CVPR_REPO}/z_research/RollOutV3/exp_results/{NAME}/", "${CVPR_REPO}/z_research/RollOutV3/exp_results/redraw_{NAME}/chain_*.log"]
+    note: "GPU 수는 nvidia-smi -L 로 센다 (GPUS 무시). 특징 디스크 자리는 /data2 고정 (decoder_train_redraw.sh:20)"
+  rerun_v3:
+    kind: bash
+    script: z_research/scripts/analysis/rollout3_rerun.sh
+    doc: "자를 새로 배운 뒤 v3 결과 전부 다시 (치우침 → 16 창 → 표 → 그림 → GIF; R3_STEPS 로 고른다). 옛 presence 자 시대 파이프라인 — 그림은 figures/_superseded/presence_era_… 옆에 쓴다 (rollout3_paths.py:28). GPU 8"
+    env: {R3_OUT: "{R3_OUT}", R3_DECODER: "{DECODER}", STEPS: "{R3_STEPS}", GPUS: "{gpus}"}
+    dataset: rollout_v3
+    dataset_lock: true
+    gpu: 8
+    cuda: false
+    help: false
+    inputs: ["${CVPR_REPO}/z_research/RollOutV3/exp_results/{DECODER}/summary.json", "{V3_FRAMES}/Images"]
+    outputs: ["${CVPR_REPO}/z_research/RollOutV3/exp_results/windows_{R3_OUT}/", "${CVPR_REPO}/z_research/RollOutV3/figures/_superseded/presence_era_2026-09-24/{R3_OUT}/"]

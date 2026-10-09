@@ -25,7 +25,7 @@ if [[ -z "${ANT_RUN:-}" ]]; then
   [[ -n "${SET:-}" ]] && EXPORTS="$EXPORTS,SET_B64=$(printf %s "$SET" | base64 -w0)"
   # NODE=vll3 처럼 주면 #SBATCH -w vll5 를 덮는다 (비디오는 그 노드의 /data2 에 있어야 한다)
   # MEM_PER_GPU=40G: vll3 는 RealMemory 329 GB 라 기본 45G x 8 = 360G 로는 영원히 대기한다
-  exec sbatch --job-name="ek100_${TAG:-ek100_vith}" ${NODE:+-w "$NODE"} ${MEM_PER_GPU:+--mem-per-gpu="$MEM_PER_GPU"} \
+  exec sbatch --job-name="ek100_${TAG:-ek100_vith}" ${NODE:+-w "$NODE"} ${MEM_PER_GPU:+--mem-per-gpu="$MEM_PER_GPU"} ${CPUS_PER_GPU:+--cpus-per-gpu="$CPUS_PER_GPU"} \
        --gres=gpu:"$GPUS" --export="$EXPORTS" "$HERE/sbatch.sh"
 fi
 

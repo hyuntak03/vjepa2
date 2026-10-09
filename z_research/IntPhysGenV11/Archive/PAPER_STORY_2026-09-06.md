@@ -1,5 +1,7 @@
 # World Models for Video Understanding — 논문 스토리라인 (2026-09-06)
 
+> ⚠️ **대체됨 (2026-10-08).** 논문 스토리 정본은 [`../../../auto_research/paper/PAPER_STORY_2026-10-08.md`](../../../auto_research/paper/PAPER_STORY_2026-10-08.md) 다. 09-22 판으로, 다시 2026-10-08 판으로 대체됐다. 근거 수치와 금지 표현은 유효.
+
 **V-JEPA 2 의 pretrained predictor 는 무엇까지 하는가, 그리고 무엇이 더 필요한가**
 
 > **정본.** `PAPER_STORY_2026-08-31.md`(frozen 위에서 닫히는 8 beat)를 대체하고

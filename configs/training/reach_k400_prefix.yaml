@@ -1,0 +1,44 @@
+# =============================================================================
+# 단계 N (DESIGN_CHOICES §3): DC2 (미래 전용 · block-causal, Ariel 규칙) + DC1(a) (큰 변위 커리큘럼).
+#   Ariel ep43 predictor 에서 post-FT, K400 train 40k, 정사각 창 crop, 두 팔은 pan_p 만 다르다:
+#     SET="data.aug.window.pan_p=0.7"  (팬)   vs   SET="data.aug.window.pan_p=0.0"  (고정 창)
+#   마스크는 Ariel 학습과 같은 prefix_window (C×K 독립) 이되 n_frames 32 (16 블록) 안에서 C ∈ {4, 8}, K ∈ {4, 8}.
+#   평가: e_scene_reach{,_nat}.py (SCENE_EXTRA) — 묶음 M (release post-FT) 과 같은 판.
+#   ⚠️ meta.sync_masks · data.transfer_uint8 · model.predictor.kind 는 2026-09-25 하네스 병합 뒤에 생긴 키 (기본값은 옛 동작).
+# =============================================================================
+extends: frozen_predictor_postft
+
+meta:
+  sync_masks: true              # rank 동기 (C, K) + 창 자르기 (Ariel 경로)
+  compile_encoders: false
+  save_every_freq: 1
+
+model:
+  load_predictor: true
+  # ⚠️ 2026-09-27: 옛 ep_43 폴더가 지워졌다. 아래는 같은 run 의 최종 ep45 (ep43 과 다른 파일). N0/N1 (reachN_prefix_*) 은 ep43 에서 출발했으므로 재실행하면 출발점이 다르다. z_training/ARIEL_CHECKPOINTS.md
+  predictor_init_checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_training/ariel/block_causal_future_only_1e_5/latest.pt
+  predictor:
+    kind: prefix
+    n_registers: 0
+
+data:
+  datasets: [k400_train_40k]
+  batch_size: 8
+  transfer_uint8: true
+  aug: {hflip_p: 0.5, random_resized_crop: null, window: {zoom: 1.5, pan_p: 0.0, vmax: 12.0}}
+
+mask:
+  - type: prefix_window
+    context_blocks: [4, 8]
+    predict_blocks: [4, 8]
+    weight: 1.0
+
+optimization:
+  epochs: 3
+  lr: 5.0e-5
+  start_lr: 1.0e-6
+  final_lr: 1.0e-6
+  warmup: 1
+
+val:
+  context_length: 16

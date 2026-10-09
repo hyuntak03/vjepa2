@@ -74,6 +74,8 @@ class ValSet:
 def run_val(vs: ValSet, ctx_enc, tgt_enc, predictor, device, autocast_dtype, rank: int, ws: int,
             tubelet: int, spatial: int, context_length: int, batch_size: int, mask_index: int,
             loss_exp: float, target_ln: bool) -> Dict:
+    if getattr(getattr(predictor, "module", predictor), "mask_mode", None) == "ar":
+        raise ValueError("run_val 은 mask token 규약이다 — kind=ar 는 app/vjepa_frozen/ar.py::run_val_ar 를 쓴다")
     predictor.eval()
     n_frames = vs.ds.n_frames
     n_ctx = context_length // tubelet * spatial

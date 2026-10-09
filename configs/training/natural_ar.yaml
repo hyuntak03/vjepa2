@@ -1,0 +1,40 @@
+# =============================================================================
+# 팔 C — **자기회귀(AR) predictor**, V-JEPA 2-AC 레시피를 action 없이 (2026-09-26, 사용자 결정)
+#
+#   GPUS=6 NAME=nat_ar_scratch bash z_training/sbatch.sh natural_ar
+#
+# natural_prefix 와 **같은 데이터·창·(C,K) 분포·lr·배치** 에서 predictor 의 입출력 규약만 바꾼다:
+#   prefix/full : ctx 는 창 전체를 한 번에 인코딩한 z(encoder), 미래 자리는 mask token, 한 forward 로 K 블록
+#   ar (이것)  : encoder 를 **블록(2 장)마다 따로** 돌린 LN(h) 를 모든 자리에 넣고, 블록 인과 attention 으로
+#                위치 b → 블록 b+1 예측 (LM 꼴). 손실 = teacher forcing(모든 위치) + rollout(문맥 C 에서
+#                R=min(K, rollout_steps) 블록 자기회귀, 되먹임 grad 유지). 출력에도 LN (AC normalize_reps).
+#   ⚠️ 블록별 인코딩은 TF 누수를 막기 위한 것이다 (창 전체 인코딩이면 h_b 가 b 뒤 프레임을 담는다).
+#      그래서 prefix/full 과는 "AR 여부" 하나만 다른 게 아니라 **인코딩 단위도 다르다** — 비교할 때 적을 것.
+#      한 변수만 바꾼 대조가 필요하면 블록별 인코딩 + mask token(one-shot) 팔을 따로 돈다.
+#   ⚠️ 정식 채점기는 아직 kind=ar 를 모른다. in-loop val 은 rollout surprise(주) + tf surprise(보조) 둘을 낸다.
+#
+# 2026-09-27 vll5 이식 (Ariel `z_ariel/vjepa2_train_code_20260927/configs/training/natural_ar.yaml` 그대로 복사)
+#   * `meta.sync_masks: true` 는 natural_prefix 에서 물려받는다 — kind=ar 는 그게 없으면 못 돈다
+#     (resolve_train.py 가 DRYRUN 에서, train.py 가 모델 로드 뒤에 죽인다). data·배치·lr 도 natural_prefix 의 vll5 값이다
+#     (SSv2 단독, batch 12/rank 보수값 — natural_prefix.yaml 머리말). Ariel 은 GPUS=6 이었다.
+#   * 위 "정식 채점기는 아직 kind=ar 를 모른다" 는 Ariel 시점 기록이다. 우리 레포에서 채점은
+#     `analysis/predictors/ar_scoring.py` (evals/world_model_analysis/eval.py 의 AR 분기) 가 한다 —
+#     블록별 LN(target_encoder) 타깃이라 다른 kind 와는 **쌍 정확도만** 비교한다.
+#   * 배치는 z_training/tests/ar_gpu_test.py 로 먼저 잰다 (최악 C=16,K=8,R=8).
+#   DRYRUN=1 bash z_training/train.sh natural_ar
+# =============================================================================
+extends: natural_prefix
+
+model:
+  context_encoder_key: target_encoder   # AC 처럼 encoder 하나 (EMA). 입력 = 타깃 = LN(target_encoder(블록)). ctx encoder 는 안 짓는다
+  predictor:
+    kind: ar
+    use_activation_checkpointing: true  # rollout 이 predictor 를 최대 1+R 번 돌려 활성값이 쌓인다. 재계산으로 VRAM 을 잡는다
+
+loss:
+  rollout_steps: 8                      # R = min(K, 8) — K 분포 {1,2,4,8} 그대로 끝까지 굴린다 (AC 는 1 스텝)
+
+optimization:
+  epochs: 40                            # Ariel: 6 GPU × 896 step = 35,840 step (full 팔과 같다; prefix 팔 36,064)
+                                        # ⚠️ vll5 (SSv2 97,416 clip · batch 12/rank) 는 step 예산이 다르다: 8 GPU ≈1,014 step/epoch → 40 ep ≈40.6k,
+                                        #    6 GPU ≈1,353 → ≈54.1k. prefix 팔과 step 수를 맞춰 비교하려면 epoch 이나 GPU 수로 맞춘다

@@ -132,6 +132,9 @@ def extract(cfg, cache_dir, device, sources, rank=0, world=1):
     idxs = list(range(lo, hi))
 
     model = build_from_config(cfg["model"], device)
+    from analysis import predictors as PV
+    if PV.is_ar(model.predictor):
+        raise NotImplementedError("kind=ar (자기회귀) predictor 의 'p' (probe 특징) 는 아직 정의하지 않았다 — rollout 출력으로 할지 정한 뒤 붙인다. 채점 (surprise) 은 된다: analysis/predictors/ar_scoring.py")
     ac = _ac_dtype(cfg["model"].get("autocast", "none"))
     s = cfg["surprise"]
     fx = cfg.get("features", {})

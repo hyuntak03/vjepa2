@@ -1,7 +1,8 @@
 # v11 가림 타이밍 — `k` 장을 문맥 어디에 두는가
 
 > 본 실험 세트는 `../IntPhysGenV11/` 이다. 이건 그 위의 팔 하나.
-> 레포 규칙은 루트 `CLAUDE.md`, 논문 뼈대는 `../IntPhysGenV11/Archive/PAPER_STORY_2026-08-31.md`.
+> 레포 규칙은 루트 `CLAUDE.md`, 논문 스토리 정본은 [`../../auto_research/paper/PAPER_STORY_2026-10-08.md`](../../auto_research/paper/PAPER_STORY_2026-10-08.md) (2026-10-08). 이 세트는 P3 의 "마지막 관측에 안 보이면" 을 가르는 근거다 — 문맥 가운데 가림 (early · mid) 은 처리하고 경계 가림 (late) 만 무너진다.
+> (옛 포인터: `../IntPhysGenV11/Archive/PAPER_STORY_2026-08-31.md`, 대체됨)
 
 ---
 

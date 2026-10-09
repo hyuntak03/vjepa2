@@ -1,0 +1,20 @@
+# =============================================================================
+# 단계 O (DESIGN_CHOICES §3): DC1(b) 움직임 정렬 조회 bias predictor (kind mret, src/models/mret_predictor.py).
+#   Ariel ep43 (prefix) 가중치에서 시작 + mret head (새 파라미터 17k) · β_l. 데이터 · 증강 · 마스크 · lr 은 단계 N 팬 팔과 같다
+#   → N1 (prefix, 팬) 과의 차이가 곧 구조 (조회 bias) 의 효과다.
+# =============================================================================
+extends: reach_k400_prefix
+
+model:
+  predictor:
+    kind: mret
+    n_registers: 0
+    mret_hidden: 256
+    mret_beta_init: 0.5
+    mret_sigma: 1.0
+    mret_learn_sigma: false
+    mret_per_layer: true
+    mret_vmax: 4.0
+
+data:
+  aug: {hflip_p: 0.5, random_resized_crop: null, window: {zoom: 1.5, pan_p: 0.7, vmax: 12.0}}

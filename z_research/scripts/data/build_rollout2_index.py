@@ -23,6 +23,7 @@
   python z_research/scripts/data/build_rollout2_index.py --set training_v5 --write   # RollOut_v2_training (v5 사물 없음 + props 사물; plan 2개 합침)
   python z_research/scripts/data/build_rollout2_index.py --set v2_decel --write      # 감속 flat_d / ramp_d 만 (2026-09-19, 기존 v2 뒤에 붙이는 용도)
   python z_research/scripts/data/build_rollout2_index.py --set training_v8 --write   # 2026-09-24 합본 14,360 clip (라벨 = metadata)
+  python z_research/scripts/data/build_rollout2_index.py --set training_r8 --write   # 2026-09-26 새 렌더 RollOut_v2_training_v8 (8,640 clip, 판 arm · 짝 빈 장면)
 
 ⚠️ 2026-09-24 부터 `RollOut_v2_training` 폴더가 **합본 14,360 clip** 으로 바뀌었다. 옛 빈 장면 288 은 빠졌고
    metadata 도 새것이라 `--set training_v6` 는 **더 이상 원천에서 다시 만들 수 없다** (계획에 없는 블록으로 죽는다).
@@ -83,7 +84,24 @@ SETS = {
                               "/data/hyuntak/project/2026/2027_cvpr/UnrealEngine/gen/plans/blocks_rollout2_training_v6.json"],
                         out=f"{ROOT}/data_csv/rollout_v2_training_v8",
                         n=None, scen=None, imp={}, holdout=0, flat=None, label_src="metadata"),
+    # 2026-09-26: **새 렌더 `RollOut_v2_training_v8` (8,640 clip)** — 데이터 쪽 이름이 위 `training_v8` (옛 합본) 과 겹쳐서
+    #   우리 쪽 이름은 **`training_r8`** 로 둔다 (사용자 지시 "이름 다르게"). 폴더는 /data2 에만 있다 (/local_datasets 심링크 없음).
+    #   빈 장면 1,920 이 물체 arm 의 같은 셀에 짝으로 얹혀 있고 v11 판 (MI_OccDark trapdoor) arm 이 있다.
+    #   판 arm 1,296 은 2026-09-26 00:24 에 다시 찍혀 계획이 `…_v8panel.json` 에 따로 있다 → 계획 둘을 같이 준다.
+    #   감사: z_research/RollOutV3/audit/training_sets/RollOut_v2_training_v8.md (3 차 통과).
+    "training_r8": dict(src="/data2/local_datasets/world/world_analysis/RollOut_v2_training_v8",
+                        frames_root="/data2/local_datasets/world/world_analysis/RollOut_v2_training_v8",
+                        plan=["/data/hyuntak/project/2026/2027_cvpr/UnrealEngine/gen/plans/blocks_rollout2_training_v8.json",
+                              "/data/hyuntak/project/2026/2027_cvpr/UnrealEngine/gen/plans/blocks_rollout2_training_v8panel.json"],
+                        out=f"{ROOT}/data_csv/rollout_v2_training_r8",
+                        n=None, scen=None, imp={}, holdout=0, flat=None, label_src="metadata"),
 }
+def is_empty(r):
+    """물체 없는 clip. training_v6/v8 은 `scenario == "empty"` arm 이고, training_r8 (2026-09-26) 은 빈 장면이 물체 arm 의
+    같은 셀에 얹혀 있어 scenario 가 arm 이름이다 → `shape_pre == "none"` 으로도 알아본다 (옛 세트에서는 두 정의가 같다)."""
+    return r.get("scenario") == "empty" or r.get("shape_pre") == "none"
+
+
 SRC = FRAMES_ROOT = PLAN = OUT = None      # main() 이 --set 으로 채운다
 LABEL_SRC = "plan"                         # main() 이 --set 으로 채운다 ("metadata" 면 라벨을 metadata 에서)
 PROTOCOL_FRAMES = list(range(0, 94, 3))
@@ -305,7 +323,7 @@ def verify(rows, out, n_frame_check, S):
     # ── 라벨 감사 (2026-09-22): 양성·음성·제외가 서로 겹치지 않고 셋의 합이 전체인가 ──
     A = lambda k: np.stack([arr(r[k]) for r in out])
     vis_, ign_, inf_ = A("visible_by_sample") > 0, A("ignore_by_sample") > 0, A("in_frame_by_sample") > 0
-    emp_ = np.array([r["scenario"] == "empty" for r in out])[:, None].repeat(vis_.shape[1], 1)
+    emp_ = np.array([is_empty(r) for r in out])[:, None].repeat(vis_.shape[1], 1)
     chk("라벨: 양성 ∩ 제외 = 0", int((vis_ & ign_).sum()) == 0, f"{int((vis_ & ign_).sum())} 샘플")
     scn_ = np.stack([np.array([x == "1" for x in (r["scenery_intersects_by_sample"].split() or ["0"] * 32)])
                      for r in out])
@@ -324,12 +342,12 @@ def verify(rows, out, n_frame_check, S):
     chk("(기록) 샘플 집계", True,
         f"양성 {n_pos} / 음성 {int((~vis_ & ~ign_).sum())} (빈 장면 {int((emp_ & ~ign_).sum())}, 화면 밖 {int((~inf_ & ~emp_).sum())}) / 제외 {n_ign}")
 
-    empty = [r for r in out if r["scenario"] == "empty"]
+    empty = [r for r in out if is_empty(r)]
     if empty:                                                # training_v6: 물체 없는 clip 은 presence 음성이어야 한다
         chk(f"빈 장면 {len(empty)} clip: visible_by_sample 전부 0",
             all(set(r["visible_by_sample"].split()) <= {"0"} for r in empty))
         chk(f"빈 장면 {len(empty)} clip: shape/color 가 none", all(r["shape_pre"] == "none" for r in empty))
-    pos = [r for r in out if r["plausible"] == 1 and r["scenario"] != "empty"]
+    pos = [r for r in out if r["plausible"] == 1 and not is_empty(r)]
     inf = np.stack([arr(r["in_frame_by_sample"]) for r in pos])
     # 09-10 13:30 metadata 는 in_frame 을 더 엄격하게 잰다 (물체 일부가 화면 밖이면 0): arc 정점(샘플 14~20, y≈16px) 392 clip.
     # 위치 라벨은 안 바뀌었고 (index 대비 ≤0.11 px) 프레임도 그대로다 — 기록만 하고 in_frame 은 metadata 를 따른다
@@ -350,7 +368,7 @@ def verify(rows, out, n_frame_check, S):
     hold = collections.Counter((r["scenario"], r["holdout"]) for r in out)
     chk(f"holdout 이 시나리오마다 {S['holdout']}", all(hold[(s, "1")] == S["holdout"] for s in sc))
     for k, n in (("shape_pre", 7), ("color_pre", 8), ("env", 4)):
-        u = sorted(set(r[k] for r in out if r["plausible"] == 1 and r["scenario"] != "empty")); chk(f"{k} {n}종", len(u) == n, ",".join(u))
+        u = sorted(set(r[k] for r in out if r["plausible"] == 1 and not is_empty(r))); chk(f"{k} {n}종", len(u) == n, ",".join(u))
     for k in ("frame_half_width_cm", "fps", "resolution", "obj_depth_cm"):
         u = set(r[k] for r in out); chk(f"{k} 상수", len(u) == 1, f"{sorted(u)}")
     rng = random.Random(0); miss = []

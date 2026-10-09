@@ -87,6 +87,62 @@ def build_predictor(m: dict, encoder_embed_dim: int, state: Optional[dict], devi
     pc = dict(m.get("predictor") or {})
     extra = {"use_activation_checkpointing": bool(pc.get("use_activation_checkpointing", False)),
              "zero_init_mask_tokens": bool(pc.get("zero_init_mask_tokens", True))}
+    # ── model.predictor_init_checkpoint (2026-09-25): predictor 만 다른 파일에서 (예: Ariel 학습 run 의 latest.pt).
+    #    load_predictor 가 true 일 때만 쓰이고, 있으면 base model.pth 의 predictor 대신 이걸 strict 로 로드한다.
+    init_ck = m.get("predictor_init_checkpoint")
+    if state is not None and init_ck:
+        state = _load_checkpoint(init_ck)
+        if "predictor" not in state:
+            raise KeyError(f"{init_ck}: 'predictor' 키가 없다")
+        logger.info(f"predictor 초기값 <- {init_ck} (model.predictor_init_checkpoint)")
+        # 2026-09-27: 모든 kind 가 같은 160 키라 strict 로드는 kind 가 달라도 통과한다 — 체크포인트 arch.kind 와 맞춘다
+        _ck_kind = (state.get("arch") or {}).get("kind")
+        _want = str(pc.get("kind", "oneshot"))
+        _same = _ck_kind == _want or {_ck_kind, _want} <= {"oneshot", "default"}   # oneshot = default (릴리즈 위상)
+        if _ck_kind and not _same:
+            raise ValueError(f"{init_ck}: arch.kind={_ck_kind!r} 인데 model.predictor.kind={_want!r} 다 (다른 규칙의 가중치로 시작하게 된다)")
+    # ── kind: oneshot(기본, 릴리즈) | prefix(문맥 양방향·미래 block-causal) | causal — Ariel 학습 코드 (2026-09-22) 이식.
+    #    prefix 판은 파라미터 이름·모양이 릴리즈와 같아 strict 로드가 되고, attention 마스크만 다르다
+    #    (src/models/rollout_predictor.py). 채점기는 체크포인트 arch.kind 로 규칙을 읽는다.
+    kind = str(pc.get("kind", "oneshot"))
+    if kind not in ("oneshot", "prefix", "prefix_full", "causal", "ar", "ctx_ar", "mret"):
+        raise ValueError(f"model.predictor.kind 는 oneshot | prefix | prefix_full | causal | ar | ctx_ar | mret: {kind!r}")
+    # ar (2026-09-26, Ariel 팔 C · 2026-09-27 이식): mask token 없이 LN(h) 전 블록을 넣는 자기회귀 판. 학습 손실·val 은 app/vjepa_frozen/ar.py
+    if kind != "oneshot":
+        from src.models.rollout_predictor import vit_prefix_predictor
+        common = dict(
+            img_size=int(m.get("img_size", 256)), patch_size=int(m.get("patch_size", 16)),
+            tubelet_size=int(m.get("tubelet_size", 2)), num_frames=int(num_frames),
+            embed_dim=int(encoder_embed_dim),
+            predictor_embed_dim=int(pc.get("embed_dim", 384)), depth=int(pc.get("depth", 12)),
+            num_heads=int(pc.get("num_heads", 12)), num_mask_tokens=int(pc.get("num_mask_tokens", 10)),
+            use_rope=bool(m.get("use_rope", True)), use_sdpa=bool(m.get("use_sdpa", True)),
+            n_registers=int(pc.get("n_registers", 0)), **extra)
+        if kind == "mret":
+            # DC1(b) 움직임 정렬 조회 (2026-09-25, src/models/mret_predictor.py). 새 키 mret_* 는 체크포인트에 없어도 된다.
+            from src.models.mret_predictor import vit_mret_predictor
+            mk = {k: pc[k] for k in ("mret_hidden", "mret_beta_init", "mret_sigma", "mret_learn_sigma", "mret_per_layer", "mret_vmax") if k in pc}
+            pred = vit_mret_predictor(**common, **mk)
+        else:
+            pred = vit_prefix_predictor(mask_mode=kind, **common)
+        if state is not None:
+            sd = _clean_backbone_key(state["predictor"])
+            if kind == "mret":
+                msg = pred.load_state_dict(sd, strict=False)
+                bad_missing = [k for k in msg.missing_keys if not k.startswith("mret_")]
+                if bad_missing or msg.unexpected_keys:
+                    raise RuntimeError(f"predictor(mret) 로드 불일치: missing(비 mret) {bad_missing[:5]} unexpected {msg.unexpected_keys[:5]}")
+                logger.info(f"predictor(mret) <- checkpoint['predictor'] (mret_* {len(msg.missing_keys)} 개는 새로 초기화)")
+            else:
+                msg = pred.load_state_dict(sd, strict=True)
+                logger.info(f"predictor({kind}) <- checkpoint['predictor'] (strict): {msg}")
+        else:
+            logger.info(f"predictor({kind}): 새로 초기화 (scratch)")
+        pred = pred.to(device)
+        logger.info(f"predictor params: {count_parameters(pred)/1e6:.2f}M  kind={kind} "
+                    f"(embed {pc.get('embed_dim', 384)} / depth {pc.get('depth', 12)} / "
+                    f"heads {pc.get('num_heads', 12)} / registers {pc.get('n_registers', 0)})")
+        return pred
     pred = _build_predictor(
         img_size=int(m.get("img_size", 256)), patch_size=int(m.get("patch_size", 16)),
         tubelet_size=int(m.get("tubelet_size", 2)), num_frames=int(num_frames),

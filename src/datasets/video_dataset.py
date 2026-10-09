@@ -159,8 +159,14 @@ class VideoDataset(torch.utils.data.Dataset):
                                  # 2026) 'keystone-centered' sampling: 16 frames symmetric around
                                  # the physics break-point. Takes precedence over center_sampling
                                  # and uniform_sampling.
+        decord_threads=-1,       # 2026-09-27 Ariel 이식: 리더당 decord 스레드. 기본 -1 = 기존 동작 (리더마다 전 코어).
+                                 # ⚠️ DataLoader worker 를 여러 개 쓰면 과다구독이다 — 학습은 1~2 를 준다 (app/vjepa_frozen/data.py)
+        resample_on_error=False, # 2026-09-27: 디코드 **예외**를 다른 영상으로 재추첨할지. 기본 False = 기존 동작 (예외로 죽는다).
+                                 # ⚠️ 평가 코드는 켜지 말 것 — 다른 영상 · 라벨이 조용히 들어간다. 학습 로더 (make_video_csv_dataset) 만 켠다
     ):
         self.data_paths = data_paths
+        self.decord_threads = int(decord_threads)
+        self.resample_on_error = bool(resample_on_error)
         self.datasets_weights = datasets_weights
         self.frame_step = frame_step
         self.uniform_sampling = uniform_sampling
@@ -181,6 +187,9 @@ class VideoDataset(torch.utils.data.Dataset):
             raise ValueError(
                 f"Must specify exactly one of either {fps=}, {duration=}, or {frame_step=}."
             )
+        # 2026-09-27: 예전 `assert fstp > 0` 이 잡던 설정 오류는 여기서 바로 죽인다 (영상별 건너뛰기는 파일 문제만)
+        if frame_step is not None and int(frame_step) <= 0:
+            raise ValueError(f"frame_step 은 1 이상이어야 한다: {frame_step}")
 
         if isinstance(data_paths, str):
             data_paths = [data_paths]
@@ -210,9 +219,20 @@ class VideoDataset(torch.utils.data.Dataset):
                 except pd.errors.ParserError:
                     # In image captioning datasets where we have space, we use :: as delimiter.
                     data = pd.read_csv(data_path, header=None, delimiter="::")
-                samples += list(data.values[:, 0])
-                labels += list(data.values[:, 1])
-                num_samples = len(data)
+                if data.shape[1] == 2:
+                    # 기존 경로 그대로 (경로에 공백이 없는 csv — 우리 csv 전부). 라벨 dtype 도 pandas 그대로.
+                    samples += list(data.values[:, 0])
+                    labels += list(data.values[:, 1])
+                    num_samples = len(data)
+                else:
+                    # 2026-09-27 Ariel 이식 (0923 L210-226): 경로에 **공백**이 있으면 (K400 클래스 폴더
+                    #   "bouncing on trampoline") pandas 가 열 수를 최대치로 맞춰 경로 "/x/bouncing", 라벨 "on" 으로
+                    #   **조용히 오파싱**하거나 ParserError -> "::" 폴백에서 열이 1 개가 된다. 그때만 마지막 구분자 기준으로
+                    #   한 번 자른다. 열이 정확히 2 개인 기존 csv 는 위 분기라 결과가 바뀌지 않는다.
+                    samples_, labels_ = self._read_csv_rsplit(data_path)
+                    samples += samples_
+                    labels += labels_
+                    num_samples = len(samples_)
                 self.num_samples_per_dataset.append(num_samples)
 
             elif data_path[-4:] == ".npy":
@@ -236,18 +256,59 @@ class VideoDataset(torch.utils.data.Dataset):
         self.samples = samples
         self.labels = labels
 
+    @staticmethod
+    def _read_csv_rsplit(data_path):
+        """'<경로><sep><라벨>' 을 마지막 구분자 기준으로 자른다 (경로 안 공백 허용). 2026-09-27 Ariel 이식."""
+        rows = [ln.rstrip() for ln in open(data_path, encoding="utf-8") if ln.strip()]   # \r · 끝 공백도 벗긴다
+        if not rows:
+            raise ValueError(f"{data_path}: 빈 csv")
+        sep = "::" if "::" in rows[0] else " "
+        pairs = [r.rsplit(None if sep == " " else sep, 1) for r in rows]   # 공백 구분이면 연속 공백도 하나로
+        bad = [i for i, q in enumerate(pairs) if len(q) != 2]
+        if bad:
+            raise ValueError(f"{data_path}: '<경로>{sep}<라벨>' 형식이 아닌 줄 {len(bad)}개 "
+                             f"(첫 줄 {bad[0]}): {rows[bad[0]][:120]!r}")
+
+        def _label(s):                       # pandas 와 같은 꼴: int -> float -> str
+            for cast in (int, float):
+                try:
+                    return cast(s)
+                except ValueError:
+                    pass
+            return s
+
+        return [q[0] for q in pairs], [_label(q[1]) for q in pairs]
+
+    # 2026-09-27 Ariel 이식: 디코드 **예외**를 재추첨으로 흡수하되, 한 __getitem__ 안에서 예외가 이만큼 쌓이면
+    #   (decord 자체가 깨진 경우 등) 무한 재추첨 대신 마지막 예외로 죽는다. 빈 반환 (짧은 영상 등) 은 기존처럼 세지 않는다.
+    max_decode_exceptions = 50
+
     def __getitem__(self, index):
         sample = self.samples[index]
         loaded_sample = False
+        n_exc = 0
         # Keep trying to load videos until you find a valid sample
         while not loaded_sample:
             if not isinstance(sample, str):
                 logger.warning("Invalid sample.")
             else:
-                if sample.split(".")[-1].lower() in ("jpg", "png", "jpeg"):
-                    loaded_sample = self.get_item_image(index)
-                else:
-                    loaded_sample = self.get_item_video(index)
+                # ⚠️ 2026-09-22 (Ariel, 2026-09-27 이식): 디코드 **예외**도 재시도로 흡수한다. 예전엔 빈 반환만 잡아서,
+                #    헤더 fps 가 깨진 파일 하나(`fstp = fps//target = 0` -> AssertionError)가
+                #    worker -> rank -> DDP 전체를 죽였다. 파일 경로를 한 번 경고하고 다른 인덱스로 간다.
+                try:
+                    if sample.split(".")[-1].lower() in ("jpg", "png", "jpeg"):
+                        loaded_sample = self.get_item_image(index)
+                    else:
+                        loaded_sample = self.get_item_video(index)
+                except Exception as e:                                   # noqa: BLE001
+                    if not self.resample_on_error:                       # 기존 동작 (평가 · upstream 호출자)
+                        raise
+                    n_exc += 1
+                    if n_exc >= self.max_decode_exceptions:
+                        raise RuntimeError(f"VideoDataset: 한 샘플을 찾는 동안 디코드 예외 {n_exc} 회 — 데이터/디코더를 확인할 것 "
+                                           f"(마지막 {sample})") from e
+                    warnings.warn(f"decode failed, resampling: {sample} ({type(e).__name__}: {e})")
+                    loaded_sample = False
 
             if not loaded_sample:
                 index = np.random.randint(self.__len__())
@@ -326,11 +387,14 @@ class VideoDataset(torch.utils.data.Dataset):
             return [], None
 
         try:
-            vr = VideoReader(fname, num_threads=-1, ctx=cpu(0))
+            # 2026-09-27 Ariel 이식: 스레드 수를 ctor 인자로 (기본 -1 = 기존). -1 은 **리더마다 전 코어**라
+            #   worker 가 여럿이면 (rank 8 x worker 8 = 64 리더) 컨텍스트 스위치로 첫 배치조차 안 나온다 (CLAUDE.md §7-1).
+            vr = VideoReader(fname, num_threads=self.decord_threads, ctx=cpu(0))
         except Exception:
             return [], None
 
         fstp = self.frame_step
+        video_fps = 0                            # 2026-09-27 Ariel 이식: get_avg_fps 가 던지면 예전엔 NameError 였다
         if self.duration is not None or self.fps is not None:
             try:
                 video_fps = math.ceil(vr.get_avg_fps())
@@ -344,7 +408,18 @@ class VideoDataset(torch.utils.data.Dataset):
                 assert self.duration is None
                 fstp = video_fps // self.fps
 
-        assert fstp is not None and fstp > 0
+        # 2026-09-27 Ariel 이식 (0923 L370-377): 예전엔 `assert fstp > 0` 이라 파일 하나가 worker 를 죽였다.
+        if fstp is not None and fstp <= 0 and self.fps is not None and video_fps > 0:
+            # 헤더 fps 가 목표 fps 보다 낮다 (K400 에 fps 10~11 이 0.6%). 원래 upstream 은 assert 로 죽고,
+            # 2026-09-22 첫 학습은 건너뛰었다. 목표 fps 자체가 ceil(fps)//target 이라 25→12.5, 30→15 로
+            # 이미 ±25% 흔들리므로, 원 fps 그대로(step 1) 쓰는 것이 같은 허용 범위 안이다. (Ariel 쪽 사용자 결정 2026-09-22)
+            fstp = 1
+        if fstp is None or fstp <= 0:            # fps 를 아예 못 읽은 파일 -> 이 영상은 못 쓴다
+            warnings.warn(f"skipping video with fps {video_fps if self.fps is not None else '?'} (fstp={fstp}): {sample}")
+            self._n_fstp_skip = getattr(self, "_n_fstp_skip", 0) + 1     # 모든 파일이 이러면 무한 재추첨이 된다 -> 한도에서 죽인다
+            if self._n_fstp_skip >= 10 * self.max_decode_exceptions and self._n_fstp_skip >= len(self.samples):
+                raise RuntimeError(f"VideoDataset: fps 를 못 읽거나 fstp<=0 인 파일이 {self._n_fstp_skip} 번 — 설정 (fps/duration) 을 확인할 것")
+            return [], None
         clip_len = int(fpc * fstp)
 
         if self.filter_short_videos and len(vr) < clip_len:

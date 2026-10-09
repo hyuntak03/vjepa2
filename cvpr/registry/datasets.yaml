@@ -1,0 +1,501 @@
+# 데이터셋 레지스트리 (cvpr). configs/protocols/datasets.md 에서 import_registry.py 가 만들었다 (2026-10-09).
+# 손으로 고쳐도 된다 — 다만 다시 변환하면 덮이므로 바꾼 항목은 아래 _manual 에 옮겨 둘 것.
+# 키: engine (wma|intphys2|ek100) · raw_frames · cache_tag · legacy_results_root · available · note · 그리고 data: 블록으로 들어가는 키들.
+# ${CVPR_*} 는 cvpr/env.sh 의 변수다. 설명은 옛 md 의 각 섹션에 그대로 있다.
+intphys1_dev:
+  raw_frames: 100
+  cache_tag: intphys1_dev
+  root: ${CVPR_LOCAL}/world/world_analysis/IntPhys1_dev_videos
+  index_csv: index.csv
+  frames_root: ${CVPR_LOCAL}/world/world_analysis/IntPhys1_dev_frame_png
+  frames_pattern: '{block}/{quadruplet}/{run}/scene/scene_{frame:03d}.png'
+  frames_start: 1
+  frames_stride: 3
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: block_type
+  engine: wma
+  legacy_results_root: ${CVPR_REPO}/z_research/IntPhys/exp_results
+  sliding_frame_skips:
+  - 2
+  - 5
+  - 10
+grasp_level2:
+  raw_frames: 501
+  cache_tag: grasp_level2
+  root: ${CVPR_DATA_CSV}/grasp_level2
+  index_csv: index.csv
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: block_type
+  engine: wma
+  legacy_results_root: ${CVPR_REPO}/z_research/Benchmarks/exp_results
+  sliding_frame_skips:
+  - 5
+  - 10
+inflevel_continuity:
+  raw_frames: 300
+  cache_tag: inflevel_continuity
+  root: ${CVPR_DATA_CSV}/inflevel_continuity
+  index_csv: index.csv
+  frames_start_column: frame_start
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: block_type
+  engine: wma
+  legacy_results_root: ${CVPR_REPO}/z_research/Benchmarks/exp_results
+  sliding_frame_skips:
+  - 5
+  - 10
+  - 20
+inflevel_gravity:
+  raw_frames: 210
+  cache_tag: inflevel_gravity
+  root: ${CVPR_DATA_CSV}/inflevel_gravity
+  index_csv: index.csv
+  frames_start_column: frame_start
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: block_type
+  engine: wma
+  legacy_results_root: ${CVPR_REPO}/z_research/Benchmarks/exp_results
+  sliding_frame_skips:
+  - 5
+  - 10
+  - 20
+inflevel_solidity:
+  raw_frames: 300
+  cache_tag: inflevel_solidity
+  root: ${CVPR_DATA_CSV}/inflevel_solidity
+  index_csv: index.csv
+  frames_start_column: frame_start
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: block_type
+  engine: wma
+  legacy_results_root: ${CVPR_REPO}/z_research/Benchmarks/exp_results
+  sliding_frame_skips:
+  - 5
+  - 10
+  - 20
+v8:
+  raw_frames: 100
+  cache_tag: v8
+  root: ${CVPR_DATA_CSV}/intphysgen_v8
+  index_csv: index.csv
+  frames_root: ${CVPR_NFS}/UnrealEngine/IntPhysGen_v8
+  frames_pattern: '{file_name}/{frame:06d}.png'
+  frames_start: 0
+  frames_stride: 3
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: condition
+  engine: wma
+  legacy_results_root: ${CVPR_REPO}/z_research/IntPhysGenV8/exp_results
+  available: false
+  note: '실물 없음 (frames_root: /data/hyuntak/project/2026/2027_cvpr/UnrealEngine/IntPhysGen_v8) — 2026-10-09 변환 때 vll5 기준'
+v8_halfsize:
+  raw_frames: 100
+  cache_tag: v8_halfsize
+  root: ${CVPR_DATA_CSV}/intphysgen_v8_halfsize
+  index_csv: index.csv
+  frames_root: ${CVPR_NFS}/UnrealEngine/IntPhysGen_v8_halfsize
+  frames_pattern: '{file_name}/{frame:06d}.png'
+  frames_start: 0
+  frames_stride: 3
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: condition
+  engine: wma
+  legacy_results_root: ${CVPR_REPO}/z_research/IntPhysGenV8/exp_results
+  available: false
+  note: '실물 없음 (frames_root: /data/hyuntak/project/2026/2027_cvpr/UnrealEngine/IntPhysGen_v8_halfsize) — 2026-10-09 변환 때 vll5 기준'
+v11:
+  raw_frames: 100
+  cache_tag: v11
+  root: ${CVPR_DATA_CSV}/intphysgen_v11
+  index_csv: index.csv
+  frames_root: ${CVPR_LOCAL}/world/world_analysis/IntPhysGen_v11
+  frames_pattern: '{file_name}/{frame:06d}.png'
+  frames_start: 0
+  frames_stride: 3
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: condition
+  engine: wma
+  legacy_results_root: ${CVPR_REPO}/z_research/IntPhysGenV11/exp_results
+v11_earlymid:
+  raw_frames: 100
+  cache_tag: v11_earlymid
+  root: ${CVPR_DATA_CSV}/intphysgen_v11_earlymid
+  index_csv: index.csv
+  frames_root: ${CVPR_LOCAL}/world/world_analysis/IntPhysGen_v11
+  frames_pattern: '{file_name}/{frame:06d}.png'
+  frames_start: 0
+  frames_stride: 3
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: condition
+  engine: wma
+  legacy_results_root: ${CVPR_REPO}/z_research/IntPhysGenV11/exp_results
+v13_black:
+  raw_frames: 100
+  cache_tag: v13_black
+  root: ${CVPR_DATA_CSV}/intphysgen_v13_black
+  index_csv: index.csv
+  frames_root: ${CVPR_LOCAL}/world/world_analysis/IntPhysGenV13_occluder_black
+  frames_pattern: '{file_name}/{frame:06d}.png'
+  frames_start: 0
+  frames_stride: 3
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: condition
+  engine: wma
+  legacy_results_root: ${CVPR_REPO}/z_research/IntPhysGenV13_Black_occluder/exp_results
+  available: false
+  note: '실물 없음 (frames_root: /local_datasets/world/world_analysis/IntPhysGenV13_occluder_black) — 2026-10-09 변환 때 vll5 기준'
+rollout_v2:
+  raw_frames: 100
+  cache_tag: rollout_v2
+  root: ${CVPR_DATA_CSV}/rollout_v2
+  index_csv: index.csv
+  frames_root: ${CVPR_LOCAL}/world/world_analysis/RollOut_v2
+  frames_pattern: '{file_name}/{frame:06d}.png'
+  frames_start: 0
+  frames_stride: 3
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: condition
+  engine: wma
+  legacy_results_root: ${CVPR_REPO}/z_research/RollOutV2/exp_results
+rollout_v2_training_v5:
+  raw_frames: 100
+  cache_tag: rollout_v2_training_v5
+  root: ${CVPR_DATA_CSV}/rollout_v2_training_v5
+  index_csv: index.csv
+  frames_root: ${CVPR_LOCAL}/world/world_analysis/RollOut_v2_training
+  frames_pattern: '{file_name}/{frame:06d}.png'
+  frames_start: 0
+  frames_stride: 3
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: condition
+  engine: wma
+  legacy_results_root: ${CVPR_REPO}/z_research/RollOutV2/exp_results/v5
+rollout_v2_training_v6:
+  raw_frames: 100
+  cache_tag: rollout_v2_training_v6
+  root: ${CVPR_DATA_CSV}/rollout_v2_training_v6
+  frames_root: ${CVPR_LOCAL}/world/world_analysis/RollOut_v2_training
+  frames_pattern: '{file_name}/{frame:06d}.png'
+  index_csv: index.csv
+  frames_start: 0
+  frames_stride: 3
+  block_column: block_id
+  engine: wma
+  legacy_results_root: ${CVPR_REPO}/z_research/RollOutV2/exp_results/v6
+rollout_v2_training_v8:
+  raw_frames: 100
+  cache_tag: rollout_v2_training_v8
+  root: ${CVPR_DATA_CSV}/rollout_v2_training_v8
+  frames_root: ${CVPR_LOCAL}/world/world_analysis/RollOut_v2_training
+  frames_pattern: '{file_name}/{frame:06d}.png'
+  index_csv: index.csv
+  frames_start: 0
+  frames_stride: 3
+  block_column: block_id
+  engine: wma
+  legacy_results_root: ${CVPR_REPO}/z_exp/world_model_analysis/results
+v11_vanish_all:
+  raw_frames: 100
+  frames_root: ${CVPR_LOCAL}/world/world_analysis/IntPhysGen_v11
+  frames_pattern: '{file_name}/{frame:06d}.png'
+  frames_start: 0
+  frames_stride: 3
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: condition
+  cache_tag: v11_vanish_all
+  root: ${CVPR_DATA_CSV}/intphysgen_v11_vanish_all
+  index_csv: index.csv
+  engine: wma
+  legacy_results_root: ${CVPR_REPO}/z_research/RollOutV2/exp_results/v11_vanish_all
+v11_full:
+  raw_frames: 100
+  cache_tag: v11_full
+  root: ${CVPR_DATA_CSV}/intphysgen_v11_full
+  index_csv: index.csv
+  frames_root: ${CVPR_LOCAL}/world/world_analysis/IntPhysGen_v11
+  frames_pattern: '{file_name}/{frame:06d}.png'
+  frames_start: 0
+  frames_stride: 3
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: condition
+  engine: wma
+  legacy_results_root: ${CVPR_REPO}/z_research/IntPhysGenV11_occlusion_timing_ablation/exp_results
+v11_timing:
+  raw_frames: 100
+  cache_tag: v11_timing
+  root: ${CVPR_DATA_CSV}/intphysgen_v11_timing
+  index_csv: index.csv
+  frames_root: ${CVPR_LOCAL}/world/world_analysis/IntPhysGen_v11
+  frames_pattern: '{file_name}/{frame:06d}.png'
+  frames_start: 0
+  frames_stride: 3
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: condition
+  engine: wma
+  legacy_results_root: ${CVPR_REPO}/z_research/IntPhysGenV11_occlusion_timing_ablation/exp_results
+v11_occtiming:
+  available: false
+  raw_frames: 100
+  cache_tag: v11_occtiming
+  root: ${CVPR_DATA_CSV}/intphysgen_v11_occtiming
+  index_csv: index.csv
+  frames_root: ${CVPR_LOCAL}/world/world_analysis/IntPhysGenV11_occlusion_timing_ablation
+  frames_pattern: '{file_name}/{frame:06d}.png'
+  frames_start: 0
+  frames_stride: 3
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: condition
+  engine: wma
+  legacy_results_root: ${CVPR_REPO}/z_research/IntPhysGenV11_occlusion_timing_ablation/exp_results
+v10_flat:
+  raw_frames: 100
+  cache_tag: v10_flat
+  root: ${CVPR_DATA_CSV}/intphysgen_v10_flat
+  index_csv: index.csv
+  frames_root: ${CVPR_LOCAL}/world/world_analysis/IntPhysGen_v10
+  frames_pattern: '{file_name}/{frame:06d}.png'
+  frames_start: 0
+  frames_stride: 3
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: condition
+  engine: wma
+  legacy_results_root: ${CVPR_REPO}/z_research/IntPhysGenV10/exp_results
+  available: false
+  note: '실물 없음 (frames_root: /local_datasets/world/world_analysis/IntPhysGen_v10) — 2026-10-09 변환 때 vll5 기준'
+v10_occ_low:
+  raw_frames: 100
+  cache_tag: v10_occ_low
+  root: ${CVPR_DATA_CSV}/intphysgen_v10_occlusion_low
+  index_csv: index.csv
+  frames_root: ${CVPR_LOCAL}/world/world_analysis/IntPhysGen_v10_occlusion_low
+  frames_pattern: '{file_name}/{frame:06d}.png'
+  frames_start: 0
+  frames_stride: 3
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: condition
+  engine: wma
+  legacy_results_root: ${CVPR_REPO}/z_research/IntPhysGenV10_low_occlusion
+  available: false
+  note: '실물 없음 (frames_root: /local_datasets/world/world_analysis/IntPhysGen_v10_occlusion_low) — 2026-10-09 변환 때 vll5 기준'
+jongseo_physv3:
+  raw_frames: 100
+  cache_tag: jongseo_physv3
+  root: ${CVPR_DATA_CSV}/jongseo_physv3_swapshape
+  index_csv: index.csv
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: condition
+  engine: wma
+  legacy_results_root: ${CVPR_REPO}/z_exp/world_model_analysis/results
+2d_v8_transit:
+  available: false
+  note: 원본 프레임(195M)이 2026-08-28 z_research 정리 때 지워졌고 생성 코드도 함께 사라졌다. 토큰 캐시(/local_datasets/world/world_analysis/cache/attn_probe_2d_v8_transit_vith, 41GB)는 남아 있어 캐시 기반 사후 분석은 계속 가능하지만 재추출·재렌더는 불가능하다.
+  raw_frames: 32
+  cache_tag: 2d_v8_transit
+  root: ${CVPR_DATA_CSV}/2d_intphysgen_v8_transit
+  index_csv: index.csv
+  frames_root: ${CVPR_REPO}/z_research/IntPhys-Like_data/2D_video/data/2D_IntPhysGen_v8_transit
+  frames_pattern: '{file_name}/{frame:06d}.png'
+  frames_start: 0
+  frames_stride: 1
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: condition
+  engine: wma
+  legacy_results_root: ${CVPR_REPO}/z_exp/world_model_analysis/results
+v10:
+  raw_frames: 100
+  cache_tag: v10
+  root: ${CVPR_DATA_CSV}/intphysgen_v10
+  index_csv: index.csv
+  frames_root: ${CVPR_LOCAL}/world/world_analysis/IntPhysGen_v10
+  frames_pattern: '{file_name}/{frame:06d}.png'
+  frames_start: 0
+  frames_stride: 3
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: condition
+  engine: wma
+  legacy_results_root: ${CVPR_REPO}/z_research/IntPhysGenV10/exp_results
+  available: false
+  note: '실물 없음 (frames_root: /local_datasets/world/world_analysis/IntPhysGen_v10) — 2026-10-09 변환 때 vll5 기준'
+v11_split_test:
+  raw_frames: 100
+  cache_tag: v11_split_test
+  root: ${CVPR_DATA_CSV}/intphysgen_v11_split
+  index_csv: index_test.csv
+  frames_root: ${CVPR_LOCAL}/world/world_analysis/IntPhysGen_v11
+  frames_pattern: '{file_name}/{frame:06d}.png'
+  frames_start: 0
+  frames_stride: 3
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: condition
+  engine: wma
+  legacy_results_root: ${CVPR_REPO}/z_research/IntPhysGenV11/exp_results
+predictor_v1_holdout:
+  raw_frames: 100
+  cache_tag: predictor_v1_holdout
+  root: ${CVPR_DATA_CSV}/predictor_v1_training
+  index_csv: index_holdout.csv
+  frames_root: ${CVPR_LOCAL}/world/world_analysis/Predictor_v1_training
+  frames_pattern: '{file_name}/{frame:06d}.png'
+  frames_start: 0
+  frames_stride: 3
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: condition
+  engine: wma
+  legacy_results_root: ${CVPR_REPO}/z_research/predictor_training/exp_results/predictor_v1_holdout
+rollout_v2_decel:
+  raw_frames: 100
+  cache_tag: rollout_v2_decel
+  root: ${CVPR_DATA_CSV}/rollout_v2_decel
+  index_csv: index.csv
+  frames_root: ${CVPR_LOCAL}/world/world_analysis/RollOut_v2
+  frames_pattern: '{file_name}/{frame:06d}.png'
+  frames_start: 0
+  frames_stride: 3
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: condition
+  engine: wma
+  legacy_results_root: ${CVPR_REPO}/z_research/RollOutV2/exp_results
+v11_realistic:
+  raw_frames: 100
+  cache_tag: v11_realistic
+  root: ${CVPR_DATA_CSV}/intphysgen_v11_realistic
+  index_csv: index.csv
+  frames_root: ${CVPR_LOCAL}/world/world_analysis/IntPhysGen_v11_realistic
+  frames_pattern: '{file_name}/{frame:06d}.png'
+  frames_start: 0
+  frames_stride: 3
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: condition
+  engine: wma
+  legacy_results_root: ${CVPR_REPO}/z_research/v11_realistic/exp_results
+v11_realistic_ledge:
+  raw_frames: 100
+  cache_tag: v11_realistic_ledge
+  root: ${CVPR_DATA_CSV}/intphysgen_v11_realistic_ledge
+  index_csv: index.csv
+  frames_root: ${CVPR_LOCAL}/world/world_analysis/IntPhysGen_v11_realistic_ledge
+  frames_pattern: '{file_name}/{frame:06d}.png'
+  frames_start: 0
+  frames_stride: 3
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: condition
+  engine: wma
+  legacy_results_root: ${CVPR_REPO}/z_research/v11_realistic/exp_results
+gravity_realistic:
+  raw_frames: 100
+  cache_tag: gravity_realistic
+  root: ${CVPR_DATA_CSV}/intphysgen_gravity_realistic
+  index_csv: index.csv
+  frames_root: ${CVPR_LOCAL}/world/world_analysis/IntPhysGen_gravity_realistic
+  frames_pattern: '{file_name}/{frame:06d}.png'
+  frames_start: 0
+  frames_stride: 3
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: condition
+  engine: wma
+  legacy_results_root: ${CVPR_REPO}/z_research/v11_realistic/exp_results
+  overrides:
+    scoring.pairing: cross
+intphys2_main:
+  engine: intphys2
+  root: ${CVPR_DATA2}/local_datasets/world/Benchmark/IntPhys2
+  dataset_variant: intphys2
+  split: Main
+  legacy_results_root: ${CVPR_REPO}/z_research/Benchmarks/exp_results/intphys2
+  note: IntPhys 2 Main 506 쌍. 다른 사본 ${CVPR_LOCAL}/world/IntPhys2 (TEMPLATE/repro 가 쓰던 것) 은 split 폴더 구성이 같다
+intphys2_main_nfs:
+  engine: intphys2
+  root: ${CVPR_LOCAL}/world/IntPhys2
+  dataset_variant: intphys2
+  split: Main
+  legacy_results_root: ${CVPR_REPO}/z_exp/intphys2
+  note: vjepa2_vith_intphys2_main.yaml 이 쓰던 사본
+ek100:
+  engine: ek100
+  base_path: ${CVPR_DATA2}/local_datasets/EPIC-KITCHENS_resized
+  dataset_train: ${CVPR_NFS}/epic-kitchens-100-annotations/EPIC_100_train.csv
+  dataset_val: ${CVPR_NFS}/epic-kitchens-100-annotations/EPIC_100_validation.csv
+  file_format: 0
+  legacy_results_root: ${CVPR_REPO}/z_research/anticipation/EK100/exp_results
+  note: 공식 val 기하로 재인코딩한 256x256 영상 (train 495 + val 138). z_research/anticipation/EK100/README.md §3-1

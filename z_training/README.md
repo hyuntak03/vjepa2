@@ -3,6 +3,10 @@
 > **2026-09-10 결정: 릴리즈 ViT-H predictor 에서 post-FT, 데이터는 IntPhysGen v11 의 block 단위 train 절반(가능만),
 > 채점은 test 절반(가능+불가능, 10,752 쌍).** 그게 `v11_postft` 다. 대조군 `v11_scratch`. 분할은 §3.
 >
+> **Ariel predictor 세 팔 (prefix · full · 자기회귀 AR) 과 AR 이식 (2026-09-27): [`ARIEL_CHECKPOINTS.md`](ARIEL_CHECKPOINTS.md)**
+>
+> **학습한 predictor 전부 (+ Ariel · jongseo 사전학습) 의 채점 · 복사 기준선 · 네 능력 비교 (2026-09-25): [`z_research/TrainingEffects/README.md`](../z_research/TrainingEffects/README.md)**
+>
 > **결과 종합 (v11_postft · intphys1_postft · predictor_v1_postft, 2026-09-19): [`RESULTS_2026-09-19.md`](RESULTS_2026-09-19.md)** —
 > 셋 다 학습한 도메인 안에서만 오른다 (v11 held-out 75.83 → 91.35 인데 IntPhys1 88.89 → 77.22; IntPhys1 학습은 93.89 인데 v11 78.53).
 
@@ -40,6 +44,7 @@ GPUS=8 bash z_training/eval.sh frozen_predictor_scratch v11      # 채점 (= run
 | `harness/extract_predictor.py` | 릴리즈 model.pth 의 predictor 만 떼어 `runs/release_vith/latest.pt` 로 (출발선 채점용, 89 MB) |
 | `data/build_v11_split_index.py` | v11 block 단위 train/test 분할 (§3) |
 | `data/build_intphys1_train_index.py` | IntPhys1 train 인덱스 (`data_csv/intphys1_train/index.csv`) |
+| `data/build_video_index.py` | 자연 영상 `video_csv` 인덱스 (Ariel 이식, 2026-09-27). `ssv2 --probe --min-frames 48 --write` → `data_csv/ssv2/train_min48.csv` (97,416) · `val_min48.csv` (984), `natural_prefix` / `natural_ar` 의 데이터. vll5 CPU 약 2 분 |
 | `runs/<NAME>/` | `config.yaml` `latest.pt` `e{N}.pt` `train.log` `metrics.jsonl` `log_r*.csv` `eval/` (gitignore) |
 
 학습 코드는 `app/vjepa_frozen/` (`train.py` 루프 · `data.py` 데이터/마스크 · `utils.py` 모델/옵티마이저 ·
@@ -134,6 +139,10 @@ CKPT=e10.pt GPUS=8 bash z_training/eval.sh <run> v11
   `--smoke-ddp` 로 런처(spawn/포트/join)만 따로 점검할 수 있다.
 
 ## 6. 다음 (PAPER_STORY_2026-09-06 beat 6·7)
+
+> ⚠️ **2026-10-08 스토리 교체** — 정본 [`../auto_research/paper/PAPER_STORY_2026-10-08.md`](../auto_research/paper/PAPER_STORY_2026-10-08.md). 이 하네스는 새 스토리의 **목표 (action 없이 관측만으로 intuitive physics 를 따르는 미래를 예측하는 predictor)** 를 학습하는 자리다.
+> **Ariel 을 반드시 넘는다 (사용자 10-08)** — 넘을 칸과 값은 정본 §2-4 **합격선 표** (EK100 reach > 2.2 · v11 late vanish '물체→빈' > 50 을 v11 로 학습하지 않고 · 실영상 permanence > .53 · 가속 α > 0 · 꼭대기 · ledge 낙하 · 닫힘 ≥ 0 · IntPhys 1 은 복사 85.0 아래로 안 떨어짐).
+> 판정 규칙: (1) Ariel · post-FT 와 무엇이 다른지가 첫 줄 (2) 학습 도메인 밖에서 (3) 복사 대비 Δ · copy-hard · 위치 쌍 (4) 보이는 것 · 안 보이는 것 · 없는 것 (3a 추세 · 3b 사건). 아래 본문은 09-06 기준이다.
 
 이 하네스는 **마스크 토폴로지**(`temporal_prefix` vs 릴리즈 `block3d`) 축을 이미 갖는다.
 아직 없는 것: (1) **다단계 예측** — predictor 출력을 문맥으로 되먹여 다음 구간을 예측하는 rollout 손실

@@ -37,8 +37,9 @@ from typing import Optional
 import torch
 import torch.nn as nn
 
-import src.models.predictor as vit_predictor_mod
+import src.models.predictor as vit_predictor_mod  # noqa: F401  (레거시 참조 유지)
 import src.models.vision_transformer as vit_mod
+from analysis import predictors as predictor_variants
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +47,9 @@ logger = logging.getLogger(__name__)
 # Encoder factory names live in `src/models/vision_transformer.py`.
 # Only V-JEPA 2 (RoPE) variants are used at eval time.
 _ARCH_FACTORY = {
+    "vit_tiny": "vit_tiny",          # 자체 사전학습용 (2026-09-22). dim 192 / 12 block
+    "vit_small": "vit_small",
+    "vit_base": "vit_base",
     "vit_large": "vit_large",
     "vit_huge": "vit_huge",
     "vit_giant": "vit_giant_xformers",
@@ -81,6 +85,16 @@ class VJEPA2Bundle:
     @property
     def num_tokens(self) -> int:
         return self.num_temporal_tokens * self.num_spatial_tokens
+
+
+@dataclass
+class _BundleSpatialOverride(VJEPA2Bundle):
+    """토큰 격자가 정방형이 아닌 외부 모델용 — num_spatial_tokens 를 빌더가 준 값으로 (2026-10-03, DINO-Foresight stretch)."""
+    spatial_tokens_override: int = 0
+
+    @property
+    def num_spatial_tokens(self) -> int:
+        return self.spatial_tokens_override or (self.img_size // self.patch_size) ** 2
 
 
 def _clean_backbone_key(state_dict):
@@ -144,6 +158,8 @@ def _build_predictor(
     use_rope: bool = True,
     uniform_power: bool = False,
     use_sdpa: bool = True,
+    kind: str = "default",
+    kind_kwargs: Optional[dict] = None,
     extra: Optional[dict] = None,
 ) -> nn.Module:
     kwargs = dict(
@@ -165,7 +181,11 @@ def _build_predictor(
     )
     if extra:
         kwargs.update(extra)
-    return vit_predictor_mod.vit_predictor(**kwargs)
+    # predictor 구조 변종 (attention 규칙만 다르다). 기본은 릴리즈와 동일한 full
+    # self-attention. 레지스트리는 analysis/predictors/__init__.py.
+    if kind_kwargs:
+        kwargs.update(kind_kwargs)
+    return predictor_variants.build(kind, **kwargs)
 
 
 def _load_state_dict(module: nn.Module, sub_state: dict, tag: str, strict: bool = False):
@@ -232,6 +252,16 @@ def build_from_config(cfg: dict, device: torch.device) -> VJEPA2Bundle:
         _nf = int(cfg.get("window_size", 48))
         ctx_m, tgt_m, pred_m, embed = BUILDERS[family](cfg, device, _nf, _img)
         _dt = cfg.get("dtype", "float32")
+        # 2026-10-03: 비정방형 토큰 격자 (DINO-Foresight 448x896 = 32x64) 는 (img_size/patch)^2 로 안 떨어진다.
+        #   빌더가 ctx 모듈에 `spatial_tokens` 를 달아 주면 그 수를 쓴다 (채점기는 bundle.num_spatial_tokens 만 본다). 없으면 기존 그대로.
+        _S = getattr(ctx_m, "spatial_tokens", None)
+        if _S:
+            return _BundleSpatialOverride(
+                encoder=ctx_m, predictor=pred_m, context_encoder=ctx_m, target_encoder=tgt_m,
+                img_size=_img, patch_size=int(cfg.get("patch_size", 16)),
+                tubelet_size=int(cfg.get("tubelet_size", 2)), num_frames=_nf, embed_dim=embed,
+                device=device, dtype=getattr(torch, _dt) if isinstance(_dt, str) else _dt, spatial_tokens_override=int(_S),
+            )
         return VJEPA2Bundle(
             encoder=ctx_m, predictor=pred_m, context_encoder=ctx_m, target_encoder=tgt_m,
             img_size=_img, patch_size=int(cfg.get("patch_size", 16)),
@@ -293,6 +323,41 @@ def build_from_config(cfg: dict, device: torch.device) -> VJEPA2Bundle:
         target_encoder = encoder
 
     # ---- predictor ----------------------------------------------------------
+    # model.predictor_checkpoint — predictor 만 다른 파일에서 읽는다 (app/vjepa_frozen 학습 run 의
+    # latest.pt / e{N}.pt). encoder 는 위 `checkpoint` 그대로. 통짜 파일을 만들 필요가 없다.
+    #   z_training/eval.sh 가 SET="model.predictor_checkpoint=<run>/latest.pt" 로 넣는다.
+    # 학습 run 의 predictor 는 구조가 같아야 하므로 빠진 키를 허용하지 않는다 (strict 검사).
+    pc_path = cfg.get("predictor_checkpoint")
+    pstate = None
+    if pc_path:
+        logger.info(f"predictor <- {pc_path} (model.predictor_checkpoint); encoder <- {ckpt_path}")
+        pstate = _load_checkpoint(pc_path)
+
+    # attention 규칙(kind) 은 **체크포인트가 스스로 선언한다** (`arch.kind`).
+    # 릴리즈 predictor 에는 그 키가 없으므로 "default" 가 된다. config 가 다른 값을 말하면
+    # 죽는다 — 조용히 틀린 mask 로 채점하는 것이 제일 비싼 실패다 (CLAUDE.md §1-2 참고).
+    ck_kind = str(((pstate or {}).get("arch") or {}).get("kind") or "").strip() or None
+    cfg_kind = predictor_cfg.get("kind")
+    if cfg_kind is not None and ck_kind is not None and str(cfg_kind) != ck_kind:
+        raise ValueError(
+            f"predictor kind 불일치: config 는 {cfg_kind!r} 인데 체크포인트 arch.kind 는 {ck_kind!r} "
+            f"({pc_path}). 둘 중 하나를 고칠 것."
+        )
+    pred_kind = str(cfg_kind or ck_kind or "default")
+    # kind 전용 knob (릴리즈 predictor 는 모르는 키다). 체크포인트 arch 에 있으면 그것도 쓴다.
+    kind_kwargs = {k: predictor_cfg[k] for k in predictor_variants.KIND_ONLY_KEYS
+                   if k in predictor_cfg}
+    for k in predictor_variants.KIND_ONLY_KEYS:
+        if k not in kind_kwargs and k in ((pstate or {}).get("arch") or {}):
+            kind_kwargs[k] = ((pstate or {}).get("arch") or {})[k]
+    if pred_kind not in ("default", "oneshot"):
+        logger.warning(
+            f"predictor kind = {pred_kind!r} {kind_kwargs or ''} "
+            f"{'<- checkpoint arch.kind' if ck_kind else '<- config model.predictor.kind'} "
+            "— 릴리즈 predictor 와 attention 규칙이 다르다 "
+            "(구현: src/models/rollout_predictor.py, Ariel 학습 코드)"
+        )
+
     predictor = _build_predictor(
         img_size=img_size, patch_size=patch_size, tubelet_size=tubelet_size,
         num_frames=num_frames,
@@ -302,15 +367,9 @@ def build_from_config(cfg: dict, device: torch.device) -> VJEPA2Bundle:
         predictor_num_heads=int(predictor_cfg.get("num_heads", 12)),
         num_mask_tokens=int(predictor_cfg.get("num_mask_tokens", 10)),
         use_rope=use_rope, uniform_power=uniform_power,
+        kind=pred_kind, kind_kwargs=kind_kwargs,
     )
-    # model.predictor_checkpoint — predictor 만 다른 파일에서 읽는다 (app/vjepa_frozen 학습 run 의
-    # latest.pt / e{N}.pt). encoder 는 위 `checkpoint` 그대로. 통짜 파일을 만들 필요가 없다.
-    #   z_training/eval.sh 가 SET="model.predictor_checkpoint=<run>/latest.pt" 로 넣는다.
-    # 학습 run 의 predictor 는 구조가 같아야 하므로 빠진 키를 허용하지 않는다 (strict 검사).
-    pc_path = cfg.get("predictor_checkpoint")
     if pc_path:
-        logger.info(f"predictor <- {pc_path} (model.predictor_checkpoint); encoder <- {ckpt_path}")
-        pstate = _load_checkpoint(pc_path)
         if "predictor" not in pstate:
             raise KeyError(f"{pc_path}: 'predictor' 키가 없다 (keys={list(pstate)[:8]})")
         psd = _clean_backbone_key(pstate["predictor"])
@@ -326,6 +385,7 @@ def build_from_config(cfg: dict, device: torch.device) -> VJEPA2Bundle:
         del pstate
     else:
         _load_state_dict(predictor, state["predictor"], tag="predictor")
+    predictor.attn_regime = getattr(predictor, "attn_regime", "full_self_attention")
     predictor = predictor.to(device=device, dtype=dtype).eval()
     for p in predictor.parameters():
         p.requires_grad_(False)

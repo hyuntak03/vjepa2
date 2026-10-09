@@ -1,3 +1,6 @@
+> **2026-09-26 정리 — presence 자 시기 문서.** 자 `presence` (`dcd24d8a8a47`) 로 읽은 값이다. 그 자는 v11 가림막을 물체로 읽었다 (판 빈 장면 '있음' p 7–45 %).
+> 지금 자는 `identity_r8` 이고, 정본은 [`../../README.md`](../../README.md) → [`../../Archive/IDENTITY_R8_2026-09-26.md`](../../Archive/IDENTITY_R8_2026-09-26.md) 다.
+
 # RollOut v3 — 16 창 자 전이 검증
 
 자 = attn (attention pooling + head 2 개), 학습셋에서 frozen. 표현 ['p', 'z', 'h']. 1 칸 = 18 px. 가능 clip 2,744 개.

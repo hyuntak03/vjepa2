@@ -384,6 +384,7 @@ type_column: condition
 `visible_by_sample` 이 전부 0 이라 위치 손실에서 빠지고 **presence (있음/없음) 자의 음성**이 된다. 물체 clip 의 가려짐·화면 밖 튜블릿 (19.6 %) 도 같은 음성이다.
 index: `build_rollout2_index.py --set training_v6 --write` (plan 3 개). 쓰는 곳: `rollout2_presence_readout.py` (온라인, 디스크 캐시 없음).
 ⚠️ **2026-09-24 부터 원천에서 다시 만들 수 없다** — `RollOut_v2_training` 폴더와 metadata 가 합본 14,360 clip 으로 바뀌었고 옛 빈 장면 288 이 빠졌다. 기록은 `data_csv/rollout_v2_training_v6/` 와 특징 옆 사본 `/data2/.../cache/rollout2_training_v6_feats/index_probe_training_v6.csv` 뿐이다. 새 세트는 `rollout_v2_training_v8`.
+⚠️ 2026-09-26: `rollout2_training_v6_feats` (121 GB) 는 **지웠다** (대체된 자의 학습 특징). 특징 옆 사본도 같이 사라졌고, 기록은 `data_csv/rollout_v2_training_v6/index_probe.csv` (같은 크기 13,888,035 B) 에 남아 있다.
 
 raw_frames: 100
 cache_tag: rollout_v2_training_v6
@@ -407,7 +408,7 @@ block_column: block_id
 가중치 `cell_weight_by_sample` (좌표 손실) · `balance_weight` (두 손실) 를 인덱스에 싣고 학습이 쓴다 (`--no-weights` 로 끈다).
 미래 8 튜블릿 라벨: 양성 72,907 · 음성 26,664 (빈 장면 7,360) · 제외 15,309.
 index: `build_rollout2_index.py --set training_v8 --write`. 쓰는 곳: `rollout2_presence_readout.py --set training_v8` (기본값).
-특징 캐시 (p·z·h, 210 GB): `/data2/local_datasets/world/world_analysis/cache/rollout2_training_v8_feats`.
+특징 캐시 (p·z·h, 210 GB): `/data2/local_datasets/world/world_analysis/cache/rollout2_training_v8_feats`. ⚠️ 2026-09-26 에 **지웠다** (자 학습셋이 새 렌더 `training_r8` 로 바뀜). 다시 필요하면 `rollout2_presence_readout.py --set training_v8 --extract-only --feat-dir <폴더>` (GPU 8 장 약 10 분).
 
 raw_frames: 100
 cache_tag: rollout_v2_training_v8
@@ -781,3 +782,83 @@ pair_column: pair_id
 variant_column: variant
 plausible_column: plausible
 type_column: condition
+
+## v11_realistic
+
+**사실적 렌더의 v11 (2026-10-06 추가).** 1,440 clip / 360 block / 720 matched pair. 위반은 **vanish 하나**.
+조건은 v11 과 같은 6 개 (`static/moving_flat/moving` × `visible/occlusion`) · `sym_k` 0 (가림 없음) / 1–4 · 배경 4 종.
+원본 100 프레임 · 16 fps, 프로토콜은 v11 과 같다 (stride 3 → 32 샘플, 문맥 16 · 예측 16).
+index 는 `z_research/scripts/data/build_intphysgen_index.py` 로 metadata 에서 만들었다 (v11 index 와 같은 열 + `sym_k`).
+문맥 무결성 전수 감사 **720 쌍, mismatch 0** (`data_csv/intphysgen_v11_realistic/context_integrity.json`).
+
+⚠️ 쌍 수가 v11 vanish 행 (2,688) 의 약 1/4 이다 (가림 조건 × k 칸당 30 쌍, 방향별 15). 조건 × k 로 쪼갠 칸은 선 모양만 읽을 것.
+
+raw_frames: 100
+cache_tag: v11_realistic
+results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/v11_realistic/exp_results
+root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/intphysgen_v11_realistic
+index_csv: index.csv
+frames_root: /local_datasets/world/world_analysis/IntPhysGen_v11_realistic
+frames_pattern: "{file_name}/{frame:06d}.png"
+frames_start: 0
+frames_stride: 3
+block_column: block_id
+pair_column: pair_id
+variant_column: variant
+plausible_column: plausible
+type_column: condition
+
+## v11_realistic_ledge
+
+**사실적 렌더의 선반 낙하 (2026-10-06 추가).** 240 clip / 120 block / 120 matched pair. 위반은 **gravity**:
+물체가 단을 지나 끝에서 떨어진다. 가능 = 포물선 (`pos_fall`), 불가능 = 같은 직선을 공중에서 그대로 (`imp_float`).
+수평 속도는 둘이 같고 수직 법칙만 다르다. **block 이 2 clip** (가능 · 불가능이 과거를 공유) 이라 block 당 matched pair 하나다.
+가림 없음. 조건 = 속도 3 (140 · 180 · 220 cm/s) × 깊이 2 (z 300 · 400) = 6, 조건당 20 block.
+문맥 무결성 전수 감사 **120 쌍, mismatch 0** (`data_csv/intphysgen_v11_realistic_ledge/context_integrity.json`).
+
+⚠️ 낙하는 문맥에 없는 사건 (CLAUDE.md §0 의 ledge) 이다 — ~~능력 정의 밖의 common sense 위반으로 읽는다~~ → 2026-10-08 번복: 3 전이의 **3b 사건** 으로 읽는다 (떠 가는 미래는 복사와 닮았다는 단서와 함께, 정본 `auto_research/paper/PAPER_STORY_2026-10-08.md` §2-3 iii).
+
+raw_frames: 100
+cache_tag: v11_realistic_ledge
+results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/v11_realistic/exp_results
+root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/intphysgen_v11_realistic_ledge
+index_csv: index.csv
+frames_root: /local_datasets/world/world_analysis/IntPhysGen_v11_realistic_ledge
+frames_pattern: "{file_name}/{frame:06d}.png"
+frames_start: 0
+frames_stride: 3
+block_column: block_id
+pair_column: pair_id
+variant_column: variant
+plausible_column: plausible
+type_column: condition
+
+## gravity_realistic
+
+**포물선 비행의 미래 다섯 (2026-10-07 추가, 같은 날 20:36 재렌더).** 720 clip / 144 block. block = 과거 하나 (공이 떠서 나는 포물선) + 미래 다섯
+(재렌더로 `imp_stop` = 문맥 끝 자리에서 멈춤 추가, 꼭대기 f66 / f48 / f30, g 120 — 옛 넷 판 결과는 `z_research/v11_realistic/exp_results/_previous_20261007_4futures/`):
+`pos_arc` 포물선 계속 (가능) · `imp_rise` 거울 (꼭대기 뒤에도 계속 올라감) · `imp_float` 높이 유지 (수평으로만) · `imp_line` 같은 끝점까지 직선.
+조건 = 꼭대기가 문맥 경계의 어디에 오나: `arc_pre` (f66, 문맥은 오르는 중만) · `arc_apex` (f48, 경계 = 꼭대기) · `arc_post` (f30, 문맥이 꼭대기를 지나 내려가는 중) — 재렌더판 (옛 판 f57 / f48 / f42).
+`imp_stop` = 문맥 끝 자리에서 멈춤 · `imp_rise` = 포물선을 문맥 끝 높이에서 위아래로 뒤집음.
+조건당 48 block = 공 6 × 배경 4 × 방향 2. 가림 없음. g = 101 cm/s² (ledge 세트와 같음).
+문맥 무결성 전수 감사 **144 묶음 × 불가능 4, mismatch 0** (`data_csv/intphysgen_gravity_realistic/context_integrity.json`, 재렌더판).
+
+⚠️ **채점은 `SET="scoring.pairing=cross"` 로 한다.** block 하나가 문맥 하나라 cross (가능 1 × 불가능 4) 가 곧 문맥 일치 쌍 전부다
+(matched 는 pair_id 마다 1+1 을 요구해 죽는다). v11 처럼 문맥이 둘인 4 중항에 cross 를 쓰면 안 된다 — 이 세트에서만 같다.
+~~⚠️ metadata 의 `object_px_*_by_sample` 이 불가능 셋에서 똑같이 적혀 있다~~ **정정 (2026-10-07 18:07)**: metadata 재조립으로 고쳐졌다 (프레임은 그대로). ⚠️ 렌더 위치는 계획과 최대 13.7 px 어긋난다 (생성 로그 pixel check FAIL). `dataset.json` 의 g 101 문구는 옛 값 — 실제 g 170.
+
+raw_frames: 100
+cache_tag: gravity_realistic
+results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/v11_realistic/exp_results
+root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/intphysgen_gravity_realistic
+index_csv: index.csv
+frames_root: /local_datasets/world/world_analysis/IntPhysGen_gravity_realistic
+frames_pattern: "{file_name}/{frame:06d}.png"
+frames_start: 0
+frames_stride: 3
+block_column: block_id
+pair_column: pair_id
+variant_column: variant
+plausible_column: plausible
+type_column: condition
+

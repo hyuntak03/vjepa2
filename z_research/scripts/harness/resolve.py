@@ -164,11 +164,22 @@ def main():
     #   씌우면 조용히 틀린 모델이 만들어진다 (2026-09-21 에 실제로 당했다: VideoMAEv2 가
     #   window_size 32 를 받아 sinusoid 표 4096 vs 창 2048 로 깨졌다).
     #   레지스트리에 그 키가 있을 때만 덮으므로 vith/vitl 의 기존 동작은 그대로다.
+    #   `uniform_power` / `use_rope` / `dual_encoder` 도 모델 성질이다 (2026-09-22 추가).
+    #   ViT-H 는 uniform_power=false 인데 자체 학습 ViT-tiny 는 true 라, 빠뜨리면
+    #   프로토콜 기본값이 이겨 **조용히 다른 위치 인코딩**으로 돈다.
     MODEL_OWNED = ("family", "checkpoint", "arch_name", "img_size", "patch_size", "tubelet_size",
-                   "context_encoder_key", "target_encoder_key", "predictor", "window_size")
+                   "context_encoder_key", "target_encoder_key", "predictor", "window_size",
+                   "uniform_power", "use_rope", "dual_encoder")
     for k in MODEL_OWNED:
         if k in md:
             cfg["model"][k] = md[k]
+    # `predictor.X: v` 형태의 점 키는 **프로토콜의 predictor 블록 위에 덮는다**.
+    #   레지스트리에 predictor 블록을 통째로 적게 하면 한 값만 다른 모델도 전부 베껴야 한다
+    #   (ViT-tiny 는 num_mask_tokens 만 2 로 다르다).
+    pred_over = {k.split(".", 1)[1]: cfg["model"].pop(k)
+                 for k in list(cfg["model"]) if k.startswith("predictor.")}
+    if pred_over:
+        cfg["model"]["predictor"] = {**(cfg["model"].get("predictor") or {}), **pred_over}
     # data.resolution 은 model.img_size 를 따라간다 (아래 검사가 둘의 일치를 요구한다)
     if "img_size" in md:
         cfg["data"]["resolution"] = int(md["img_size"])

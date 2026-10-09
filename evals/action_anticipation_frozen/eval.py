@@ -72,6 +72,10 @@ def main(args_eval, resume_preempt=False):
     module_name = args_pretrain.get("module_name")
     args_model = args_pretrain.get("pretrain_kwargs")
     args_wrapper = args_pretrain.get("wrapper_kwargs")
+    # 2026-10-01: `model_kwargs.predictor_checkpoint` 는 init_module 이 받는 dict (= pretrain_kwargs) 에 있어야 읽힌다.
+    #   최상위에 두면 조용히 무시돼 릴리즈 predictor 로 돈다 (09-30 AR EK100 세 실행이 그렇게 무효가 됐다). 여기서 넘겨 준다.
+    if args_pretrain.get("predictor_checkpoint"):
+        args_model = dict(args_model or {}); args_model["predictor_checkpoint"] = args_pretrain["predictor_checkpoint"]
 
     args_exp = args_eval.get("experiment")
 

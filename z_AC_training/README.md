@@ -1,5 +1,10 @@
 # z_AC_training — V-JEPA 2-AC (action-conditioned predictor) 학습 파악
 
+> ⚠️ **2026-10-08 스토리 교체 — 이 폴더의 역할: 논문의 작은 subsection, 실험 하나** (사용자). 정본 `auto_research/paper/PAPER_STORY_2026-10-08.md` §2-5.
+> 주장: "관측만으로 intuitive physics 를 배운 predictor 가 먼저여야 action-conditioned 학습이 효과가 있다 — AC 는 scratch 가 아니라 post-training" (실험 전까지 가설).
+> **추천 설계**: 같은 AC 데이터 · 같은 step 예산에서 (a) AC scratch (아래 릴리즈 레시피, `load_predictor: false`) vs (b) 우리 관측 학습 predictor 위 AC post-training, AC 데이터 10 / 30 / 100 % (post-training 이득은 적은 데이터에서 먼저 보인다 — 어느 결과든 읽히게). 여유가 있으면 (c) 릴리즈 predictor 위 post-training.
+> 판정: held-out 행동 조건부 rollout 오차 (k 걸음 latent L1) + intuitive physics 판이 AC 뒤에도 남는가 (+ 가능하면 RoboCasa planning). **정할 것: AC 데이터 (DROID 는 로컬에 없다) 와 encoder (우리 predictor 가 ViT-H 위라 AC 도 ViT-H).** 아래 '미결 1줄' 의 선택지는 이 설계에 맞춰 다시 정한다.
+>
 > **2026-09-19 개설. 아직 아무것도 돌리지 않았다.** 이 문서는 릴리즈 코드 (`app/vjepa_droid/`, `src/models/ac_predictor.py`,
 > `configs/train/vitg16/droid-256px-8f.yaml`) 와 논문 §3 (V-JEPA 2 PDF, `pdftotext` 760–960 줄) 을 읽고 정리한 것이다.
 > 수치는 config·코드에서 직접 읽었고, 코드로 확인하지 못한 것은 "미검증" 으로 적었다.
@@ -63,7 +68,8 @@ loss = jloss + sloss
 
 **우리 연구와의 연결** — 이 predictor 는 `z_training/README.md` §6 에서 "아직 없는 것" 이라 적은 두 가지
 (**다단계 rollout 손실**, **시간 인과 attention**)를 이미 갖춘 구현이다. 또 `PAPER_STORY_2026-09-06.md` 가
-"AC 는 pretrained predictor 를 버리고 새로 학습했다" 를 beat 7 의 근거로 쓰고 있다.
+"AC 는 pretrained predictor 를 버리고 새로 학습했다" 를 beat 7 의 근거로 쓰고 있다 (09-06 판, 대체됨).
+2026-10-08 정본은 이 레시피 (AC scratch, `load_predictor: false`) 를 **대조 팔** 로 쓴다 — 주장은 "관측만으로 배운 predictor 위의 AC post-training 이 scratch 보다 낫다" (미검증 가설).
 
 ## 2. 데이터 — DROID
 

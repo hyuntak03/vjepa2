@@ -134,14 +134,34 @@ def init_module(
     n_output_distillation = prd_kwargs.get("n_output_distillation", 4)
     prd_out_embed_dim = teacher_embed_dim // n_output_distillation if teacher_embed_dim is not None else None
 
-    predictor = vit_pred.__dict__[prd_model_name](
-        img_size=(img_h, img_w),
-        embed_dim=encoder.embed_dim,
-        patch_size=encoder.patch_size,
-        tubelet_size=encoder.tubelet_size,
-        out_embed_dim=prd_out_embed_dim,
-        **prd_kwargs,
-    )
+    pred_ckpt_path = model_kwargs.get("predictor_checkpoint")          # 2026-09-30: 학습한 predictor (z_training run · Ariel 팔). kind 는 ckpt arch 가 선언
+    if pred_ckpt_path:
+        from analysis.intphys2 import model as _M
+        from analysis import predictors as _PV
+        _pst = _M._load_checkpoint(str(pred_ckpt_path)); _arch = _pst.get("arch") or {}
+        _kind = str(_arch.get("kind") or "default"); _kk = {k: _arch[k] for k in _PV.KIND_ONLY_KEYS if k in _arch}
+        predictor = _M._build_predictor(img_size=img_h, patch_size=encoder.patch_size, tubelet_size=encoder.tubelet_size,
+                                        num_frames=int(prd_kwargs.get("num_frames", 64)), encoder_embed_dim=encoder.embed_dim,
+                                        predictor_embed_dim=int(prd_kwargs.get("predictor_embed_dim", 384)), predictor_depth=int(prd_kwargs.get("depth", 12)),
+                                        predictor_num_heads=int(prd_kwargs.get("num_heads", 12)), num_mask_tokens=int(prd_kwargs.get("num_mask_tokens", 10)),
+                                        use_rope=bool(prd_kwargs.get("use_rope", True)), uniform_power=bool(prd_kwargs.get("uniform_power", False)),
+                                        kind=_kind, kind_kwargs=_kk)
+        if img_h != img_w:
+            raise RuntimeError("predictor_checkpoint 경로는 정사각 입력만 (rollout predictor 의 grid 는 img_size 하나로 짓는다)")
+        _M._load_state_dict(predictor, _pst["predictor"], tag=f"predictor<-{pred_ckpt_path}", strict=True)
+        predictor.ek_kind = _kind
+        logger.info(f"predictor <- {pred_ckpt_path} (kind {_kind}, epoch {_pst.get('epoch')})")
+        checkpoint[prd_ckp_key] = predictor.state_dict()                 # 아래 로드 루프가 그대로 통과하게 (no-op)
+    else:
+        predictor = vit_pred.__dict__[prd_model_name](
+            img_size=(img_h, img_w),
+            embed_dim=encoder.embed_dim,
+            patch_size=encoder.patch_size,
+            tubelet_size=encoder.tubelet_size,
+            out_embed_dim=prd_out_embed_dim,
+            **prd_kwargs,
+        )
+        predictor.ek_kind = "default"
     pretrained_dict = checkpoint[prd_ckp_key]
     pretrained_dict = {k.replace("module.", ""): v for k, v in pretrained_dict.items()}
     pretrained_dict = {k.replace("backbone.", ""): v for k, v in pretrained_dict.items()}
@@ -159,7 +179,8 @@ def init_module(
 
     grid_h = img_h // encoder.patch_size
     grid_w = img_w // encoder.patch_size
-    _inject_grid_into_predictor(predictor, grid_h, grid_w)
+    if getattr(predictor, "ek_kind", "default") in ("default", "oneshot"):
+        _inject_grid_into_predictor(predictor, grid_h, grid_w)
 
     # -- mask token 진단: 어떤 것이 실제로 학습됐는지 로그로 남긴다
     try:
@@ -205,6 +226,7 @@ class AnticipativeWrapper(torch.nn.Module):
         num_steps=1,
         no_encoder=False,
         mask_index=1,
+        pred_replace=None,
     ):
         super().__init__()
         self.encoder = encoder
@@ -220,6 +242,9 @@ class AnticipativeWrapper(torch.nn.Module):
         self.num_steps = num_steps
         self.no_encoder = no_encoder
         self.mask_index = mask_index
+        # 2026-09-25 (auto_research SC3): predictor 출력을 대조 토큰으로 바꿔 끼워 probe 가 predictor 의 '미래' 를 쓰는지 본다.
+        #   None (기본, 원래 동작) | "copy_last" = encoder 마지막 N_pred 토큰의 LayerNorm (예측 없이 마지막 관측 복사) | "mean" = encoder 토큰 평균의 LN
+        self.pred_replace = pred_replace
 
         assert not (self.no_predictor and self.no_encoder), "Anticipative wrapper must use predictor or encoder"
         logger.info(
@@ -233,6 +258,7 @@ class AnticipativeWrapper(torch.nn.Module):
         :param x: (Tensor) video of shape [B, C, T, H, W]
         :param anticipation_times: (Tensor) [B] seconds into the future to predict
         """
+        x_raw = x
         x_full = self.encoder(x)
 
         if self.no_predictor:
@@ -264,6 +290,27 @@ class AnticipativeWrapper(torch.nn.Module):
         tgt_positions = torch.arange(N_pred, device=x.device).unsqueeze(0).repeat(B, 1)
         tgt_positions = tgt_positions + skip_positions.unsqueeze(1).repeat(1, N_pred)
 
+        if getattr(self.predictor, "ek_kind", "default") == "ar":
+            # 2026-09-30 kind=ar (Ariel 팔 C): 문맥 = target encoder 를 **블록마다 따로** 돌린 LN(h) (encoder 는 wrapper 의 self.encoder = target_encoder),
+            #   미래 = anticipation_steps 블록 건너뛴 뒤 num_output_frames/tubelet 블록 → rollout (skip + n_pred) 걸음의 마지막 n_pred 블록.
+            #   probe 입력의 encoder 부분 (x_accumulate) 은 원래대로 (창 전체 인코딩) 두고 predictor 부분만 바꾼다. 출력 공간은 블록별 LN(h).
+            from app.vjepa_frozen.ar import encode_blocks, block_indices
+            n_pred_blk = int(self.num_output_frames // self.tubelet_size)
+            with torch.autocast("cuda", dtype=torch.bfloat16):
+                hb = encode_blocks(self.encoder, x_raw, self.tubelet_size)                     # (B, nb*S, D) LN
+            S = self.tokens_per_tubelet; nb = hb.size(1) // S
+            steps = anticipation_steps.to(torch.int64) + n_pred_blk                            # (B,)
+            x_pred = torch.empty(B, n_pred_blk * S, hb.size(-1), device=x.device, dtype=hb.dtype)
+            for k_ in torch.unique(steps).tolist():                                            # 걸음 수가 같은 샘플끼리 묶어 rollout (값은 샘플별 루프와 같다)
+                sel = (steps == k_).nonzero(as_tuple=True)[0]
+                with torch.autocast("cuda", dtype=torch.bfloat16):
+                    pr = self.predictor.rollout(hb[sel], block_indices(len(sel), nb, S, x.device), int(k_))   # (n, k_*S, D)
+                x_pred[sel] = pr[:, -n_pred_blk * S:].to(hb.dtype)
+            x_pred = x_pred.to(x.dtype)
+            if self.pred_replace == "copy_last":
+                x_pred = hb[:, -N_pred:, :].to(x_pred.dtype)
+            return torch.cat([x_accumulate, x_pred], dim=1)
+
         x_pred_input = x_full
         for _ in range(self.num_steps):
             pred_out = self.predictor(
@@ -275,6 +322,10 @@ class AnticipativeWrapper(torch.nn.Module):
                 x_pred = x_pred_full[:, :, -embed_dim:]
             else:
                 x_pred = x_pred_full
+            if self.pred_replace == "copy_last":
+                x_pred = torch.nn.functional.layer_norm(x[:, -N_pred:, :], (embed_dim,)).to(x_pred.dtype)
+            elif self.pred_replace == "mean":
+                x_pred = torch.nn.functional.layer_norm(x.mean(1, keepdim=True), (embed_dim,)).expand(-1, N_pred, -1).to(x_pred.dtype)
 
             x_accumulate = torch.cat([x_accumulate, x_pred], dim=1)
             x_pred_for_input = x_pred_full if x_pred_full.size(-1) == x_pred_input.size(-1) else x_pred

@@ -27,6 +27,8 @@
 #
 # 환경변수
 #   GPUS=N              --devices cuda:0..N-1 + WMA_EXPECT_WS        (기본 1)
+#   GPU_IDS="1 2 3"     쓸 GPU 를 직접 고른다 (공용 노드). 주면 GPUS 대신 이게 이긴다.
+#                       외부 CUDA_VISIBLE_DEVICES 는 evals/main.py:51 이 덮어써서 안 먹는다
 #   TAG=, OUTDIR=       tag / output_dir 을 직접 지정 (기본은 resolve.py 가 짓는다)
 #   LIMIT=N             limit 주입 + tag/output_dir 에 _smoke{N} 접미사
 #                       (본 결과와 토큰 캐시를 안 덮는다)
@@ -70,7 +72,12 @@ export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 export EVAL_DDP_TIMEOUT_S=${EVAL_DDP_TIMEOUT_S:-7200}
 
 GPUS=${GPUS:-1}
-DEVICES=$(for i in $(seq 0 $((GPUS-1))); do echo -n "cuda:$i "; done)
+# ⚠️ 외부에서 CUDA_VISIBLE_DEVICES 를 줘도 **안 먹는다** — evals/main.py:51 이 rank 마다
+#    --devices 의 절대 index 로 덮어쓴다. 공용 노드에서 특정 GPU 를 피하려면 GPU_IDS 를 쓴다.
+#      GPU_IDS="1 2 3" bash run.sh ...     -> --devices cuda:1 cuda:2 cuda:3 (GPUS 는 무시)
+GPU_IDS=${GPU_IDS:-$(seq 0 $((GPUS-1)))}
+DEVICES=$(for i in $GPU_IDS; do echo -n "cuda:$i "; done)
+GPUS=$(echo $GPU_IDS | wc -w)
 CFG=$(mktemp /tmp/wma_XXXXXX.yaml); trap 'rm -f "$CFG"' EXIT
 
 echo "=================================================="

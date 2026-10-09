@@ -37,6 +37,8 @@ import torch
 import torch.distributed as dist
 
 from analysis.intphys2.model import build_from_config
+from analysis import predictors as PV
+from analysis.predictors import ar_scoring as ARS
 from analysis.intphys2.surprise import _context_target_indices, _distance
 from evals.analysis_vlm.occlusion_identity import forward as fwd
 from evals.analysis_vlm.occlusion_identity import probe as probelib
@@ -146,6 +148,8 @@ def extract(ds, cfg, sources, device, recache=False, smoke=False):
         return cache.open_read()
 
     bundle = build_from_config(m, device)
+    if (PV.is_ar(bundle.predictor) or PV.is_ctx_ar(bundle.predictor)) and any(s.get("base") == "predictor" or s.get("encoder") == "predictor" for s in sources):
+        raise NotImplementedError("kind=ar (자기회귀) predictor 의 'p' (probe 특징) 는 아직 정의하지 않았다 — rollout 출력으로 할지 정한 뒤 붙인다. 채점 (surprise) 은 된다: analysis/predictors/ar_scoring.py")
     mm = cache.open_write() if rank == 0 else None
     _barrier()
     if rank != 0:                       # rank 0 이 파일을 만든 뒤에 열어야 한다
@@ -421,6 +425,13 @@ def run_surprise_intphys1(ds, cfg, device):
     W = S.get("intphys1", {}) or {}
     bundle = build_from_config(cfg["model"], device)
     ts, spatial = bundle.tubelet_size, bundle.num_spatial_tokens
+    # kind=ar (2026-09-27): 시작점마다 창을 블록별로 인코딩하고, C 마다 문맥 C/ts 블록에서 rollout 한다.
+    # min-over-C · 시작점 평균 · 쌍 비교는 그대로. 정의는 analysis/predictors/ar_scoring.py.
+    ctx_mode = PV.is_ctx_ar(bundle.predictor)                      # 2026-09-29 Ariel 팔 C' (문맥 z + 미래 되먹임)
+    ar_mode = PV.is_ar(bundle.predictor) or ctx_mode
+    if ar_mode:
+        ARS.check_ar_ready(bool(S.get("target_layer_norm", True)))
+        logger.info("[surprise] intphys1 · predictor kind=ar — 블록별 LN(target_encoder) + rollout (창 타깃과 다른 공간)")
 
     skips = [int(x) for x in W.get("frame_skips", [2, 5, 10])]
     wsizes = [int(x) for x in W.get("window_sizes", [16, 32])]
@@ -530,8 +541,28 @@ def run_surprise_intphys1(ds, cfg, device):
                 gb = items[b0 : b0 + max_batch]
                 x = torch.stack([clips[v][:, full_of[st]] for v, st in gb])
                 with _ac():
-                    h_full = bundle.target_encoder(x)      # ★ window 전체(C+M) 를 시작점당 1회
+                    if ar_mode:
+                        if wsize % ts or any(C % ts for C in cl_list):
+                            raise ValueError(f"kind=ar: 창 {wsize} · 문맥 {cl_list} 가 tubelet {ts} 의 배수가 아니다")
+                        h_blk = ARS.encode_blocks(bundle.target_encoder, x, ts)   # 블록별, 이미 LN
+                    else:
+                        h_full = bundle.target_encoder(x)      # ★ window 전체(C+M) 를 시작점당 1회
                 for C in cl_list:
+                    if ar_mode:
+                        with _ac():
+                            if ctx_mode:
+                                p, h, _ = ARS.ctx_ar_from_blocks(bundle.context_encoder, bundle.predictor, x, h_blk, C // ts, spatial)
+                            else:
+                                p, h, _ = ARS.rollout_from_blocks(bundle.predictor, h_blk, C // ts, spatial)
+                        ARS.assert_finite(p, "run_surprise_intphys1")
+                        d = (p.float() - h.float()).abs()
+                        sv = (d.pow(lexp).mean(dim=(1, 2)) / lexp) if dist == "l1" else d.mean(dim=(1, 2))
+                        for (v, st), val in zip(gb, sv.tolist()):
+                            per_start[v][st].append(val)
+                            if dump_windows:
+                                win_dump[ds.records[vidx[v]].video_id].append(
+                                    (name, int(st), int(C), float(val)))
+                        continue
                     ci, ti = _context_target_indices(
                         ctx_frames=C, tgt_frames=wsize - C, tubelet_size=ts,
                         spatial_tokens=spatial, batch_size=len(gb), device=device)
@@ -708,10 +739,22 @@ def run_surprise(ds, cfg, device):
     ts, spatial = bundle.tubelet_size, bundle.num_spatial_tokens
     ctx, N = int(S.get("context_length", 32)), ds.n_frames
     bs = int(S.get("batch_size", 4))
+    # kind=ar (Ariel 팔 C, 2026-09-27 이식): 블록별 target encoder 인코딩 + rollout. 정의 · 단서는
+    # analysis/predictors/ar_scoring.py. 문맥 encoder 는 안 쓴다. surprise.ar_tf: true 면 보조 키 'ar_tf' 를 더 낸다.
+    ctx_mode = PV.is_ctx_ar(bundle.predictor)                      # 2026-09-29 Ariel 팔 C'
+    ar_mode = PV.is_ar(bundle.predictor) or ctx_mode
+    ar_tf = ar_mode and bool(S.get("ar_tf", False))
+    if ar_mode:
+        ARS.check_ar_ready(bool(S.get("target_layer_norm", True)))
+        logger.info(f"[surprise] predictor kind=ar — 블록별 LN(target_encoder) 문맥 {ctx // ts} 블록 → "
+                    f"rollout {(N - ctx) // ts} 블록, 타깃도 블록별 (표준 창 타깃과 다른 공간)"
+                    + (" + 보조 ar_tf" if ar_tf else ""))
     decode_workers = int(S.get("decode_workers", 0))
     ci, ti = _context_target_indices(ctx_frames=ctx, tgt_frames=N - ctx, tubelet_size=ts,
                                      spatial_tokens=spatial, batch_size=bs, device=device)
     masks, modes = _token_subset_masks(ds, cfg, ctx, ts, spatial)
+    if ar_tf and modes != ["all"]:
+        raise ValueError("surprise.ar_tf 는 scoring.token_subset 없이만 쓴다 (보조 키를 token 별로 나누지 않는다)")
     kind, exp = S.get("distance", "l1"), float(S.get("loss_exp", 1.0))
 
     # Match the Garrido/IntPhys numerical path when requested: keep checkpoint
@@ -744,17 +787,30 @@ def run_surprise(ds, cfg, device):
             n = len(chunk)
             ac = (torch.autocast("cuda", dtype=ac_dtype) if ac_dtype else contextlib.nullcontext())
             with ac:
-                z = bundle.context_encoder(x, masks=[ci[:n]])
-                p = bundle.predictor(z, ci[:n], ti[:n], mask_index=int(S.get("mask_index", 0)))
-                h = bundle.target_encoder(x)
-                h = torch.gather(h, 1, ti[:n].unsqueeze(-1).expand(-1, -1, h.size(-1)))
-                if S.get("target_layer_norm", True):
-                    h = torch.nn.functional.layer_norm(h, (h.size(-1),))
+                if ar_mode:
+                    # 미래 토큰 배치 (블록 우선 · 공간) 가 gather(ti) 결과와 같아 아래 거리 코드를 그대로 쓴다
+                    if ctx_mode:
+                        p, h, p_tf = ARS.ctx_ar_window(bundle.context_encoder, bundle.target_encoder, bundle.predictor, x, ctx, ts, spatial, with_tf=ar_tf)
+                    else:
+                        p, h, p_tf = ARS.ar_window(bundle.target_encoder, bundle.predictor, x, ctx, ts, spatial,
+                                               with_tf=ar_tf)
+                else:
+                    z = bundle.context_encoder(x, masks=[ci[:n]])
+                    p = bundle.predictor(z, ci[:n], ti[:n], mask_index=int(S.get("mask_index", 0)))
+                    h = bundle.target_encoder(x)
+                    h = torch.gather(h, 1, ti[:n].unsqueeze(-1).expand(-1, -1, h.size(-1)))
+                    if S.get("target_layer_norm", True):
+                        h = torch.nn.functional.layer_norm(h, (h.size(-1),))
             p = p.float()
+            if ar_mode:
+                ARS.assert_finite(p, "run_surprise")
             if modes == ["all"]:                       # 기존 경로 그대로 (수치 보존)
                 for k, i in enumerate(chunk):
                     out[ds.records[i].video_id] = {"all": float(
                         _distance(p[k : k + 1], h[k : k + 1].float(), kind, loss_exp=exp))}
+                    if ar_tf:
+                        out[ds.records[i].video_id]["ar_tf"] = float(
+                            _distance(p_tf[k : k + 1].float(), h[k : k + 1].float(), kind, loss_exp=exp))
             else:
                 # 토큰별 오차 e[t] = mean_D |p-h|. subset 점수 = 선택된 t 의 평균.
                 # mask 가 전체면 mean(e) == mean_{t,d}|p-h| 라 'all' 이 기존 값과 정확히 같다.

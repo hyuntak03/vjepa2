@@ -60,7 +60,9 @@ AUTO0, AUTO1 = "<!-- AUTO:BEGIN — 이 구간은 실행마다 다시 쓰인다 
 DEFAULT_TAIL = ("## 재현\n\n```bash\n"
                 f"python z_research/scripts/data/build_rollout2_index.py --set {SET} --write\n"
                 f"python z_research/scripts/analysis/rollout2_presence_readout.py --set {SET} --feat-dir <디스크>\n```\n")
-FRAMES = "/local_datasets/world/world_analysis/RollOut_v2_training"
+# 프레임 폴더는 세트마다 (2026-09-26: training_r8 = 새 렌더 RollOut_v2_training_v8 은 /data2 에만 있다 — build_rollout2_index.py SETS 와 같다)
+FRAMES = os.environ.get("PRESENCE_FRAMES") or {"training_r8": "/data2/local_datasets/world/world_analysis/RollOut_v2_training_v8"}.get(
+    SET, "/local_datasets/world/world_analysis/RollOut_v2_training")   # 2026-09-30: PRESENCE_FRAMES 로 덮어쓰기 (다른 노드)
 OUT = ROOT / "z_research/RollOutV3/exp_results/presence"      # 2026-09-22: 세트를 RollOutV3 로 분리
 # 특징 저장 위치. 기본은 /dev/shm (빠르지만 **세션이 끝나면 지워진다**) —
 # 재사용할 거면 `--feat-dir /data2/.../rollout3_presence_feats` 로 디스크에 둔다 (123 GB, 추출 27 분 절약).
@@ -81,6 +83,11 @@ MODEL = dict(                                            # configs/protocols/mod
     predictor=dict(embed_dim=384, depth=12, num_heads=12, num_mask_tokens=10),
     dtype="bfloat16",
 )
+# 2026-09-28: 다른 predictor (Ariel 판 등) 로 p 를 뽑을 때. predictor 만 이 파일에서 읽고 encoder 는 릴리즈 그대로 (arch.kind 는 체크포인트가 선언)
+if os.environ.get("PRED_CKPT"):
+    MODEL["predictor_checkpoint"] = os.environ["PRED_CKPT"]
+# 뽑을 표현 (기본 p z h). ⚠️ kind=ar 이면 p = 블록별 LN(target_encoder) 문맥 8 블록에서 rollout 8 블록, h = 블록별 LN(target_encoder) (analysis/predictors/ar_scoring.py)
+EXTRACT_REPS = tuple(x for x in os.environ.get("PRESENCE_REPS", "p,z,h").split(",") if x)
 DATA = dict(root=str(ROOT / f"data_csv/rollout_v2_{SET}"), index_csv="index.csv",
             frames_root=FRAMES, frames_pattern="{file_name}/{frame:06d}.png",
             frames_start=0, frames_stride=3, n_frames=32, resolution=256, block_column="block_id")
@@ -110,7 +117,7 @@ def weights(rows):
 
 def family(sc):
     """시나리오 → 무대 가족. 이 데이터의 요점이 **구조물 가족에서도 존재 판정이 되는가**라 따로 본다."""
-    for k in ("ledge", "wedge", "wall", "edge", "prop", "empty"):
+    for k in ("ledge", "wedge", "ramp", "wall", "edge", "prop", "panel", "empty"):    # ramp · panel = training_r8 의 arm 이름
         if sc.startswith(k):
             return k
     return "plain"
@@ -129,60 +136,97 @@ def labels():
 
 
 # ─────────────────────────────────────────────────── 특징 추출 (GPU 병렬, /dev/shm)
-def _worker(rank, world, n, limit, log_every):
+def _worker(rank, world, n, limit, log_every, bs=32):
+    """clip 을 **bs 개씩 묶어** p · z · h 를 뽑는다 (2026-09-26 — 그 전에는 clip 하나씩: batch 1 은 커널 발사 오버헤드가 크다).
+
+    - 랭크마다 **연속 구간** [rank·n/world, (rank+1)·n/world) 을 맡는다 → memmap 쓰기가 파일 안에서 순차적이다
+    - PNG 디코드는 스레드로 몇 묶음 앞서 읽는다 (PIL 은 GIL 을 놓는다). 랭크마다 torch CPU 스레드를 제한한다 —
+      전체 코어를 잡으면 디코드가 39 → 268 ms 로 느려진다 (CLAUDE.md §7-1)
+    - 출력은 clip 하나씩 뽑던 판과 같은 모양 · 같은 dtype (fp16). bf16 누적 순서가 배치에 따라 달라 값은 ~1e-3 수준에서 다를 수 있다
+    - 실측 (v11 온라인, 2026-09-25): 묶음 16 이상에서 GPU 사용률 86–88 % 로 포화, 4.7 clip/s/GPU. 묶음을 키워도 VRAM 만 늘고 안 빨라진다
+    """
     import decord  # noqa: F401  (WMADataset 이 쓴다)
+    from concurrent.futures import ThreadPoolExecutor
     torch.cuda.set_device(rank)
+    torch.set_num_threads(max(1, int(os.environ.get("PRESENCE_TORCH_THREADS", "4"))))
     dev = torch.device("cuda", rank)
     from analysis.intphys2.model import build_from_config
     from evals.world_model_analysis.data import WMADataset
     from evals.analysis_vlm.occlusion_identity.forward import extract_batch
 
     bundle = build_from_config(MODEL, dev)
+    from analysis.predictors import is_ar
+    ar = is_ar(bundle.predictor)
+    if ar:
+        from app.vjepa_frozen.ar import encode_blocks, block_indices
+        assert "z" not in EXTRACT_REPS, "kind=ar 에는 z (online encoder 문맥) 가 없다 — PRESENCE_REPS=p,h"
     ds = WMADataset(dict(data=DATA, model=MODEL, features={"cache_dir": "/tmp"}, surprise={}))
-    mm = {r: np.lib.format.open_memmap(SHM / f"{r}.npy", mode="r+") for r in REPS}
+    mm = {r: np.lib.format.open_memmap(SHM / f"{r}.npy", mode="r+") for r in EXTRACT_REPS}
     ln = lambda x: F.layer_norm(x, (x.size(-1),))
-    idx = list(range(rank, n, world))
-    t0 = time.time()
-    # ⚠️ 옛 판은 clip 을 하나씩 디코드하고 기다렸다 — CPU (PNG) 에 막혀 8,352 clip 에 27 분 (2026-09-22).
-    #    디코드를 스레드로 미리 돌려 GPU 계산 뒤에 숨긴다. PIL 디코드는 GIL 을 놓는다.
-    #    계산 경로 (clip 하나씩 forward) 는 그대로라 출력이 같다.
-    from concurrent.futures import ThreadPoolExecutor
+    lo, hi = rank * n // world, (rank + 1) * n // world
+    chunks = [list(range(k, min(k + bs, hi))) for k in range(lo, hi, bs)]
     pool = ThreadPoolExecutor(max_workers=PREFETCH)
-    fut = {i: pool.submit(ds.clip, i) for i in idx[:PREFETCH * 2]}
+    fut = {}
+
+    def submit(ch):
+        for i in ch:
+            fut[i] = pool.submit(ds.clip, i)
+    for ch in chunks[:2]:
+        submit(ch)
+    t0 = time.time(); done = 0
     with torch.no_grad():
-        for k, i in enumerate(idx):
-            nxt = k + PREFETCH * 2
-            if nxt < len(idx):
-                fut[idx[nxt]] = pool.submit(ds.clip, idx[nxt])
-            clip = fut.pop(i).result().unsqueeze(0).to(dev, dtype=bundle.dtype)
+        for j, ch in enumerate(chunks):
+            if j + 2 < len(chunks):
+                submit(chunks[j + 2])
+            clips = torch.stack([fut.pop(i).result() for i in ch]).to(dev, dtype=bundle.dtype, non_blocking=True)
+            B = clips.size(0)
+            if ar:                                   # 블록별 인코딩 → 문맥 8 블록 → rollout 8 블록
+                hb = encode_blocks(bundle.target_encoder, clips, 2)                 # (B, 16*S, D), LN
+                if "p" in EXTRACT_REPS:
+                    idx_ = block_indices(B, 16, S, dev)
+                    with torch.autocast("cuda", dtype=torch.bfloat16):          # 2026-09-30: 순수 bf16 에서는 PrefixSpec SDPA 가 dtype 오류 (te_v3_readout 머리말) — 학습과 같은 autocast
+                        pr = bundle.predictor.rollout(hb[:, :T * S], idx_[:, :T * S], T)
+                    mm["p"][ch[0]:ch[-1] + 1] = pr.float().reshape(B, T, S, D).to(torch.float16).cpu().numpy()
+                if "h" in EXTRACT_REPS:
+                    mm["h"][ch[0]:ch[-1] + 1] = hb[:, T * S:].float().reshape(B, T, S, D).to(torch.float16).cpu().numpy()
+                done += B
+                if rank == 0 and (j % log_every == 0 or j == len(chunks) - 1):
+                    el = time.time() - t0
+                    print(f"    [extract ar] 랭크0 {done}/{hi - lo} clip  {el:.0f}s  {done / max(el, 1e-9):.1f} clip/s/GPU", flush=True)
+                continue
             # p: 앞 16 장을 문맥으로 마스크 → predictor 가 미래 8 튜블릿
-            out = extract_batch(clip, bundle, [{"base": "predictor"}], context_length=16, mask_index=0,
-                                out_dtype=torch.float16)
-            mm["p"][i] = out["predictor"].reshape(T, S, D).numpy()
+            if "p" in EXTRACT_REPS:
+                out = extract_batch(clips, bundle, [{"base": "predictor"}], context_length=16, mask_index=0,
+                                    out_dtype=torch.float16)
+                mm["p"][ch[0]:ch[-1] + 1] = out["predictor"].reshape(B, T, S, D).numpy()
             # z / h: 32 장 전체를 통과시키고 뒤 8 튜블릿만 (affine-free LN — 캐시 관례와 같다)
             for rep, mod in (("z", bundle.context_encoder), ("h", bundle.target_encoder)):
-                f = mod(clip)
+                if rep not in EXTRACT_REPS:
+                    continue
+                f = mod(clips)
                 f = f[-1] if isinstance(f, list) else f
-                mm[rep][i] = ln(f.float()).reshape(-1, S, D)[T:].to(torch.float16).cpu().numpy()
-            if rank == 0 and k % log_every == 0:
-                done = (k + 1) * world
-                print(f"    [extract] ~{done}/{n}  {time.time() - t0:.0f}s  "
-                      f"(예상 {(time.time() - t0) / max(k + 1, 1) * len(idx) / 60:.0f}분)", flush=True)
+                mm[rep][ch[0]:ch[-1] + 1] = ln(f.float()).reshape(B, -1, S, D)[:, T:].to(torch.float16).cpu().numpy()
+            done += B
+            if rank == 0 and (j % log_every == 0 or j == len(chunks) - 1):
+                el = time.time() - t0
+                print(f"    [extract] 랭크0 {done}/{hi - lo} clip  {el:.0f}s  {done / max(el, 1e-9):.1f} clip/s/GPU  "
+                      f"남은 {(hi - lo - done) / max(done / max(el, 1e-9), 1e-9) / 60:.1f}분  최대 VRAM {torch.cuda.max_memory_allocated(dev) / 2**30:.1f} GiB",
+                      flush=True)
     pool.shutdown(wait=False)
     for m in mm.values():
         m.flush()
 
 
-PREFETCH = int(os.environ.get("PRESENCE_PREFETCH", "6"))     # GPU 당 디코드 스레드
+PREFETCH = int(os.environ.get("PRESENCE_PREFETCH", "8"))     # GPU 당 디코드 스레드 (묶음 추출은 두 묶음 앞서 읽는다)
 
 
-def extract(n, gpus, limit, log_every=50):
+def extract(n, gpus, limit, log_every=10, bs=32):
     SHM.mkdir(parents=True, exist_ok=True)
-    for r in REPS:
+    for r in EXTRACT_REPS:
         np.lib.format.open_memmap(SHM / f"{r}.npy", mode="w+", dtype=np.float16, shape=(n, T, S, D))
-    print(f"[extract] {n} clip x 3 표현, GPU {gpus} 장, {SHM} 에 {3 * n * T * S * D * 2 / 2**30:.0f} GB", flush=True)
+    print(f"[extract] {n} clip x {len(EXTRACT_REPS)} 표현 {EXTRACT_REPS}, GPU {gpus} 장, {SHM} 에 {len(EXTRACT_REPS) * n * T * S * D * 2 / 2**30:.0f} GB", flush=True)
     t0 = time.time()
-    mp.spawn(_worker, args=(gpus, n, limit, log_every), nprocs=gpus, join=True)
+    mp.spawn(_worker, args=(gpus, n, limit, log_every, bs), nprocs=gpus, join=True)
     print(f"[extract] 끝 {time.time() - t0:.0f}s", flush=True)
 
 
@@ -388,7 +432,7 @@ def train(rep, L, pos, ign, tr, va, te, args, dev, log=None, Wc=None, Wb=None):
             log(f"    [{rep}] epoch {ep:3d}  " + "  ".join(f"{k} xy {v[0]/len(perm):.4f} pres {v[1]/len(perm):.4f}"
                                                            for k, v in tot.items()) + f"  ({time.time()-t0:.0f}s)")
     # ── 평가 ──
-    emp = np.array([r["scenario"] == "empty" for r in ROWS])[:, None].repeat(T, 1)
+    emp = np.array([r["scenario"] == "empty" or r.get("shape_pre") == "none" for r in ROWS])[:, None].repeat(T, 1)
     inf_ = np.stack([arr(r["in_frame_by_sample"]) for r in ROWS]).reshape(len(ROWS), 16, 2).all(2)[:, T:]
     neg = (~pos) & (~ign)
     src = {"빈 장면": neg & emp, "화면 밖": neg & ~emp & ~inf_}
@@ -468,6 +512,8 @@ def main():
                     help=f"특징 저장 위치 (기본 {SHM}). 재사용하려면 디스크로: {FEAT_DEFAULT_DISK}")
     ap.add_argument("--keep-shm", action="store_true", help="끝나고 특징을 지우지 않는다")
     ap.add_argument("--skip-extract", action="store_true", help="/dev/shm 에 이미 있으면 재사용")
+    ap.add_argument("--extract-only", action="store_true", help="특징만 뽑고 끝낸다 (자 학습은 rollout2_identity_readout.py 로)")
+    ap.add_argument("--extract-bs", type=int, default=32, help="추출 묶음 (clip 수). 16 이상이면 GPU 가 포화된다 (2026-09-25 실측)")
     ap.add_argument("--set", default=SET, help="학습셋 (data_csv/rollout_v2_<set>). 기본 training_v8")
     ap.add_argument("--no-weights", action="store_true",
                     help="cell_weight / balance_weight 를 쓰지 않는다 (대조용). 기본은 데이터가 주면 쓴다")
@@ -491,7 +537,7 @@ def main():
         Wc, Wb = Wc[keep], Wb[keep]
     print(f"[set] {SET}  {INDEX}   가중치 {'사용 (cell x balance / balance)' if use_w else '안 씀'}", flush=True)
     n = len(ROWS)
-    emp = np.array([r["scenario"] == "empty" for r in ROWS])
+    emp = np.array([r["scenario"] == "empty" or r.get("shape_pre") == "none" for r in ROWS])   # training_r8: 빈 장면이 arm 안에 있다
     neg = (~pos) & (~ign)
     print(f"[data] {n} clip (빈 장면 {emp.sum()}), 미래 튜블릿 {n*T}  "
           f"양성 {int(pos.sum())} / 음성 {int(neg.sum())} / 제외 {int(ign.sum())}", flush=True)
@@ -509,7 +555,9 @@ def main():
     print(f"[split] train {tr.sum()} / val {va.sum()} / test {te.sum()} clip (block 단위, scenario 층화)", flush=True)
 
     if not a.skip_extract:
-        extract(n, a.gpus, a.limit)
+        extract(n, a.gpus, a.limit, bs=a.extract_bs)
+    if a.extract_only:
+        print(f"[extract-only] → {SHM}", flush=True); return
     dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     rep_res = {}
     for rep in a.reps:

@@ -101,7 +101,7 @@ python -m analysis.attention.predictor_attn.extract --dataset v11 --model vith \
 ❌ **"predictor 가 정보를 어디서 가져온다"** — attention 질량은 정보 흐름이 아니다
    (value 의 크기와 residual stream 을 무시한다)
 ❌ **"표현이 회전했다 / 정렬이 깨졌다"** — beat 5 의 주장은 표현 기하로 해야 한다
-   (`PAPER_STORY_2026-08-31.md` 금지 표현 표)
+   (`PAPER_STORY_2026-08-31.md` 금지 표현 표; 현재 정본 금지 표현은 `auto_research/paper/PAPER_STORY_2026-10-08.md` §7)
 ❌ **채점 실패와의 인과** — attention 차이와 채점 정확도의 상관은 상관일 뿐이다
 
 ---

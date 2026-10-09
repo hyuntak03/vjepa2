@@ -1,6 +1,7 @@
 # surprise 그림 — 카테고리
 
 `PAPER_STORY_2026-08-31.md` 의 beat 순서로 나눴다.
+> ⚠️ 그 스토리는 대체됐다 (현재 정본 [`../../../../auto_research/paper/PAPER_STORY_2026-10-08.md`](../../../../auto_research/paper/PAPER_STORY_2026-10-08.md), 2026-10-08). 폴더 구분은 옛 beat 기준 그대로 둔다 — 그림 내용은 유효하다.
 전부 `z_research/scripts/figures/plot_v11_surprise.py` 가 만들고, 폴더 배정은
 그 파일 상단의 `FIGDIR` 표가 정한다. **여기 없는 이름은 최상위에 떨어진다** —
 새 그림이 눈에 띄라고 일부러 그렇게 뒀다.

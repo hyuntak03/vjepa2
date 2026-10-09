@@ -1,0 +1,20 @@
+# =============================================================================
+# 팔 C' — **문맥은 영상 통째로, 미래는 자기회귀** (2026-09-27, 사용자 요청)
+#
+#   GPUS=6 NAME=nat_ctx_ar_scratch bash z_training/sbatch.sh natural_ctx_ar
+#
+# natural_ar (AC 판: 문맥까지 블록별 인코딩) 과의 차이는 **문맥 인코딩 하나**:
+#   문맥 C 블록을 context encoder(`encoder`) 가 한 번에 인코딩한 z 를 predictor 에 준다 (prefix 팔과 같다).
+#   미래 GT 는 target encoder 가 **블록별**로 인코딩한 LN(h) — teacher forcing 입력·타깃. 블록 t 가 t 뒤를 못 봐 누수 없음.
+#   predictor: [z 문맥 ; LN(h) 미래] + type embedding, prefix 마스크 (문맥 양방향, 미래 block-causal).
+#   위치 C-1 → 블록 C, 미래 위치 t → 블록 t+1 예측. 문맥 안쪽 위치에는 손실 없음 (양방향이라 이미 본다).
+#   rollout 은 z 뒤에 자기 예측을 붙여 R=min(K, rollout_steps) 블록. 출력 LN (되먹임·타깃과 같은 공간).
+# ⚠️ 타깃이 블록(2 프레임) 표현이라 prefix/full 팔 (창 전체를 본 타깃) 과 surprise 절대값은 비교 불가 — 정확도로만.
+# ⚠️ 정식 채점기는 아직 kind=ctx_ar 를 모른다 (ar 와 같은 작업). in-loop val 은 rollout(주) + tf(보조).
+# =============================================================================
+extends: natural_ar
+
+model:
+  context_encoder_key: encoder          # natural_ar 는 target_encoder 하나였다. 여기서는 prefix 팔처럼 dual
+  predictor:
+    kind: ctx_ar

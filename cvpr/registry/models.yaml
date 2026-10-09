@@ -1,0 +1,249 @@
+# 모델 레지스트리 (cvpr). configs/protocols/models.md 에서 import_registry.py 가 만들었다 (2026-10-09).
+# base: vith -> vith 의 키를 깔고 그 위에 덮는다. `predictor.kind` 같은 점 키는 resolve 가 predictor 블록에 넣는다.
+# `surprise.<키>` 는 모델별 채점 관례 (예: target_layer_norm: false). available: false 는 실물 없음.
+vith:
+  arch_name: vit_huge
+  checkpoint: ${CVPR_CKPT}/models--facebook--vjepa2-vith-fpc64-256/snapshots/b5eac8703e3efdc1547fbb6ddfbeb133dc0bdee5/original/model.pth
+vitl:
+  arch_name: vit_large
+  checkpoint: ${CVPR_CKPT}/models--facebook--vjepa2-vitl-fpc64-256/snapshots/b3c1679b7c34d3255ef3547f27c7b226aefab26f/original/model.pth
+vith_ariel_bc_ep5:
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/ariel/block_causal_future_only_1e_5_ep_5/latest.pt
+  predictor.kind: prefix
+  available: false
+  note: 실물 없음 (predictor_checkpoint) — 2026-10-09 변환 때 vll5 기준. 옛 결과 _resolved.yaml 을 읽기 위한 기록
+vith_ariel_bc_ep19:
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/ariel/block_causal_future_only_1e_5_ep_19/latest.pt
+  predictor.kind: prefix
+  available: false
+  note: 실물 없음 (predictor_checkpoint) — 2026-10-09 변환 때 vll5 기준. 옛 결과 _resolved.yaml 을 읽기 위한 기록
+vith_ariel_bc_ep30:
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/ariel/block_causal_future_only_1e_5_ep_30/latest.pt
+  predictor.kind: prefix
+  available: false
+  note: 실물 없음 (predictor_checkpoint) — 2026-10-09 변환 때 vll5 기준. 옛 결과 _resolved.yaml 을 읽기 위한 기록
+vith_ariel_bc_ep41:
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/ariel/block_causal_future_only_1e_5_ep_41/latest.pt
+  predictor.kind: prefix
+  available: false
+  note: 실물 없음 (predictor_checkpoint) — 2026-10-09 변환 때 vll5 기준. 옛 결과 _resolved.yaml 을 읽기 위한 기록
+vith_ariel_bc_ep43:
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/ariel/block_causal_future_only_1e_5_ep_43/latest.pt
+  predictor.kind: prefix
+  available: false
+  note: 실물 없음 (predictor_checkpoint) — 2026-10-09 변환 때 vll5 기준. 옛 결과 _resolved.yaml 을 읽기 위한 기록
+vith_ariel_bc_ep5_full:
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/ariel/block_causal_future_only_1e_5_ep_5/latest.pt
+  predictor.kind: default
+  available: false
+  note: 실물 없음 (predictor_checkpoint) — 2026-10-09 변환 때 vll5 기준. 옛 결과 _resolved.yaml 을 읽기 위한 기록
+vith_ariel_prefix_ep45:
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/ariel/block_causal_future_only_1e_5/latest.pt
+  predictor.kind: prefix
+vith_ariel_full_ep40:
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/ariel/full_attn_future_pred_1e_5/latest.pt
+  predictor.kind: oneshot
+vith_ariel_ar_ep18:
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/ariel/ar_future_1e_5/latest.pt
+  predictor.kind: ar
+vith_ariel_ar_ep36:
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/ariel/ar_future_1e_5/latest.pt
+  predictor.kind: ar
+vith_ariel_ar_ep38:
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/ariel_eval/ckpt/ar_ep38.pt
+  predictor.kind: ar
+vith_ariel_ctx_ar_ep18:
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/ariel_eval/ckpt/ctx_ar_ep18.pt
+  predictor.kind: ctx_ar
+vjepa21g:
+  family: vjepa2_1
+  arch_name: vit_giant
+  checkpoint: ${CVPR_CKPT}/v_jepa2.1/vjepa2_1_vitg_384.pt
+  img_size: 256
+  patch_size: 16
+  tubelet_size: 2
+  context_encoder_key: encoder
+  target_encoder_key: target_encoder
+  surprise.target_layer_norm: false
+videomae2g:
+  family: videomae2
+  arch_name: vit_giant_patch14
+  checkpoint: ${CVPR_CKPT}/videomae2/models--OpenGVLab--VideoMAE2/snapshots/706cc172d65ebd4dedbee3f9c0183a93df9fa125/mae-g/vit_g_hybrid_pt_1200e.pth
+  img_size: 224
+  patch_size: 14
+  tubelet_size: 2
+  surprise.target_layer_norm: false
+dinof_highres:
+  family: dinof
+  arch_name: dinof_vitb14
+  checkpoint: ${CVPR_NFS}/DINO-Foresight/checkpoints/dinof_highres.ckpt
+  img_size: 448
+  patch_size: 14
+  tubelet_size: 1
+  surprise.target_layer_norm: false
+  surprise.batch_size: 8
+  surprise.decode_workers: 8
+  note: 문맥 4 프레임 고정 — testbed 는 문맥 16 중 마지막 4 장으로 미래를 자기회귀 unroll. IntPhys1 sliding 은 WINDOW=dinof_w5|w8|w16 (run.sh 가 돈다). 복사 기준선 COPY=1 (model.dinof_copy=true)
+dinof_lowres:
+  family: dinof
+  arch_name: dinof_vitb14
+  checkpoint: ${CVPR_NFS}/DINO-Foresight/checkpoints/dinof_lowres.ckpt
+  img_size: 224
+  patch_size: 14
+  tubelet_size: 1
+  surprise.target_layer_norm: false
+  surprise.batch_size: 8
+  surprise.decode_workers: 8
+  note: dinof_highres 와 같고 224 판
+vittiny_k400:
+  family: vjepa2
+  arch_name: vit_tiny
+  checkpoint: ${CVPR_OTHER_CKPT}/world-model/vjepa2-pretrain/exp/2026-09-17_k400-vittiny-steps/out_30k/latest.pt
+  img_size: 256
+  patch_size: 16
+  tubelet_size: 2
+  uniform_power: true
+  use_rope: true
+  dual_encoder: true
+  context_encoder_key: encoder
+  target_encoder_key: target_encoder
+  predictor.embed_dim: 384
+  predictor.depth: 12
+  predictor.num_heads: 12
+  predictor.num_mask_tokens: 2
+vitb_k400_e240:
+  arch_name: vit_base
+  checkpoint: ${CVPR_OTHER_CKPT}/world-model/vjepa2-pretrain/exp/2026-08-31_k400-vitb-abbrev/out/snap_ep240.pt
+  family: vjepa2
+  img_size: 256
+  patch_size: 16
+  tubelet_size: 2
+  uniform_power: true
+  use_rope: true
+  dual_encoder: true
+  context_encoder_key: encoder
+  target_encoder_key: target_encoder
+  predictor.embed_dim: 384
+  predictor.depth: 12
+  predictor.num_heads: 12
+  predictor.num_mask_tokens: 2
+vitb_k400_e100:
+  arch_name: vit_base
+  checkpoint: ${CVPR_OTHER_CKPT}/world-model/vjepa2-pretrain/exp/2026-08-31_k400-vitb-abbrev/out/e100.pt
+  family: vjepa2
+  img_size: 256
+  patch_size: 16
+  tubelet_size: 2
+  uniform_power: true
+  use_rope: true
+  dual_encoder: true
+  context_encoder_key: encoder
+  target_encoder_key: target_encoder
+  predictor.embed_dim: 384
+  predictor.depth: 12
+  predictor.num_heads: 12
+  predictor.num_mask_tokens: 2
+vitb_synphys_30k:
+  arch_name: vit_base
+  checkpoint: ${CVPR_OTHER_CKPT}/world-model-interpret/checkpoints_pretrain_synphys/vjepa2_vitb16_synphys50k_30ksteps_ep100_full.pt
+  family: vjepa2
+  img_size: 256
+  patch_size: 16
+  tubelet_size: 2
+  uniform_power: true
+  use_rope: true
+  dual_encoder: true
+  context_encoder_key: encoder
+  target_encoder_key: target_encoder
+  predictor.embed_dim: 384
+  predictor.depth: 12
+  predictor.num_heads: 12
+  predictor.num_mask_tokens: 2
+vittiny_k400_5k:
+  arch_name: vit_tiny
+  checkpoint: ${CVPR_OTHER_CKPT}/world-model-interpret/checkpoints_pretrain_synphys/vjepa2_vittiny16_k400_5ksteps_ep50_full.pt
+  family: vjepa2
+  img_size: 256
+  patch_size: 16
+  tubelet_size: 2
+  uniform_power: true
+  use_rope: true
+  dual_encoder: true
+  context_encoder_key: encoder
+  target_encoder_key: target_encoder
+  predictor.embed_dim: 384
+  predictor.depth: 12
+  predictor.num_heads: 12
+  predictor.num_mask_tokens: 2
+vittiny_synphys_5k:
+  arch_name: vit_tiny
+  checkpoint: ${CVPR_OTHER_CKPT}/world-model-interpret/checkpoints_pretrain_synphys/vjepa2_vittiny16_synphys50k_5ksteps_ep50_full.pt
+  family: vjepa2
+  img_size: 256
+  patch_size: 16
+  tubelet_size: 2
+  uniform_power: true
+  use_rope: true
+  dual_encoder: true
+  context_encoder_key: encoder
+  target_encoder_key: target_encoder
+  predictor.embed_dim: 384
+  predictor.depth: 12
+  predictor.num_heads: 12
+  predictor.num_mask_tokens: 2
+vittiny_synphys_30k_e225:
+  arch_name: vit_tiny
+  checkpoint: ${CVPR_OTHER_CKPT}/world-model/vjepa2-pretrain/exp/2026-09-17_synphys-vittiny-30k/out_30k/e225.pt
+  family: vjepa2
+  img_size: 256
+  patch_size: 16
+  tubelet_size: 2
+  uniform_power: true
+  use_rope: true
+  dual_encoder: true
+  context_encoder_key: encoder
+  target_encoder_key: target_encoder
+  predictor.embed_dim: 384
+  predictor.depth: 12
+  predictor.num_heads: 12
+  predictor.num_mask_tokens: 2
+vittiny_k400ssv2_30k_e225:
+  arch_name: vit_tiny
+  checkpoint: ${CVPR_OTHER_CKPT}/world-model/vjepa2-pretrain/exp/2026-09-21_k400ssv2-vittiny-30k/out/e225.pt
+  family: vjepa2
+  img_size: 256
+  patch_size: 16
+  tubelet_size: 2
+  uniform_power: true
+  use_rope: true
+  dual_encoder: true
+  context_encoder_key: encoder
+  target_encoder_key: target_encoder
+  predictor.embed_dim: 384
+  predictor.depth: 12
+  predictor.num_heads: 12
+  predictor.num_mask_tokens: 2
+vith_pft_v11_e10:
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v11_postft/e10.pt
+vith_pft_intphys1_e40:
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/intphys1_postft/e40.pt
+vith_pft_intphys2_e80:
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/intphys2_postft/e80.pt
+vith_pft_predv1_e15:
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/predictor_v1_postft/e15.pt

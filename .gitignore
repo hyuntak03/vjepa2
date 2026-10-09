@@ -90,3 +90,10 @@ z_research/*/exp_results/
 z_exp/
 
 configs/_archive
+
+z_ariel/
+
+z_training/ariel/
+# cvpr 코드 스페이스 (2026-10-09): 결과·로그는 추적하지 않는다. 코드·config·레지스트리는 추적한다
+cvpr/results/
+cvpr/logs/

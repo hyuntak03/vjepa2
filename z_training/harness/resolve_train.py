@@ -187,6 +187,46 @@ def main():
             for c in (cf if isinstance(cf, list) else [cf]):
                 if int(c) % tub or not (0 < int(c) < n):
                     die(f"mask.context_frames={c}: tubelet 정렬이고 0 < C < {n} 여야 한다")
+        elif mk.get("type") == "prefix_window":
+            T = n // tub
+            cb = [int(x) for x in mk.get("context_blocks", [T // 2])]
+            kb = [int(x) for x in mk.get("predict_blocks", [T // 2])]
+            if any(not (0 < c < T) for c in cb) or any(k <= 0 for k in kb):
+                die(f"mask.prefix_window: 0 < context_blocks < {T}, predict_blocks >= 1 여야 한다 ({cb}, {kb})")
+            if not any(c + k <= T for c in cb for k in kb):
+                die(f"mask.prefix_window: C+K <= {T} 인 조합이 없다 ({cb} x {kb})")
+    pk = str((m.get("predictor") or {}).get("kind", "oneshot"))
+    # 2026-09-27: Ariel 0927 이식 — prefix_full (문맥 양방향 · 미래 전부 양방향) · ar (팔 C, app/vjepa_frozen/ar.py) 추가
+    #   (app/vjepa_frozen/utils.py 의 build_predictor whitelist 와 같은 집합)
+    if pk not in ("oneshot", "prefix", "prefix_full", "causal", "ar", "mret", "ctx_ar"):
+        die(f"model.predictor.kind 는 oneshot | prefix | prefix_full | causal | ar | mret: {pk!r}")
+    if pk == "ar":
+        # 2026-09-27: kind=ar 의 전제를 DRYRUN 에서 잡는다. train.py 도 같은 것을 검사하지만
+        #   거기서는 ViT-H 로딩(~2 분) **뒤**에 죽는다.
+        meta = cfg.get("meta") or {}
+        if not bool(meta.get("sync_masks", False)):
+            die("kind=ar 는 meta.sync_masks: true 가 필요하다 — (C, K) 를 학습 루프가 step 당 한 번 뽑고 "
+                "창을 C+K 블록으로 잘라야 ar_losses 가 돈다 (train.py 가 모델 로드 뒤에 같은 이유로 죽는다)")
+        if d.get("window_grid"):
+            die("kind=ar 는 data.window_grid 와 같이 못 쓴다 (window_grid 는 sync_masks 경로를 끈다)")
+        bad = [mk.get("type", "temporal_prefix") for mk in (cfg.get("mask") or []) if mk.get("type") != "prefix_window"]
+        if bad:
+            die(f"kind=ar 는 mask.type=prefix_window 만 된다 (C·K 블록 수가 필요): {bad}")
+        if not bool((cfg.get("loss") or {}).get("target_layer_norm", True)):
+            die("kind=ar 는 loss.target_layer_norm: true 가 전제다 (입력·타깃·출력이 모두 LN 공간)")
+        ck, tk = m.get("context_encoder_key", "encoder"), m.get("target_encoder_key", "target_encoder")
+        if ck != tk:
+            die(f"kind=ar 는 context_encoder_key == target_encoder_key 여야 한다 ({ck!r} != {tk!r}). "
+                "AR 은 입력·타깃 모두 LN(target_encoder(블록)) 이라 문맥 encoder 는 안 쓰인다 — "
+                "키가 다르면 안 쓰는 ViT-H 하나가 메모리만 먹는다")
+    ick = m.get("predictor_init_checkpoint")
+    if ick and not os.path.isfile(ick):
+        die(f"model.predictor_init_checkpoint 가 없다 -> {ick}")
+    if ick and not m.get("load_predictor"):
+        die("model.predictor_init_checkpoint 는 load_predictor: true 일 때만 쓰인다")
+    sc = str(((d.get("aug") or {}).get("square_crop")) or "none")
+    if sc not in ("none", "center"):
+        die(f"data.aug.square_crop 은 none | center: {sc!r}")
     if not cfg.get("mask"):
         die("mask 리스트가 비어 있다")
 

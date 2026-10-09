@@ -4,50 +4,64 @@
 수치·경로·키 이름은 전부 실물에서 검증했다. 확실하지 않은 것은 "미검증" 이라고 적었다.
 
 > # 시작점
-> **`z_research/IntPhysGenV11/README.md` 를 먼저 읽는다.** 현재 논문·데이터·수치·다음 할 일이 거기 있다.
+> **논문 스토리 정본 `auto_research/paper/PAPER_STORY_2026-10-08.md` 를 먼저 읽는다** (2026-10-08 사용자 스토리 · 근거 지도 · 결정 대기 · 하네스 · 금지 표현).
+> 결과 로그와 철회표는 `auto_research/README.md`, 본 testbed (v11) 의 데이터·수치는 `z_research/IntPhysGenV11/README.md`.
 > 이 파일은 그 아래 깔린 **레포 운영 규칙**이다.
 
 ---
 
 ## 0. 30초 요약
 
-V-JEPA 2 world model 이 **직관물리 위반**을 얼마나 잡아내는지, 그리고 **왜 특정 조건에서
-실패하는지**를 규명한다. 채점은 하나뿐이다 —
+world model (V-JEPA 2 중심) 이 **intuitive physics 를 따르는 plausible future** 를 예측하는지,
+어디서 왜 실패하는지를 **통제된 합성 testbed** 로 규명하고, action 없이 관측만으로 그것을 배우는 predictor 를 만든다.
+표준 채점은 하나다 —
 **surprise = `mean |predictor(context) − LN(target_encoder(clip))[future]|`** (latent L1).
 `surprise(impossible) > surprise(possible)` 이면 정답. chance 50%.
+⚠️ 이 점수는 예측 없이도 풀릴 수 있다 (마지막 문맥 latent 복사 IntPhys 1 85.0 vs 88.89) — **복사 기준선 대비 Δ 를 같이 낸다.**
 
-### 현재 논문 (정본: `z_research/IntPhysGenV11/Archive/PAPER_STORY_2026-08-31.md`)
+### 현재 논문 (정본: `auto_research/paper/PAPER_STORY_2026-10-08.md`, 2026-10-08 사용자)
 
-> **Latent predictor 는 관측이 끊겨도 정보를 잃지 않는다.
-> 잃는 것은 그 정보를 놓는 자리이고, 그 자리는 frozen 상태에서 되돌릴 수 있다.**
+> **사람은 관측만으로 intuitive physics 를 갖추고 그것으로 plausible future 를 상상한다.
+> 지금의 world model 은 마지막 관측에 보이는 것만 외삽하고, 안 보이는 것 · 없는 것은 예측하지 못한다.
+> 정보는 encoder 에 있으므로 실패는 predictor 에 있다 → action 없이 관측만으로 그것을 배우는 predictor, AC 는 post-training.**
 
-- **motivation** — latent prediction objective 만으로 intuitive physics 가 emerge 한다고
-  보고됐고 [Garrido et al.] IntPhys 1 에서 88.89% 다. **그런데 IntPhys 2 [Bordes et al.]
-  에서는 무너진다.** 두 벤치마크의 무엇이 다른지는 알려져 있지 않다 → 조작 가능한 testbed
-- **정보는 남아 있다** — 등가속+가림에서 `p` probe 가 shape 98.46 / color 99.49 / env 100 인데
-  같은 조건 채점 민감도는 4.46 이다
-- **무너지는 건 배치다** — 비가림에서 배운 readout 이 가림에서 `p` 에만 안 통한다
-  (color: `z` 97.4 / `h` 99.2 / **`p` 17.3**)
-- **거리로 재면 고정된 순서가 나온다** — `cylinder 90 > … > torus 3`,
-  42방향 중 40개 일치, Hodge R² 0.82–0.91 (기준선 0.286). 그 순서는 **가림이 만들지 않는다**
-  (등가속 비가림에서 이미 R² 0.816)
-- **개입은 frozen 위에서** — 정렬 사상(Procrustes) · 채점 층 개입. **재학습 없이 논문이 닫힌다**
+- **P1 (문헌)** — 사람 · 영유아 · 동물은 관측만으로 intuitive physics (사라지지 않음 · 중력) 를 가장 먼저 갖추고, 그것으로 새 환경 · task 에 빨리 적응한다
+- **P2 (gap)** — world model 은 planning · prediction · anticipation 에서 빠르게 발전하지만 intuitive physics 를 따르는 미래는 예측 못 한다.
+  **IntPhys 1 은 leakage 가 있는 벤치다** (사용자 10-08) — leakage = 예측 없이 관측만으로 풀리는 정도, **복사 기준선으로 잰다**: IntPhys 1 88.89 vs 복사 85.0 (n.s.) ·
+  DINO-F 84.4 < 복사 88.9–92.2. leakage 가 작은 곳에서는 무너진다: IntPhys 2 54.3 vs 복사 55.5 · v11 문맥 끝 가림 · 위치만 다른 쌍. Figure 1 hook (후보: 가림 · 선반)
+- **P3 (testbed)** — 마지막 관측에 **보이는 것**은 1 차 운동으로 짧게 외삽 (2–3 칸) · **안 보이는 것** (문맥 끝 가림) 은 못 함 (vanish 물체→빈 0 %) ·
+  **없는 것** (가속 · 낙하 · 꼭대기에서 되돌아옴) 은 못 함 (flat_a p 28 ≈ 등속 32 vs 진실 54 · 선반 실물 메시 0/120) · **encoder 에는 정보가 있다** (z 속도 R² 0.996, z 자가 가림 뒤 미래 위치 5–10 px)
+- **다시 학습해도 같다** — 미래 전용 · 되먹임 목표 (Ariel 세 팔) 와 post-FT 넷 모두 도메인 안에서만 오르고, 문맥에 없던 운동 변화를 넣게 된 predictor 는 없다
+- **목표 (★, 사용자 학습)** — action 없이 관측만으로 intuitive physics 를 따르는 미래를 예측하는 predictor. **Ariel 을 반드시 넘는다** (사용자 10-08) —
+  합격선 표와 "Ariel 이 왜 실패했나 → 설계 후보" 표는 정본 §2-4. 방법 절 첫 줄 = Ariel 과의 차이
+- **AC (작은 subsection, 실험 하나)** — "(1) 이 먼저여야 AC 가 효과" 를 scratch vs post × AC 데이터 10/30/100 % 로 (정본 §2-5). 결과 전까지 가설
 
-⚠️ **2026-09-03 스토리 재검토 중.** 외부 피드백 "가림이 사건 순간에 걸리는 건 corner case" 에 동의.
-무너지는 조건은 물체 × 사건 순간 × **고정 문맥 경계** 셋이 겹칠 때뿐이고 sliding 으로 상당 부분
-회복된다 (§1-3). corner case 가 아닌 결과는 **점수가 무엇을 재는가** 쪽이다 (margin/base 0.08–3.7%,
-비가림에서 이미 있는 물체 순서, precision 편향). 판정·후보·확장 축:
-`z_research/IntPhysGenV11/Archive/STATUS_AND_CRITIQUE_2026-09-03.md`. **가림은 주인공이 아니라 testbed 로.**
+✅ **결정 (사용자 10-08)**: ledge · wall · 꼭대기 사건을 **논문에 넣는다** (09-19 "common sense, 정의 밖" 번복) · AC 는 작은 subsection + 실험 하나.
+⚠️ **결정 대기 하나**: 주 평가를 intuitive physics 판 (IntPhys 1/2 · GRASP · InfLevel + testbed copy-hard · 위치 쌍) 으로 옮기나 — 문서는 이것을 기본값으로 썼다.
 
-⚠️ **2026-09-19 — state evolution 의 정의 (사용자 결정): 네 하위 능력 1 읽기 · 2 지속 · 3 전이 (문맥 내용에 따라 미래를 바꾸는가) · 4 영속.**
-정본 `z_research/context_encoder_analysis/Archive/STATE_EVOLUTION_CAPABILITIES_2026-09-19.md`. 목적은 latent state 진화 (video prediction) 이고
-**물리 장면은 측정 도구다 — "물리 엔진을 가졌는가" 를 묻지 않는다.** 현재 V-JEPA 2: 읽기 ✅ / 지속 ❌ / 전이 ◐ (방향·속도는 이어 가고 가속도는 반영 안 함) / 영속 ❌.
-장면 요소·사건별 변화 (ledge 낙하, wall 정지) 는 **common sense 문제로 보고 정의에서 뺐다.**
+⚠️ **intuitive physics 의 판정은 행동으로 한다.** 조작적 정의는 2026-09-19 의 **네 능력 (1 읽기 · 2 지속 · 3 전이 · 4 영속)** 을 그대로 쓴다
+(정본 `z_research/context_encoder_analysis/Archive/STATE_EVOLUTION_CAPABILITIES_2026-09-19.md`): 보이는 것 외삽 = 지속 · reach / 안 보이는 것 = 영속 /
+없는 것 = **3 전이를 둘로: 3a 추세 (가속 · 감속 · 꼭대기에서 되돌아옴) + 3b 사건 (받침 끝 낙하 · 벽 충돌)** (10-08, 사건 포함) / encoder 정보 = 읽기.
+현재 V-JEPA 2: 읽기 ✅ / 지속 ❌ / 전이 3a ◐ (방향·속도는 이어 가고 가속도는 반영 안 함) · 3b ❌ (선반 높이 유지, 벽 통과 뒤 소실) / 영속 ❌.
+⚠️ ledge · wall 을 쓰는 조건 넷 (정본 §2-3 iii): 떠 가는 미래는 복사와 닮았다 (H23 §3-7) → 불가능 미래가 복사와 다른 방향인 다중 미래 설계로 / 갈림 시점 누수 / 자 둘의 다른 답 / L1 교란.
+"모델이 중력을 안다 / 법칙을 적용한다" 같은 **내부 귀속은 계속 금지.** memory · state 프레임도 금지 (09-30).
 
 ⚠️ **목적함수를 원인으로 걸지 않는다.** discussion 한 문단으로만 쓴다.
 재학습 없이 검증이 안 되는 원인을 축으로 두면 스스로 못 갚는 빚이 된다.
 
 ⚠️ **α 분해는 인용 금지다** (사용자 지시가 있을 때까지). 옛 문서 본문에는 남아 있다.
+
+<details><summary>이전 스토리 (기록 — 측정 수치 · 정정 · 기각표는 유효, 틀만 대체됨)</summary>
+
+| 날짜 | 한 줄 | 문서 |
+|---|---|---|
+| 08-31 | 정보는 남고 배치가 무너진다, frozen 개입으로 되돌린다 ("frozen 위에서 닫힌다") | `z_research/IntPhysGenV11/Archive/PAPER_STORY_2026-08-31.md` |
+| 09-03 | 가림이 사건 순간에 걸리는 건 corner case — 가림은 testbed 로 | `…/STATUS_AND_CRITIQUE_2026-09-03.md` |
+| 09-06 · 09-22 | predictor 는 상태를 이어가지 않는다, 문맥을 조회할 뿐 ("frozen 위에서 닫힌다" 폐기) | `…/PAPER_STORY_2026-09-06.md` · `…/PAPER_STORY_2026-09-22.md` |
+| 09-19 | state evolution = 네 능력, ledge · wall 은 common sense 라 정의 밖 (**10-08 번복 — 포함**) | `STATE_EVOLUTION_CAPABILITIES_2026-09-19.md` |
+| 09-25 · 09-29 | 인간 같은 latent world model · "예측의 자리가 비어 있다" (역할 분리), 주 평가 EK100 · IntPhys 2 · Ego4D | `auto_research/paper/DIRECTION_2026-09-25.md` · `RETHINK_PREDICTOR_ROLE_2026-09-29.md` |
+
+</details>
 
 ---
 
@@ -143,6 +157,17 @@ bash z_research/scripts/run.sh --list                    # ① 의 프로토콜�
 DRYRUN=1 bash z_research/scripts/run.sh <프로토콜> <데이터셋> <모델>   # 병합 config 만, GPU 0장
 ```
 
+### 2-0-b. 새 코드 스페이스 `cvpr/` (2026-10-09)
+
+평가·분석의 **새 파라메트릭 진입점**이다 — resolver 하나 (`cvpr/harness/resolve.py`: 프로토콜 yaml + 창 preset + 레지스트리 `cvpr/registry/{datasets,models,windows}.yaml` + `SET=`) 와 런처 하나 (`cvpr/harness/launch.sh`) 가 엔진 셋 (wma · intphys2 · ek100) 을 띄운다.
+옛 `z_research/scripts/run.sh` · `Benchmarks/run_all.sh` · `intphys2/run_grid.sh` · `EK100/run.sh` 는 **그대로 돈다.** 엔진 코드는 안 건드렸다.
+`python cvpr/harness/check_equivalence.py` 가 옛 resolver 와 **같은 config** 를 내는지 28 행으로 검사한다 (2026-10-09: 동일 27 · 차이 0 · 건너뜀 1).
+```bash
+GPUS=8 bash cvpr/eval/testbed/run.sh v11 vith                 # = run.sh surprise_c16t32 v11 vith   (intphys1 · intphys2 · ek100 · analysis/probing 도 같은 꼴)
+DRYRUN=1 bash cvpr/eval/testbed/run.sh v11 vith               # 병합 config 만 · python cvpr/harness/resolve.py --list 가 목록
+```
+절대경로는 `cvpr/env.sh` 한 파일 (`CVPR_*`). 결과는 `cvpr/results/<task>/…`, `RESULTS_ROOT=legacy` 면 옛 폴더. **README 는 `cvpr/README.md`** (노브 표 · 창 · 모델 · 옛→새 명령 대응표 · 아직 안 옮긴 것).
+
 
 ### 2-1. 표준 진입점 — `z_research/scripts/run.sh`
 
@@ -197,7 +222,7 @@ V-JEPA 2 ViT-H IntPhys1 = **88.89** (`skip2_w32`, **Filtered**, property macro).
 기준값 검사 `python z_research/scripts/analysis/check_oracle.py`.
 
 등록된 데이터셋: `intphys1_dev`, `grasp_level2`, `inflevel_{continuity,gravity,solidity}`, `v8`, `v8_halfsize`, **`v11`**, `v11_earlymid`, `v11_timing`, `v11_full`, `v11_split_test`, `v13_black`,
-`v10`, `v10_flat`, `v10_occ_low`, `jongseo_physv3`, **`rollout_v2`**, **`rollout_v2_training_v5`**, **`v11_vanish_all`** (위치 readout, §5-5)
+`v10`, `v10_flat`, `v10_occ_low`, `jongseo_physv3`, **`rollout_v2`**, **`rollout_v2_training_v5`**, **`v11_vanish_all`** (위치 readout, §5-5), **`v11_realistic`** · **`v11_realistic_ledge`** · **`gravity_realistic`** (실물 메시, 2026-10-06/07 · `z_research/v11_realistic/`; gravity 는 `SET="scoring.pairing=cross"`)
 (+ `available: false` 인 `2d_v8_transit`, `v11_occtiming`). 모델: `vith`, `vitl`. 지운 데이터셋 (RollOut_v1, 학습셋 v1~v4) 은 레지스트리에서도 뺐다 — 기록은 각 세트 문서.
 
 ⚠️ **v11 은 2026-09-01 에 43,008 clip 으로 커졌다** (`*_early`/`*_mid` 6조건 추가).
@@ -214,6 +239,7 @@ probing 용으로 `visible + early + mid` 를 묶은 것이 `v11_timing` 이다.
 | 변수 | 기본 | 동작 |
 |---|---|---|
 | `GPUS` | `1` | `--devices cuda:0..N-1`, `WMA_EXPECT_WS` |
+| `GPU_IDS="1 2 3"` | `0..GPUS-1` | 쓸 GPU 를 직접 고른다 (공용 노드). 주면 `GPUS` 대신 이게 이긴다. 바깥 `CUDA_VISIBLE_DEVICES` 는 **안 먹는다** — `evals/main.py:51` 이 rank 마다 덮어쓴다 |
 | `TAG`, `OUTDIR` | 자동 | `tag` / `output_dir` 직접 지정 |
 | `SET="a.b=1 c.d=null"` | — | 병합 config 를 점 경로로 덮어씀. **`null` = 키 삭제** |
 | `LIMIT=N` | — | `limit: N` 주입 + `tag`/`output_dir` 에 `_smoke{N}` 접미사 |
@@ -316,7 +342,21 @@ config 를 되살려야 하면 `z_exp/.../summary.json` 안에 그때 쓴 config
 **`model:`** `checkpoint`(필수), `arch_name`("vit_large"), `img_size`(256), `patch_size`(16),
 `tubelet_size`(2), `window_size`(48), `use_rope`(true), `uniform_power`(false),
 `dual_encoder`(false), `context_encoder_key`/`target_encoder_key`,
-`predictor:{embed_dim 384, depth 12, num_heads 12, num_mask_tokens 10}`, `dtype`, `autocast`
+`predictor:{embed_dim 384, depth 12, num_heads 12, num_mask_tokens 10, kind, prefix_impl}`,
+`predictor_checkpoint`, `dtype`, `autocast`
+
+⚠️ **`model.predictor.kind`** (2026-09-23) — predictor 의 **attention 규칙**.
+`default`/`oneshot` = 릴리즈(full self-attention) / **`prefix`** = 문맥 양방향 · 문맥→미래 차단 ·
+미래→미래 block-causal / `causal` / `prefix_xcheck`(우리 독립 복원, 대조 전용).
+레지스트리 `analysis/predictors/`, 구현 정본은 **Ariel 학습 코드 그대로**
+`src/models/rollout_predictor.py` (+ `modules.py` 의 `PrefixSpec` 분기).
+**state_dict 키가 릴리즈와 같아서 안 주면 조용히 full attention 으로 돈다** — 출력 상대차 **0.5 규모**.
+그래서 로더가 `predictor_checkpoint` 의 **`arch.kind` 를 읽어 기본값으로 삼고** config 와 다르면 죽는다.
+학습 코드 대조 완료 (복원과 상대 3.4e-07 일치). 검사 `z_research/scripts/analysis/check_prefix_predictor.py`.
+**2026-09-27: `prefix_full` · `ar` (자기회귀, Ariel 팔 C) 추가.** `ar` 는 mask token 규약 forward 가 막혀 있고 채점기가
+`analysis/predictors/ar_scoring.py` 로 분기한다 (문맥 · 타깃 = **블록별** LN(target_encoder), 미래는 rollout — 표준 타깃과 다른 공간이라
+**쌍 정확도만** 비교). 학습은 `configs/training/natural_ar.yaml` (`meta.sync_masks: true` 필수). 시작점 **`z_training/ARIEL_CHECKPOINTS.md`**
+(옛 `z_training/ariel/README.md` 와 ep5~43 체크포인트는 09-27 에 지워졌다 — 지금 판은 prefix ep45 · full ep40 · ar ep18).
 
 **`features:`** (없으면 `surprise` 로 폴백) `cache_dir`(**필수, 없으면 KeyError**),
 `context_length`(32), `mask_index`(0), `batch_size`(4), `cache_dtype`("float16")
@@ -505,7 +545,7 @@ cylinder 90 > cube 86 > pyramid 59 > capsule 58 > cone 48 > sphere 36 > torus 3
 | Jongseo physv3 | ViT-L → ViT-H | C16/P16 | 92.0% → 80.0% | 50 |
 
 **IntPhys1 을 운동 × 가림으로 쪼개면** (sliding): 정지 100 / 100, 이동(포물선) 91.67 / **75.0**.
-**세 셀이 천장이고 한 셀만 떨어진다** — 논문 beat 1 의 다리다.
+**세 셀이 천장이고 한 셀만 떨어진다** — 실제 벤치마크에서 P3 (움직이는 물체가 마지막 관측에서 가려지면) 의 다리다 (정본 `PAPER_STORY_2026-10-08`).
 
 v8 의 정보손실/정렬손실 분해, 2D 대조는 `z_research/IntPhysGenV8/`.
 
@@ -532,6 +572,27 @@ v8 의 정보손실/정렬손실 분해, 2D 대조는 `z_research/IntPhysGenV8/`
 ⚠️ **읽는 규칙** — 자는 물체가 없어도 위치를 낸다 (attention 이 퍼지면 토큰 평균 읽기 = 기본값). v11 은 기본값 ≈ 마지막 관측 위치, wall 은 ≈ 정지점.
 **위치 주장은 그 슬롯의 3×3 attention 질량이 균등 (0.035) 을 넘을 때만** 하고, 8 슬롯 평균 지표는 슬롯별 표 (`attn_diag.md`, `two_futures_attn.md`) 와 같이 읽는다.
 "predictor 가 물체를 마지막 자리에 둔다" 는 **철회** (기본값이었다). 맞는 문장: "가림이 경계에 걸리면 p 의 미래에는 처음부터 물체다운 토큰이 없다."
+
+### 5-6. 예측 없이 풀리는가 · 마지막 관측에 없는 사건 (2026-09-26 ~ 10-08) — P2 · P3 의 근거
+
+**2026-10-08 산출물에서 다시 셌다** (정본 `auto_research/paper/PAPER_STORY_2026-10-08.md` §재현).
+
+| 무엇 | predictor | 복사 (마지막 문맥 latent) | 출처 |
+|---|---:|---:|---|
+| IntPhys 1 dev, ViT-H `skip2_w32` | 88.89 | 85.00 [79.4, 90.0] (Δ +3.9, CI 0 포함) | `TrainingEffects/ip1_copy/` · `auto_research/Archive/H6_*` |
+| IntPhys 2 Main 506 쌍, ViT-H | 54.35 (C 24) | 55.53 (C 42) — 같은 C 에선 +1.8 [−1.8, +5.5], 구분 안 됨 | `auto_research/Archive/INTPHYS2_PERMANENCE_AUDIT_2026-09-26.md` |
+| v11, DINO-Foresight | 77.10 | 76.44 — 가림 세 조건 chance, vanish A/B 0/100 (ViT-H 와 같은 실패) | `auto_research/Archive/DINOF_V11_2026-10-07.md` |
+| RollOut_v2 위치만 다른 쌍 (ledge / wall, 392 쌍씩) | 0.0 / 17.6 | 7.9 / 2.3 | `auto_research/Archive/COPY_VS_POSITION_2026-10-07.md` |
+
+| 실물 메시 (`v11_realistic`, ViT-H `surprise_c16t32`) | 값 |
+|---|---|
+| vanish overall (720 쌍) | **79.58** — 가림 없음 100, 문맥 끝 가림 이동 팔 A 물체→빈 0–10 / B 100 (기하 v11 과 같음) |
+| ledge (낙하 vs 같은 높이 직진, 120 쌍) | **0 / 120** — 모든 속도 × 깊이 × 물체 칸 0 % |
+| gravity (포물선의 미래 다섯 중 고른 비율, chance 20 %) | 오르는 문맥 float 83.3 · 꼭대기 arc 62.5 / float 33.3 · 내려가는 문맥 arc 85.4 · stop 고른 block 1/144 |
+
+⚠️ ledge 0 % 는 "덜 움직이는 미래가 L1 로 싸다" 와 못 가른다 (같은 높이 직진은 문맥 끝 속도 그대로) — 위치 자 (§5-5 ledge) 와 같이 쓴다.
+⚠️ gravity 는 튜블릿별로 처음 1–4 튜블릿만 진짜 궤적 (arc) 을 따르고 그 뒤 벗어난다. 꼭대기 문맥에서 arc 가 이기는 건 공 자리가 아니라 두 미래 픽셀이 같은 칸 때문이다 (공 자리는 98 % block 이 높이 유지 쪽) — `z_research/v11_realistic/README.md` §4 (10-08 정정).
+⚠️ ledge · wall · 꼭대기는 09-19 정의에서 "common sense, 범위 밖" 이었다 — **10-08 사용자 결정으로 포함** (3b 사건). 단 떠 가는 미래는 복사와 닮아 VoE 쌍 하나로는 "불가능한 연속을 예측" 과 "머묾" 을 못 가른다 (H23 §3-7) — 다중 미래 설계로 낸다 (정본 §2-3 iii).
 
 ---
 
@@ -625,10 +686,15 @@ v8 의 정보손실/정렬손실 분해, 2D 대조는 `z_research/IntPhysGenV8/`
 |---|---|---|
 | `configs/protocols/` | 프로토콜 yaml + `datasets.md`/`models.md` 레지스트리 | ✅ |
 | `z_research/scripts/` | 최상위엔 **직접 치는 것만**. 나머지는 `harness/`·`data/`·`figures/`·`analysis/` | ✅ |
+| **`auto_research/`** | **논문 스토리 정본 (`paper/PAPER_STORY_2026-10-08.md`) + predictor 분석 결과 로그 (`README.md`, 철회표 · 문서 지도)**. 분석 문서 `Archive/`, 스크립트 `scripts/` | ❌ (아직 git 추적 밖 — 커밋 결정 대기) |
 | **`z_research/Benchmarks/`** | **외부 벤치마크 × 세 모델 (Garrido 프로토콜).** `README.md` → `PROTOCOLS.md` | 부분 |
 | **`z_research/IntPhysGenV11/`** | **본 실험 세트.** `README.md` 가 시작점 | 부분 |
 | `z_research/anticipation/EK100/` | V-JEPA 2 EK100 action anticipation 재현 (논문 §6). `README.md` 가 시작점 — 릴리즈 코드와 논문이 다른 곳과 우리 기본값 | 부분 |
 | **`z_research/RollOutV2/`** | **위치 readout 세트** (p 가 물체를 어디에 두나). `README.md` → `figures/v5/summary/POSITION_READOUT_2026-09-12.md` | 부분 |
+| **`z_research/RollOutV3/`** | **p 의 미래를 위치 + 정체 자로 읽는 세트** (v3 가림 없음 · v11 가림). 지금 자 = **`identity_r8`** (위치 + 56 조합 + 없음, 학습셋 `RollOut_v2_training_v8`, v11 판 빈 장면 오탐 0 %). `README.md` 가 시작점 → `Archive/IDENTITY_R8_2026-09-26.md`. 그림 `figures/` · 감사 `audit/` · 자와 읽은 값 `exp_results/` (폴더마다 README). 옛 `new_archive/` = 지금 `figures/` (2026-09-22 개설, 2026-09-26 정리) | 부분 |
+| **`z_research/TrainingEffects/`** | **학습한 모델 비교** — post-FT predictor 4 · Ariel · jongseo 사전학습 8 을 v11 · IntPhys 1 점수 + 복사 기준선 + 네 능력 (영속 · 지속 · 전이 · 읽기) 로. `README.md` 가 시작점 (2026-09-25 개설) | 부분 |
+| **`z_research/v11_realistic/`** | **실물 메시로 다시 렌더한 v11 (vanish) + 선반 낙하 (gravity)** surprise 채점. `README.md` 가 시작점 (2026-10-06 개설) | 부분 |
+| **`z_research/OcclusionStats/`** | **벤치마크의 가림 통계** — 가려진 시간 × 가려진 동안 움직이나. IntPhys 1 dev 완료: 이동 물체 0.2 초 (skip-2 로 1–3 장) · 정지 물체만 5 초. `README.md` 가 시작점 (2026-09-26 개설) | 부분 |
 | `z_AC_training/` | V-JEPA 2-AC (action-conditioned predictor, DROID) 학습 파악·하네스 (2026-09-19 개설, 아직 실행 없음). `README.md` 가 시작점 | ✅ (runs/ 제외) |
 | `z_research/IntPhysGen{V8,V10}/`, `IntPhys/` | 아카이브 | 부분 |
 | `z_research/<셋>/Archive/*.md` | 분석 문서. **파일명에 날짜** `TOPIC_YYYY-MM-DD.md` | ✅ |
@@ -709,27 +775,25 @@ SLURM 스크립트는 `source /data/hyuntak/anaconda3/bin/activate vjepa2`.
 
 ---
 
-## 10. 다음에 할 것 (beat 기준)
+## 10. 다음에 할 것 (문단 기준)
 
-**정본은 `z_research/IntPhysGenV11/Archive/PAPER_STORY_2026-08-31.md` 의 실험 순서다** — 단
-2026-09-03 부터 **`STATUS_AND_CRITIQUE_2026-09-03.md` §7 이 앞선다**: IntPhys 2 실측 → 경계 위치 축
-(sliding 재현) → 외형 편향의 비가림 정량화 → 선행 연구 → 그 다음 정렬 개입.
+**정본은 `auto_research/paper/PAPER_STORY_2026-10-08.md` §5 다.** 요약:
 
-| 순 | 실험 | beat | 비용 |
-|---|---|---|---|
-| **1** | **부분공간 겹침 / Procrustes** (`p`·`z`·`h`, 조건별) | **5** | 캐시만, SVD 두 번 |
-| 2 | ~~`p` 문맥 잔상 검정 (위치 디코딩)~~ **✅ 2026-09-12 완료** — `RollOutV2/` §5-5. 가림이 경계에 걸리면 p 미래에 물체 토큰 없음, ledge 부유 / wall 2 슬롯 통과 | 3 | 캐시만 |
-| 3 | IntPhys 2 의 V-JEPA 2 실측치 확인 | 1 | 문헌 |
-| 4 | 정렬 사상 `W: p → h` (Procrustes, 가능 변이로만) | 6·7 | 소량 |
-| 5 | 채점 층 개입 (`distance: pooled_l2` 구현 · 순서 보정) | 6·7 | 구현 |
-| 6 | 개입 후 순서 재측정 (방향 편향 · Hodge R²) | 7 | 캐시만 |
-| 7 | ViT-L · v11 변종 · IntPhys 1·2 재분해 | 8 | 추출 포함 |
+| 순 | 무엇 | 세우는 곳 | 비용 | 담당 |
+|---|---|---|---|---|
+| 1 | **Figure 1** — 가림 + 선반 두 패널, "후보 미래 중 어디에 가까운가" (파라미터 0) + 검증된 위치 자 보조 | P2 hook | CPU, 기존 산출물 | Claude |
+| 2 | **leakage 그림** — GRASP · InfLevel 에 복사 기준선 → 벤치마크 · 칸마다 (복사, 모델) 한 점 | P2 | GPU 소량 | Claude |
+| 3 | **Ariel 세 팔을 v11_realistic · ledge · gravity 에** — 합격선 표의 ★ 채우기 | 목표 합격선 | GPU 소량 | Claude |
+| 4 | **ledge · wall 다중 미래 세트** (낙하 · 부유 · 상승 · 멈춤 / 정지 · 통과 · 튕김), 갈림은 예측 구간 안쪽 | P3 3b · Figure 1 | 렌더 + CPU | Claude (설계) |
+| 5 | **"없는 정보" 축 한 표** — 3a (가속 · 꼭대기) · 3b (낙하 · 벽) 를 같은 판으로 | P3 | CPU 대부분 | Claude |
+| 6 | **P2 일반성** — latent 예측형 하나 더 또는 생성형 하나, 복사 기준선과 같이 | P2 | GPU | Claude (모델 선택은 사용자) |
+| 7 | **corner case 방어** — `OcclusionStats` 를 IntPhys 2 · GRASP · InfLevel 로 | P3 | CPU + 추적기 | Claude |
+| 8 | **관측만으로 학습하는 predictor** — 정본 §2-4 합격선을 넘는 것, Ariel 과의 차이가 첫 줄 | 목표 | 학습 | **사용자** |
+| 9 | **AC subsection 실험** — scratch vs post × AC 데이터 10/30/100 % | AC | 설계 → 학습 | Claude (설계) · 사용자 |
+| 10 | 문헌 확인 — P1 (동물 · 적응) · P2 (world model 발전 · IntPhys 2 · 생성형 물리 벤치마크 · VoE leakage 선행) | P1 · P2 | 문헌 | Claude |
 
-**1 번이 논문의 새 중심이고 제일 싸다.** 결과가 어느 쪽이든 beat 가 선다 —
-겹침이 작으면 "배치가 바뀐다" 확정, 크면 개입이 채점 층으로 좁혀진다.
-
-그 밖: `attn_100` 으로 미수렴 head 재학습 / linear probe 대조 / 역방향 이식(p→h) /
-축별 풀링(현행 토큰평균은 시간축·공간축을 둘 다 버려 위치·궤적 위반을 원리적으로 못 잡는다).
+옛 표 (08-31 beat 기준: Procrustes · 정렬 사상 · 채점 층 개입) 는 frozen 개입 스토리 소속이다 — `PAPER_STORY_2026-08-31.md` 에 남아 있다.
+여전히 유효한 방법론 메모: 축별 풀링 (현행 토큰평균은 시간축·공간축을 둘 다 버려 위치·궤적 위반을 원리적으로 못 잡는다 — `auto_research/Archive/COPY_VS_POSITION_2026-10-07.md` 가 실측했다).
 
 ---
 
@@ -749,25 +813,35 @@ SLURM 스크립트는 `source /data/hyuntak/anaconda3/bin/activate vjepa2`.
 ## 12. 작업 스타일
 
 - **지시받은 실험을 비판적으로 평가한다.** 돌리기 전에 **"이게 논문 방향성에 맞는가"** 를 먼저 묻는다.
-  `PAPER_STORY_2026-08-31.md` 의 하네스 6개 질문을 쓴다:
+  `auto_research/paper/PAPER_STORY_2026-10-08.md` §6 의 하네스 질문을 쓴다 (2026-10-08 개정):
 
-  1. **어느 beat 를 세우는가.** 못 대면 그렇게 말한다
-  2. **결과가 어느 쪽이어도 beat 가 서는가.** 한쪽 결과로만 서면 확증편향이다
-  3. **이미 답이 있는가** (§6, `SYNTHESIS` §9)
-  4. **교란이 남는가.** 남으면 그 결과로 **못 하는** 주장을 미리 적는다
-  5. **재학습이 필요한가.** 필요하면 그 자체로 재검토 대상이다 — 이 논문은 frozen 위에서 닫힌다
-  6. **표본이 결론을 낼 크기인가** (v11: 조건×위반 672쌍 / k 까지 168쌍 / 방향당 16쌍)
-  7. **corner case 인가, 어느 use case 에 닿는가** (2026-09-03 추가). 그 조건이 실제 사용·벤치마크에서
+  1. **어느 문단 (P1 · P2 · P3 · 목표 · AC) 의 어느 문장을 세우거나 무너뜨리나.** 못 대면 그렇게 말하고 돌리지 않는다
+  2. **결과가 어느 쪽이어도 문장이 서는가.** 한쪽 결과로만 서면 확증편향이다
+  3. **이미 답이 있는가** (§6, `auto_research/README.md` §2 철회표, 정본 §3 · §4)
+  4. **마지막 관측에 "보이는 것 / 안 보이는 것 / 없는 것" 중 무엇을 재나.** 셋을 섞은 평균으로 결론 내지 않는다
+  5. **복사 기준선을 같이 내나.** VoE 점수는 예측 없이 풀릴 수 있다 — 복사 대비 Δ (가능하면 copy-hard · 위치 쌍).
+     교란 (토큰 평균 L1 이 위치를 못 봄 등) 이 남으면 그 결과로 **못 하는** 주장을 미리 적는다
+  6. **학습이면**: action 없이 관측만인가 · 학습 도메인 밖에서 재나 (궤적 외우기 구분) · 이미 실패한 Ariel · post-FT 와 무엇이 다른가.
+     ("frozen 위에서 닫힌다" 는 09-06 에 폐기됐다 — 목표 자체가 predictor 학습이다. 학습 실행은 사용자 몫)
+  7. **표본이 결론을 낼 크기인가** (v11: 조건×위반 672쌍 / k 까지 168쌍 / 방향당 16쌍; v11_realistic k 칸 15쌍)
+  8. **학습된 자를 쓰는가.** 쓰면 held-out 정밀도 · encoder 대조 · 파라미터 없는 교차검증을 같이 낸다
+  9. **corner case 인가, 어느 use case 에 닿는가** (2026-09-03). 그 조건이 실제 영상·벤치마크에서
      얼마나 흔한지, 결과가 planning / 벤치마크 갭 / 평가 방법론 중 어디에 닿는지 먼저 말한다.
      **피드백을 줄 때 이 둘을 항상 같이 준다.** 못 대면 그 실험은 스토리를 못 세운다
 
   **동의만 하고 돌리는 것이 가장 큰 실패다.** 하루에 GPU 수 시간을 그렇게 태운 적이 있다.
   반대로 사용자가 이유를 대면 그건 결정이다 — 한 번 말하고 진행한다.
 
-- **금지 표현** (`PAPER_STORY` 에 전체 표):
+- **금지 표현** (정본 §7 에 전체 표):
+  "world model 은 물리를 이해하지 못한다 / intuitive physics 가 없다"(조건 없이 — "마지막 관측에 없는 X 를 따르는 미래를 예측하지 못한다") /
+  "직관물리는 창발하지 않았다"(반박 대상은 그 측정 — "IntPhys 1 은 leakage 가 크다, 예측 없이 85 %") /
+  "IntPhys 1 은 틀린 벤치다"(잰 것은 leakage 크기 — 복사 기준선으로 정의하고 쓴다) /
+  "ledge 에서 불가능한 연속을 예측한다"(떠 가는 미래는 복사와 닮았다 — "낙하하는 미래를 만들지 않는다") /
+  "모델이 중력을 안다·모른다"(내부 귀속) / "encoder 가 미래를 표현한다" / "기억(memory) 문제다" /
+  "context 에서 안 보이면 못 한다"(전부로 — 문맥 가운데 가림은 처리한다, "마지막 관측에") /
+  "action-free 학습으로 해결된다"(Ariel 반례 — 합격선을 넘기 전까지) / "AC 는 post 여야 효과가 있다"(subsection 실험 전까지 가설) /
   "predictor 가 X 를 못 만든다"(probe 가 100% 로 읽는다) / "가림이 표현을 망가뜨린다"(env 72칸 100) /
-  "표현이 회전했다"(beat 5 전에는 못 쓴다) / "z 와 h 가 같다"(천장) /
-  "목적함수 때문이다"(discussion 한 문단) / **α·보정·헤지 계수**(인용 금지)
+  "z 와 h 가 같다"(천장) / "목적함수 때문이다"(discussion 한 문단) / **α·보정·헤지 계수**(인용 금지)
 
 - **기존 하네스를 먼저 찾는다.** 새 진입점·새 규칙을 발명하기 전에 `run.sh`, `SET=`,
   `extends:`, `fit_groups_sweep: auto` 로 되는지 확인할 것

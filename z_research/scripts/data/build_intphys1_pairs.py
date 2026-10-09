@@ -78,14 +78,15 @@ def main():
                      a.frames_root, PATTERN.format(block=blk, quadruplet=quad, run=run, frame=f))).convert("RGB"))
                   for f in range(1, N_PROBE + 1)]
             clips.append(np.stack(fr))
-        m = matches(breaking_points(clips))
+        bps = breaking_points(clips)          # ⚠️ 블록마다 한 번만. 예전엔 로그에서 또 불러
+        m = matches(bps)                       #    차분 계산이 2 배였다 (2026-09-22)
         for pid, pair in enumerate(m, start=1):
             for j in pair:
                 r = runs[j + 1]
                 if r.get("pair_id", "") == str(pid): agree += 1
                 else: changed += 1
                 r["pair_id"] = str(pid)
-        print(f"  {blk}/{quad}  bps={breaking_points(clips)}  pairs={m}")
+        print(f"  {blk}/{quad}  bps={bps}  pairs={m}")
 
     print(f"\n기존 pair_id 와 일치 {agree} / 바뀜 {changed}")
     if a.write:

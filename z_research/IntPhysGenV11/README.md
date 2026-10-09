@@ -3,6 +3,18 @@
 > **새 세션은 이 파일부터 읽는다.** 레포 전체 규칙은 루트 `CLAUDE.md`,
 > 실행 방법은 `configs/protocols/README.md`, 스크립트 목록은 `z_research/scripts/README.md`.
 
+> 🆕 **2026-10-08 — 논문 스토리가 바뀌었다. 정본은
+> [`../../auto_research/paper/PAPER_STORY_2026-10-08.md`](../../auto_research/paper/PAPER_STORY_2026-10-08.md) 다.**
+>
+> **한 문장: 사람은 관측만으로 intuitive physics 를 갖추고 plausible future 를 상상한다. 지금의 world model 은
+> 마지막 관측에 보이는 것만 외삽하고, 안 보이는 것 (가림) · 없는 것 (가속 · 낙하 · 꼭대기) 은 예측하지 못한다.
+> 정보는 encoder 에 있으므로 실패는 predictor 에 있다 → action 없이 관측만으로 그것을 배우는 predictor, AC 는 post-training.**
+>
+> **v11 의 자리: P3 의 통제 testbed** — "어디서 무너지는가" 를 가림 (안 보이는 것) × 운동 (등속 · 등가속 = 없는 것) × 위반으로 가른다.
+> 이 세트의 수치 (§4) 와 금지 표현은 그대로 쓰인다. 하네스 질문은 정본 §6 (= CLAUDE.md §12).
+>
+> <details><summary>옛 머리말 (2026-09-06 판, 기록)</summary>
+>
 > ⚠️ **2026-09-06 — 스토리 축이 옮겨갔다. 정본은
 > [`Archive/PAPER_STORY_2026-09-06.md`](Archive/PAPER_STORY_2026-09-06.md) 다.**
 >
@@ -21,6 +33,8 @@
 > 배경: [`Archive/STATUS_AND_CRITIQUE_2026-09-03.md`](Archive/STATUS_AND_CRITIQUE_2026-09-03.md)
 > (corner case 판정 · 후보 A/B/C · 선행연구). [`PAPER_STORY_2026-08-31.md`](Archive/PAPER_STORY_2026-08-31.md)
 > 는 **근거 수치와 금지 표현 표가 그대로 유효**하고 새 판 §3 진단에 재사용된다.
+>
+> </details>
 
 **v11 이 본 실험 세트다.** v8·v10 은 아카이브이고 신규 실험은 전부 v11 에서 돈다.
 
@@ -41,19 +55,18 @@ v11 은 물체다운 토큰이 남는 길이 = late 0 < early/mid 3 < 가림막 
 
 ## 1. 지금 논문이 무엇인가
 
-**정본: [`Archive/PAPER_STORY_2026-08-31.md`](Archive/PAPER_STORY_2026-08-31.md)**
+**정본: [`../../auto_research/paper/PAPER_STORY_2026-10-08.md`](../../auto_research/paper/PAPER_STORY_2026-10-08.md)** (2026-10-08 사용자)
 
-> Latent predictor 는 관측이 끊겨도 정보를 잃지 않는다.
-> 잃는 것은 **그 정보를 놓는 자리**이고, 그 자리는 **frozen 상태에서 되돌릴 수 있다.**
+| 문단 | 내용 | v11 이 주는 근거 |
+|---|---|---|
+| P1 | 사람 · 영유아 · 동물은 관측만으로 intuitive physics (사라지지 않음 · 중력) 를 갖추고 plausible future 를 상상한다 | — (문헌) |
+| P2 | world model 은 빠르게 발전하지만 intuitive physics 를 따르는 미래는 예측 못 한다. Figure 1 hook | IntPhys 1 은 leakage 벤치 (복사 85.0) — v11 은 leakage 가 작은 칸 (문맥 끝 가림, 복사 39–63) 에서 무너짐을 보인다: vanish '물체→빈' 0 % (hook 후보) · DINO-F 도 같은 실패 |
+| P3 | testbed: 마지막 관측에 보이는 것만 외삽 · 안 보이는 것 / 없는 것은 못 한다 · encoder 는 정보가 있고 predictor 가 실패 | §4 채점 (가림 행 바닥, 등가속 shape 69.0) · probing (`p` 98.46 / 99.49 / 100) |
+| 목표 | action 없이 관측만으로 그것을 배우는 predictor (사용자 학습), AC 는 post-training (가설) | v11 post-FT 는 도메인 안에서만 오른다 (`../TrainingEffects/`) |
 
-8 beat: motivation(IntPhys 1 은 되는데 2 는 무너진다) → testbed 두 통제 → 병목은 predictor
-단계 → 무너지는 건 정보가 아니라 배치 → **배치가 어떻게 다른가(표현 수준, 미실행)** →
-frozen 개입 → 회복 → motivation 으로의 귀환.
+**실험을 제안하기 전에 정본 §6 하네스 질문과 §7 금지 표현 표를 본다.** 어느 문단의 어느 문장을 세우는지 못 대면 그렇게 말하고 돌리지 않는다.
 
-**실험을 제안하기 전에 그 문서의 "하네스" 절 6개 질문 + 7번(corner case / use case, `STATUS_AND_CRITIQUE` §8)과 금지 표현 표를 본다.**
-어느 beat 를 세우는지 못 대면 그렇게 말하고 돌리지 않는다.
-
-**논문 전체가 frozen model 위에서 닫힌다.** 재학습이 필요한 실험은 그 자체로 재검토 대상이다.
+⚠️ 옛 판의 "**논문 전체가 frozen model 위에서 닫힌다**" (08-31) 는 **09-06 에 폐기**됐다 — 목표 자체가 predictor 학습이다.
 
 ---
 
@@ -61,8 +74,9 @@ frozen 개입 → 회복 → motivation 으로의 귀환.
 
 | 파일 | 무엇 | 언제 |
 |---|---|---|
-| **`Archive/STATUS_AND_CRITIQUE_2026-09-03.md`** | **현행 상황 + corner case 판정 + 스토리 후보 + 확장 축** | 지금 무엇을 할지 정할 때 |
-| **`Archive/PAPER_STORY_2026-08-31.md`** | **논문 스토리라인 (정본, 재검토 중)** | 실험 제안·평가 전 항상 |
+| **`../../auto_research/paper/PAPER_STORY_2026-10-08.md`** | **논문 스토리 정본 (2026-10-08)** · 근거 지도 · 결정 대기 · 하네스 · 금지 표현 | 실험 제안·평가 전 항상 |
+| `Archive/PAPER_STORY_2026-09-22.md` · `-09-06.md` · `-08-31.md` | **대체됨** — 근거 수치 · 금지 표현은 유효 | 기록 |
+| `Archive/STATUS_AND_CRITIQUE_2026-09-03.md` | 09-03 상황 + **corner case 판정** (정본 §4-3 이 이어받음) + 스토리 후보 | corner case 비판에 답할 때 |
 | `Archive/SYNTHESIS_2026-08-30.md` | 사슬 정리 · 주장 12개 상태표 · 금지 표현 | 결과를 문장으로 옮길 때 |
 | `Archive/surprising_score/RESULTS_2026-08-30.md` | **전수 기록 (표 A–J).** 채점 45셀 + probing 324칸 | 수치를 찾을 때 |
 | `Archive/surprising_score/READING_THE_MATRIX_2026-08-31.md` | **투표 행렬·precision/recall 읽는 법 (예제)** | 처음 보는 사람 |

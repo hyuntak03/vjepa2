@@ -1,0 +1,23 @@
+# =============================================================================
+# reach 학습 (2026-09-25, auto_research I-scene 뒤): 릴리즈 predictor post-FT on K400 train 40k, 정사각 창 crop.
+#   두 팔은 data.aug.window.pan_p 하나만 다르다 (SET 으로):
+#     T0 (대조, 고정 창)   : SET="data.aug.window.pan_p=0.0"
+#     T1 (인공 카메라 팬)  : SET="data.aug.window.pan_p=0.7"   (v ~ U[0, 12] px/프레임, 방향 ±)
+#   가설: 학습 데이터의 변위 폭이 먼 출처 조회 강도 → reach 를 정한다 (I_SCENE_CAUSAL_BOTTLENECK §5).
+#   평가: auto_research/scripts/e_scene_reach{,_nat}.py (reach 곡선 · attention) + IntPhys 1 (in-loop val).
+# =============================================================================
+extends: frozen_predictor_postft
+
+data:
+  datasets: [k400_train_40k]
+  aug: {hflip_p: 0.5, random_resized_crop: null, window: {zoom: 1.5, pan_p: 0.0, vmax: 12.0}}
+
+optimization:
+  epochs: 3
+  lr: 5.0e-5
+  start_lr: 1.0e-6
+  final_lr: 1.0e-6
+  warmup: 1
+
+meta:
+  save_every_freq: 1

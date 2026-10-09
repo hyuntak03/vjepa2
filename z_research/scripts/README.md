@@ -18,6 +18,7 @@ data/           인덱스·데이터 준비
                               쌍 1116/1182/450 (2026-09-21 전면 재작성)
   build_rollout2_index.py     RollOut_v2 인덱스 — 라벨은 metadata 가 아니라 plan 에서 (검증 15항목)
   build_probe_imp_index.py    불가능 변이를 probing 대상으로 여는 인덱스
+  build_intphysgen_index.py   IntPhysGen 렌더 metadata.csv -> 표준 index.csv (v11 열 + sym_k) + 문맥 무결성 전수 감사 (v11_realistic · ledge, 2026-10-06)
   build_ek100_resized.py      EPIC-KITCHENS 비디오 짧은변 256 -> 가운데 256x256, 프레임을 N/fps 로 재번호해 원본 decord 인덱스와 1:1 (파일마다 프레임 수 대조) -> /data2/local_datasets/EPIC-KITCHENS_resized (vll5 에서 확인)
   ek100_resized_progress.py   위 전처리 진행률 (완료 파일 + 도는 ffmpeg 읽은 양 -> %, 남은 시간). 로그가 비어 있는 초반에 쓴다
   verify_ek100_resized_frames.py  재인코딩본을 dataloader 와 같은 인덱스로 decord 로 읽어 원본 프레임과 픽셀 대조 (밀림 d=-2..2, 동률·중복 프레임 구분)
@@ -29,6 +30,8 @@ figures/        논문 그림. 전부 산출물에서 재계산해 summary.json 
   plot_v11_surprise.py      v11 채점 그림 전부.  상단 FIGDIR 표가 하위 폴더를 배정한다
                             (01_condition / 02_occlusion_k / 03_direction / 04_object_order)
                             표에 없는 이름은 최상위에 떨어진다 — 새 그림이 눈에 띄라고 일부러
+  gif_token_surprise.py     토큰별 surprise 차 Δ 를 원본 위에 겹친 GIF + 물체/배경 기여 표 -> z_research/v11_realistic/figures/token_surprise/ (2026-10-07)
+  plot_v11_realistic.py     v11_realistic 그림 3 장 (가림 유무 · k × 방향 · ledge) -> z_research/v11_realistic/figures/ (2026-10-06)
   plot_v11_probing.py       v11 probing 그림.  324칸 전수 대조 후 by_condition/ by_k/ 로
   plot_v11_occtiming.py     가림 타이밍(early/mid/late) 그림.  **두 run 을 합친 report** 를 받는다
                             (v11 본체 + v11_earlymid). FIGDIR: 01_timing / 02_timing_k / 03_object_order
@@ -52,8 +55,20 @@ figures/        논문 그림. 전부 산출물에서 재계산해 summary.json 
   plot_confusion.py         predictions.json -> confusion matrix
   plot_vanish_direction.py  vanish 방향별
   plot_intphys1_bars.py     IntPhys1 채점
+  plot_occlusion_intphys1.py IntPhys1 가림 통계 그림 (쌍 × 프레임 가시성 래스터 · 길이/이동/정답 3 패널) — occlusion_intphys1.py 산출물만 읽음 -> OcclusionStats/intphys1/figures/ (2026-09-26)
+  plot_intphys1_target_inputs.py IntPhys1 88.89 칸에서 target encoder 가 받는 32 장 (모델 입력 텐서, 256) — --simple <video> 로 창 9 × 32 장 한 장 -> Benchmarks/figures/intphys1_windows/ (2026-09-25)
+  plot_intphys1_windows.py  IntPhys1 88.89 칸 (skip2_w32) 창마다 context / future / target encoder 가 받는 raw 프레임 지도 + 한 쌍의 9 창 썸네일 (Filtered 가 고른 C 경계) -> z_research/Benchmarks/figures/intphys1_windows/ (2026-09-25)
   plot_ek100_anticipation_gif.py  EK100 anticipation 과제 GIF (CONTEXT 4s / GAP 1s / ACTION 라벨 + 모델 입력 영역) -> z_research/anticipation/EK100/figures/samples/
   plot_ctxenc_direction.py  실험 6 그림: 좌/우 방향 혼동행렬 4 개 (데이터셋 2 x 정방향·역재생) + probe 별 요약 막대 → context_encoder_analysis/figures/encoder_temporal_dynamics/ (2026-09-20)
+  plot_v3_l2_error.py       RollOut_v3 p 위치 오차 16 창 × 8 법칙. --signed = 축마다 앞섬/뒤처짐 + 등속 연장·복사 기준선 → RollOutV3/figures/v3_signed_error[_hhead]/ (--head h = h 자로 p 읽기). 플래그 없는 |오차| 판은 new_archive 에서 뺐다 (2026-09-25)
+  plot_v3_trajectory.py     RollOut_v3 마지막 관측에서 옮긴 위치·속도 (GT · p · z) → figures/v3_trajectory/
+  plot_v3_decoder_gif.py    RollOut_v3 영상 위 진실 · p@h · h@h (P ≤ 16 창 12 개, 삽화) → figures/v3_gif/
+  plot_v11_presence.py      v11 visible / mid / last (k≥2) × 운동: p '있다' 비율 · 위치 L2 → figures/v11_presence/ (판정은 _audit/v11_presence/)
+  plot_v11_signed_error.py  v11 조건 9 개 (가림 없음 · 문맥 끝 k1–4 · 중간 k1–4) × 정지/flat/ramp: p 앞섬/뒤처짐 (x·y), 기준선 = 마지막으로 본 자리 멈춤 · 본 속도 연장, h 기준선 → figures/v11_signed_error/ (2026-09-26)
+  plot_context_to_future.py     v3 16 창 · v11: 문맥 속도 · 가속 · 시작 위치 · 외형이 p 의 미래를 바꾸나 (궤적 bootstrap 회귀 · η²) + 정체 유지 → RollOutV3/figures/context_to_future/ (2026-09-26)
+  plot_train_readout.py         정체 자를 **자기 학습셋 held-out test** 에서: ROC · 정체 · 위치 오차 · 혼동, 튜블릿별 · 무대 가족별 · 화면 위치별 → RollOutV3/figures/train_readout/ (2026-09-26, new_archive_redraw 등록)
+  plot_v11_readout_overlay.py  v11 정지/flat/ramp × 가림 없음·문맥 끝 k1–4: p 가 '있음' 일 때 읽힌 위치를 빈 장면 프레임 위에 (색 = 튜블릿), 진실 궤적 · 마지막 본 자리 → figures/v11_readout_overlay/ (2026-09-26)
+  new_archive_redraw.py         **자 하나로 RollOutV3/figures 그림 여섯 폴더 다시 그리기** (2026-09-25, 이름은 옛 new_archive 시절 그대로): check → bias → extract (이 자로 안 읽힌 readings 만, v3 GPU 6 + v11 GPU 2 동시, v3 프레임 캐시 예열) → figs (옛 그림은 도장 보고 _superseded/<자>_<지문>/ 로)
 
 analysis/       산출물·토큰 캐시 기반 분석. **전부 GPU 불필요**
   check_prefix_predictor.py   **`kind: prefix` predictor 구조 검사** (Ariel block-causal 체크포인트).
@@ -65,8 +80,14 @@ analysis/       산출물·토큰 캐시 기반 분석. **전부 GPU 불필요**
                               29 항목. **하네스/config/로더를 건드리면 이것부터 돌린다** (2026-09-21)
   garrido_rescore.py          공식 축약 규칙으로 **재실행 없이 다시 채점**. IntPhys=Filtered(min),
                               GRASP·InfLevel=property 마다 최고 C. 창 16/32 실행을 합쳐 A.8 최고를 고른다 (2026-09-21)
+  intphys2_grid_best.py       IntPhys 2 — 창 16/32/48 실행을 **하나의 격자**로 합쳐 열 (Easy/Medium/Hard/Overall) 마다 최고.
+                              C 는 공식 비율 (창 × ¼…⅞) 로 제한. pair_acc 는 intphys2_column_best 것 (2026-09-27)
   bench_table.py              위 재채점 결과로 z_research/Benchmarks/README.md §4 표를 생성 (--readme) (2026-09-21)
   report.py                   summary.json 검증 -> report.json (그림·문서의 단일 입력)
+  token_surprise_background.py  배경 토큰 Δ 검사 — 픽셀 차 구간별 분해 · 쌍마다 배경/물체 부호 일치 -> token_surprise/background_checks.md (2026-10-07)
+  token_surprise_maps.py      surprise 채점을 토큰별로 다시 (같은 _resolved.yaml · forward) → <run>/token_surprise.npz. 토큰 평균 = per_block.json 검증 · 쌍 판정 대조 (2026-10-07)
+  gravity_retrieval.py        gravity_realistic — 미래 넷 (arc · rise · float · line) 중 p 가 가장 가까운 것 (argmin surprise), 쌍 정확도 · 순위 (2026-10-07)
+  v11_realistic_tables.py     v11_realistic · ledge 채점표 (조건 × 방향 · k · 물체, 원본 v11 vanish 대조). summary.json 과 overall 대조 (2026-10-06)
   merge_probe_runs.py         쪼개서 제출한 probing job 을 합침. val_video_ids 가 다르면 죽는다
   probing_md.py               RESULTS_*.md 의 probing 절(표 G-J)을 재생성
   knockout_md.py              knockout results.json -> 축별 markdown 표. `--write` 로 ablation README 전수 기록 11 교체
@@ -100,6 +121,7 @@ analysis/       산출물·토큰 캐시 기반 분석. **전부 GPU 불필요**
   rollout3_window_readout.py    RollOut_v3 **16 개 (문맥, 예측) 창**에서 p·z·h 의 위치·존재를 읽는다. 창마다 모델을 다시 짓는다 (window_size → RoPE 격자) → RollOutV3/exp_results/windows/readings.npz (2026-09-23)
   plot_readout_errorbars.py     (figures/) 자의 존재 판정·위치 오차를 v6 / v3 / 튜블릿별 recall 세 장으로 + ERRORS.md
   rollout3_paths.py             RollOutV3 경로·자 지문을 **한 곳에서** (R3_DECODER / R3_OUT). readings 는 지문이 다르면 check() 가 막는다
+  rollout3_doc_numbers.py       RollOutV3 README · IDENTITY_R8 문서의 **모든 표를 산출물에서 다시 찍는다** (CPU 몇 초, 2026-09-26). 문서 수치를 고치면 이것과 대조
   rollout3_rerun.sh             자를 새로 배운 뒤 v3 결과 전부를 다시 (치우침 → 16 창 → 표 → 그림 → GIF). R3_OUT 필수
   rollout3_behavior_metrics.py  predictor 행동 성적표 초안 (H · T50 · F · s · g + z 로 자 검증). 지표 확정 전 → exp_results/windows/BEHAVIOR.md
   rollout3_decoder_compare.py   같은 v3 에서 옛 자 vs 새 자 (각자 자기 문턱·치우침) → exp_results/<새 readings>/DECODER_COMPARE.md
@@ -114,8 +136,33 @@ analysis/       산출물·토큰 캐시 기반 분석. **전부 GPU 불필요**
   step_direction.py           걸음의 방향
   typicality.py               전형성 가설 (기각됨)
   intphys1_direction_audit.py IntPhys1 방향 균형 감사
+  occlusion_intphys1.py      (CPU 3 분) IntPhys1 사건 물체 가림 통계 — 두 possible 영상 mask 를 픽셀 단위로 맞대 원리별 (O1 있음/없음 · O2 대칭차 · O3 영상별) 가시성, 쌍마다 사건 가림 길이 (초 · skip2/5 장수) · 가려진 동안 이동 (물체 폭) · 사건 전 미관측 · V-JEPA 2 정답 → OcclusionStats/intphys1/ (2026-09-26, 정본)
+  intphys1_occlusion_stats.py (CPU) ⚠️ 대체됨 → occlusion_intphys1.py. IntPhys1 사건 물체가 몇 프레임 가려지나 — 두 possible 영상의 mask 면적 목록 비교 (파라미터 없음), 그룹별 raw · skip2 · skip5 가림 길이 → Benchmarks/exp_results/intphys1_event_position/occlusion_stats.json (2026-09-25)
+  intphys1_event_position_acc.py (CPU) IntPhys1 Garrido 창마다 pos/imp 첫 픽셀 차 (PNG) 가 context 안 / 예측 구간 안 / 창 뒤 중 어디인지 분류 → 분류별 창 정답 · Filtered 가 고른 창의 분류 · 예측 구간 안 창만 쓴 점수 (V1) · p vs copy (H6h 원자료) → Benchmarks/exp_results/intphys1_event_position/, 문서 Benchmarks/Archive/INTPHYS1_EVENT_POSITION_2026-09-25.md (2026-09-25)
+  audit_v11_identity.py       v11 정체 probe · 풀링 기하 감사 (2026-09-25): 궤적 반복 · twin/장면 hold-out · logistic vs 닫힌 해 ridge 재도출 · 복사 기준선 (z_t7/z_all) · 부분공간 block bootstrap/순열 → RollOutV3/audit/v11_identity/AUDIT.md
+  audit_v3_motion.py          v3 운동 주장 궤적 단위 감사 (2026-09-25): 복사·등속 연장·지연 추적 기준선, 법칙 안 변위 기울기, 자 끌림 통제, p@h 대비, 짝/홀 교대 → RollOutV3/audit/v3/ (CPU ~2 분)
+  audit_v11_presence.py       v11 presence 감사 (2026-09-25): extract = 문맥만 본 복사 기준선 (GPU) · analyze = 빈 장면 귀무·h 검사·(궤적,k) CI·자 없는 vanish 비교 (CPU) → audit/v11_presence/
+  audit_training_v8.py        자 학습셋 (training_v8) 감사 (2026-09-25): 라벨 산술 · 음성 출처 (가장자리 잘림 35 %) · 판 자세↔라벨 MI · split 궤적 누수 · v11 가림막 vs 학습 판 (재질·깊이·크기·자세) → audit/training_v8/ (CPU 수 초)
+  audit_training_set.py       **렌더된 자 학습셋 감사** (--root <세트 폴더>, CPU 수 분): 구조 · 방해물×물체 빈 칸 · 빈 장면 짝 · 물체/빈 전용 자세 · 라벨 · 튜블릿 P(있음|방해물) · 가중치 · v11 판 비교 · 누수 R² · 커버리지 · 가림 열 → audit/training_sets/<세트>.json
+  rollout2_identity_readout.py  위치 + 정체 (모양×색 56 조합 + 없음, 57 분류) 자 학습 (2026-09-25). --launch 는 p·z·h 를 GPU 2 장씩 동시에, --name 으로 자 폴더 exp_results/<이름>/, 끝나면 치우침까지 (약 6.5 분)
+  decoder_bias.py               자 폴더의 좌표 치우침 attn_bias_px.json — presence 자 · 정체 자 공통 (test × 양성 평균 pred − truth)
+  v11_panel_false_alarm.py      v11 빈 장면 '있음' 오탐이 가림막 픽셀을 가리키는가 (CPU) → audit/training_v8/panel_false_alarm_<자>.json
+  v11_readout_online.py       (GPU) v11 가능 clip 에 자 (p·z·h, p@h) 를 걸어 readings.npz (--timing mid) → RollOutV3/exp_results/v11{,_mid}/
+  v11_pooled_features.py      (GPU) v11 튜블릿 평균 풀링 z/p/h → cache/v11_pooled_vith/ ; v11_pooled_probe.py (정체 선형 probe) · v11_pooled_geometry.py (풀링 기하) → figures/v11_{probe,geometry}/
   retrieval_confusion.py      block 밖 7-way retrieval. **기각됨** — 최상단 주석을 읽을 것
   retrieval_pooled.py         위의 pooled 판. 같이 기각
+  training_effects_run.sh     TrainingEffects: 14 모델 × (v11_split_test surprise_c16t32 · IntPhys1 창 16/32) 표준 하네스 채점을 GPU lane 별로 (run.sh 를 감쌈)
+  training_effects_scores.py  (CPU) 그 산출물 (per_block · per_window) 에서 v11 · IntPhys1 점수표를 다시 계산 → TrainingEffects/scores/SCORES.md (block bootstrap CI, 방향별)
+  training_effects_queue.sbatch  TrainingEffects 추출을 이어 도는 SLURM 큐 (vll5 8 GPU, 모든 단계 resume)
+  te_intphys1_score.py        **(GPU 추출 + CPU 채점)** TrainingEffects 그룹 A — IntPhys1 dev Garrido 격자 (skip2_w16·skip2_w32·skip5_w16, 창 140/영상) 에서 predictor 여러 개 (--preset final|curves) 를 encoder 한 번으로: 창×튜블릿 L1 vs 표준 표적 h · 인과 표적 h^c (H6e 정의), 복사 LN(z)_문맥끝 기준선. 영상별 shard (이어 돌리기) → /data2/.../cache/training_effects/ip1score_<preset>/, --score (garrido_rescore 함수 그대로 → 칸별 macro) · --validate (공식 per_window · H6e) · --selftest (로더 동치 + H6b/H6e 비트 재현) → TrainingEffects/ip1score/ (2026-09-25). 2026-09-27: Ariel 태그 ariel_prefix_ep45 · ariel_full_ep40 · ariel_ar_ep18 (옛 ariel_ep* 는 파일 지워짐), kind=ar 는 블록별 표적 (ar_scoring) 으로 p_std · copy_blk, p_causal=NaN
+  te_v11_readout.py           TrainingEffects: v11 (visible·late·mid 가능 16,128 clip) 에서 **predictor 여러 개** (--preset final|curves, kind 는 ckpt arch) 의 p@p·p@h 읽기 (x,y,logit,top1,진실 3×3 질량) + z·h 자 검사 + 튜블릿 평균 풀링 z/h/p_tag. kind=ar 는 거부 (2026-09-27). encoder 는 clip 당 한 번, 재개 가능 memmap → cache/training_effects/v11readout_<preset>/ (GPU 필요, 2026-09-25)
+  te_v3_readout.py            TrainingEffects: rollout3_window_readout.py 를 **predictor 목록** (--preset final|curves, --preds tag=path; kind 는 ckpt arch) 으로 일반화. RollOut_v3 가능 2,744 clip (kind=ar 는 거부, 2026-09-27), C16/P16·C16/P32 (+--c8) 에서 p_<tag>·p@h_<tag>·p@z_<tag> + z·h 를 (x,y,logit,top1,GT 3×3 질량) 로. encoder 는 clip·창당 한 번, 재개 가능 memmap, 내장 검사 (release 동치 · prefix 창 독립) + --validate (정본 readings 대조) · --check-loader (build_from_config 동치) → cache/training_effects/v3readout_<preset>/ (GPU 필요, 2026-09-25)
+  te_analyze_identity.py      TrainingEffects: v11 정체 (읽기) · 배치 — v11_pooled_probe.py · v11_pooled_geometry.py 를 **predictor 마다** (코드 수정 없이 V11P_CACHE) 다시 돌려 릴리즈와 나란히. prep (v11readout_curves pool_p → cache/training_effects/v11pooled_<tag>/, z·h·meta 는 릴리즈 symlink) · probe (원 main + clip 별 정오 기록, GPU) · geometry (GPU) · ridge / curves / report (CPU): p 무관 잎 = 릴리즈 확인, v11_split test 부분집합, 짝 block bootstrap, 부분공간 bootstrap → TrainingEffects/v11_identity/IDENTITY.md (2026-09-25)
+  te_v11_score.py             TrainingEffects: v11_split_test 21,504 clip 을 surprise_c16t32 그대로 **predictor 여러 개** (--preset final|curves|own, --preds tag=path; kind 는 ckpt arch) 로 채점. clip × predictor × 미래 슬롯 8 의 l1 (슬롯 평균 = 표준 surprise) + 복사 기준선 copy = |LN(z)_7 − h_t| + hcopy·hstep·pz·pstep. 그룹 B (--model vitb_*/vittiny_*) 는 own. 2026-09-27: Ariel 태그 갱신 (ariel_prefix_ep45 · ariel_full_ep40 · ariel_ar_ep18), kind=ar 는 블록별 LN(target) 공간 l1 + AR 전용 copy_blk (쌍 정확도만 비교). encoder 는 clip 당 한 번, 재개 가능 memmap + done 플래그, 끝나면 matched-pair summary → cache/training_effects/v11score_<model>_<preset>/. --validate: p 비트 대조 (build_from_config) + 하네스 per_video_surprise 대조 → TrainingEffects/v11score/ (GPU 필요, 2026-09-25)
+  te_analyze_scores.py        (CPU) te_v11_score.py 배열 (done 행만) 분석: 하네스 재현 검증 · 복사 기준선 (p − copy, 그룹 B 는 own copy) · 학습 곡선 (e0 = release) · 슬롯별 · 드러남 단계 · '예측한 변화량' (pz/hcopy, pstep/hstep) · Δ vs release 칸 목록. block bootstrap (칸마다 공유 resample = 짝지은 차이) → TrainingEffects/scores/{ANALYSIS.md, analysis.json, fig_*.png} (2026-09-25)
+  te_analyze_v3.py            (CPU) v3readout_curves (te_v3_readout.py) 의 RollOut_v3 운동 — 지속 (튜블릿별 '있다' · '모임' (+진실 3×3 질량) · T50, C16/P16·C16/P32) · 전이 (법칙별 부호 오차 · 이득 β · 복사/등속 연장 기준선 · 변위/위치 귀무 · law−flat_v 대비 · 이득 비 ρ · y 치우침 보정) · 도달 거리 (flat_v reach · plateau · 시간/거리 상관) · 학습 곡선, predictor 22 개. p@h 주 · p@p 보조, 두 자 견고 판정, 법칙 층화 궤적 bootstrap (짝지은 Δ, 공통 '모임' 칸) + release sanity (정본 readings · values.json · CROSS_HEAD) → TrainingEffects/v3_motion/{MOTION.md, TABLES.md, motion.json, fig_*.png} (2026-09-25)
+  te_analyze_presence.py      (CPU) v11readout_curves (done 행, v11_split test 절반) 의 있음 읽기 — 영속 (late k≥2 t1..t4 present − 빈 바닥 · AUROC) · 지속 (visible 읽을 수 있는 칸 t3..) 을 predictor 별 (p@h 주 · p@p 보조 + h@h · z@z · 복사 참조) · 학습 곡선 · 위치 ('있다' ∧ mass3 > 0.035 의 L2 · 부호 x 오차) · vanish A/B (scores.json). (궤적,k) 두 단계 cluster bootstrap (칸마다 공유 가중치 = 짝지은 Δ) + release 전 block sanity (values.json) → TrainingEffects/v11_presence/{PRESENCE.md, TABLES.md, presence.json, fig_*.png} (2026-09-25)
+  te_analyze_ip1.py           (CPU) te_intphys1_score.py 배열 (ip1score_final, 읽기만) 로 IntPhys1 그룹 A predictor 마다 **p vs 복사 기준선**: 하네스 per_window 재현 검증 (뒤집힌 쌍) · 칸 3 개 (skip2_w32/w16 · skip5_w16) × 표준/인과 표적의 p − copy · Δ vs release · O1/O2/O3 · 운동×가림 · 이동+가림 사건 튜블릿 pre/e0/post (H6e/H6d 정의) · 그룹 B 하네스 표 · 학습 곡선 (curves 배열 또는 하네스 점). principle 층화 scene bootstrap (cluster 집합마다 공유 resample) → TrainingEffects/ip1_copy/{IP1_COPY.md, ip1_copy.json, fig_*.png} (2026-09-25)
 
 slurm_logs/     .gitignore
 ```

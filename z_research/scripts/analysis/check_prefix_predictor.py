@@ -1,11 +1,15 @@
 """`kind: prefix` predictor 가 학습 때와 같은 attention 으로 도는지 확인한다.
 
-시작점 `z_training/ariel/README.md`. 구현 정본은 **Ariel 학습 코드**
-`src/models/rollout_predictor.py` (2026-09-23 수령), 우리 독립 복원은
-`analysis/predictors/prefix_causal.py` (`kind: prefix_xcheck`, 대조 전용).
+시작점 `z_training/ARIEL_CHECKPOINTS.md` (옛 `z_training/ariel/README.md` 는 2026-09-27 폴더 정리 때 사라졌다).
+구현 정본은 **Ariel 학습 코드** `src/models/rollout_predictor.py` (2026-09-23 수령, 2026-09-27 판으로 갱신),
+우리 독립 복원은 `analysis/predictors/prefix_causal.py` (`kind: prefix_xcheck`, 대조 전용).
 
   python z_research/scripts/analysis/check_prefix_predictor.py \
-      --ckpt z_training/ariel/block_causal_future_only_1e_5_ep_5/latest.pt --device cuda:0
+      --ckpt z_training/ariel/block_causal_future_only_1e_5/latest.pt --device cuda:0
+
+  ⚠️ 2026-09-27 — 예시의 옛 체크포인트 `block_causal_future_only_1e_5_ep_5` 는 지워졌다 (아래 "실측 2026-09-23" 은 옛 epoch
+     체크포인트 시절의 기록이고 새 판으로 다시 재지 않았다). 지금 prefix 판은 `block_causal_future_only_1e_5/latest.pt` (epoch 45, arch.kind prefix). 이 검사는 prefix 전용이다 —
+     kind=ar (`ar_future_1e_5`) 는 release 규약 forward 가 막혀 있어 여기서 돌지 않는다 (AR 검사는 `z_training/tests/ar_cpu_test.py`).
 
 검사 (전부 파라미터 없음. 1·2 는 GPU 불필요)
   1. mask 의미   — 문맥↔문맥 전부 / 문맥→미래 0 / 미래→미래 block-causal

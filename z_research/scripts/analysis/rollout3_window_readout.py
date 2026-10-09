@@ -21,7 +21,8 @@ matched pairing 이 성립한다 (실측 0.000 px, `build_rollout3_index.py` [6]
    실측 batch1 대비 중앙 0.81 px · p99 5.7 px. 1 칸이 18 px 이라 무시할 수준이지만
    **재현성은 ~1 px 이라고 적는다** (CLAUDE.md §7-2 와 같은 현상).
 
-저장: 특징이 아니라 **읽은 값만** 남긴다 (튜블릿마다 x, y, presence, top1 질량).
+저장: 특징이 아니라 **읽은 값만** 남긴다 (튜블릿마다 x, y, presence score, top1 질량).
+  정체 자 (`R3_DECODER=identity`) 면 `C{c}_P{p}_{rep}_prob` (…, 57) 도 — score 의 뜻과 문턱은 rollout3_paths.present_thr
   16 창 x 3,136 clip x ≤16 튜블릿 x 3 표현 x 4 값 ≈ 5 MB.
 
   P=/data/hyuntak/anaconda3/envs/vjepa2/bin/python
@@ -40,11 +41,11 @@ import torch.multiprocessing as mp
 
 ROOT = Path("/data/hyuntak/project/2026/2027_cvpr/vjepa2")
 sys.path.insert(0, str(ROOT))
-SRC = Path("/data2/local_datasets/world/world_analysis/RollOut_v3")
+SRC = Path(os.environ.get("R3_SRC", "/data2/local_datasets/world/world_analysis/RollOut_v3"))   # 2026-09-30: 다른 노드 스테이징용 덮어쓰기
 INDEX = ROOT / "data_csv/rollout_v3/index.csv"
 sys.path.insert(0, str(ROOT / "z_research/scripts/analysis"))
 # 자 폴더·출력 폴더는 한 곳에서 (R3_DECODER / R3_OUT). mp.spawn 워커도 환경변수를 물려받아 같은 값을 쓴다
-from rollout3_paths import PRES as READOUT_DIR, WIN as OUT, fingerprint   # noqa: E402
+from rollout3_paths import PRES as READOUT_DIR, WIN as OUT, fingerprint, load_head, is_identity   # noqa: E402
 TMP = Path(os.environ.get("R3_TMP", "/dev/shm/rollout3_windows"))
 
 NF, SPLIT = 64, 32
@@ -61,6 +62,8 @@ MODEL = dict(                                            # configs/protocols/mod
     predictor=dict(embed_dim=384, depth=12, num_heads=12, num_mask_tokens=10),
     dtype="bfloat16",
 )
+if os.environ.get("PRED_CKPT"):                          # 2026-09-28: 다른 predictor 판 (encoder 는 릴리즈 그대로, arch.kind 는 체크포인트가 선언)
+    MODEL["predictor_checkpoint"] = os.environ["PRED_CKPT"]
 DATA = dict(root=str(ROOT / "data_csv/rollout_v3"), index_csv="index.csv",
             frames_root=str(SRC / "Images"), frames_pattern="{file_name}/{frame:06d}.png",
             frames_start=0, frames_stride=1, n_frames=32, resolution=256, block_column="block_id")
@@ -125,13 +128,10 @@ def _worker(rank, world, args, n):
     from evals.analysis_vlm.occlusion_identity.forward import extract_batch
     import decord  # noqa: F401  (WMADataset 이 쓴다)
 
-    R = readout_cls()
+    # 자는 종류 (presence / 정체) 와 무관하게 load_head 로 — (xy, score, top1, prob|None) 을 돌려준다 (rollout3_paths)
     need = set(args.reps) | (set(args.cross) if args.cross else set())
-    heads = {}
-    for rep in need:
-        h = R("attn").to(dev).eval()
-        h.load_state_dict(torch.load(READOUT_DIR / rep / "readout_attn.pt", map_location="cpu"))
-        heads[rep] = h
+    heads = {rep: load_head(rep, dev, READOUT_DIR) for rep in need}
+    ident = is_identity(READOUT_DIR)
     # (표현, 그 표현에 걸 자) 목록. `--cross h z` 면 p 토큰에 h 자와 z 자를 **추가로** 건다.
     #   ⚠️ `p` 는 `LN(target encoder)` = `h` 를 맞추도록 학습됐으므로 **h 자를 p 에 거는 것이 원리적**이다.
     #      `z` 자는 공간이 달라 대조군이다 — 실패해도 "정보가 없다" 의 증거가 아니다.
@@ -152,6 +152,11 @@ def _worker(rank, world, args, n):
     t0 = time.time()
     for wi, (total, wins) in enumerate(sorted(by_total.items())):
         bundle = build_from_config({**MODEL, "window_size": total}, dev)
+        from analysis.predictors import is_ar
+        ar = is_ar(bundle.predictor)
+        if ar:
+            from app.vjepa_frozen.ar import encode_blocks, block_indices
+            assert "z" not in args.reps, "kind=ar 에는 z 가 없다 — --reps p h (h = 블록별 LN(target_encoder))"
         # ⚠️ batch 1 이면 clip 당 ~262 ms 가 **커널 실행 오버헤드**로 나간다 (2026-09-23 프로파일:
         #    predictor 경로가 1,024 토큰이든 8,192 토큰이든 144 ms 로 같았다). 토큰 예산으로 묶는다.
         ntok = (total // 2) * S
@@ -163,18 +168,28 @@ def _worker(rank, world, args, n):
             tc, tp = c // 2, p // 2
             mm = {key(r, hr): np.lib.format.open_memmap(tmp_path(c, p, key(r, hr)), mode="r+")
                   for r, hr in apply_to}
+            mp_ = {key(r, hr): np.lib.format.open_memmap(tmp_path(c, p, key(r, hr) + "_prob"), mode="r+")
+                   for r, hr in apply_to} if ident else {}
             done_c = 0
             with torch.no_grad():
                 for ids, clips in prefetch(ds, idx, bs, pool):
                     B = clips.size(0)
                     clips = clips.to(dev, dtype=bundle.dtype, non_blocking=True)
                     feats = {}
-                    if "p" in args.reps:
+                    if ar:                           # p = rollout(블록별 h[문맥], tp), h = 블록별 h[미래] (ar_scoring 과 같은 정의)
+                        hb = encode_blocks(bundle.target_encoder, clips, 2)
+                        idx_ = block_indices(B, tc + tp, S, dev)
+                        if "p" in args.reps:
+                            with torch.autocast("cuda", dtype=torch.bfloat16):   # 2026-09-30: AR 은 autocast 없이는 SDPA dtype 오류
+                                feats["p"] = bundle.predictor.rollout(hb[:, :tc * S], idx_[:, :tc * S], tp).reshape(B * tp, S, D).half()
+                        if "h" in args.reps:
+                            feats["h"] = hb[:, tc * S:].reshape(B * tp, S, D).half()
+                    if "p" in args.reps and not ar:
                         o = extract_batch(clips, bundle, [{"base": "predictor"}],
                                           context_length=c, mask_index=0, out_dtype=torch.float16)
                         feats["p"] = o["predictor"].reshape(B * tp, S, D).to(dev)
                     for rep, mod in (("z", "context_encoder"), ("h", "target_encoder")):
-                        if rep not in args.reps:
+                        if rep not in args.reps or ar:
                             continue
                         fo = getattr(bundle, mod)(clips)
                         fo = fo[-1] if isinstance(fo, list) else fo
@@ -182,18 +197,20 @@ def _worker(rank, world, args, n):
                     ids = np.asarray(ids)
                     for r, hr in apply_to:
                         tok = feats[r]
-                        xy, pres, amap = heads[hr](tok.float())
+                        xy, score, top1, prob = heads[hr](tok.float())
                         k_ = key(r, hr)
                         mm[k_][ids, :, 0:2] = xy.reshape(B, tp, 2).cpu().numpy()
-                        mm[k_][ids, :, 2] = pres.reshape(B, tp).cpu().numpy()
-                        mm[k_][ids, :, 3] = amap.max(-1).values.reshape(B, tp).cpu().numpy()
+                        mm[k_][ids, :, 2] = score.reshape(B, tp).cpu().numpy()
+                        mm[k_][ids, :, 3] = top1.reshape(B, tp).cpu().numpy()
+                        if prob is not None:
+                            mp_[k_][ids] = prob.reshape(B, tp, -1).cpu().numpy().astype(np.float16)
                     done_c += B
                     if rank == 0 and done_c % (bs * 5) < bs:
                         frac = (wi + done_c / len(idx)) / len(by_total)
                         el = time.time() - t0
                         print(f"    [win C{c}_P{p}] bs={bs} {done_c*world:,}/{n:,} clip  {el:.0f}s  "
                               f"(전체 {100*frac:.0f}%, 남은 {el*(1-frac)/max(frac,1e-9)/60:.0f}분)", flush=True)
-            for v in mm.values():
+            for v in list(mm.values()) + list(mp_.values()):
                 v.flush()
         del bundle
         torch.cuda.empty_cache()
@@ -227,10 +244,14 @@ def main():
           + (f"  ⚠️ --limit {a.limit}" if a.limit else ""), flush=True)
 
     TMP.mkdir(parents=True, exist_ok=True)
+    ident = is_identity(READOUT_DIR)
     for c, p in WINDOWS:
         for k_ in KEYS:
             np.lib.format.open_memmap(tmp_path(c, p, k_), mode="w+", dtype=np.float32,
-                                      shape=(n, p // 2, 4))          # x, y, presence, top1
+                                      shape=(n, p // 2, 4))          # x, y, presence score, top1
+            if ident:                                                # 정체 자: 57 확률 (56 조합 + 없음) 도 남긴다
+                np.lib.format.open_memmap(tmp_path(c, p, k_ + "_prob"), mode="w+", dtype=np.float16,
+                                          shape=(n, p // 2, 57))
     t0 = time.time()
     mp.spawn(_worker, args=(a.gpus, a, n), nprocs=a.gpus, join=True)
     print(f"[extract] 끝 {(time.time()-t0)/60:.0f}분", flush=True)
@@ -246,6 +267,8 @@ def main():
                 truth=L[:n], in_frame=inf[:n])
     for c, p in WINDOWS:
         keep.update({f"C{c}_P{p}_{k_}": np.asarray(np.load(tmp_path(c, p, k_))) for k_ in KEYS})
+        if ident:
+            keep.update({f"C{c}_P{p}_{k_}_prob": np.asarray(np.load(tmp_path(c, p, k_ + "_prob"))) for k_ in KEYS})
     # ⚠️ 표현을 나눠 돌릴 수 있게 **기존 readings.npz 에 병합**한다 (--reps z 만 따로 붙이는 경우).
     #    2026-09-23: p·h 를 먼저 뽑고 z 를 나중에 붙였다. clip 수가 다르면 병합하지 않는다.
     # ⚠️ **자 지문을 싣는다.** 읽는 쪽이 문턱·치우침과 같은 자로 읽혔는지 확인한다 (rollout3_paths.check)

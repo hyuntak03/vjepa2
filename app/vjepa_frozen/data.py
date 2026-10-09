@@ -18,6 +18,8 @@ bilinear, antialias=False, ImageNet mean/std. 증강은 기본 꺼져 있고
 마스크 (MaskSampler)
   temporal_prefix   context = 앞 C 프레임 전부, target = 뒤 T−C 프레임 전부.
                     surprise_c16t32 채점과 같은 토폴로지. C 는 context_frames 에서 배치마다 고른다.
+  prefix_window     context = 앞 C 블록, target = **그 뒤 K 블록만** (C·K 독립; Ariel 2026-09-22 이식).
+                    `context_blocks` x `predict_blocks` 에서 배치마다 하나씩 (C+K <= T 인 조합만).
   block3d           릴리즈 사전학습의 3D 블록 마스크 (src/masks/multiseq_multiblock3d._MaskGenerator).
   여러 스펙을 weight 로 섞으면 **배치마다 하나**를 고른다 (per-batch). 스펙마다 context encoder
   forward 가 따로 필요하므로 한 배치에 두 스펙을 같이 걸지 않는다.
@@ -53,10 +55,22 @@ class ClipTransform:
     random_resized_crop  {scale: [lo, hi], ratio: [lo, hi]} 또는 None. 클립 전체에 같은 창.
     """
 
-    def __init__(self, resolution: int, hflip_p: float = 0.0, random_resized_crop: Optional[dict] = None):
+    def __init__(self, resolution: int, hflip_p: float = 0.0, random_resized_crop: Optional[dict] = None,
+                 window: Optional[dict] = None, square_crop: str = "none", out_uint8: bool = False):
         self.resolution = int(resolution)
         self.hflip_p = float(hflip_p)
         self.rrc = random_resized_crop or None
+        # square_crop (Ariel 이식): none = 기존 (r,r) 리사이즈 | center = 짧은 변 기준 중앙 정사각 (화면비 유지).
+        #   비정방형 자연 영상은 center 를 켜야 가로 속도가 눌리지 않는다. window 가 있으면 window 가 이긴다.
+        # out_uint8: crop·resize 만 하고 uint8 로 돌려준다 (정규화는 GPU 에서 normalize_clips). 기본 False = 기존 float 경로.
+        if square_crop not in ("none", "center"):
+            raise ValueError(f"square_crop 은 none | center: {square_crop!r}")
+        self.square_crop = square_crop
+        self.out_uint8 = bool(out_uint8)
+        # 2026-09-25 (auto_research reach 학습): 정사각 창 crop (+ 선택적 인공 카메라 팬). 기본 None = 원래 동작.
+        #   window: {zoom: 1.5, pan_p: 0.0, vmax: 12.0}  — 높이를 resolution·zoom 으로 키운 뒤 가로 방향 resolution² 창을 자른다.
+        #   pan_p 확률로 창을 프레임마다 v px/프레임 (v ~ U[0, vmax], 방향 ±) 로 민다. 아니면 무작위 위치 고정 창 (대조군과 같은 통계).
+        self.window = dict(window) if window else None
         if self.rrc:
             sc, ra = self.rrc.get("scale", [0.5, 1.0]), self.rrc.get("ratio", [0.75, 1.3333])
             if not (0 < sc[0] <= sc[1] <= 1.0):
@@ -73,7 +87,17 @@ class ClipTransform:
             h = int(round(math.sqrt(target_area / ar)))
             if 0 < w <= W and 0 < h <= H:
                 return random.randint(0, H - h), random.randint(0, W - w), h, w
-        return 0, 0, H, W  # 실패하면 전체
+        # 실패하면: square_crop=center 면 중앙 정사각 (2026-09-27 Ariel 0923 L102 이식 — 전체를 돌려주면 비정방형
+        #   원본에서 화면비가 깨진다), 아니면 기존대로 전체 프레임 (기존 config 는 결과가 안 바뀐다).
+        if self.square_crop == "center" and not self.window:      # window 가 있으면 square_crop 은 원래 안 쓰인다
+            return self._square_box(H, W)
+        return 0, 0, H, W
+
+    @staticmethod
+    def _square_box(H: int, W: int):
+        """짧은 변 기준 중앙 정사각 (top, left, h, w)."""
+        side = min(H, W)
+        return (H - side) // 2, (W - side) // 2, side, side
 
     def __call__(self, buffer) -> torch.Tensor:
         if not torch.is_tensor(buffer):
@@ -81,8 +105,21 @@ class ClipTransform:
         x = buffer.permute(3, 0, 1, 2).float().div_(255.0)          # (3, T, H, W) 0..1
         _, T, H, W = x.shape
         r = self.resolution
+        if self.window:
+            z = float(self.window.get("zoom", 1.5)); Hn = int(round(r * z)); Wn = max(int(round(W * Hn / H)), r)
+            x = F.interpolate(x.transpose(0, 1), size=(Hn, Wn), mode="bilinear", align_corners=False).transpose(0, 1)
+            y0 = random.randint(0, Hn - r); room = Wn - r
+            v = 0.0; dr = 1
+            if random.random() < float(self.window.get("pan_p", 0.0)) and T > 1:
+                v = random.uniform(0.0, min(float(self.window.get("vmax", 12.0)), room / (T - 1))); dr = random.choice((-1, 1))
+            span = v * (T - 1); c = random.uniform(span / 2, room - span / 2) if room > span else room / 2
+            offs = [int(round(min(max(c + dr * v * (f - (T - 1) / 2), 0), room))) for f in range(T)]
+            x = torch.stack([x[:, f, y0:y0 + r, o:o + r] for f, o in enumerate(offs)], 1)
         if self.rrc:
             top, left, h, w = self._rrc_box(H, W)
+            x = x[:, :, top: top + h, left: left + w]
+        elif self.square_crop == "center" and not self.window and H != W:
+            top, left, h, w = self._square_box(H, W)
             x = x[:, :, top: top + h, left: left + w]
         if tuple(x.shape[-2:]) != (r, r):
             # 채점과 같은 커널: bilinear / antialias=False (공식 Garrido 전처리와 동일)
@@ -91,7 +128,16 @@ class ClipTransform:
         if self.hflip_p > 0 and random.random() < self.hflip_p:
             x = x.flip(-1)
         x = x.contiguous()
+        if self.out_uint8:
+            return x.mul_(255.0).round_().clamp_(0, 255).to(torch.uint8)
         return (x - MEAN) / STD
+
+
+def normalize_clips(clips: torch.Tensor) -> torch.Tensor:
+    """uint8 (B,3,T,H,W) -> ImageNet 정규화 float (GPU). 이미 float 이면 그대로 (정규화된 것으로 본다)."""
+    if clips.dtype == torch.uint8:
+        return (clips.float().div_(255.0) - MEAN.to(clips.device)) / STD.to(clips.device)
+    return clips
 
 
 # ----------------------------------------------------------------------------- frames_index
@@ -199,7 +245,12 @@ def make_video_csv_dataset(spec: dict, n_frames: int, transform: ClipTransform):
               filter_short_videos=bool(spec.get("filter_short_videos", False)),
               fps=spec.get("fps"), duration=spec.get("duration"), frame_step=spec.get("frame_step"),
               uniform_sampling=bool(spec.get("uniform_sampling", False)),
-              center_sampling=bool(spec.get("center_sampling", False)))
+              center_sampling=bool(spec.get("center_sampling", False)),
+              # 2026-09-27 Ariel 이식: 리더당 decord 스레드. 기본 -1 = 기존 동작 (리더마다 전 코어). Ariel 기본은 1 —
+              #   worker 가 여럿이면 -1 은 과다구독이라 자연 영상 세트는 datasets.md 에 decord_threads: 1 을 적는다
+              decord_threads=int(spec.get("decord_threads", -1)),
+              # 2026-09-27: 학습 로더만 디코드 예외를 재추첨으로 흡수한다 (Ariel 동작). 평가 쪽 VideoDataset 기본은 False
+              resample_on_error=bool(spec.get("resample_on_error", True)))
     if sum(v is not None for v in (kw["fps"], kw["duration"], kw["frame_step"])) != 1:
         raise ValueError("video_csv 는 fps / duration / frame_step 중 정확히 하나를 줘야 한다")
     return VideoDataset(data_paths=[spec["csv"]], dataset_fpcs=[n_frames], **kw)
@@ -233,7 +284,9 @@ class WeightedConcat(torch.utils.data.Dataset):
 def build_dataset(cfg_data: dict, n_frames: int, resolution: int) -> WeightedConcat:
     aug = cfg_data.get("aug") or {}
     tf = ClipTransform(resolution, hflip_p=aug.get("hflip_p", 0.0),
-                       random_resized_crop=aug.get("random_resized_crop"))
+                       random_resized_crop=aug.get("random_resized_crop"), window=aug.get("window"),
+                       square_crop=aug.get("square_crop", "none"),
+                       out_uint8=bool(cfg_data.get("transfer_uint8", False)))   # 기본 float 전송 (기존 동작)
     specs = cfg_data["datasets"]
     if not specs:
         raise ValueError("data.datasets 가 비어 있다")
@@ -266,7 +319,12 @@ def build_dataset(cfg_data: dict, n_frames: int, resolution: int) -> WeightedCon
 class MaskSampler:
     """배치마다 (masks_enc [B, K], masks_pred [B, M], info) 를 낸다. long 인덱스."""
 
-    def __init__(self, specs: List[dict], n_frames: int, crop_size: int, patch_size: int, tubelet_size: int):
+    def __init__(self, specs: List[dict], n_frames: int, crop_size: int, patch_size: int, tubelet_size: int,
+                 seed: Optional[int] = None):
+        # seed (Ariel 이식): 주면 전용 RNG — 모든 rank 가 같은 seed 로 step 당 한 번 부르면 rank 끼리 같은 (C, K).
+        #   None (기본) = 전역 random (기존 동작, worker 안 collate 에서 뽑는 경로).
+        # seed 없으면 전역 random 을 쓴다. 모듈 객체를 속성에 담으면 DataLoader worker (spawn) 가 collator 를 pickle 하지 못한다 (2026-09-25 묶음 M 실패).
+        self._rng = random.Random(seed) if seed is not None else None
         if not specs:
             raise ValueError("mask 스펙이 비어 있다")
         self.T = n_frames // tubelet_size
@@ -298,8 +356,22 @@ class MaskSampler:
                     pred_full_complement=bool(m.get("pred_full_complement", False)),
                     inv_block=bool(m.get("inv_block", False)))
                 self.specs.append({"type": t, "gen": gen})
+            elif t == "prefix_window":
+                # 문맥 C 블록 -> 그 뒤 K 블록만 (temporal_prefix 는 K = T - C 로 묶여 있다)
+                cb = [int(x) for x in m.get("context_blocks", [self.T // 2])]
+                kb = [int(x) for x in m.get("predict_blocks", [self.T // 2])]
+                for c in cb:
+                    if not (0 < c < self.T):
+                        raise ValueError(f"context_blocks={c}: 0 < C < {self.T} 여야 한다")
+                for k in kb:
+                    if k <= 0:
+                        raise ValueError(f"predict_blocks={k}: 1 이상")
+                if not any(c + k <= self.T for c in cb for k in kb):
+                    raise ValueError(f"prefix_window: C+K <= {self.T} 인 조합이 하나도 없다 "
+                                     f"(context_blocks={cb}, predict_blocks={kb})")
+                self.specs.append({"type": t, "context_blocks": cb, "predict_blocks": kb})
             else:
-                raise ValueError(f"mask.type={t!r}; temporal_prefix | block3d")
+                raise ValueError(f"mask.type={t!r}; temporal_prefix | prefix_window | block3d")
             self.weights.append(float(m.get("weight", 1.0)))
         z = sum(self.weights)
         self.weights = [w / z for w in self.weights]
@@ -312,13 +384,33 @@ class MaskSampler:
         pred = torch.arange(n_ctx, N, dtype=torch.long).unsqueeze(0).expand(B, -1).contiguous()
         return enc, pred
 
+    def _r(self):
+        return self._rng if self._rng is not None else random
+
+    def prefix_window(self, B: int, n_ctx_blocks: int, n_pred_blocks: int):
+        """문맥 = 앞 C 블록 전부, 예측 = 그 뒤 K 블록만 (그 뒤는 만들지 않는다). RoPE 는 절대 인덱스."""
+        a = n_ctx_blocks * self.S
+        b = (n_ctx_blocks + n_pred_blocks) * self.S
+        enc = torch.arange(a, dtype=torch.long).unsqueeze(0).expand(B, -1).contiguous()
+        pred = torch.arange(a, b, dtype=torch.long).unsqueeze(0).expand(B, -1).contiguous()
+        return enc, pred
+
     def __call__(self, B: int):
-        k = random.choices(range(len(self.specs)), weights=self.weights, k=1)[0]
+        k = self._r().choices(range(len(self.specs)), weights=self.weights, k=1)[0]
         s = self.specs[k]
         if s["type"] == "temporal_prefix":
-            C = random.choice(s["context_frames"])
+            C = self._r().choice(s["context_frames"])
             enc, pred = self.temporal_prefix(B, self.n_frames, C)
             return enc, pred, {"type": "temporal_prefix", "context_frames": C}
+        if s["type"] == "prefix_window":
+            C = self._r().choice(s["context_blocks"])
+            ok = [k for k in s["predict_blocks"] if C + k <= self.T]
+            if not ok:
+                ok = [self.T - C]
+            K = self._r().choice(ok)
+            enc, pred = self.prefix_window(B, C, K)
+            return enc, pred, {"type": f"prefix C{C}K{K}", "context_frames": C * self.tub,
+                               "predict_blocks": K, "context_blocks": C}
         enc, pred = s["gen"](B)
         return enc.long(), pred.long(), {"type": "block3d", "context_frames": -1}
 
@@ -409,17 +501,23 @@ class WindowGridCollator:
 class TrainCollator:
     """DataLoader collate_fn. worker 안에서 마스크를 뽑는다 (block3d 의 step 카운터가 공유 Value 라 그래도 된다)."""
 
-    def __init__(self, mask_sampler: MaskSampler):
+    def __init__(self, mask_sampler: Optional[MaskSampler] = None):
+        # None 이면 마스크를 학습 루프가 step 당 한 번 만든다 (meta.sync_masks, rank 동기).
         self.mask_sampler = mask_sampler
 
     def __call__(self, batch):
         clips = torch.stack([b[0][0] for b in batch])            # (B, 3, T, H, W)
+        if self.mask_sampler is None:
+            return clips, None, None, None
         enc, pred, info = self.mask_sampler(len(batch))
         return clips, enc, pred, info
 
 
 def build_loader(dataset: WeightedConcat, collator, batch_size: int, rank: int, world_size: int,
-                 num_workers: int, pin_mem: bool, persistent: bool, seed: int, drop_last: bool = True):
+                 num_workers: int, pin_mem: bool, persistent: bool, seed: int, drop_last: bool = True,
+                 prefetch_factor: int = 2, timeout_s: float = 0.0):
+    # prefetch_factor · timeout (Ariel 이식): in-flight 클립 = ws x workers x prefetch x batch. timeout>0 이면
+    # 워커가 디코드에서 멈출 때 침묵 대신 RuntimeError. 기본값 2 / 0 = torch 기본 (기존 동작).
     if dataset.sample_weights is not None:
         from src.datasets.utils.weighted_sampler import DistributedWeightedSampler
         sampler = DistributedWeightedSampler(dataset, num_replicas=world_size, rank=rank, shuffle=True)
@@ -429,5 +527,7 @@ def build_loader(dataset: WeightedConcat, collator, batch_size: int, rank: int, 
     loader = torch.utils.data.DataLoader(
         dataset, collate_fn=collator, sampler=sampler, batch_size=batch_size, drop_last=drop_last,
         pin_memory=pin_mem, num_workers=num_workers,
-        persistent_workers=(num_workers > 0) and persistent)
+        persistent_workers=(num_workers > 0) and persistent,
+        timeout=float(timeout_s) if num_workers > 0 else 0,
+        **({"prefetch_factor": int(prefetch_factor)} if num_workers > 0 else {}))
     return loader, sampler

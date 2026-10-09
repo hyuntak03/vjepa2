@@ -42,8 +42,11 @@ import torch
 import torch.nn.functional as F
 
 import contextlib
+import os
 
 from analysis.intphys2.model import VJEPA2Bundle
+from analysis import predictors as PV
+from analysis.predictors import ar_scoring as ARS   # kind=ar (Ariel 팔 C) 채점 — 2026-09-27
 
 logger = logging.getLogger(__name__)
 
@@ -223,6 +226,14 @@ class VideoSurprise:
 
 
 @torch.inference_mode()
+def _copy_baseline(z_ctx: torch.Tensor, n_tgt: int, spatial_tokens: int) -> torch.Tensor:
+    """예측 없는 복사 기준선 (auto_research H6 의 copyz, 2026-09-26 IntPhys 2 감사): 문맥 마지막 튜블릿 토큰에
+    affine 없는 LN 을 씌워 모든 미래 튜블릿 자리에 복사한다. 환경변수 IP2_COPY=1 일 때만 predictor 대신 쓰인다."""
+    last = z_ctx[:, -spatial_tokens:, :]
+    last = F.layer_norm(last.float(), (last.size(-1),))
+    return last.repeat(1, n_tgt // spatial_tokens, 1)
+
+
 def score_video(
     video: torch.Tensor,  # (C, T, H, W) float, normalized (already dtype-cast is fine)
     bundle: VJEPA2Bundle,
@@ -273,6 +284,9 @@ def score_video(
     context_encoder = bundle.context_encoder
     dual_forward = context_encoder is not target_encoder
     predictor = bundle.predictor
+    is_ar = PV.is_ar(predictor)
+    if is_ar:
+        ARS.check_ar_ready(target_layer_norm)
 
     video = video.to(device=device, dtype=dtype, non_blocking=True)
 
@@ -308,6 +322,17 @@ def score_video(
         clip_used = clip[:, : C_frames + T_frames]  # trim to tubelet-aligned length
         clip_batch = clip_used.unsqueeze(0)  # (1, 3, M', H, W) -- the V-JEPA encoder wants NCTHW
 
+        if is_ar:
+            # kind=ar: 블록별 LN(target_encoder) 에서 문맥 → rollout, 타깃도 블록별 (analysis/predictors/ar_scoring.py)
+            h_blk = ARS.encode_blocks(target_encoder, clip_batch, bundle.tubelet_size)
+            z_pred, h_tgt, _ = ARS.rollout_from_blocks(predictor, h_blk, C_frames // bundle.tubelet_size,
+                                                       spatial_tokens)
+            ARS.assert_finite(z_pred, "intphys2 score_video (ar)")
+            per_window.append(float(_distance(z_pred.float(), h_tgt.float(), distance, loss_exp=loss_exp).item()))
+            starts.append(int(w.start))
+            ctx_lens.append(int(C_frames))
+            continue
+
         # Target encoder forward on the full window -> (1, N_total, D)
         h_full = target_encoder(clip_batch)
         # `out_layers` is not set at build time here so vision_transformer.forward returns the
@@ -340,7 +365,8 @@ def score_video(
 
         # Predictor: predicts target-token embeddings from context tokens + mask tokens
         # placed at the target positions.
-        z_pred = predictor(z_ctx, ctx_idx, tgt_idx, mask_index=mask_index)
+        z_pred = (_copy_baseline(z_ctx, tgt_idx.size(1), spatial_tokens) if os.environ.get("IP2_COPY") == "1"
+                  else predictor(z_ctx, ctx_idx, tgt_idx, mask_index=mask_index))
 
         # Distance -> scalar
         surprise_val = _distance(z_pred.float(), h_tgt.float(), distance, loss_exp=loss_exp)
@@ -447,6 +473,17 @@ def score_videos_batched(
     spatial_tokens = bundle.num_spatial_tokens
     embed_dim = bundle.embed_dim
     tub = bundle.tubelet_size
+    # kind=ar (Ariel 팔 C): mask token 규약이 없다. 창을 **블록(tubelet)마다 따로** target encoder 로 인코딩해
+    # 문맥 = 타깃 공간으로 쓰고, 미래는 rollout 한다 (analysis/predictors/ar_scoring.py 와 같은 정의).
+    # 표준 경로와 타깃 공간이 달라 다른 모델과는 **쌍 정확도만** 비교한다.
+    is_ar = PV.is_ar(predictor)
+    if is_ar:
+        ARS.check_ar_ready(target_layer_norm)
+        if os.environ.get("IP2_COPY") == "1":
+            raise ValueError("IP2_COPY 는 표준 경로 전용이다 (kind=ar 의 복사 기준선은 블록별 공간에서 따로 정의해야 한다)")
+
+    def _tgt_forward(x):
+        return ARS.encode_blocks(target_encoder, x, tub) if is_ar else target_encoder(x)
 
     # If max_window_batch is set, chunk the windows to bound VRAM. Otherwise do them all at once.
     # **영상을 가로질러** 평탄화한 뒤 잘라서, 창이 적은 영상도 배치를 채운다.
@@ -485,8 +522,27 @@ def score_videos_batched(
         all_idx = torch.arange(n_ctx + n_tgt, device=device, dtype=torch.long)
         per_C_masks[C] = (all_idx[:n_ctx], all_idx[n_ctx:], n_ctx, n_tgt)
 
+    def _reduce(z_pred: torch.Tensor, h_tgt: torch.Tensor) -> torch.Tensor:
+        # Per-window distance: reduce over (N_tgt, D) only, keep batch dim (Wc,).
+        if distance == "l1":
+            return (z_pred.float() - h_tgt.float()).abs().pow(loss_exp).mean(dim=(1, 2)) / loss_exp
+        if distance == "smoothl1":
+            return F.smooth_l1_loss(z_pred.float(), h_tgt.float(), reduction="none").mean(dim=(1, 2))
+        if distance == "l2":
+            return (z_pred.float() - h_tgt.float()).pow(2).mean(dim=(1, 2))
+        if distance == "cosine":
+            cs = F.cosine_similarity(z_pred.float(), h_tgt.float(), dim=-1)  # (Wc, N_tgt)
+            return 1.0 - cs.mean(dim=1)
+        raise ValueError(f"unknown distance {distance!r}")
+
     def _window_distances(clip_batch: torch.Tensor, h_all: torch.Tensor, C: int) -> torch.Tensor:
         """Per-window surprise (Wc,) for one context length, reusing the target forward."""
+        if is_ar:
+            # h_all = 블록별 LN(target_encoder) (Wc, nb*S, D). 문맥 C/tub 블록 → 나머지 블록 rollout.
+            with _ac():
+                z_pred, h_tgt, _ = ARS.rollout_from_blocks(predictor, h_all, C // tub, spatial_tokens)
+            ARS.assert_finite(z_pred, "intphys2 score_videos_batched (ar)")
+            return _reduce(z_pred, h_tgt)
         ctx_1d, tgt_1d, _, _ = per_C_masks[C]
         Wc = h_all.size(0)
         ac = _ac(); ac.__enter__()
@@ -514,19 +570,10 @@ def score_videos_batched(
         if target_layer_norm:
             h_tgt = F.layer_norm(h_tgt, (h_tgt.size(-1),))
 
-        z_pred = predictor(z_ctx, ctx_idx, tgt_idx, mask_index=mask_index)  # (Wc, N_tgt, D_out)
+        z_pred = (_copy_baseline(z_ctx, tgt_idx.size(1), spatial_tokens) if os.environ.get("IP2_COPY") == "1"
+                  else predictor(z_ctx, ctx_idx, tgt_idx, mask_index=mask_index))  # (Wc, N_tgt, D_out)
         ac.__exit__(None, None, None)          # 거리 계산은 autocast 밖(fp32)에서
-        # Per-window distance: reduce over (N_tgt, D) only, keep batch dim (Wc,).
-        if distance == "l1":
-            return (z_pred.float() - h_tgt.float()).abs().pow(loss_exp).mean(dim=(1, 2)) / loss_exp
-        if distance == "smoothl1":
-            return F.smooth_l1_loss(z_pred.float(), h_tgt.float(), reduction="none").mean(dim=(1, 2))
-        if distance == "l2":
-            return (z_pred.float() - h_tgt.float()).pow(2).mean(dim=(1, 2))
-        if distance == "cosine":
-            cs = F.cosine_similarity(z_pred.float(), h_tgt.float(), dim=-1)  # (Wc, N_tgt)
-            return 1.0 - cs.mean(dim=1)
-        raise ValueError(f"unknown distance {distance!r}")
+        return _reduce(z_pred, h_tgt)
 
     # Accumulate per-C, per-window distances as on-device scalars; single .cpu() at the end.
     per_C_surprise_gpu: Dict[int, List[torch.Tensor]] = {int(C): [] for C in context_lengths}
@@ -536,7 +583,7 @@ def score_videos_batched(
     for chunk in chunks:
         clip_batch = _stack(chunk)                       # (Wc, 3, M, H, W)
         with _ac():
-            h_all = target_encoder(clip_batch)           # 청크마다 target forward 1 회
+            h_all = _tgt_forward(clip_batch)             # 청크마다 target forward 1 회 (ar: 블록별)
         if isinstance(h_all, list):
             h_all = h_all[-1]
         for C in context_lengths:
@@ -547,7 +594,7 @@ def score_videos_batched(
     if prefix_Cs:
         clip0 = _stack([(vi, plans[vi][0]) for vi in fast])   # (V, 3, M, H, W)
         with _ac():
-            h0 = target_encoder(clip0)
+            h0 = _tgt_forward(clip0)
         if isinstance(h0, list):
             h0 = h0[-1]
         for c in prefix_Cs:

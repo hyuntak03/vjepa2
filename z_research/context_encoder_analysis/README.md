@@ -7,7 +7,7 @@
 
 > **먼저 볼 것: [`Archive/EXPERIMENTS_2026-09-16.md`](Archive/EXPERIMENTS_2026-09-16.md) — 실험별 동기 · 세팅 · 결과 · 단서를 한 문서에 정리한 것.**
 > 그 다음: 주장 종합 [`Archive/CLAIM_NO_STATE_EVOLUTION_2026-09-15.md`](Archive/CLAIM_NO_STATE_EVOLUTION_2026-09-15.md) (v0.2), 가설·큐 [`Archive/STATE_EVOLUTION_HYPOTHESES_2026-09-15.md`](Archive/STATE_EVOLUTION_HYPOTHESES_2026-09-15.md) (v1 + 상단 정정).
-> 레포 규칙은 루트 `CLAUDE.md`, 논문 뼈대는 `../IntPhysGenV11/Archive/PAPER_STORY_2026-09-06.md`.
+> 레포 규칙은 루트 `CLAUDE.md`, 논문 스토리 정본은 [`../../auto_research/paper/PAPER_STORY_2026-10-08.md`](../../auto_research/paper/PAPER_STORY_2026-10-08.md) (2026-10-08 — 이 세트는 P3 의 "encoder 에는 정보가 있다" 근거). 옛 포인터 `../IntPhysGenV11/Archive/PAPER_STORY_2026-09-06.md` 는 대체됨.
 
 ## 폴더
 

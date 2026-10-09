@@ -1,3 +1,9 @@
+> **2026-09-26 덧붙임.** 풀링 (learnable query 1 개 + attention pooling) 은 그대로다. 머리만 바뀌었다.
+> - 지금 자 `identity_r8` 은 위치 + **57-way** (모양 7 × 색 8 = 56 조합 + 없음) 다.
+> - '있음' = argmax ≠ 없음이다.
+> - null 자리만으로 있음/없음을 정하는 안 (DETR 식) 은 이 문서가 기각한 heat/mass 자와 같은 계산이라 쓰지 않았다.
+> - 근거: [`IDENTITY_R8_2026-09-26.md`](IDENTITY_R8_2026-09-26.md) §1.
+
 # 자(readout) 는 `attn` 하나다 — 고른 이유와 **다시 시도하지 말 것** (2026-09-23)
 
 > **결론: attention pooling + head 2 개 (`attn`).** 다른 후보는 코드·결과에서 전부 뺐다.

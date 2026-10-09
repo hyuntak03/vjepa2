@@ -35,7 +35,12 @@ MB21=${MB21:-8}
 set_bench() {
   case $1 in
     intphys1_dev)  echo "surprise.intphys1.frame_skips=[2,5,10]" ;;
-    grasp_level2)  echo "surprise.intphys1.frame_skips=[2,5,10]" ;;
+    # ⚠️ GRASP 은 **skip 2 를 뺀 부분 탐색**이다 (2026-09-22 결정).
+    #    A.8 공간은 [2,5,10] 이지만 skip2 가 비용의 66~71% 를 먹는다 (창 시작점 118/179).
+    #    그리고 창 16 x skip 2 = 원본 32 프레임(0.6 초)이라 501 프레임(10 초) GRASP 에서
+    #    물리 위반을 보기엔 너무 좁다. Table S3 도 GRASP 에 **skip 10** 을 골랐다.
+    #    전수 탐색 55 시간 -> 17 시간. **보고할 때 "A.8 부분 탐색" 이라고 밝힌다.**
+    grasp_level2)  echo "surprise.intphys1.frame_skips=[5,10]" ;;
     inflevel_*)    echo "surprise.intphys1.frame_skips=[5,10,20]" ;;
     *)             echo "" ;;
   esac

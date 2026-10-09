@@ -155,3 +155,57 @@ frames_start: 0
 frames_stride: 3
 frames_start_choices: [0, 3, 6]
 raw_frames: 100
+
+## ssv2_min48
+
+**Something-Something v2 에서 48 프레임 이상만** — **97,416 train / 984 val** (220,847 편 중 98,400 = 44.6 %).
+`n_frames: 48` × `fps: 12` (fstp 1, 창 4.0 초) 용 — `natural_prefix` / `natural_ar` 의 데이터 (2026-09-27 Ariel 이식).
+원본: vll5 로컬 HDD `/data2/local_datasets/something-something/something-something-v2-mp4` (심볼릭 `/local_datasets/something-something-v2-mp4`),
+12 fps · 높이 320 · 라벨 없음 (csv 둘째 칸은 전부 0 — frozen-encoder JEPA 손실은 라벨을 안 쓴다).
+⚠️ **vll5 에서만 돈다** (경로가 vll5 로컬).
+인덱스: `python z_training/data/build_video_index.py ssv2 --probe --min-frames 48 --workers 16 --write`
+→ `data_csv/ssv2/{lengths.tsv, train_min48.csv, val_min48.csv}` (gitignore — 이 명령으로 다시 만든다. vll5 CPU 16 스레드 약 2 분).
+decord 헤더 길이 ≥ 48 로 거르고 seed 0 으로 1 % 를 val 로 뗀다. **Ariel 의 수 (97,416 / 984) 와 정확히 같다** (2026-09-27 빌드, probe 실패 0 편).
+
+⚠️ **왜 미리 거르나** — `filter_short_videos` 는 짧은 영상을 만나면 **무작위 인덱스로 재추첨**한다.
+통과율이 낮으면 성공 1 건당 영상을 여러 번 열게 되고, rank 하나가 배치를 못 채우면
+**DDP 전체가 멈춘다** (Ariel 2026-09-22 실측: skipping 1,368 회 / step 0 회, GPU 7 장 100 % 공회전).
+`train_min<N>.csv` 를 쓰면 런타임 거부가 **0** 이다. N = config 의 `n_frames × fstp`.
+⚠️ val 분할은 **공식 SSv2 val 이 아니라** seed 0 무작위 1 % 다 (in-loop 감시용).
+`decord_threads: 1` — 리더당 decord 스레드 (Ariel 기본). 안 주면 -1 (리더마다 전 코어) 이라 rank × worker 개 리더가 과다구독한다.
+
+type: video_csv
+csv: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/ssv2/train_min48.csv
+fps: 12
+filter_short_videos: true
+decord_threads: 1
+
+## ssv2_min48_val
+
+위 `ssv2_min48` 의 val 분할 (984 편, 같은 빌드). 같은 규약. 감시용이고 보고 지표가 아니다.
+
+type: video_csv
+csv: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/ssv2/val_min48.csv
+fps: 12
+filter_short_videos: true
+decord_threads: 1
+
+## k400_train_40k
+
+**Kinetics-400 train 무작위 40,000 영상** (2026-09-25, auto_research reach 학습). vll6 로컬 `/data2/local_datasets/Kinetics-400/videos_train` (전체 240,436 개 중 seed 0 섞기).
+원본 320 × (426–682) · 30 fps. `fps: 12` → VideoDataset 이 frame step 30//12 = 2 (실효 15 fps, Ariel 학습과 같은 설정값).
+⚠️ 경로가 vll6 로컬이라 **vll6 에서만** 돈다. csv: `z_training` 밖의 `data_csv/k400_train/train_40k_abs.csv` (gitignore; seed 0 로 다시 만든다).
+평가 세트 (K400 val 인공 팬 · SSv2 · EK100 · v3) 와 영상이 겹치지 않는다 (val 은 videos_val).
+
+type: video_csv
+csv: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/k400_train/train_40k_abs.csv
+fps: 12
+
+## ssv2_min48_vll6
+
+**`ssv2_min48` 과 같은 97,416 편, 경로만 vll6 로컬** (`/data2/local_datasets/something-something-v2-mp4`, 2026-09-29 확인 — vll5 의 `something-something/something-something-v2-mp4` 와 같은 mp4 세트). ctx_ar 이어 돌리기 (vll6) 용.
+⚠️ **vll6 에서만 돈다.** csv 는 `train_min48.csv` 의 경로 치환 (`data_csv/ssv2/train_min48_vll6.csv`, gitignore).
+
+type: video_csv
+csv: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/ssv2/train_min48_vll6.csv
+fps: 12

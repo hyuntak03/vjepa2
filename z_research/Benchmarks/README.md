@@ -16,6 +16,10 @@
 
 **IntPhys 2 프로토콜은 범위 밖이다** (`PROTOCOLS.md` §7).
 
+> **2026-10-02 외부 모델 추가 — DINO-Foresight** (`family: dinof`, `models.md` `dinof_highres`/`dinof_lowres`, 로더 `analysis/model_loaders.py`).
+> IntPhys 1 dev: highres predictor **84.4** (skip2_w16; C=4 고정이라 창마다 실행 분리) · 같은 공간 복사 기준선 88.9–92.2 · lowres 75.6.
+> 정본 `auto_research/Archive/DINOF_INTPHYS1_2026-10-02.md`. GRASP · InfLevel 은 아직 안 돌렸다.
+
 ## 1. oracle — 하네스가 맞는지 먼저 확인한다
 
 ```bash

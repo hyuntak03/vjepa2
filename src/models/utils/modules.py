@@ -9,6 +9,22 @@ import torch.nn.functional as F
 from timm.models.layers import drop_path
 
 
+try:                                                   # torch >= 2.5
+    from torch.nn.attention.flex_attention import BlockMask as _FlexBlockMask, flex_attention as _flex_attention_eager
+    _flex_attention = torch.compile(_flex_attention_eager, dynamic=False)
+except Exception:                                      # noqa: BLE001
+    _FlexBlockMask, _flex_attention = None, None
+
+
+class PrefixSpec:
+    """(문맥 블록 수, 미래 블록 수, 블록당 토큰). ACRoPEAttention 이 마스크 없이 블록별 dense SDPA 로 푼다.
+    토큰이 인덱스 순으로 정렬돼 있고 블록 경계가 맞아야 한다 (prefix_window / temporal_prefix)."""
+    __slots__ = ("n_ctx", "n_pred", "tokens_per_block", "future_causal")
+    def __init__(self, n_ctx, n_pred, tokens_per_block, future_causal=True):
+        self.n_ctx, self.n_pred, self.tokens_per_block = int(n_ctx), int(n_pred), int(tokens_per_block)
+        self.future_causal = bool(future_causal)   # False = 미래 블록끼리 인과 없이 서로 다 본다 (prefix_full, 2026-09-24)
+
+
 def build_action_block_causal_attention_mask(T, H, W, add_tokens=1):
     N_T = add_tokens + (H * W)
     N = T * N_T
@@ -245,7 +261,28 @@ class ACRoPEAttention(nn.Module):
             k = merge_(k, action_k)
             v = merge_(v, action_v)
 
-        if attn_mask is not None or self.use_sdpa:
+        # 2026-09-22: (N,N) dense bool 마스크는 flash 를 못 타 math/mem-eff 경로로 떨어진다
+        # (실측 prefix 3.96 s vs full 1.85 s, B=28 N=6144). BlockMask 를 주면 flex_attention 의
+        # **블록 희소 fused 커널**로 돈다 (rollout_predictor.build_prefix_block_mask).
+        if isinstance(attn_mask, PrefixSpec):
+            # ★ prefix 마스크를 **마스크 없이** 계산한다 (2026-09-22). 문맥 query 는 문맥 key 만,
+            #   미래 블록 t 의 query 는 [문맥 ; 미래 <= t] key 를 본다 — 각각이 dense 라 flash 를 탄다.
+            #   (N,N) bool 마스크는 mem-eff/math 경로(2 배 느림·점수 행렬 실체화)였고, flex_attention 은
+            #   DDP 아래서 컴파일에 실패해 eager(점수 행렬 32 GB)로 떨어져 OOM 을 냈다. 이 경로는 컴파일 의존이 없다.
+            Cq, S = attn_mask.n_ctx * attn_mask.tokens_per_block, attn_mask.tokens_per_block
+            outs = [F.scaled_dot_product_attention(q[:, :, :Cq], k[:, :, :Cq], v[:, :, :Cq], dropout_p=self.proj_drop_prob)]
+            if attn_mask.future_causal:
+                for t in range(attn_mask.n_pred):
+                    qs, ke = slice(Cq + t * S, Cq + (t + 1) * S), Cq + (t + 1) * S
+                    outs.append(F.scaled_dot_product_attention(q[:, :, qs], k[:, :, :ke], v[:, :, :ke], dropout_p=self.proj_drop_prob))
+            else:   # prefix_full: 미래 query 전체가 [문맥 ; 미래 전부] key 를 본다 — SDPA 한 번
+                outs.append(F.scaled_dot_product_attention(q[:, :, Cq:], k, v, dropout_p=self.proj_drop_prob))
+            x = torch.cat(outs, dim=2)
+            attn = None
+        elif _FlexBlockMask is not None and isinstance(attn_mask, _FlexBlockMask):
+            x = _flex_attention(q, k, v, block_mask=attn_mask)
+            attn = None
+        elif attn_mask is not None or self.use_sdpa:
             with torch.backends.cuda.sdp_kernel():
                 x = F.scaled_dot_product_attention(
                     q, k, v, dropout_p=self.proj_drop_prob, is_causal=self.is_causal, attn_mask=attn_mask
