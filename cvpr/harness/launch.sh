@@ -16,7 +16,8 @@
 #   WINDOW=c8t32      창 preset               SET="a.b=1 c.d=null"  점 경로 덮어쓰기 (공백 구분; 값에 공백이 필요하면 SET_FILE)
 #   SET_FILE=f        한 줄에 KEY=VALUE 하나     LIMIT=N  SMOKE=1  RECACHE=1  VAL_ONLY=1
 #   TAG= OUTDIR=      이름을 직접   SUFFIX=_copy  이름 접미사    RESULTS_ROOT=cvpr|legacy|<경로>  (기본 cvpr → $CVPR_RESULTS/<task>/...)
-#   DRYRUN=1          병합·검사만              EVAL_DDP_PORT  EVAL_DDP_TIMEOUT_S  WMA_BAR  OMP_NUM_THREADS
+#   DRYRUN=1          병합·검사만              FORCE=1  끝난 결과 (summary.json) 가 있어도 덮어쓴다 (기본은 건너뜀)
+#   EVAL_DDP_PORT  EVAL_DDP_TIMEOUT_S  WMA_BAR  OMP_NUM_THREADS
 #
 # ⚠️ 외부 CUDA_VISIBLE_DEVICES 는 evals.main 이 rank 마다 덮어쓴다 (evals/main.py:51) — wma/ek100 은 GPU_IDS 로 고른다.
 #    intphys2 (torchrun) 는 CUDA_VISIBLE_DEVICES 를 GPU_IDS 로 만들어 준다.
@@ -60,6 +61,12 @@ if [[ -n ${DRYRUN:-} ]]; then
   echo "--- DRYRUN: 병합된 config (engine=$ENGINE) ---"; cat "$TMP/config.yaml"; rm -rf "$TMP"; exit 0
 fi
 
+# 이미 끝난 결과는 덮지 않는다 (옛 run_all.sh · run_grid.sh 의 "이미 있음, 건너뜀" 과 같다). RESULTS_ROOT=legacy 는 옛 결과 폴더 그 자체라 특히 중요하다.
+DONE=""
+case "$ENGINE" in wma|intphys2) DONE="$OUT/summary.json" ;; ek100) DONE="$OUT/val_metrics.jsonl" ;; esac
+if [[ -n $DONE && -f $DONE && -z ${FORCE:-} ]]; then
+  echo "-- 이미 있음, 건너뜀: $DONE   (다시 돌리려면 FORCE=1, 다른 이름이면 SUFFIX= 나 TAG=/OUTDIR=)"; rm -rf "$TMP"; exit 0
+fi
 mkdir -p "$OUT"
 cp "$TMP/config.yaml" "$OUT/_resolved.yaml"; cp "$TMP/meta.json" "$OUT/_meta.json"; rm -rf "$TMP"
 CFG="$OUT/_resolved.yaml"

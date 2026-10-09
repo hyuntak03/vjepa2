@@ -80,6 +80,7 @@ python cvpr/harness/resolve.py --list                                           
 | `SUFFIX` | — | launch | tag · output_dir 접미사 (`_copy`). 창 접미사 뒤 · `_smoke` 앞. 앞의 `_` 는 없어도 붙여 준다 |
 | `RESULTS_ROOT` | `cvpr` | launch | `cvpr` (`$CVPR_RESULTS/<task>/…`) · `legacy` (옛 폴더 규약) · `<경로>` |
 | `DRYRUN` | — | launch | 병합·실물 검사만 하고 config 를 출력. 모델 로딩 없음 |
+| `FORCE` | — | launch | 결과 폴더에 끝난 산출물 (`summary.json` / ek100 `val_metrics.jsonl`) 이 있으면 기본은 **건너뛴다** (옛 run_all.sh 와 같음). `1` 이면 덮어쓴다 |
 | `VAL_ONLY` | — | launch (ek100) | `val_only: true` + `--val_only` |
 | `COPY` | `0` | testbed · intphys1 run.sh | `1` = 복사 기준선. dinof_* 는 `model.dinof_copy=true` + 이름 `_copy` (launch.sh 그대로); 그 밖 (V-JEPA 계열) 은 같은 폴더의 `copy_baseline.sh "$d" "$m"` 으로 (intphys1 은 첫 창에서 한 번만). 각 폴더 README |
 | `HEADS` | `config` (head 1) | ek100 run.sh | `sweep` (20 = lr 5 × wd 4) · `grid8` (8) · `hi2` (2) — DRYRUN 으로 개수 확인함 |
