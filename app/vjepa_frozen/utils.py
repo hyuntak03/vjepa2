@@ -87,12 +87,14 @@ def build_predictor(m: dict, encoder_embed_dim: int, state: Optional[dict], devi
     pc = dict(m.get("predictor") or {})
     extra = {"use_activation_checkpointing": bool(pc.get("use_activation_checkpointing", False)),
              "zero_init_mask_tokens": bool(pc.get("zero_init_mask_tokens", True))}
+    if "kv_rollout" in pc:
+        extra["kv_rollout"] = bool(pc["kv_rollout"])          # ar 모드 rollout KV 캐시 (2026-10-10)
     # ── kind: oneshot(기본, 릴리즈 위상 = 팔 A) | prefix(prefix 마스크 = 팔 B) | causal ──
     #    prefix 판은 파라미터 이름·모양이 릴리즈와 **완전히 같아서** strict 로드가 그대로 되고,
     #    mask_mode=full 로 두면 릴리즈와 **비트 단위로 같은 출력**을 낸다 (2026-09-22 실측).
     #    그래서 A/B 가 attention 마스크 하나 차이로 갈린다 (src/models/rollout_predictor.py).
     kind = str(pc.get("kind", "oneshot"))
-    if kind not in ("oneshot", "prefix", "prefix_full", "causal", "ar", "ctx_ar"):
+    if kind not in ("oneshot", "prefix", "prefix_full", "causal", "ar", "ctx_ar", "ar_state"):
         raise ValueError(f"model.predictor.kind 는 oneshot | prefix | prefix_full | causal | ar | ctx_ar: {kind!r}")
     # ar (2026-09-26, 팔 C): mask token 없이 LN(h) 전 블록을 넣는 자기회귀 판. 학습 손실·val 은 app/vjepa_frozen/ar.py
     if kind != "oneshot":
@@ -104,10 +106,20 @@ def build_predictor(m: dict, encoder_embed_dim: int, state: Optional[dict], devi
             predictor_embed_dim=int(pc.get("embed_dim", 384)), depth=int(pc.get("depth", 12)),
             num_heads=int(pc.get("num_heads", 12)), num_mask_tokens=int(pc.get("num_mask_tokens", 10)),
             use_rope=bool(m.get("use_rope", True)), use_sdpa=bool(m.get("use_sdpa", True)),
-            mask_mode=kind, n_registers=int(pc.get("n_registers", 0)), **extra)
+            mask_mode=kind, n_registers=int(pc.get("n_registers", 0)),
+            action_dim=int(pc.get("action_dim", 0)), **extra)
+        init_path = m.get("init_predictor")            # 우리 run 의 predictor-only ckpt 에서 시작 (post-FT, 2026-10-09)
         if state is not None:
             msg = pred.load_state_dict(_clean_backbone_key(state["predictor"]), strict=True)
             logger.info(f"predictor({kind}) <- checkpoint['predictor'] (strict): {msg}")
+        elif init_path:
+            ck = torch.load(init_path, map_location="cpu", weights_only=False)
+            r = pred.load_state_dict(ck["predictor"], strict=False)
+            allowed = {"action_embed.weight", "action_embed.bias", "type_embed"}   # action 토큰 사영 · type embedding 만 새로 — 그 외 빠지면 구조가 다른 것
+            if set(r.missing_keys) - allowed or r.unexpected_keys:
+                raise RuntimeError(f"init_predictor {init_path}: missing {r.missing_keys} unexpected {r.unexpected_keys}")
+            logger.info(f"predictor({kind}) <- {init_path} (epoch {ck.get('epoch')}, step {ck.get('step')}); "
+                        f"새로 초기화: {sorted(r.missing_keys) or '없음'}")
         else:
             logger.info(f"predictor({kind}): 새로 초기화 (scratch) — H0 검정 팔")
         pred = pred.to(device)

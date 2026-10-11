@@ -1,0 +1,7 @@
+# Push-T action 조건부 AR — **상태 되먹임** scratch 팔 (2026-10-10). pusht_ar_scratch 와 rollout 되먹임 공간 하나만 다르다.
+#   GPUS=8 NAME=pusht_ar_state_scratch bash z_training/tmux_train.sh pusht_ar_state_scratch
+extends: pusht_ar_scratch
+
+model:
+  predictor:
+    kind: ar_state

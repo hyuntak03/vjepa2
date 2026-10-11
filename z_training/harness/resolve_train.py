@@ -150,6 +150,10 @@ def main():
 
     # ── model.base -> models.md ───────────────────────────────────────────────────
     m = cfg["model"]
+    if m.get("init_predictor"):                          # post-FT 출발점 (우리 run 의 predictor-only ckpt), 2026-10-09
+        m["init_predictor"] = expand(m["init_predictor"])
+        if not os.path.isfile(m["init_predictor"]):
+            die(f"model.init_predictor 가 없다 -> {m['init_predictor']}")
     if "checkpoint" not in m:
         MD = parse_registry(f"{ROOT}/configs/protocols/models.md", "checkpoint")
         base = m.get("base", "vith")
@@ -251,8 +255,18 @@ def main():
         elif spec.get("type") == "video_csv":
             if not os.path.isfile(spec["csv"]):
                 die(f"data.datasets[{i}].csv 가 없다 -> {spec['csv']}")
+        elif spec.get("type") == "wall":
+            spec["root"] = expand(spec["root"])
+            for sub in ("obses_u8.npy", "states.pth", "actions.pth"):
+                if not os.path.exists(os.path.join(spec["root"], sub)):
+                    die(f"data.datasets[{i}] (wall) 에 {sub} 가 없다 -> {spec['root']}")
+        elif spec.get("type") == "pusht":
+            spec["root"] = expand(spec["root"])
+            for sub in ("train/obses", "train/states.pth", "train/rel_actions.pth", "val/obses"):
+                if not os.path.exists(os.path.join(spec["root"], sub)):
+                    die(f"data.datasets[{i}] (pusht) 에 {sub} 가 없다 -> {spec['root']}")
         else:
-            die(f"data.datasets[{i}].type={spec.get('type')!r}; frames_index | video_csv")
+            die(f"data.datasets[{i}].type={spec.get('type')!r}; frames_index | video_csv | pusht | wall")
     if cfg.get("val"):
         check_frames(cfg["val"]["data"], "val.data")
         cfg["val"]["data"].pop("raw_frames", None)

@@ -49,15 +49,16 @@ def l1(p: torch.Tensor, h: torch.Tensor, loss_exp: float) -> torch.Tensor:
     return (p.float() - h.float()).abs().pow(loss_exp).mean() / loss_exp
 
 
-def ar_losses(predictor, h: torch.Tensor, S: int, C: int, K: int, loss_exp: float, rollout_steps: int):
-    """h (B, nb*S, D) LN 된 블록 토큰. return (loss, jloss, sloss, R). predictor 는 DDP 래퍼여도 된다 (forward 한 번)."""
+def ar_losses(predictor, h: torch.Tensor, S: int, C: int, K: int, loss_exp: float, rollout_steps: int, actions=None):
+    """h (B, nb*S, D) LN 된 블록 토큰. return (loss, jloss, sloss, R). predictor 는 DDP 래퍼여도 된다 (forward 한 번).
+    actions (B, nb, A): action 조건부 predictor (Push-T) 일 때만."""
     B, N = h.shape[:2]
     nb = N // S
     if nb != C + K or nb < 2:
         raise ValueError(f"ar_losses: nb={nb} 가 C+K={C + K} 와 다르거나 2 미만")
     R = max(1, min(int(K), int(rollout_steps)))
     idx = block_indices(B, nb, S, h.device)
-    p_tf, p_ar = predictor(h, ar={"idx": idx, "n_ctx_blocks": C, "rollout_steps": R})
+    p_tf, p_ar = predictor(h, ar={"idx": idx, "n_ctx_blocks": C, "rollout_steps": R, "actions": actions})
     jloss = l1(p_tf, h[:, S:], loss_exp)
     sloss = l1(p_ar, h[:, C * S: (C + R) * S], loss_exp)
     return jloss + sloss, jloss, sloss, R
@@ -188,3 +189,62 @@ def run_val_ctx_ar(vs: ValSet, ctx_enc, tgt_enc, pred_mod, device, autocast_dtyp
     r_tf = _score(vs, tf, el)
     res["tf"] = {k: r_tf[k] for k in ("acc", "n_ties", "surprise_pos", "surprise_neg", "margin", "by_type")}
     return res
+
+
+# ----------------------------------------------------------------------------- Push-T val (2026-10-09)
+@torch.no_grad()
+def run_val_pusht(vs, tgt_enc, pred_mod, device, autocast_dtype, rank: int, ws: int, tubelet: int, spatial: int,
+                  C: int, batch_size: int, loss_exp: float) -> Dict:
+    """val 창 (고정 시작점) 에서 L1: tf (GT 되먹임 한 스텝 앞) · ar (문맥 C 에서 K 스텝 rollout, 스텝별) ·
+    기준선 copy (이전 블록 그대로) · copy_last (문맥 마지막 블록을 미래 전부에) · zero. 모두 블록별 LN(h) 공간.
+    planning 성공률은 여기서 안 잰다 (시뮬레이터 필요, z_research/action_planning/plan_pusht.py)."""
+    from app.vjepa_frozen.data import normalize_clips
+    pred_mod.eval()
+    S = spatial
+    ids = list(range(rank, len(vs), ws))
+    nb = vs.nb
+    K = nb - C
+    sums = torch.zeros(5 + K, device=device, dtype=torch.float64)      # tf, ar, copy, copy_last, zero, ar_step_1..K
+    cnt = torch.zeros((), device=device, dtype=torch.float64)
+    ac = torch.autocast("cuda", dtype=autocast_dtype) if autocast_dtype else torch.autocast("cuda", enabled=False)
+    t0 = time.time()
+    for s in range(0, len(ids), batch_size):
+        chunk = [vs[i] for i in ids[s: s + batch_size]]
+        clips = normalize_clips(torch.stack([c["clips"] for c in chunk]).to(device, non_blocking=True))
+        acts = torch.stack([c["actions"] for c in chunk]).to(device)
+        n = clips.size(0)
+        with ac:
+            h = encode_blocks(tgt_enc, clips.to(next(tgt_enc.parameters()).dtype), tubelet)       # (n, nb*S, D)
+            idx = block_indices(n, nb, S, device)
+            p_tf = pred_mod.forward_seq(h[:, :-S], idx[:, :-S], acts)[:, (C - 1) * S:]           # 블록 C..nb-1
+            p_ar = pred_mod.rollout(h[:, : C * S], idx[:, : C * S], K, actions=acts)
+        hb = h.float().view(n, nb, S, -1)
+        tgt = hb[:, C:]
+        def l1(x, y):
+            return (x.float() - y.float()).abs().pow(loss_exp).mean(dim=(-1, -2)) / loss_exp     # (n, K)
+        e_tf = l1(p_tf.view(n, K, S, -1), tgt)
+        e_ar = l1(p_ar.view(n, K, S, -1), tgt)
+        e_copy = l1(hb[:, C - 1: nb - 1], tgt)
+        e_last = l1(hb[:, C - 1: C].expand(-1, K, -1, -1), tgt)
+        e_zero = (tgt.abs().pow(loss_exp).mean(dim=(-1, -2)) / loss_exp)
+        sums[0] += e_tf.sum(); sums[1] += e_ar.sum(); sums[2] += e_copy.sum(); sums[3] += e_last.sum(); sums[4] += e_zero.sum()
+        sums[5:] += e_ar.sum(0)
+        cnt += n * K
+    if dist.is_available() and dist.is_initialized() and ws > 1:
+        dist.all_reduce(sums); dist.all_reduce(cnt)
+    pred_mod.train()
+    if rank != 0:
+        return {}
+    m = (sums / cnt.clamp(min=1)).tolist()
+    nwin = int(cnt.item() // K)
+    return {"tf": m[0], "ar": m[1], "copy": m[2], "copy_last": m[3], "zero": m[4],
+            "ar_by_step": [sums[5 + k].item() / max(nwin, 1) for k in range(K)],
+            "n_windows": nwin, "C": C, "K": K, "elapsed_s": round(time.time() - t0, 1)}
+
+
+def format_val_pusht(res: Dict) -> str:
+    if not res:
+        return ""
+    steps = " ".join(f"{x:.3f}" for x in res["ar_by_step"])
+    return (f"val[pusht C{res['C']}K{res['K']} n={res['n_windows']}] tf {res['tf']:.4f} ar {res['ar']:.4f} | "
+            f"copy {res['copy']:.4f} copy_last {res['copy_last']:.4f} zero {res['zero']:.4f} | ar by step {steps} | {res['elapsed_s']}s")

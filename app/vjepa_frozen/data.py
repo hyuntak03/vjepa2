@@ -304,8 +304,17 @@ def build_dataset(cfg_data: dict, n_frames: int, resolution: int) -> WeightedCon
             if grid:
                 raise ValueError("data.window_grid 는 frames_index 데이터셋에서만 된다 (video_csv 는 raw_span 을 못 읽는다)")
             dsets.append(make_video_csv_dataset(s, n_frames, tf))
+        elif t in ("pusht", "wall"):
+            # action 조건부 궤적 (Push-T 2026-10-09, Wall 2026-10-11). 블록 = 관측 1 장 복제 → n_frames = 2 × 관측 수. aug 없음
+            from app.vjepa_frozen.pusht_data import make_traj_dataset
+            if n_frames % 2:
+                raise ValueError(f"{t}: data.n_frames 는 2 의 배수 (관측 복제 tubelet)")
+            dsets.append(make_traj_dataset(s, s.get("split", "train"), n_blocks=n_frames // 2,
+                                      frameskip=int(s.get("frameskip", 5)), resolution=resolution, seed=int(s.get("seed", 0)),
+                                      subset_frac=float(s.get("subset_frac", 1.0)), subset_seed=int(s.get("subset_seed", 0)),
+                                      virtual_len=int(s.get("virtual_len", 0))))
         else:
-            raise ValueError(f"data.datasets[].type={t!r}; frames_index | video_csv")
+            raise ValueError(f"data.datasets[].type={t!r}; frames_index | video_csv | pusht | wall")
         weights.append(s.get("weight"))
     use_w = any(w is not None for w in weights)
     if use_w:

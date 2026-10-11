@@ -102,11 +102,15 @@ if os.path.isfile(p):
         y = yaml.safe_load(open(p)); ep_total = y["optimization"]["epochs"]; bs = y["data"]["batch_size"]; lr_cfg = y["optimization"]["lr"]
         ctx = ",".join(str(v) for m in y.get("mask", []) for v in (m.get("context_frames") or [m.get("type")])); ds = [d.get("csv") or d.get("root") or d.get("name") for d in y["data"]["datasets"]]
         nf = y["data"].get("n_frames")
+        acc = int(y["optimization"].get("grad_accum", 1) or 1)
     except Exception:
         nf = None
+try: acc
+except NameError: acc = 1
 ngpu = len(glob.glob(os.path.join(rd, "log_r*.csv"))) or None
 if ep_total:
-    print(f" 설정  epochs {ep_total} · batch {bs}/rank × {ngpu} GPU = {bs * ngpu if bs and ngpu else '-'} · 창 {nf} 장 · C {ctx} · lr {lr_cfg}")
+    print(f" 설정  epochs {ep_total} · batch {bs}/rank × {ngpu} GPU" + (f" × accum {acc}" if acc > 1 else "") +
+          f" = {bs * ngpu * acc if bs and ngpu else '-'} · 창 {nf} 장 · C {ctx} · lr {lr_cfg}")
     for d in ds or []: print(c(f"       data {os.path.relpath(d, PROJ) if d and d.startswith(PROJ) else d}", DIM))
 
 # ---- log
@@ -140,14 +144,17 @@ else:
         if mm: ipe = int(mm[-1])
     except Exception:
         pass
-    if ipe is None: ipe = (by_ep_max[done_eps[-1]] + 1) if done_eps else max(it + 1, 1)
-    step = sum(by_ep_max[e] + 1 for e in done_eps) + it + 1
-    total = (step - it - 1) + max((ep_total or ep) - len(done_eps), 1) * ipe
-    recent = [x[5] for x in rows[-20:]]; t_it = sum(recent) / len(recent) / 1000
-    eta = (total - step) * t_it
+    if ipe is None: ipe = (by_ep_max[done_eps[-1]] + 1) // acc if done_eps else max(it + 1, 1)
+    # grad_accum (2026-10-10): csv 한 줄 = micro-batch. ipe 는 optimizer step / epoch → micro / epoch = ipe × acc
+    micro = sum(by_ep_max[e] + 1 for e in done_eps) + it + 1
+    total_micro = (micro - it - 1) + max((ep_total or ep) - len(done_eps), 1) * ipe * acc
+    step, total = micro // acc, total_micro // acc
+    recent = [x[5] for x in rows[-20 * acc:]]; t_it = sum(recent) / len(recent) / 1000          # micro 당 시간
+    eta = (total_micro - micro) * t_it
     print(f" epoch {c(f'{ep:>3}/{ep_total or "?"}', B)}  {bar(ep / (ep_total or ep))}  {100 * ep / (ep_total or ep):5.1f}%")
-    print(f" step  {c(f'{step:>4}/{total}', B)}  {bar(step / total, col=CY)}  ({ipe} step/epoch)")
-    print(f" ETA   {c(hms(eta), B + ';' + MG)}   ({t_it:.2f} s/step, 최근 20 step)   끝나는 시각 ≈ {time.strftime('%H:%M', time.localtime(time.time() + eta))}")
+    print(f" step  {c(f'{step:>4}/{total}', B)}  {bar(step / total, col=CY)}  ({ipe} step/epoch" + (f", micro {ipe * acc}" if acc > 1 else "") + ")")
+    print(f" ETA   {c(hms(eta), B + ';' + MG)}   ({t_it * acc:.2f} s/step" + (f" = {acc} × {t_it:.2f} s micro" if acc > 1 else "") +
+          f", 최근 {20 * acc} micro)   끝나는 시각 ≈ {time.strftime('%m-%d %H:%M', time.localtime(time.time() + eta))}")
     print(c("─" * W, DIM))
     l10 = [x[2] for x in rows[-10:]]; first = by_ep[min(by_ep)]
     print(f" loss  지금 {c(f'{loss:.4f}', B)} (C={C})   최근 10 평균 {c(f'{sum(l10) / len(l10):.4f}', B)}   첫 epoch 평균 {sum(first) / len(first):.4f}   lr {lr:.2e}")
@@ -161,7 +168,8 @@ else:
     print(" C 별 (최근 10 epoch)  " + "  ".join(f"C{k}:{sum(v) / len(v):.4f}" for k, v in sorted(byC.items())))
 
 # ---- checkpoints / metrics
-ck = sorted(glob.glob(os.path.join(rd, "e*.pt")), key=lambda f: int(re.findall(r"e(\d+)\.pt", f)[0]))
+ck = sorted([f for f in glob.glob(os.path.join(rd, "e*.pt")) if re.fullmatch(r"e\d+\.pt", os.path.basename(f))],
+            key=lambda f: int(re.findall(r"e(\d+)\.pt", os.path.basename(f))[0]))   # e<N>.pt 만 (평가용 사본 e31snap.pt 등은 뺀다)
 if ck:
     last = ck[-1]; age = time.time() - os.path.getmtime(last)
     print(f" 저장  {len(ck)} 개 (마지막 {os.path.basename(last)}, {hms(age)} 전)  latest.pt {'있음' if os.path.isfile(os.path.join(rd, 'latest.pt')) else '없음'}")
@@ -177,6 +185,13 @@ mp = os.path.join(rd, "metrics.jsonl")
 if os.path.isfile(mp):
     L = [json.loads(l) for l in open(mp) if l.strip()]
     vals = [(m["epoch"], m["val"]["acc"]) for m in L if isinstance(m.get("val"), dict) and "acc" in m["val"]]
+    # Push-T 팔 (val_pusht): acc 가 없고 tf/ar/copy 가 있다 → 그걸 보인다 (2026-10-09)
+    pv = [(m["epoch"], m["val"]) for m in L if isinstance(m.get("val"), dict) and "ar" in m["val"] and "acc" not in m["val"]]
+    if pv and not vals:
+        last = pv[-1][1]
+        print(f" val   Push-T (val 창 {last.get('n_windows','?')}) C{last.get('C')}K{last.get('K')}: " +
+              "  ".join(f"e{e}:tf {v['tf']:.3f}/ar {v['ar']:.3f}" for e, v in pv[-6:]) +
+              f"   | 기준선 copy {last['copy']:.3f} copy_last {last['copy_last']:.3f} zero {last['zero']:.3f}")
     if vals: print(f" val   IntPhys1 dev 60쌍 (감시용, 정식은 eval.sh)  " + "  ".join(f"e{e}:{100 * a:.1f}" for e, a in vals[-10:]))
 
 # ---- GPU

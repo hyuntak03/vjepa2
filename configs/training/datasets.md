@@ -284,3 +284,60 @@ frames_start: 0
 frames_stride: 3
 frames_start_choices: [0, 3, 6]
 raw_frames: 100
+
+## pusht_noise
+
+DINO-WM 의 Push-T 궤적 (OSF, 2026-10-09 수신). `${WORLD_ROOT}/action_planning/dino_wm/pusht_noise/{train,val}` —
+train 18,685 episode (2,336,736 스텝), val 21. `obses/episode_%03d.mp4` 224px (프레임 = sim 스텝) + `states.pth` (agent xy, block xy, 각도)
++ `rel_actions.pth` (agent 목표 Δxy, px; PD 제어라 실제 이동의 약 40 %) + `seq_lengths.pkl`.
+`type: pusht` 는 `app/vjepa_frozen/pusht_data.py` 가 읽는다 — frameskip 마다 관측 1 장을 2 번 복제해 tubelet 으로,
+action 은 frameskip 개를 이어 붙여 2×frameskip 차원 (DINO-WM 규약), train 평균/표준편차로 정규화 (`action_stats_train.json`).
+`data.n_frames = 2 × 관측 수`. aug 없음 (action 이 화면 좌표에 묶여 있다). 시뮬레이터·planner: `benchmarks/dino_wm`.
+
+type: pusht
+root: ${WORLD_ROOT}/action_planning/dino_wm/pusht_noise
+frameskip: 5
+
+## ssv2_fs1_min32
+
+SSv2 webm 원본을 **frame_step 1** (12 fps 그대로) 로 — vast 브랜치 `natural_ctx_state` 와 같은 항목 (2026-10-10 이식).
+0.083 s 간격, 32 장 = 2.7 s, 1 블록 0.17 s. 원본 32 장 이상만 (`build_video_index.py ssv2 --min-frames 32 --write`, train 187,724 줄).
+
+type: video_csv
+csv: ${DATA_CSV}/ssv2/train_min32.csv
+frame_step: 1
+filter_short_videos: true
+
+## k400_320_fps4_f32
+
+K400 320p 사본 (`k400_320_min96`) 을 **fps 4 × 32 장 (8 초)** 가 실제로 나오는 클립만 남긴 것 (2026-10-10) — vast `k710_320_fps4_min224` 의 K400 판.
+VideoDataset 규칙 그대로 잰다: fstp = ceil(avg_fps) // 4, 필요 프레임 = 32 × fstp (30 fps → 224, 25 fps → 192).
+`python z_training/data/filter_by_clip_len.py --csv data_csv/k400_320/train_min96.csv --fps 4 --n-frames 32 -o data_csv/k400_320/train_fps4_f32.csv`
+
+type: video_csv
+csv: ${DATA_CSV}/k400_320/train_fps4_f32.csv
+fps: 4
+filter_short_videos: true
+
+## k400_320_fps6_f32
+
+`k400_320_min96` 에서 **fps 6 × 32 장 (5.3 초)** 이 실제로 나오는 클립 (2026-10-10). 30 fps → fstp 5 → 160 장, 25 fps → 128 장 필요.
+train 38,517 / 53,117 (72.5 %), val 383 / 536. fps 4 판 (`k400_320_fps4_f32`, 21,114 = 39.7 %) 은 K400_320 이 대부분 5~7 초 서브클립이라 너무 적다 —
+602 만 clip 예산을 1 : 1 로 섞으면 클립당 143 번을 본다 (fps 6 은 78 번).
+
+type: video_csv
+csv: ${DATA_CSV}/k400_320/train_fps6_f32.csv
+fps: 6
+filter_short_videos: true
+
+## wall_single
+
+DINO-WM 의 Wall 궤적 (OSF, 2026-10-09 수신). `${WORLD_ROOT}/action_planning/dino_wm/wall_single` — 1,920 episode × 50 step, 점이 벽의 문을 지나 반대편으로.
+`type: wall` 은 `app/vjepa_frozen/pusht_data.py:WallDataset` 이 읽는다. 관측은 `obses_u8.npy` (uint8 memmap, `convert_wall_obs.py`, 반올림 오차 ≤ 0.5/255),
+split = DINO-WM 과 같은 무작위 90/10 (randperm seed 42) → train 1,728 / val 192. 문/벽 위치는 전부 30/32.
+⚠️ 공개 env 는 action 을 2 배로 적용한다 (`wall.py:_generate_transition`) — 데이터는 1 배. planner 는 action / 2 를 넣는다 (`WallDataset.ACTION_SCALE = 2`).
+   안쪽에서는 데이터 재생과 정확히 일치, 바깥 테두리에서만 env 가 벽을 따라 ≤ 0.6 미끄러진다 (데이터는 멈춤).
+
+type: wall
+root: ${WORLD_ROOT}/action_planning/dino_wm/wall_single
+frameskip: 5

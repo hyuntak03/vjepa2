@@ -1,0 +1,56 @@
+# =============================================================================
+# Push-T action 조건부 AR predictor — **scratch** 팔 (2026-10-09, 사용자 결정: post-FT 대 scratch 비교)
+#
+#   GPUS=8 NAME=pusht_ar_scratch bash z_training/sbatch.sh pusht_ar_scratch
+#   GPUS=8 NAME=pusht_ar_postft  bash z_training/sbatch.sh pusht_ar_postft      # 자연 영상 AR 팔에서 post-FT
+#
+# natural_ar (AC 판) 에 action 토큰 하나를 블록마다 붙인 것. 관측 1 장 = 블록 (프레임 복제, V-JEPA 2-AC 와 같다),
+# frameskip 5, 창 = 관측 8 장 (= 40 sim 스텝, DINO-WM num_hist 3 을 덮는다). 손실 = TF + rollout, 블록별 LN(h) 타깃.
+# 두 팔은 **초기값 (+lr) 만** 다르다: 같은 데이터·창·C 분포·batch·step·seed. action_embed 는 둘 다 새로.
+# 평가 = DINO-WM 프로토콜 planning (CEM, n_evals 50, goal_H 5) — z_research/action_planning/README.md
+# =============================================================================
+extends: natural_ar
+
+meta:
+  save_every_freq: 10
+  compile_encoders: true      # 모양 고정 (B×8 블록 × 256 토큰) 이라 재컴파일 없음
+
+model:
+  predictor:
+    kind: ar
+    action_dim: 10            # frameskip 5 × Δxy 2
+    use_activation_checkpointing: false   # rollout 이 KV 캐시판 (rollout_predictor.rollout_kv, 2026-10-10) 이라 활성값이 작다: B=28 C1K7 peak 26 G.
+                                          #   (전체 재계산판 + ckpt 끔은 OOM 이었다: step 0 에서 40.5 G, C1K7 에서 48 G 초과)
+    kv_rollout: true                      # false = 매 걸음 전체 재계산 (검증용; 값·grad 동일, 1.8 배 느림)
+
+data:
+  n_frames: 16                # 관측 8 장 × 복제 2
+  batch_size: 36              # rank 당 → 8 GPU 288 창/step (사용자 결정 2026-10-10: 자연 영상 run 의 28 에서 1.29 배. KV 캐시판 peak 27 G@28 → 약 35 G@36)
+  num_workers: 6
+  prefetch_factor: 2
+  transfer_uint8: true
+  datasets:
+    - {name: pusht_noise}
+  aug: null                   # ⚠️ hflip·RRC 금지 — action 이 화면 좌표에 묶여 있다
+
+mask:                         # pusht 에서는 context_blocks 만 쓴다 (K = 8 − C). 창은 안 자른다
+  - type: prefix_window
+    context_blocks: [1, 2, 3, 4]
+    predict_blocks: [4, 5, 6, 7]
+    weight: 1.0
+
+loss:
+  rollout_steps: 8            # R = K (최대 7)
+
+optimization:
+  epochs: 100                 # 18,685 episode / 288 = 64 step/epoch → 6,400 step. episode 마다 창 하나 (무작위 시작)
+  lr: 3.0e-4
+  warmup: 5                   # epoch (= 320 step)
+
+val: null                     # IntPhys1 val 은 action 이 없어 못 쓴다
+val_pusht:                    # val 21 episode × 시작점 4 = 77 창. TF/rollout L1 + copy/zero 기준선. planning 은 따로
+  starts: [0, 20, 40, 60]
+  context_blocks: 3           # DINO-WM num_hist 3 과 같은 문맥
+  batch_size: 8
+  every_epochs: 1
+  at_start: true

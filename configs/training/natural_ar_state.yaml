@@ -1,0 +1,49 @@
+# =============================================================================
+# 팔 C-state — AC 판 AR (블록별 target encoder) 에서 **rollout 되먹임만 predictor 상태 (384)** 로 (2026-10-10, 사용자 결정)
+#
+#   bash z_training/tmux_train.sh natural_ar_state nat_ar_state_scratch        # GPUS=8
+#
+# 같은 것 (natural_ar): 블록별 target encoder LN(h) 입력·타깃 (tubelet 2 장), 블록 인과, TF + rollout 손실, 출력 LN.
+# 바꾼 것: rollout 이 render (1280 LN) 대신 **그리기 전 상태** (predictor_norm, 384) 를 되먹인다 (관측/상태 type embedding).
+# 샘플링·예산은 vast 브랜치 natural_ctx_state 와 맞춘다 (사용자 지시 "video 본 수 · step 수 비슷하게"):
+#   32 장 창, 문맥 C ∈ {2,4,8} → 예측 K ∈ {4,6,8} 블록 (C+K ≤ 16), K400 **fps 6** (블록 0.33 s, 창 5.3 s) + SSv2 stride 1 (블록 0.17 s) 1 : 1,
+#   ⚠️ vast 는 K710 fps 4 (블록 0.5 s). K400_320 은 5~7 초 서브클립이 많아 fps 4 × 32 장이 되는 클립이 21k 뿐 (클립당 143 회 반복) → fps 6 (38.5k, 78 회).
+#   global batch 504 = 21 × 8 GPU × grad_accum 3 (vast 는 64 × 8 = 512, 96 GB GPU), ipe 294 × 40 epoch = 11,760 step × 504 = 593 만 clip,
+#   lr 5.2e-4 (= 3e-4 × √(512/168)), warmup 1 epoch, cosine → 1e-6.
+# vast 와 다른 것: K710 → K400 (HowTo 미준비), 문맥 인코딩 (vast = context encoder 창, 여기 = target encoder 블록별), TF 켬, 타깃 = 블록별.
+# =============================================================================
+extends: natural_ar
+
+model:
+  predictor:
+    kind: ar_state
+    use_activation_checkpointing: true   # TF 경로 (forward_seq) 에만 걸린다. rollout 은 KV 캐시판이라 안 건다
+    kv_rollout: true
+
+data:
+  n_frames: 32
+  batch_size: 21              # rank 당 × 8 GPU × grad_accum 3 = 504 (≈ vast 512). 32 × 2 는 C8K8 에서 46.5 G 라 48 G GPU 에 위험 (2026-10-10 실측), 16 × 4 는 24 G
+  datasets:
+    - {name: k400_320_fps6_f32, weight: 1.0}
+    - {name: ssv2_fs1_min32, weight: 1.0}
+
+mask:
+  - type: prefix_window
+    context_blocks: [2, 4, 8]
+    predict_blocks: [4, 6, 8]
+    weight: 1.0
+
+loss:
+  rollout_steps: 8            # R = K
+
+optimization:
+  epochs: 40
+  ipe: 294                    # optimizer step / epoch (고정, vast 와 같다)
+  grad_accum: 3
+  lr: 5.2e-4
+
+val:
+  context_length: 16          # 8 블록 보고 8 블록 (가장 긴 조합) — vast 와 같다
+  batch_size: 4
+  data:
+    frames_stride: 3          # IntPhys1 100 장에서 32 장

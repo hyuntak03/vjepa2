@@ -1,0 +1,10 @@
+# Wall (DINO-WM) action 조건부 AR — scratch 팔 (2026-10-11). Push-T 팔과 같은 구조·batch·lr, 데이터만 Wall.
+#   GPUS=8 NAME=wall_ar_scratch bash z_training/train.sh wall_ar_scratch
+# Wall 은 episode 50 step 이라 frameskip 5 × 관측 8 장 (40 step) 창의 시작점이 0..10 뿐이다. val = val 192 episode × 시작 {0, 5, 10}.
+# 평가 = DINO-WM plan_wall.yaml (goal random_state, CEM 300 × 10, goal_H 5, MPC). 성공 = 점 위치가 목표에서 4.5 이내.
+extends: pusht_ar_scratch
+data:
+  datasets:
+    - {name: wall_single}
+val_pusht:
+  starts: [0, 5, 10]

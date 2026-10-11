@@ -1,0 +1,4 @@
+# Wall action 조건부 AR — post-FT 팔: 자연 영상 AR (nat_ar_scratch) 에서 시작. scratch 팔과 초기값만 다르다 (lr 은 chain 에서 맞춘다).
+extends: wall_ar_scratch
+model:
+  init_predictor: ${VJEPA2_ROOT}/z_training/runs/nat_ar_scratch/latest.pt

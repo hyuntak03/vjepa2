@@ -33,6 +33,7 @@ from torch.nn.parallel import DistributedDataParallel
 
 from app.vjepa_frozen import utils as U
 from app.vjepa_frozen.data import MaskSampler, TrainCollator, WindowGridCollator, WindowGridSampler, build_dataset, build_loader, normalize_clips
+from app.vjepa_frozen.pusht_data import ACTION_TYPES, PushTCollator, PushTDataset, make_traj_dataset
 from app.vjepa_frozen.val import ValSet, format_val, run_val
 from app.vjepa_frozen import ar as AR
 from src.utils.distributed import init_distributed
@@ -67,8 +68,12 @@ def main(args, resume_preempt=False):
     target_ln = bool(L.get("target_layer_norm", True))
     rollout_steps = int(L.get("rollout_steps", 8))                        # 팔 C: R = min(K, rollout_steps)
     kind = str((MD.get("predictor") or {}).get("kind", "oneshot"))
-    is_ar = kind == "ar"            # 팔 C (app/vjepa_frozen/ar.py): 문맥·미래 모두 블록별 인코딩 (AC 판)
+    is_ar = kind in ("ar", "ar_state")   # 팔 C (app/vjepa_frozen/ar.py): 문맥·미래 블록별 인코딩 (AC 판). ar_state = 상태 되먹임 (2026-10-10)
     is_ctx_ar = kind == "ctx_ar"    # 팔 C' (2026-09-27): 문맥은 창 단위 z, 미래 GT 만 블록별 LN(h)
+    is_pusht = any((s.get("type") in ACTION_TYPES) for s in D.get("datasets") or [])   # action 조건부 궤적 (Push-T 2026-10-09, Wall 2026-10-11)
+    if is_pusht and not is_ar:
+        raise ValueError("pusht 데이터는 kind=ar (AC 판) 로만 돈다")
+    VP = cfg.get("val_pusht") if is_pusht else None
     if (is_ar or is_ctx_ar) and not target_ln:
         raise ValueError("kind=ar 는 loss.target_layer_norm=true 가 전제다 (입력·타깃·출력이 모두 LN 공간)")
     O = cfg["optimization"]
@@ -138,6 +143,7 @@ def main(args, resume_preempt=False):
     dataset = build_dataset(D, n_frames, res)
     # seed 를 주어 **rank 마다 같은 (C, K)** 가 나오게 한다 (VRAM·부하 균형. data.py MaskSampler docstring).
     sampler_masks = MaskSampler(cfg["mask"], n_frames, res, patch, tubelet, seed=seed)
+    pusht_ctx_choices = [int(c) for c in (cfg["mask"][0].get("context_blocks") or [n_frames // 4])] if is_pusht else None
     if D.get("window_grid"):
         # 채점 그리드(skip × window × 시작점 × C)에서 배치마다 하나를 뽑는다. data.n_frames 는 최대 창(RoPE 상한)
         grid = WindowGridSampler(D["window_grid"], tubelet)
@@ -145,6 +151,8 @@ def main(args, resume_preempt=False):
             raise ValueError(f"window_grid 의 n_frames 최대가 data.n_frames({n_frames}) 보다 크다")
         collator = WindowGridCollator(grid, sampler_masks, dataset.transform)
         logger.info(f"window_grid: {grid.describe()} | raw_span {grid.raw_span} jitter {grid.jitter}")
+    elif is_pusht:
+        collator = PushTCollator()              # (clips, None, None, {actions, proprio, state, ...})
     else:
         collator = TrainCollator(None)          # 마스크는 아래 루프가 step 당 한 번 만든다
     _restore_affinity('before build_loader')   # DataLoader worker 가 여기서 mask 를 상속한다
@@ -153,7 +161,13 @@ def main(args, resume_preempt=False):
                                    persistent=bool(D.get("persistent_workers", True)), seed=seed,
                                    prefetch_factor=int(D.get("prefetch_factor", 2)),
                                    timeout_s=float(D.get("loader_timeout_s", 0)))
-    ipe = int(O.get("ipe") or len(loader))
+    # ── gradient accumulation (2026-10-10): optimization.grad_accum = A. ipe 는 **optimizer step** 수 (scheduler 기준),
+    #    loader 는 epoch 마다 ipe × A 개 micro-batch 를 낸다. global batch = rank batch × world_size × A.
+    #    지금은 ar 계열 (train_step_ar) 만 지원한다 — 다른 kind 는 A = 1 이어야 한다.
+    grad_accum = int(O.get("grad_accum", 1))
+    if grad_accum < 1:
+        raise ValueError("optimization.grad_accum 은 1 이상")
+    ipe = int(O.get("ipe") or (len(loader) // grad_accum))
     if len(loader) == 0 or ipe <= 0:
         raise RuntimeError(f"loader 가 비었다 (ipe={ipe}, loader {len(loader)}): {len(dataset)} clips / ws {world_size} / "
                            f"batch {batch_size} (drop_last) — LIMIT 이나 batch_size 를 조정할 것")
@@ -172,7 +186,16 @@ def main(args, resume_preempt=False):
 
     # ---- val ----------------------------------------------------------------------
     valset = None
-    if V and V.get("data"):
+    if VP:
+        spec_p = next(s for s in D["datasets"] if s.get("type") in ACTION_TYPES)
+        from app.vjepa_frozen.pusht_data import WallDataset
+        tr_stats = (WallDataset if spec_p["type"] == "wall" else PushTDataset).compute_action_stats(spec_p["root"])
+        valset = make_traj_dataset(spec_p, "val", n_blocks=n_frames // 2, frameskip=int(spec_p.get("frameskip", 5)),
+                                   resolution=res, fixed_starts=[int(x) for x in VP.get("starts", [0, 20, 40, 60])], action_stats=tr_stats)
+        if rank == 0:
+            logger.info(f"val[pusht]: {len(valset)} windows (val split, starts {VP.get('starts', [0, 20, 40, 60])}), "
+                        f"C={VP.get('context_blocks', 3)} K={n_frames // 2 - int(VP.get('context_blocks', 3))}")
+    elif V and V.get("data"):
         valset = ValSet(V, n_frames, res)
         if rank == 0:
             logger.info(f"val: {len(valset)} clips from {V['data']['root']} (n_blocks_per_type {V.get('n_blocks_per_type', 8)})")
@@ -198,6 +221,12 @@ def main(args, resume_preempt=False):
     def _val(epoch):
         if valset is None:
             return {}
+        if VP:
+            res = AR.run_val_pusht(valset, tgt_enc, pred_mod, device, ac_dtype, rank, world_size, tubelet, spatial,
+                                   int(VP.get("context_blocks", 3)), int(VP.get("batch_size", 8)), loss_exp)
+            if rank == 0:
+                logger.info(f"[epoch {epoch}] {AR.format_val_pusht(res)}")
+            return res
         if is_ar or is_ctx_ar:
             if is_ar:
                 res = AR.run_val_ar(valset, tgt_enc, pred_mod, device, ac_dtype, rank, world_size, tubelet, spatial,
@@ -220,26 +249,43 @@ def main(args, resume_preempt=False):
                     + (f" | AR: 블록별 인코딩, loss = tf + rollout(R<={rollout_steps})" if is_ar else "")
                     + (f" | CTX_AR: 문맥 창 단위 z + 미래 블록별 LN(h), loss = tf + rollout(R<={rollout_steps})" if is_ctx_ar else ""))
     # ★ 모든 rank 가 들어가야 한다 — run_val 안의 all_gather_object 는 collective 라 rank 0 만 부르면 나머지가 영원히 기다린다
-    if start_epoch == 0 and V and V.get("at_start", True):
+    VV = VP or V
+    if start_epoch == 0 and VV and VV.get("at_start", True):
         _val(0)
 
     # ---- 학습 루프 ----------------------------------------------------------------
     sampler.set_epoch(start_epoch)
     loader_it = iter(loader)
     lr_now = wd_now = float("nan")
+    if grad_accum > 1 and not is_ar:
+        raise ValueError("grad_accum > 1 은 kind=ar | ar_state 에서만 구현돼 있다")
+    if rank == 0 and grad_accum > 1:
+        logger.info(f"grad_accum {grad_accum}: global batch {batch_size} x {world_size} x {grad_accum} = {batch_size * world_size * grad_accum} | "
+                    f"optimizer step/epoch {ipe}, micro-batch/epoch {ipe * grad_accum}")
+    from contextlib import nullcontext
+    lr_hold = [float("nan"), float("nan")]
     for epoch in range(start_epoch, num_epochs):
         logger.info(f"Epoch {epoch + 1}/{num_epochs}")
         loss_meter, it_meter, gpu_meter, data_meter = AverageMeter(), AverageMeter(), AverageMeter(), AverageMeter()
         jl_meter, sl_meter = AverageMeter(), AverageMeter()                       # 팔 C 전용 (tf / rollout)
-        for itr in range(ipe):
+        for itr in range(ipe * grad_accum):                  # itr = micro-batch. optimizer step 은 (itr+1) % grad_accum == 0 에서
             t_it = time.time()
+            first_micro = (itr % grad_accum == 0)
+            do_update = ((itr + 1) % grad_accum == 0)
             try:
                 clips, m_enc, m_pred, info = next(loader_it)
             except StopIteration:
                 sampler.set_epoch(epoch + 1)
                 loader_it = iter(loader)
                 clips, m_enc, m_pred, info = next(loader_it)
-            if m_enc is None:                    # TrainCollator(None) 경로 — rank 동기 마스크
+            if is_pusht:
+                # Push-T: 창 = nb 관측 블록 전부 (자르지 않음). 문맥 길이 C 만 rank 동기 RNG 로 뽑고 K = nb - C.
+                nb_p = clips.size(2) // tubelet
+                C_p = sampler_masks.rng.choice(pusht_ctx_choices)
+                info = {"type": f"pusht C{C_p}K{nb_p - C_p}", "context_frames": C_p * tubelet, "context_blocks": C_p,
+                        "predict_blocks": nb_p - C_p, "actions": info["actions"].to(device, non_blocking=True)}
+                m_enc = m_pred = torch.zeros(0, device=device)        # 안 쓴다 (아래 .to 호출용)
+            elif m_enc is None:                  # TrainCollator(None) 경로 — rank 동기 마스크
                 m_enc, m_pred, info = sampler_masks(clips.size(0))
                 # ── 창을 C+K 블록으로 자른다 (2026-09-22) ─────────────────────
                 # 안 자르면 target encoder 가 **늘 n_frames 전부**(24 블록, 6144 토큰)를 돈다.
@@ -264,27 +310,34 @@ def main(args, resume_preempt=False):
 
             def train_step_ar():
                 # 팔 C (2026-09-26): 블록별 인코딩 -> LN -> predictor 한 forward 로 (p_tf, p_ar) -> jloss + sloss
-                lr_now = scheduler.step()
-                wd_now = wd_scheduler.step()
+                # grad_accum (2026-10-10): scheduler 는 묶음의 첫 micro 에서, optimizer 는 마지막 micro 에서. 앞 micro 는 DDP no_sync
+                if first_micro:
+                    lr_hold[0] = scheduler.step(); lr_hold[1] = wd_scheduler.step()
+                lr_now, wd_now = lr_hold
                 if "context_blocks" not in info:
                     raise ValueError("kind=ar 는 mask.type=prefix_window 만 지원한다 (C·K 블록 수가 필요)")
                 with torch.no_grad(), _ac():
                     h = AR.encode_blocks(tgt_enc, clips.to(enc_dtype), tubelet)                # (B, nb*S, D) LN
-                with _ac():
-                    loss, jl, sl, R = AR.ar_losses(predictor, h, spatial, int(info["context_blocks"]),
-                                                   int(info["predict_blocks"]), loss_exp, rollout_steps)
-                if scaler is not None:
-                    scaler.scale(loss).backward()
-                    scaler.unscale_(optimizer)
-                else:
-                    loss.backward()
-                if clip_grad:
-                    torch.nn.utils.clip_grad_norm_(pred_mod.parameters(), float(clip_grad))
-                if scaler is not None:
-                    scaler.step(optimizer); scaler.update()
-                else:
-                    optimizer.step()
-                optimizer.zero_grad(set_to_none=True)
+                sync_ctx = predictor.no_sync() if (grad_accum > 1 and not do_update and hasattr(predictor, "no_sync")) else nullcontext()
+                with sync_ctx:
+                    with _ac():
+                        loss, jl, sl, R = AR.ar_losses(predictor, h, spatial, int(info["context_blocks"]),
+                                                       int(info["predict_blocks"]), loss_exp, rollout_steps, actions=info.get("actions"))
+                    lb = loss / grad_accum
+                    if scaler is not None:
+                        scaler.scale(lb).backward()
+                    else:
+                        lb.backward()
+                if do_update:
+                    if scaler is not None:
+                        scaler.unscale_(optimizer)
+                    if clip_grad:
+                        torch.nn.utils.clip_grad_norm_(pred_mod.parameters(), float(clip_grad))
+                    if scaler is not None:
+                        scaler.step(optimizer); scaler.update()
+                    else:
+                        optimizer.step()
+                    optimizer.zero_grad(set_to_none=True)
                 aux.update(jloss=float(jl.detach()), sloss=float(sl.detach()), R=R)
                 return float(loss.detach()), lr_now, wd_now
 
@@ -345,13 +398,14 @@ def main(args, resume_preempt=False):
                 return float(loss.detach()), lr_now, wd_now
 
             (loss, lr_now, wd_now), gpu_ms = gpu_timer(train_step_ar if is_ar else (train_step_ctx_ar if is_ctx_ar else train_step))
-            step += 1
+            if do_update:
+                step += 1                                        # optimizer step 수 (체크포인트·metrics 의 step)
             if is_ar or is_ctx_ar:
                 jl_meter.update(aux["jloss"]); sl_meter.update(aux["sloss"])
             it_ms = (time.time() - t_it) * 1000
             loss_meter.update(loss); it_meter.update(it_ms); gpu_meter.update(gpu_ms); data_meter.update(data_ms)
             csv_logger.log(epoch + 1, itr, loss, info["context_frames"], lr_now, it_ms, gpu_ms, data_ms)
-            if (itr % log_freq == 0) or (itr == ipe - 1) or not np.isfinite(loss):
+            if (itr % log_freq == 0) or (itr == ipe * grad_accum - 1) or not np.isfinite(loss):
                 ar_s = (" [tf %.4f ar %.4f R=%d]" % (aux["jloss"], aux["sloss"], aux["R"])) if (is_ar or is_ctx_ar) else ""
                 logger.info("[%d, %5d] loss %.4f (avg %.4f)%s | mask %s C=%s | lr %.2e wd %.2e | mem %.1fG | iter %.0f ms gpu %.0f ms data %.0f ms"
                             % (epoch + 1, itr, loss, loss_meter.avg, ar_s, info["type"], info["context_frames"], lr_now, wd_now,
@@ -368,7 +422,7 @@ def main(args, resume_preempt=False):
                 U.save_checkpoint(os.path.join(folder, f"e{epoch + 1}.pt"), predictor, optimizer, scaler,
                                   epoch + 1, step, loss_meter.avg, cfg, arch)
         res = {}
-        if V and int(V.get("every_epochs", 1)) > 0 and ((epoch + 1) % int(V.get("every_epochs", 1)) == 0 or epoch + 1 == num_epochs):
+        if VV and int(VV.get("every_epochs", 1)) > 0 and ((epoch + 1) % int(VV.get("every_epochs", 1)) == 0 or epoch + 1 == num_epochs):
             res = _val(epoch + 1)
         if rank == 0:
             with open(metrics_path, "a") as f:

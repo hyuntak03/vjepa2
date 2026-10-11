@@ -1,0 +1,10 @@
+# Push-T action 조건부 AR predictor — **post-FT** 팔: 자연 영상 (SSv2+K400) 으로 학습한 nat_ar_scratch 에서 시작.
+# scratch 팔과 데이터·창·batch·step·seed 전부 같고 **초기값과 lr** 만 다르다 (lr 혼입 대조 = pusht_ar_postft_lr3e-4, 선택).
+#   GPUS=8 NAME=pusht_ar_postft bash z_training/sbatch.sh pusht_ar_postft
+extends: pusht_ar_scratch
+
+model:
+  init_predictor: ${VJEPA2_ROOT}/z_training/runs/nat_ar_scratch/latest.pt   # epoch 40, action_embed 만 새로 초기화
+
+optimization:
+  lr: 5.0e-5

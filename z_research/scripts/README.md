@@ -18,12 +18,12 @@ data/           인덱스·데이터 준비
                               쌍 1116/1182/450 (2026-09-21 전면 재작성)
   build_rollout2_index.py     RollOut_v2 인덱스 — 라벨은 metadata 가 아니라 plan 에서 (검증 15항목)
   build_probe_imp_index.py    불가능 변이를 probing 대상으로 여는 인덱스
-  build_ek100_resized.py      EPIC-KITCHENS 비디오 짧은변 256 -> 가운데 256x256, 프레임을 N/fps 로 재번호해 원본 decord 인덱스와 1:1 (파일마다 프레임 수 대조) -> /data2/local_datasets/EPIC-KITCHENS_resized (vll5 에서 확인)
+  build_ek100_resized.py      EPIC-KITCHENS 비디오 짧은변 256 -> 가운데 256x256, 프레임을 N/fps 로 재번호해 원본 decord 인덱스와 1:1 (파일마다 프레임 수 대조) -> /data2/data2/local_datasets/EPIC-KITCHENS_resized (ariel-k2 에서 확인)
   ek100_resized_progress.py   위 전처리 진행률 (완료 파일 + 도는 ffmpeg 읽은 양 -> %, 남은 시간). 로그가 비어 있는 초반에 쓴다
   verify_ek100_resized_frames.py  재인코딩본을 dataloader 와 같은 인덱스로 decord 로 읽어 원본 프레임과 픽셀 대조 (밀림 d=-2..2, 동률·중복 프레임 구분)
   verify_ek100_resized_headers.py  원본 vs 재인코딩본 파일을 직접 다시 읽어 대조: ffprobe 헤더 700 개 + decord 프레임 수·fps·색 (표본)
-  build_ek100_val_official.py  EK100 validation 138 개를 공식 V-JEPA 2 val 입력 (짧은변 292 INTER_LINEAR -> 가운데 256, BT.709 태그) 과 같게 -> /data2/local_datasets/epic_test (--split train|both 로 train 495 도 같은 기하)
-  sbatch_build_ek100_official.sh  위 빌드를 vll5 SLURM (GPU 8 · CPU 128 · mem 전체 할당, 기본 train crf 15). sbatch 로만 부른다
+  build_ek100_val_official.py  EK100 validation 138 개를 공식 V-JEPA 2 val 입력 (짧은변 292 INTER_LINEAR -> 가운데 256, BT.709 태그) 과 같게 -> /data2/data2/local_datasets/epic_test (--split train|both 로 train 495 도 같은 기하)
+  sbatch_build_ek100_official.sh  위 빌드를 ariel-k2 SLURM (GPU 8 · CPU 128 · mem 전체 할당, 기본 train crf 15). sbatch 로만 부른다
 
 figures/        논문 그림. 전부 산출물에서 재계산해 summary.json 과 대조 검증한다
   plot_v11_surprise.py      v11 채점 그림 전부.  상단 FIGDIR 표가 하위 폴더를 배정한다
@@ -89,7 +89,7 @@ analysis/       산출물·토큰 캐시 기반 분석. **전부 GPU 불필요**
   ctxenc_state_subspaces_kinematics.py  경계 토큰의 위치·속도·가속·시나리오·시각 부분공간 겹침, 물체 창 vs 배경 창, 채점 거리 분해 → ctxenc_state_subspaces_kinematics/
   ctxenc_state_subspaces_v11.py  같은 것을 v11 정체성·가림막·시각 서명으로 (스크립트만, 미실행)
   ctxenc_direction_probe.py   실제 영상 (ssv2_VP · ntu_direction) 에서 문맥 encoder 의 좌/우 운동 방향 — 균등 32 장 → attentive probe 를 **정방향으로만** 학습하고 **역재생** clip 으로 시험 (뒤집힘 비율 = 라벨 없는 검사). 캐시 없음 → context_encoder_analysis/exp_results/encoder_temporal_dynamics/ (2026-09-20)
-  ctxenc_direction_sbatch.sh  위 스크립트의 SLURM 런처 (vll3, GPU 1 장; 영상이 그 노드의 /local_datasets 에 있다). ANA_RUN=1 로 자기제출 방지
+  ctxenc_direction_sbatch.sh  위 스크립트의 SLURM 런처 (ariel-k2, GPU 1 장; 영상이 그 노드의 /local_datasets 에 있다). ANA_RUN=1 로 자기제출 방지
   pft_ruler_direct.py         post-FT / 릴리즈 predictor 를 캐시 없이 forward 해 p 에 v5 위치 자를 건다 (RollOut_v2 + v11 vanish) → predictor_training/predictor_IntPhysGenV11_PFT/exp_results/
   alpha_amplify.py            증폭 개입의 천장 (--anchor mu|z).  기각된 개입 (천장 51~65%)
   concept_separability.py     Fisher / ridge / 개념 벡터 정렬 (--align)
@@ -129,3 +129,13 @@ slurm_logs/     .gitignore
 - `extends:` — **재는 방식 자체가 다를 때만** 새 yaml
 
 _superseded/     RollOut_v1 (프레임·캐시·결과 삭제) 과 2026-09-10 이전 RollOut_v2 pipeline (pooled p-fit · token decoder · 옛 궤적 그림) 스크립트. 실행 불가, 기록만.
+
+## 2026-09-22 기계 이전에 추가된 것
+
+| 파일 | 역할 |
+|---|---|
+| `harness/paths.env` | **절대경로의 정본.** 기계를 옮기면 여기만 고친다 (CLAUDE.md §9-0) |
+| `harness/env.sh` | bash 입구. `source` 하면 `VJEPA2_ROOT`·`BENCH_ROOT`… 가 export 된다 |
+| `harness/paths.py` | python 입구. `from paths import ROOT, expand`. `expand()` 가 md/yaml 의 `${VAR}` 를 푼다 |
+| `data/build_intphys1_index.py` | IntPhys1 dev `index.csv` 생성 (폴더 구조 + `status.json`). 그 뒤 `build_intphys1_pairs.py --write` 로 pair_id |
+- `figures/pusht_compare_gif.py` — Push-T planning GIF 를 [post-FT | scratch | goal] 로 나란히 (2026-10-10)

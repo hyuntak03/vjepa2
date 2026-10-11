@@ -181,6 +181,69 @@ class ACRoPEAttention(nn.Module):
         width_ids = (ids - tokens_per_frame * frame_ids) - tokens_per_row * height_ids
         return 1.0 * frame_ids, 1.0 * height_ids, 1.0 * width_ids
 
+    def forward_kv(self, x, mask, H, W, past=None, action_tokens=0, spec=None):
+        """KV 캐시 경로 (2026-10-10; vast 브랜치 ctx_state 의 forward_kv 를 action 토큰·블록 인과 prefill 로 확장).
+        x (B, N, C) **새 토큰만** (블록마다 [action_tokens 개 ; H*W 패치], 블록 정렬), mask (B, N_patch) 패치 토큰의 절대 인덱스,
+        past = 이전 토큰들의 (k, v) (RoPE 적용 뒤, (B, heads, M, D)) 또는 None.
+          past 가 있으면 새 query 는 [past ; 새 토큰] key 전부를 본다 — block-causal 열에 블록 **하나**를 붙일 때와 같다.
+          past 가 없고 spec(PrefixSpec) 이 있으면 새 토큰 안에서 spec 대로 (prefill: 문맥 블록 여러 개를 block-causal 로).
+        action 토큰은 forward 와 같이 시간 RoPE 만 (pos = 블록 번호). RoPE·qkv 계산은 forward 와 같다.
+        return (출력 (B, N, C), (k_all, v_all))."""
+        B, N, C = x.size()
+        m = mask.unsqueeze(1).repeat(1, self.num_heads, 1)
+        d_mask, h_mask, w_mask = self.separate_positions(m, H, W)
+        h_mask *= self.grid_size / H
+        w_mask *= self.grid_size / W
+        nb = mask.size(1) // (H * W)
+        if action_tokens > 0:
+            xb = x.view(B, nb, action_tokens + H * W, C)
+            blk_pos = (mask.view(B, nb, H * W)[:, :, 0] // (H * W)).unsqueeze(1).repeat(1, self.num_heads, 1)   # (B, heads, nb)
+            aq, ak, av = [], [], []
+            for i in range(action_tokens):
+                a = xb[:, :, i, :]                                                      # (B, nb, C)
+                qkv = self.qkv(a).unflatten(-1, (3, self.num_heads, -1)).permute(2, 0, 3, 1, 4)
+                q, k, v = qkv[0], qkv[1], qkv[2]                                        # (B, heads, nb, D)
+                qd = rotate_queries_or_keys(q[..., : self.d_dim], pos=blk_pos)
+                kd = rotate_queries_or_keys(k[..., : self.d_dim], pos=blk_pos)
+                aq += [torch.cat([qd, q[..., self.d_dim:]], dim=-1).unsqueeze(3)]
+                ak += [torch.cat([kd, k[..., self.d_dim:]], dim=-1).unsqueeze(3)]
+                av += [v.unsqueeze(3)]
+            aq, ak, av = [torch.cat(t, dim=3) for t in (aq, ak, av)]                    # (B, heads, nb, A, D)
+            x = xb[:, :, action_tokens:, :].flatten(1, 2)
+        qkv = self.qkv(x).unflatten(-1, (3, self.num_heads, -1)).permute(2, 0, 3, 1, 4)
+        q, k, v = qkv[0], qkv[1], qkv[2]
+        s0 = 0
+        qd = rotate_queries_or_keys(q[..., s0: s0 + self.d_dim], pos=d_mask); kd = rotate_queries_or_keys(k[..., s0: s0 + self.d_dim], pos=d_mask); s0 += self.d_dim
+        qh = rotate_queries_or_keys(q[..., s0: s0 + self.h_dim], pos=h_mask); kh = rotate_queries_or_keys(k[..., s0: s0 + self.h_dim], pos=h_mask); s0 += self.h_dim
+        qw = rotate_queries_or_keys(q[..., s0: s0 + self.w_dim], pos=w_mask); kw = rotate_queries_or_keys(k[..., s0: s0 + self.w_dim], pos=w_mask); s0 += self.w_dim
+        if s0 < self.head_dim:
+            q = torch.cat([qd, qh, qw, q[..., s0:]], dim=-1); k = torch.cat([kd, kh, kw, k[..., s0:]], dim=-1)
+        else:
+            q = torch.cat([qd, qh, qw], dim=-1); k = torch.cat([kd, kh, kw], dim=-1)
+        if action_tokens > 0:                                                            # 블록 순서 [a ; 패치] 로 다시 끼운다
+            def merge_(tx, ta):
+                tx = tx.view(B, self.num_heads, nb, H * W, -1)
+                return torch.cat([ta, tx], dim=3).flatten(2, 3)
+            q, k, v = merge_(q, aq), merge_(k, ak), merge_(v, av)
+        if past is not None:
+            k_all = torch.cat([past[0], k], dim=2); v_all = torch.cat([past[1], v], dim=2)
+            y = F.scaled_dot_product_attention(q, k_all, v_all, dropout_p=self.proj_drop_prob)
+        elif isinstance(spec, PrefixSpec):                                               # prefill: 새 토큰끼리 spec 대로
+            Cq, S = spec.n_ctx * spec.tokens_per_block, spec.tokens_per_block
+            outs = [F.scaled_dot_product_attention(q[:, :, :Cq], k[:, :, :Cq], v[:, :, :Cq], dropout_p=self.proj_drop_prob)]
+            if spec.future_causal:
+                for t in range(spec.n_pred):
+                    qs, ke = slice(Cq + t * S, Cq + (t + 1) * S), Cq + (t + 1) * S
+                    outs.append(F.scaled_dot_product_attention(q[:, :, qs], k[:, :, :ke], v[:, :, :ke], dropout_p=self.proj_drop_prob))
+            else:
+                outs.append(F.scaled_dot_product_attention(q[:, :, Cq:], k, v, dropout_p=self.proj_drop_prob))
+            y = torch.cat(outs, dim=2); k_all, v_all = k, v
+        else:
+            y = F.scaled_dot_product_attention(q, k, v, dropout_p=self.proj_drop_prob); k_all, v_all = k, v
+        y = y.transpose(1, 2).reshape(B, N, C)
+        y = self.proj_drop(self.proj(y))
+        return y, (k_all, v_all)
+
     def forward(self, x, mask=None, attn_mask=None, T=None, H=None, W=None, action_tokens=0):
         B, N, C = x.size()
 
@@ -526,6 +589,13 @@ class ACBlock(nn.Module):
             )
         else:
             self.mlp = MLP(in_features=dim, hidden_features=mlp_hidden_dim, act_layer=act_layer, drop=drop)
+
+    def forward_kv(self, x, mask, H, W, past=None, action_tokens=0, spec=None):
+        """KV 캐시 경로 (ACRoPEAttention.forward_kv). return (x, (k, v))."""
+        y, kv = self.attn.forward_kv(self.norm1(x), mask, H, W, past, action_tokens=action_tokens, spec=spec)
+        x = x + self.drop_path(y)
+        x = x + self.drop_path(self.mlp(self.norm2(x)))
+        return x, kv
 
     def forward(self, x, mask=None, attn_mask=None, T=None, H=None, W=None, action_tokens=0):
         y = self.norm1(x)

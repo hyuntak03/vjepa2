@@ -433,6 +433,14 @@ def run_surprise_intphys1(ds, cfg, device):
     frame_budget = str(W.get("frame_budget", "full"))
     mask_index = int(S.get("mask_index", 0))
     dist, lexp = S.get("distance", "l1"), float(S.get("loss_exp", 1.0))
+    # ── AR 계열 predictor (kind = ar | ar_state, 2026-10-11) ─────────────────────────────
+    #    학습과 같은 규약으로 잰다: target encoder 를 **블록 (tubelet) 마다 따로** 돌린 LN(h) 가 입력·타깃이고,
+    #    문맥 C/tubelet 블록에서 M/tubelet 블록을 **rollout** (ar = render 되먹임, ar_state = 상태 되먹임) 으로 예측한다.
+    #    창 격자 · min-over-C · 쌍 비교 · 집계는 mask-token predictor 와 같다. context encoder 는 쓰지 않는다.
+    pred_kind = str(((cfg["model"].get("predictor") or {}).get("kind")) or "oneshot")
+    is_ar_kind = pred_kind in ("ar", "ar_state")
+    if is_ar_kind:
+        from app.vjepa_frozen import ar as _AR
 
     # ---- autocast (공식 Garrido 구현과 맞추는 스위치) ---------------------------
     # 공식은 가중치를 fp32 로 두고 forward 만 autocast 한다:
@@ -529,6 +537,29 @@ def run_surprise_intphys1(ds, cfg, device):
             for b0 in range(0, len(items), max_batch):     # ViT-H 는 배치를 끊어야 안 터진다
                 gb = items[b0 : b0 + max_batch]
                 x = torch.stack([clips[v][:, full_of[st]] for v, st in gb])
+                if is_ar_kind:
+                    with _ac():
+                        hb = _AR.encode_blocks(bundle.target_encoder, x, ts)    # (B, nblk*S, D) 블록별 LN(h)
+                    for C in cl_list:
+                        Cb, Mb = C // ts, (wsize - C) // ts
+                        idx_c = _AR.block_indices(len(gb), Cb, spatial, device)
+                        ar_base = str(S.get("ar_baseline", "") or "")
+                        if ar_base == "copy_last":          # 검증용 (2026-10-11): predictor 없이 문맥 마지막 블록을 미래 전부에 복사
+                            p = hb[:, (Cb - 1) * spatial: Cb * spatial].repeat(1, Mb, 1)
+                        elif ar_base == "zero":             # 검증용: 0 예측 (= 타깃 크기만으로 판정)
+                            p = torch.zeros_like(hb[:, Cb * spatial:])
+                        else:
+                            with _ac():
+                                roll = bundle.predictor.rollout_kv if getattr(bundle.predictor, "kv_rollout", False) else bundle.predictor.rollout
+                                p = roll(hb[:, : Cb * spatial], idx_c, Mb)
+                        h = hb[:, Cb * spatial:]
+                        d = (p.float() - h.float()).abs()
+                        sv = (d.pow(lexp).mean(dim=(1, 2)) / lexp) if dist == "l1" else d.mean(dim=(1, 2))
+                        for (v, st), val in zip(gb, sv.tolist()):
+                            per_start[v][st].append(val)
+                            if dump_windows:
+                                win_dump[ds.records[vidx[v]].video_id].append((name, int(st), int(C), float(val)))
+                    continue
                 with _ac():
                     h_full = bundle.target_encoder(x)      # ★ window 전체(C+M) 를 시작점당 1회
                 for C in cl_list:
