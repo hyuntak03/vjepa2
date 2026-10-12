@@ -20,7 +20,7 @@ from analysis.intphys2.model import (
     _load_checkpoint,
     _load_state_dict,
 )
-from src.utils.schedulers import CosineWDSchedule, WarmupCosineSchedule, LinearDecaySchedule
+from src.utils.schedulers import CosineWDSchedule, WarmupCosineSchedule, LinearDecaySchedule, WSDSchedule
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +95,11 @@ def build_predictor(m: dict, encoder_embed_dim: int, state: Optional[dict], devi
     if kind not in ("oneshot", "prefix", "prefix_full", "causal", "ar", "ctx_ar", "ctx_state"):
         raise ValueError(f"model.predictor.kind 는 oneshot | prefix | prefix_full | causal | ar | ctx_ar | ctx_state: {kind!r}")
     # ar (2026-09-26, 팔 C): mask token 없이 LN(h) 전 블록을 넣는 자기회귀 판. 학습 손실·val 은 app/vjepa_frozen/ar.py
+    if str(pc.get("ar_feedback", "output")) != "output":      # ar 상태 되먹임 (2026-10-12, kind=ar 전용)
+        extra["ar_feedback"] = str(pc["ar_feedback"])
+    if int(pc.get("hint_cross_dim", 0) or 0):                 # 힌트 cross-attn (2026-10-11, kind=ar 전용)
+        extra["hint_cross_dim"] = int(pc["hint_cross_dim"])
+        extra["hint_cross_heads"] = int(pc.get("hint_cross_heads", 4))
     if kind != "oneshot":
         from src.models.rollout_predictor import vit_prefix_predictor
         pred = vit_prefix_predictor(
@@ -145,7 +150,7 @@ def load_base_checkpoint(path: str) -> dict:
 def init_opt(predictor: nn.Module, iterations_per_epoch: int, start_lr: float, ref_lr: float,
              final_lr: float, warmup_epochs: float, num_epochs: int, wd: float, final_wd: float,
              ipe_scale: float = 1.0, betas=(0.9, 0.999), eps: float = 1e-8, use_scaler: bool = False,
-             is_anneal: bool = False):
+             is_anneal: bool = False, anneal_epochs: float = 0.0):
     """app/vjepa/utils.init_opt 의 predictor-only 판. bias / 1-D 파라미터는 weight decay 제외.
     is_anneal (2026-10-01): 릴리즈 cooldown 과 같다 — WarmupCosine 대신 LinearDecaySchedule (ref_lr → final_lr 선형)."""
     decay = [p for n, p in predictor.named_parameters() if p.requires_grad and ("bias" not in n) and (len(p.shape) != 1)]
@@ -156,6 +161,12 @@ def init_opt(predictor: nn.Module, iterations_per_epoch: int, start_lr: float, r
     T_max = int(ipe_scale * num_epochs * iterations_per_epoch)
     if is_anneal:
         scheduler = LinearDecaySchedule(optimizer, ref_lr=ref_lr, final_lr=final_lr, T_max=T_max)
+    elif anneal_epochs > 0:
+        # 2026-10-02: WSD (warmup → 상수 → 마지막 anneal_epochs 선형 감소) 를 run 하나에서. 공식 src/utils/schedulers.WSDSchedule.
+        # tube 기준선의 두 단계 (상수 63 ep + cooldown 7 ep 선형) 와 같은 lr 모양을 한 run 으로 낼 때 쓴다
+        scheduler = WSDSchedule(optimizer, warmup_steps=int(warmup_epochs * iterations_per_epoch),
+                                anneal_steps=int(anneal_epochs * iterations_per_epoch), T_max=T_max,
+                                start_lr=start_lr, ref_lr=ref_lr, final_lr=final_lr)
     else:
         scheduler = WarmupCosineSchedule(optimizer, warmup_steps=int(warmup_epochs * iterations_per_epoch),
                                          start_lr=start_lr, ref_lr=ref_lr, final_lr=final_lr, T_max=T_max)

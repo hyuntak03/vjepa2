@@ -31,7 +31,7 @@ MODEL=$("$PY" -c "import yaml,sys;print(yaml.safe_load(open(sys.argv[1]))['model
 KIND_SET=$("$PY" - "$RUN/config.yaml" <<'PY'
 import yaml, sys
 pc = (yaml.safe_load(open(sys.argv[1])).get("model") or {}).get("predictor") or {}
-print(" ".join(f"model.predictor.{k}={pc[k]}" for k in ("kind", "n_registers") if k in pc))
+print(" ".join(f"model.predictor.{k}={pc[k]}" for k in ("kind", "n_registers", "ar_feedback") if k in pc))
 PY
 )
 echo "predictor: ${KIND_SET:-oneshot(릴리즈 구조)}"

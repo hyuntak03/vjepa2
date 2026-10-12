@@ -155,6 +155,52 @@ class _CtxStateScorer(nn.Module):
         return self.core.render(self.core.rollout_state_kv(z, ci, K))
 
 
+class _ArBlockEncoder(nn.Module):
+    """kind=ar 채점용 encoder 래퍼 (2026-10-11). 창을 **tubelet 마다 따로** 인코딩해 이어 붙인다
+    (app/vjepa_frozen/ar.py:encode_blocks 와 같다, LN 은 채점기·predictor 래퍼가 건다). masks=[idx] 면 그 토큰만 고른다.
+    블록 b 토큰은 블록 b 프레임만 본다 — kind=ar 학습의 입력·타깃 정의."""
+
+    def __init__(self, enc: nn.Module, tubelet: int):
+        super().__init__()
+        self.enc, self.tubelet = enc, int(tubelet)
+        self.embed_dim = enc.embed_dim
+
+    def forward(self, x, masks=None):
+        B, Cc, T, H, W = x.shape
+        nb = T // self.tubelet
+        xb = x[:, :, : nb * self.tubelet].reshape(B, Cc, nb, self.tubelet, H, W).permute(0, 2, 1, 3, 4, 5)
+        h = self.enc(xb.reshape(B * nb, Cc, self.tubelet, H, W))
+        if isinstance(h, list):
+            h = h[-1]
+        h = h.reshape(B, nb * h.size(1), h.size(-1))
+        if masks is not None:
+            m = masks[0] if isinstance(masks, list) else masks
+            h = torch.gather(h, 1, m.unsqueeze(-1).expand(-1, -1, h.size(-1)))
+        return h
+
+
+class _ArScorer(nn.Module):
+    """kind=ar predictor 를 채점기 규약 `predictor(z, ctx_idx, tgt_idx)` 로 감싼다 (2026-10-11).
+    z = 문맥 블록별 encoder 토큰 → affine-free LN (학습 입력과 같다) → 힌트 없이 K 블록 KV rollout (출력 LN).
+    ci 는 0..C·S-1, ti 는 그 바로 뒤 연속 K 블록이어야 한다."""
+
+    def __init__(self, core: nn.Module):
+        super().__init__()
+        self.core = core
+
+    def forward(self, z, masks_x, masks_y, mask_index=0, **_):
+        S = self.core.tokens_per_block
+        ci, ti = masks_x, masks_y
+        if ci.size(1) % S or ti.size(1) % S:
+            raise ValueError(f"ar 채점: 토큰 수가 블록({S}) 정렬이 아니다 (ctx {ci.size(1)}, tgt {ti.size(1)})")
+        C, K = ci.size(1) // S, ti.size(1) // S
+        if not (bool((ci[0] == torch.arange(C * S, device=ci.device)).all())
+                and bool((ti[0] == torch.arange(C * S, (C + K) * S, device=ti.device)).all())):
+            raise ValueError("ar 채점: 문맥은 앞 C 블록, 타깃은 그 바로 뒤 K 블록이어야 한다")
+        z = torch.nn.functional.layer_norm(z, (z.size(-1),))
+        return self.core.rollout_kv(z, ci, K)
+
+
 def _build_predictor(
     *,
     img_size: int,
@@ -323,7 +369,7 @@ def build_from_config(cfg: dict, device: torch.device) -> VJEPA2Bundle:
     #    이제 kind 를 읽는다: oneshot(기본) = 릴리즈 / prefix·prefix_full·causal = 같은 규약의 마스크 판 /
     #    ctx_state = 상태 rollout (_CtxStateScorer) / ar·ctx_ar = 이 채점 규약 미지원 (죽인다).
     kind = str(predictor_cfg.get("kind", "oneshot"))
-    if kind in ("ar", "ctx_ar"):
+    if kind == "ctx_ar":
         raise NotImplementedError(f"model.predictor.kind={kind} 는 채점기 규약(predictor(z, ci, ti)) 에 아직 없다")
     if kind == "oneshot":
         predictor = _build_predictor(
@@ -345,7 +391,8 @@ def build_from_config(cfg: dict, device: torch.device) -> VJEPA2Bundle:
             depth=int(predictor_cfg.get("depth", 12)), num_heads=int(predictor_cfg.get("num_heads", 12)),
             num_mask_tokens=int(predictor_cfg.get("num_mask_tokens", 10)),
             use_rope=use_rope, use_sdpa=True, mask_mode=kind,
-            n_registers=int(predictor_cfg.get("n_registers", 0)))
+            n_registers=int(predictor_cfg.get("n_registers", 0)),
+            ar_feedback=str(predictor_cfg.get("ar_feedback", "output")))     # 2026-10-12: kind=ar 상태 되먹임
         logger.info(f"predictor kind={kind} (src/models/rollout_predictor.py)")
     # model.predictor_checkpoint — predictor 만 다른 파일에서 읽는다 (app/vjepa_frozen 학습 run 의
     # latest.pt / e{N}.pt). encoder 는 위 `checkpoint` 그대로. 통짜 파일을 만들 필요가 없다.
@@ -358,6 +405,13 @@ def build_from_config(cfg: dict, device: torch.device) -> VJEPA2Bundle:
         if "predictor" not in pstate:
             raise KeyError(f"{pc_path}: 'predictor' 키가 없다 (keys={list(pstate)[:8]})")
         psd = _clean_backbone_key(pstate["predictor"])
+        # 힌트 cross-attn (2026-10-11) 은 학습 전용 — 채점은 힌트 없이 하므로 그 가중치는 버린다 (모델에도 안 만든다)
+        hint_keys = [k for k in psd if k.startswith("hint_attn.")]
+        if hint_keys:
+            for k in hint_keys:
+                psd.pop(k)
+            pstate["predictor"] = psd
+            logger.info(f"predictor_checkpoint: 힌트 cross-attn 가중치 {len(hint_keys)}개는 채점에 안 쓴다 (버림)")
         msd = predictor.state_dict()
         missing = sorted(set(msd) - set(psd))
         if missing:
@@ -379,6 +433,18 @@ def build_from_config(cfg: dict, device: torch.device) -> VJEPA2Bundle:
         p.requires_grad_(False)
     if kind == "ctx_state":
         predictor = _CtxStateScorer(predictor).eval()
+    if kind == "ar":
+        # 2026-10-11: kind=ar 은 문맥 = **target encoder** 를 블록별로 (학습과 같다, context_encoder_key 무시).
+        #   ar_target: block (기본, 학습 타깃과 같다) = 타깃도 블록별 / window = 타깃은 창 전체 target_encoder (릴리즈 채점 정의)
+        ar_target = str(predictor_cfg.get("ar_target", "block"))
+        if ar_target not in ("block", "window"):
+            raise ValueError(f"model.predictor.ar_target 는 block | window: {ar_target!r}")
+        predictor = _ArScorer(predictor).eval()
+        context_encoder = _ArBlockEncoder(target_encoder, tubelet_size).eval()
+        if ar_target == "block":
+            target_encoder = context_encoder        # 같은 객체 — IntPhys2 하네스는 이때 문맥을 타깃 forward 에서 잘라 쓴다
+            encoder = target_encoder
+        logger.info(f"predictor kind=ar: 문맥 = 블록별 target_encoder, 타깃 = {ar_target} (힌트 없음, KV rollout)")
 
     del state  # release the fp32 checkpoint copy on CPU
 

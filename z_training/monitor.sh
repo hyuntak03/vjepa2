@@ -136,7 +136,7 @@ else:
     # step 이 달라지므로 (2026-09-23: 8 GPU 672 -> 6 GPU 896) 지난 epoch 은 실제 기록으로, 남은 epoch 은 현재 ipe 로 센다
     ipe = None
     try:
-        mm = re.findall(r"\bipe (\d+) \(loader", open(os.path.join(rd, "train.log"), errors="ignore").read())
+        mm = re.findall(r"\bipe (\d+)(?: \(loader|, token_budget)", open(os.path.join(rd, "train.log"), errors="ignore").read())   # 2026-10-12: 가변 창 로더 줄도
         if mm: ipe = int(mm[-1])
     except Exception:
         pass

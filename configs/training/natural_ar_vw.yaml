@@ -1,0 +1,26 @@
+# =============================================================================
+# AR (kind=ar, tubelet 단위 인코딩 + teacher forcing + rollout) + 가변 창 로더 (2026-10-11, 사용자 결정)
+#
+#   GPUS=8 bash z_training/tmux_train.sh natural_ar_vw
+#
+# predictor = ariel 의 natural_ar (팔 C, V-JEPA 2-AC 레시피를 action 없이) 와 같은 규약:
+#   * 문맥·미래 **모두** 블록(tubelet 2 장)마다 따로 target_encoder → LN(h). 블록 b 토큰은 블록 b 프레임만 본다 (시간 누수 0)
+#   * predictor 입력 = 블록별 LN(h), **block-causal** (블록 b 는 블록 <= b 만). 위치 b 출력 = 블록 b+1 예측 (출력도 LN)
+#   * loss = jloss (teacher forcing, 모든 위치, 한 forward) + sloss (문맥 C 에서 R = min(K, 16) 블록 rollout, 출력 LN 되먹임)
+#   * rollout 은 KV 캐시판 (rollout_kv, 2026-10-11) — 원판과 값·grad 동일 (C8K16 fp32 출력 차 6e-6)
+# 데이터·창·예산은 natural_ctx_state_vw 와 같다 (가변 창 로더, app/vjepa_frozen/var_window.py):
+#   * K710 + SSv2 + HowTo 1 % (데이터셋 가중 1:1:1), 전부 fps 4, 패딩 없음, 문맥 C · 예측 K ∈ {2,4,8,16,32} 장
+#   * 토큰 예산 950 → 평균 global ~508, 70 epoch × 294 = 20,580 step ≈ 1,046 만 clip (= tube 기준선 k710_ssv2_how_ep70 + cooldown64)
+#   * lr: warmup 1 ep → 5.2e-4 상수 → 마지막 7 ep 선형 감소 (WSD, tube 기준선과 같은 모양)
+# ⚠️ 타깃이 **블록별** LN(h) 라 A.8 sliding 채점기 (창 전체 LN(h)) 와 타깃 정의가 다르다 — 채점 경로 (kind=ar) 는 따로 붙여야 한다
+# =============================================================================
+extends: natural_ctx_state_vw
+
+model:
+  context_encoder_key: target_encoder   # AC 처럼 encoder 하나 (EMA). 입력 = 타깃 = LN(target_encoder(블록))
+  predictor:
+    kind: ar
+    use_activation_checkpointing: false # TF forward 에만 걸린다 (rollout 은 KV 경로라 무관). 메모리 실측 후 정한다
+
+loss:
+  rollout_steps: 16                     # R = min(K, 16) = K — 예측 구간 전부 rollout

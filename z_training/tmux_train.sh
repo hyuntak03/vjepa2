@@ -16,7 +16,7 @@ cd "$VJEPA2_ROOT"
 CONFIG=${1:?"사용법: tmux_train.sh <config> [NAME]"}
 NAME=${2:-${NAME:-$(basename "${CONFIG%.yaml}")}}
 SESS="train_$NAME"
-if tmux has-session -t "$SESS" 2>/dev/null; then echo "이미 있다: tmux attach -t $SESS"; exit 1; fi
+if tmux has-session -t "=$SESS" 2>/dev/null; then echo "이미 있다: tmux attach -t $SESS"; exit 1; fi
 mkdir -p z_training/runs/"$NAME"
 ENVS="GPUS=${GPUS:-8} NAME=$NAME"
 [[ -n "${SET:-}" ]]   && ENVS="$ENVS SET=$(printf %q "$SET")"

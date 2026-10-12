@@ -141,7 +141,14 @@ def main():
         if a.limit and spec.get("type") == "frames_index":
             spec["limit"] = int(a.limit)
         out.append(spec)
-    if not out:
+    vw = cfg["data"].get("var_window")
+    if vw:   # 2026-10-02: 가변 창 로더 (app/vjepa_frozen/var_window.py) — data.datasets 대신 var_window.datasets 의 표를 쓴다
+        for t in vw.get("datasets") or []:
+            if not os.path.isfile(expand(str(t.get("table", "")))):   # ${DATA_CSV} 등은 아래 expand(cfg) 전이라 여기서 푼다
+                die(f"data.var_window.datasets 의 표가 없다: {t.get('table')!r} (z_training/data/build_fps4_table.py 로 만든다)")
+        if not vw.get("datasets"):
+            die("data.var_window.datasets 가 비어 있다")
+    elif not out:
         die("data.datasets 가 비어 있다 — 학습 데이터는 아직 정하지 않았다. 돌릴 때 준다:\n"
             "  SET=\"data.datasets=[<이름>]\"  또는 config 의 data.datasets 를 채운다\n"
             f"  후보 (configs/training/datasets.md): {', '.join(sorted(DS))}\n"
@@ -199,7 +206,7 @@ def main():
     if not cfg.get("mask"):
         die("mask 리스트가 비어 있다")
 
-    def check_frames(spec, label):
+    def check_frames(spec, label, n=n):
         for k in ("root", "frames_root"):
             if not os.path.isdir(spec[k]):
                 die(f"{label}.{k} 가 없다 -> {spec[k]}")
@@ -254,7 +261,7 @@ def main():
         else:
             die(f"data.datasets[{i}].type={spec.get('type')!r}; frames_index | video_csv")
     if cfg.get("val"):
-        check_frames(cfg["val"]["data"], "val.data")
+        check_frames(cfg["val"]["data"], "val.data", int(cfg["val"].get("n_frames", n)))   # val.n_frames 가 있으면 그 길이 (var_window)
         cfg["val"]["data"].pop("raw_frames", None)
 
     os.makedirs(os.path.dirname(os.path.abspath(a.output)) or ".", exist_ok=True)

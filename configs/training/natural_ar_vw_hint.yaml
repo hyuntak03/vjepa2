@@ -1,0 +1,25 @@
+# =============================================================================
+# natural_ar_vw + 힌트 cross-attn (2026-10-11, 사용자 결정)
+#
+#   GPUS=8 bash z_training/tmux_train.sh natural_ar_vw_hint
+#
+# 위치 b (블록 b+1 예측) 가 블록 b+1 의 무작위 patch 일부를 "힌트" 로 본다 (teacher forcing pass 에만):
+#   * 모듈: 모든 predictor 층의 self-attn 뒤·MLP 앞에 병목 cross-attn (LN → 384→96, 4 head × 24, 3D RoPE → 96→384),
+#     residual, gate 없음, up-proj 0 초기화 (src/models/rollout_predictor.HintCrossAttn)
+#   * 힌트 토큰: 그 patch 만 target_encoder 에 넣어 인코딩 (masks=, 블록 안 공간 누수 0) → LN → 공유 predictor_embed
+#   * 일정 (확률 아님, 정해진 값): 블록당 힌트 수 = round(ratio_max × sin²(π (t−start)/(end−start)) × 256)
+#     t = step / 전체 step. start 이전·end 이후 0 → 그 구간은 cross-attn 을 아예 안 부른다
+#     기본 start 0.05 / end 0.90 / ratio_max 0.10 → 정점 t 0.475 에서 26 개, 마지막 10 % (lr 감소 7 ep 포함) 힌트 없음
+#   * jloss 는 힌트 자리를 뺀 토큰 평균. rollout (sloss) · val · 채점은 힌트 없음 (채점기는 hint_attn.* 를 버린다)
+# =============================================================================
+extends: natural_ar_vw
+
+model:
+  predictor:
+    hint_cross_dim: 96
+    hint_cross_heads: 4
+
+hint:
+  ratio_max: 0.10
+  start: 0.05
+  end: 0.90

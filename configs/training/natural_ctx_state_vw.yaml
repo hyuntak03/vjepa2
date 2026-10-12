@@ -1,0 +1,59 @@
+# =============================================================================
+# ctx_state (rollout 만, L1) + **가변 창 로더** (2026-10-02, 사용자 결정) — 새 AR 기준선
+#
+#   GPUS=8 bash z_training/tmux_train.sh natural_ctx_state_vw
+#
+# natural_ctx_state 와 같은 predictor·목적 (문맥 z 고정, predictor 상태 되먹임 rollout, KV 캐시, 타깃 = 창 LN(h), tf 없음, L1 만).
+# 바뀐 것 = 데이터 샘플링 (app/vjepa_frozen/var_window.py):
+#   * 문맥 C · 예측 K ∈ {2, 4, 8, 16, 32} 장 (25 조합), 창 W = C + K = 4 ~ 64 장, **전부 fps 4** (정확한 정수 간격)
+#   * **패딩 없음**: 창을 원본에서 그대로 채울 수 있는 영상만 (fps4_table.tsv 의 n4 >= W)
+#   * batch 단위 데이터셋 선택: 적격 영상이 min_eligible 편 이상인 데이터셋 중 1:1:1.
+#     SSv2 는 W <= 24, K710 은 W <= 48, W 64 는 HowTo 만 (2026-10-02 표)
+#   * 토큰 예산 batch: rank 당 B = clamp(token_budget // W, b_min, b_max)
+# ⚠️ natural_ctx_state (32 장 고정 창, SSv2 frame_step 1) 와 데이터·창이 다르다
+# =============================================================================
+extends: natural_ctx_state
+
+data:
+  n_frames: 64                # 최대 창 (predictor RoPE 시간 상한 = 32 블록). 실제 창은 step 마다 로더가 정한다
+  datasets: []                # var_window 가 대신한다
+  num_workers: 12
+  prefetch_factor: 2
+  var_window:
+    datasets:
+      - {name: k710, table: "${DATA_CSV}/k710_320/fps4_table.tsv",    weight: 1.0}
+      - {name: ssv2, table: "${DATA_CSV}/ssv2/fps4_table.tsv",        weight: 1.0}
+      - {name: how,  table: "${DATA_CSV}/ht100m_1pct/fps4_table.tsv", weight: 1.0}
+    context_frames: [2, 4, 8, 16, 32]
+    predict_frames: [2, 4, 8, 16, 32]
+    token_budget: 950           # rank 당 B × W (장). 평균 B 63.5 → global ~508 → 20,580 step 에 ~1,046 만 clip (= tube 기준선 1,054 만, 같은 step)
+                                #   1536 일 때 최악 C32K32 85.1 GB (2026-10-02 실측) — 950 은 그보다 가볍다
+    b_min: 8
+    b_max: 256
+    min_eligible: 1000
+
+mask:                           # var_window 가 (C, K) 를 정한다. MaskSampler 생성용 자리표시 (블록 단위, T = 32)
+  - type: prefix_window
+    context_blocks: [1, 2, 4, 8, 16]
+    predict_blocks: [1, 2, 4, 8, 16]
+    weight: 1.0
+
+optimization:                   # ★ tube 기준선 (k710_ssv2_how_ep70 63 ep 상수 + cooldown 7 ep 선형) 과 같은 step·lr 모양
+  epochs: 70
+  ipe: 294                      # 70 × 294 = 20,580 step
+  lr: 5.2e-4
+  start_lr: 1.0e-5
+  final_lr: 1.0e-6
+  warmup: 1
+  anneal_epochs: 7              # WSD: warmup 1 ep → 5.2e-4 상수 → 마지막 7 ep 선형 감소 (app/vjepa_frozen/utils.init_opt)
+
+loss:
+  rollout_steps: 16             # R = min(K, 16) = K — 예측 구간 전부를 상태로 굴린다 (K 최대 16 블록)
+  tf_weight: 0.0
+
+val:
+  n_frames: 32                  # IntPhys1 100 장 stride 3 → 32 장 (data.n_frames 64 와 따로)
+  context_length: 16
+  batch_size: 4
+  data:
+    frames_stride: 3

@@ -1,0 +1,17 @@
+# =============================================================================
+# natural_ar_vw + **상태 되먹임** (2026-10-12, 사용자 결정)
+#
+#   GPUS=8 bash z_training/tmux_train.sh natural_ar_vw_state
+#
+# natural_ar_vw 와 한 가지만 다르다 — rollout 에서 다음 블록 입력으로 무엇을 되먹이나:
+#   output (natural_ar_vw, AC 와 같다) : 출력 LN(proj(norm(h))) (encoder 공간 1280) → predictor_embed
+#   state  (이 config)                 : 그리기 전 상태 predictor_norm(h) (predictor 공간 384) + type[1] 을 그대로
+# teacher forcing 은 그대로 (블록별 LN(target_encoder) → predictor_embed + type[0], 한 forward, block-causal).
+# 관측/상태 표시 type_embed (2 × 384) 가 추가된다 (src/models/rollout_predictor.py ar_feedback). 손실·채점 정의는 같다.
+# 데이터·창·예산·lr 은 natural_ar_vw 와 같다 (K710 + SSv2 + HowTo 1 %, 가변 창, 20,580 step, WSD)
+# =============================================================================
+extends: natural_ar_vw
+
+model:
+  predictor:
+    ar_feedback: state

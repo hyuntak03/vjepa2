@@ -49,16 +49,60 @@ def l1(p: torch.Tensor, h: torch.Tensor, loss_exp: float) -> torch.Tensor:
     return (p.float() - h.float()).abs().pow(loss_exp).mean() / loss_exp
 
 
-def ar_losses(predictor, h: torch.Tensor, S: int, C: int, K: int, loss_exp: float, rollout_steps: int):
-    """h (B, nb*S, D) LN 된 블록 토큰. return (loss, jloss, sloss, R). predictor 는 DDP 래퍼여도 된다 (forward 한 번)."""
+def hint_scale(progress: float, cfg: Dict) -> float:
+    """힌트 일정 (2026-10-11, 사용자 결정) — 확률이 아니라 **정해진 값**. progress = step / 전체 step ∈ [0, 1].
+    start 이전·end 이후 0, 그 사이 Hann 종 모양 (정점 = (start+end)/2 에서 1). 모든 rank 가 같은 값."""
+    a, b = float(cfg.get("start", 0.05)), float(cfg.get("end", 0.90))
+    if progress <= a or progress >= b:
+        return 0.0
+    import math
+    return math.sin(math.pi * (progress - a) / (b - a)) ** 2
+
+
+def hint_count(progress: float, cfg: Dict, S: int) -> int:
+    """블록당 힌트 토큰 수 = round(ratio_max × scale × S). 0 이면 cross-attn 을 부르지 않는다."""
+    return int(round(float(cfg.get("ratio_max", 0.10)) * hint_scale(progress, cfg) * S))
+
+
+@torch.no_grad()
+def encode_hints(enc, clips: torch.Tensor, tubelet: int, S: int, n_hint: int, gen=None):
+    """블록 1..nb-1 마다 무작위 patch n_hint 개를 고르고, **그 patch 만** encoder 에 넣는다 (masks=, 공간 누수 0).
+    return (hx (B, (nb-1)*Nh, D) LN, hidx (B, (nb-1)*Nh) 절대 인덱스, keep (B, (nb-1)*S) bool — 힌트 자리는 False)."""
+    B, Cc, T, H, W = clips.shape
+    nb = T // tubelet
+    m = nb - 1
+    x = clips[:, :, tubelet: nb * tubelet].reshape(B, Cc, m, tubelet, H, W).permute(0, 2, 1, 3, 4, 5)
+    x = x.reshape(B * m, Cc, tubelet, H, W)
+    # gen: rank·step 별 생성기 (train.py). 전역 RNG 는 모든 rank 가 같은 seed 라 rank 끼리 같은 위치를 뽑는다
+    loc = torch.rand(B * m, S, device=clips.device, generator=gen).argsort(dim=1)[:, :n_hint].sort(dim=1).values   # (B*m, Nh)
+    hx = enc(x, masks=[loc])                                                                        # (B*m, Nh, D)
+    hx = F.layer_norm(hx, (hx.size(-1),)).reshape(B, m * n_hint, hx.size(-1))
+    blk = torch.arange(1, nb, device=clips.device).repeat(B).view(B * m, 1)                       # 블록 1..nb-1
+    hidx = (loc + blk * S).reshape(B, m * n_hint)
+    keep = torch.ones(B * m, S, dtype=torch.bool, device=clips.device)
+    keep.scatter_(1, loc, False)
+    return hx, hidx, keep.reshape(B, m * S)
+
+
+def ar_losses(predictor, h: torch.Tensor, S: int, C: int, K: int, loss_exp: float, rollout_steps: int, hint=None):
+    """h (B, nb*S, D) LN 된 블록 토큰. return (loss, jloss, sloss, R). predictor 는 DDP 래퍼여도 된다 (forward 한 번).
+    hint = encode_hints 의 (hx, hidx, keep) 또는 None. 주면 TF 에만 힌트를 넣고 jloss 에서 힌트 자리를 뺀다 (rollout 은 힌트 없음)."""
     B, N = h.shape[:2]
     nb = N // S
     if nb != C + K or nb < 2:
         raise ValueError(f"ar_losses: nb={nb} 가 C+K={C + K} 와 다르거나 2 미만")
     R = max(1, min(int(K), int(rollout_steps)))
     idx = block_indices(B, nb, S, h.device)
-    p_tf, p_ar = predictor(h, ar={"idx": idx, "n_ctx_blocks": C, "rollout_steps": R})
-    jloss = l1(p_tf, h[:, S:], loss_exp)
+    arg = {"idx": idx, "n_ctx_blocks": C, "rollout_steps": R}
+    if hint is not None:
+        hx, hidx, keep = hint
+        arg["hint"] = {"x": hx, "idx": hidx}
+    p_tf, p_ar = predictor(h, ar=arg)
+    if hint is not None:
+        d = (p_tf.float() - h[:, S:].float()).abs().pow(loss_exp).mean(dim=-1) / loss_exp   # (B, (nb-1)*S)
+        jloss = (d * keep).sum() / keep.sum()
+    else:
+        jloss = l1(p_tf, h[:, S:], loss_exp)
     sloss = l1(p_ar, h[:, C * S: (C + R) * S], loss_exp)
     return jloss + sloss, jloss, sloss, R
 
@@ -86,7 +130,7 @@ def run_val_ar(vs: ValSet, tgt_enc, pred_mod, device, autocast_dtype, rank: int,
         with ac:
             h = encode_blocks(tgt_enc, x.to(next(tgt_enc.parameters()).dtype), tubelet)     # (n, nb*S, D)
             idx = block_indices(n, nb, S, device)
-            p_ar = pred_mod.rollout(h[:, : C * S], idx[:, : C * S], K)                       # (n, K*S, D)
+            p_ar = pred_mod.rollout_kv(h[:, : C * S], idx[:, : C * S], K)                    # (n, K*S, D) KV 캐시판 (값 동일)
             p_tf = pred_mod.forward_seq(h[:, :-S], idx[:, :-S])[:, (C - 1) * S:]               # 블록 C..nb-1 예측
         tgt = h[:, C * S:].float()
         d_ro = (p_ar.float() - tgt).abs().pow(loss_exp).mean(dim=(1, 2)) / loss_exp

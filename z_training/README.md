@@ -1,5 +1,6 @@
 # z_training — frozen encoder 위에서 predictor 학습
 
+> **최신 (2026-10-12)**: `RESULTS_2026-10-12.md` — kind=ar 가변 창 · 힌트 cross-attn · 상태 되먹임 · kind=ar 채점 경로. 힌트 AR IntPhys1 A.8 91.67 % (릴리즈 88.89, 구분 안 됨) · IntPhys 2 우연 수준.
 > **2026-09-10 결정: 릴리즈 ViT-H predictor 에서 post-FT, 데이터는 IntPhysGen v11 의 block 단위 train 절반(가능만),
 > 채점은 test 절반(가능+불가능, 10,752 쌍).** 그게 `v11_postft` 다. 대조군 `v11_scratch`. 분할은 §3.
 >

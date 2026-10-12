@@ -86,6 +86,62 @@ def build_prefix_block_mask(n_ctx_blocks: int, n_blocks: int, tokens_per_block: 
     return create_block_mask(mask_mod, B=None, H=None, Q_LEN=N, KV_LEN=N, device=device, BLOCK_SIZE=S)
 
 
+class HintCrossAttn(nn.Module):
+    """힌트 cross-attention (2026-10-11, 사용자 결정) — 병목형, self-attn 뒤·MLP 앞에 residual 로 붙는다.
+
+    query = 블록 b 토큰 (LN → down `dim→inner`), key/value = 블록 b+1 의 힌트 토큰 (LN → `inner`).
+    블록 b 는 **블록 b+1 의 힌트만** 본다 (블록별로 묶어 SDPA, 마스크 없음). 3D RoPE 를 q·k 에 건다 (절대 위치).
+    up `inner→dim` 은 weight·bias 모두 0 초기화 — 초기에는 branch 가 정확히 0 이라 힌트 없는 모델과 같다. gate 없음.
+    """
+
+    def __init__(self, dim, inner=96, num_heads=4, grid_size=16, norm_layer=partial(nn.LayerNorm, eps=1e-6)):
+        super().__init__()
+        if inner % num_heads:
+            raise ValueError(f"hint inner {inner} 는 heads {num_heads} 의 배수여야 한다")
+        self.num_heads, self.head_dim = num_heads, inner // num_heads
+        self.rd = int(2 * ((self.head_dim // 3) // 2))        # ACRoPEAttention 과 같은 d/h/w 분할
+        self.grid_size = grid_size
+        self.norm_q, self.norm_kv = norm_layer(dim), norm_layer(dim)
+        self.q = nn.Linear(dim, inner)
+        self.kv = nn.Linear(dim, 2 * inner)
+        self.up = nn.Linear(inner, dim)
+
+    def zero_init(self):
+        nn.init.zeros_(self.up.weight)
+        nn.init.zeros_(self.up.bias)
+
+    def _rope(self, x, ids, H, W):
+        from src.models.utils.modules import rotate_queries_or_keys
+        T = H * W
+        d = (ids // T).float()
+        hh = ((ids % T) // W).float() * (self.grid_size / H)
+        ww = ((ids % T) % W).float() * (self.grid_size / W)
+        d, hh, ww = (t.unsqueeze(1).expand(-1, self.num_heads, -1) for t in (d, hh, ww))
+        r = self.rd
+        parts = [rotate_queries_or_keys(x[..., :r], pos=d), rotate_queries_or_keys(x[..., r:2 * r], pos=hh),
+                 rotate_queries_or_keys(x[..., 2 * r:3 * r], pos=ww)]
+        if 3 * r < self.head_dim:
+            parts.append(x[..., 3 * r:])
+        return torch.cat(parts, dim=-1)
+
+    def forward(self, x, idx, hint, hint_idx, S, H, W):
+        """x (B, nb*S, dim), idx (B, nb*S) 절대 인덱스; hint (B, nb*Nh, dim) = 블록 1..nb 의 힌트 (predictor_embed 뒤),
+        hint_idx (B, nb*Nh) 그 절대 인덱스. 블록 b query ↔ hint 묶음 b. return (B, nb*S, dim) branch 출력."""
+        B, N, _ = x.shape
+        nb = N // S
+        Nh = hint.size(1) // nb
+        hd, nh = self.head_dim, self.num_heads
+        q = self.q(self.norm_q(x)).view(B, N, nh, hd).transpose(1, 2)              # (B, nh, N, hd)
+        k, v = self.kv(self.norm_kv(hint)).view(B, nb * Nh, 2, nh, hd).permute(2, 0, 3, 1, 4)
+        q, k = self._rope(q, idx, H, W), self._rope(k, hint_idx, H, W)
+        q = q.view(B, nh, nb, S, hd).transpose(1, 2).reshape(B * nb, nh, S, hd)
+        k = k.view(B, nh, nb, Nh, hd).transpose(1, 2).reshape(B * nb, nh, Nh, hd)
+        v = v.reshape(B, nh, nb, Nh, hd).transpose(1, 2).reshape(B * nb, nh, Nh, hd)
+        o = torch.nn.functional.scaled_dot_product_attention(q, k, v)            # (B*nb, nh, S, hd)
+        o = o.view(B, nb, nh, S, hd).permute(0, 1, 3, 2, 4).reshape(B, N, nh * hd)
+        return self.up(o)
+
+
 class VisionTransformerPredictorPrefix(nn.Module):
     """릴리즈 `VisionTransformerPredictor` 와 같은 구조·같은 호출 규약, attention 마스크만 다르다."""
 
@@ -128,6 +184,15 @@ class VisionTransformerPredictorPrefix(nn.Module):
         elif mask_mode == "ctx_state":
             # [0] = 문맥 z 토큰, [1] = 관측 토큰 (TF: 블록별 LN(h) 를 predictor_embed), [2] = 상태 토큰 (rollout: 자기 은닉)
             self.type_embed = nn.Parameter(torch.zeros(3, 1, 1, predictor_embed_dim))
+        # ar 되먹임 (2026-10-12): output (기본, AC 와 같다 — 출력 LN 을 다시 predictor_embed) | state (predictor 상태 384 를 그대로)
+        self.ar_feedback = str(kwargs.get("ar_feedback", "output") or "output")
+        if self.ar_feedback not in ("output", "state"):
+            raise ValueError(f"ar_feedback 는 output | state: {self.ar_feedback!r}")
+        if self.ar_feedback == "state":
+            if mask_mode != "ar":
+                raise ValueError("ar_feedback=state 는 mask_mode='ar' 전용")
+            # [0] = 관측 토큰 (블록별 LN(h) 를 predictor_embed), [1] = 상태 토큰 (rollout: 이전 걸음의 predictor_norm 출력)
+            self.type_embed = nn.Parameter(torch.zeros(2, 1, 1, predictor_embed_dim))
 
         dpr = [x.item() for x in torch.linspace(0, drop_path_rate, depth)]
         self.predictor_blocks = nn.ModuleList([
@@ -140,6 +205,15 @@ class VisionTransformerPredictorPrefix(nn.Module):
             for i in range(depth)])
         self.predictor_norm = norm_layer(predictor_embed_dim)
         self.predictor_proj = nn.Linear(predictor_embed_dim, out_embed_dim or embed_dim, bias=True)
+        # 힌트 cross-attn (2026-10-11, mask_mode=ar 전용). 0 이면 만들지 않는다 (state_dict 그대로)
+        self.hint_cross_dim = int(kwargs.get("hint_cross_dim", 0) or 0)
+        if self.hint_cross_dim:
+            if mask_mode != "ar":
+                raise ValueError("hint_cross_dim 은 mask_mode='ar' 전용")
+            self.hint_attn = nn.ModuleList([
+                HintCrossAttn(predictor_embed_dim, self.hint_cross_dim, int(kwargs.get("hint_cross_heads", 4)),
+                              grid_size=self.grid_height, norm_layer=norm_layer)
+                for _ in range(depth)])
 
         # prefix 구현: split(기본, 마스크 없는 블록별 dense SDPA) | flex(DDP 에서 컴파일 실패 사례 있음) | dense
         self.prefix_impl = str(kwargs.get("prefix_impl", "split"))
@@ -152,8 +226,11 @@ class VisionTransformerPredictorPrefix(nn.Module):
                 trunc_normal_(mt, std=init_std)
         if self.n_registers:
             trunc_normal_(self.registers, std=init_std)
-        if mask_mode in ("ctx_ar", "ctx_state"):
+        if mask_mode in ("ctx_ar", "ctx_state") or self.ar_feedback == "state":
             trunc_normal_(self.type_embed, std=init_std)
+        if self.hint_cross_dim:
+            for m in self.hint_attn:
+                m.zero_init()
 
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
@@ -208,9 +285,12 @@ class VisionTransformerPredictorPrefix(nn.Module):
                 raise ValueError(f"ar= 분기는 mask_mode='ar' 전용 (지금 {self.mask_mode})")
             S = self.tokens_per_block
             idx, C, R = ar["idx"], int(ar["n_ctx_blocks"]), int(ar["rollout_steps"])
-            p_tf = self.forward_seq(x[:, :-S], idx[:, :-S])
-            first = p_tf[:, (C - 1) * S: C * S]
-            p_ar = self.rollout(x[:, : C * S], idx[:, : C * S], R, first=first)
+            p_tf = self.forward_seq(x[:, :-S], idx[:, :-S], hint=ar.get("hint"))   # 힌트는 TF 에만. rollout 은 힌트 없음
+            if getattr(self, "ar_kv_rollout", True):          # 2026-10-11: KV 캐시판 (값·grad 동일, 긴 K 에서 빠르다)
+                p_ar = self.rollout_kv(x[:, : C * S], idx[:, : C * S], R)
+            else:
+                first = p_tf[:, (C - 1) * S: C * S]
+                p_ar = self.rollout(x[:, : C * S], idx[:, : C * S], R, first=first)
             return p_tf, p_ar
         if self.mask_mode in ("ar", "ctx_ar", "ctx_state"):
             raise RuntimeError(f"mask_mode='{self.mask_mode}' predictor 는 mask token 규약 forward(x, masks_x, masks_y) 를 지원하지 않는다 — "
@@ -272,6 +352,22 @@ class VisionTransformerPredictorPrefix(nn.Module):
         return h[:, masks_x.size(1):, :]
 
     # ---------------------------------------------------------------- 팔 C (ar, 2026-09-26)
+    def _block_hint(self, blk, xa, h, idx, attn_mask, hx, hidx, gate):
+        Hg, Wg = self.grid_height, self.grid_width
+        h = h + blk.drop_path(blk.attn(blk.norm1(h), mask=idx, attn_mask=attn_mask, T=None, H=Hg, W=Wg, action_tokens=0))
+        y = xa(h, idx, hx, hidx, self.tokens_per_block, Hg, Wg)
+        h = h + (y if gate == 1.0 else gate * y)
+        return h + blk.drop_path(blk.mlp(blk.norm2(h)))
+
+    def _run_blocks_hint(self, h, idx, attn_mask, hx, hidx, gate):
+        for blk, xa in zip(self.predictor_blocks, self.hint_attn):
+            if self.use_activation_checkpointing and torch.is_grad_enabled():
+                h = torch.utils.checkpoint.checkpoint(self._block_hint, blk, xa, h, idx, attn_mask, hx, hidx, gate,
+                                                      use_reentrant=False)
+            else:
+                h = self._block_hint(blk, xa, h, idx, attn_mask, hx, hidx, gate)
+        return h
+
     def _run_blocks(self, h, idx, attn_mask):
         for blk in self.predictor_blocks:
             if self.use_activation_checkpointing and torch.is_grad_enabled():
@@ -281,7 +377,7 @@ class VisionTransformerPredictorPrefix(nn.Module):
                 h = blk(h, mask=idx, attn_mask=attn_mask, T=None, H=self.grid_height, W=self.grid_width, action_tokens=0)
         return h
 
-    def forward_seq(self, x, idx):
+    def forward_seq(self, x, idx, hint=None):
         """팔 C. x (B, N, embed_dim) = 블록 0..nb-1 의 **LN 된** encoder 토큰 (블록 정렬·연속), idx (B, N) 절대 인덱스.
         블록 인과 attention (블록 b 의 query 는 블록 <= b 의 key). return (B, N, out): 위치 b 의 출력 = 블록 b+1 예측,
         출력에도 affine-free LN (AC `normalize_reps`) — 되먹임 입력과 타깃이 같은 공간에 있게 한다."""
@@ -289,10 +385,17 @@ class VisionTransformerPredictorPrefix(nn.Module):
         nb = x.size(1) // S
         if x.size(1) != nb * S:
             raise ValueError(f"forward_seq: 토큰 수 {x.size(1)} 가 블록({S}) 정렬이 아니다")
-        h = self.predictor_embed(x)
+        h = self._ar_embed_obs(x)
         # 블록 0 을 '문맥 1 블록' 으로, 나머지를 인과 미래로 두면 PrefixSpec 이 그대로 블록 인과다 (flash 경로, 마스크 없음)
         spec = PrefixSpec(1, nb - 1, S, future_causal=True) if nb > 1 else None
-        h = self._run_blocks(h, idx, spec)
+        if hint is not None and hint["x"].size(1) > 0:
+            # hint={"x": (B, nb*Nh, embed_dim) LN 된 힌트 encoder 토큰 (블록 1..nb), "idx": (B, nb*Nh) 절대 인덱스, "gate": float}
+            if not self.hint_cross_dim:
+                raise ValueError("hint 를 받았는데 hint_cross_dim = 0")
+            hx = self.predictor_embed(hint["x"])                    # 공유 투영 (type embedding 없음)
+            h = self._run_blocks_hint(h, idx, spec, hx, hint["idx"], float(hint.get("gate", 1.0)))
+        else:
+            h = self._run_blocks(h, idx, spec)                      # 힌트 0 개 → cross-attn 을 부르지 않는다
         h = self.predictor_proj(self.predictor_norm(h))
         return torch.nn.functional.layer_norm(h, (h.size(-1),))
 
@@ -300,6 +403,8 @@ class VisionTransformerPredictorPrefix(nn.Module):
         """팔 C. 문맥 C 블록의 LN(h) 에서 `n_steps` 블록을 자기회귀로 채운다 (KV 캐시 없음, 매 스텝 전체 재계산).
         first : 첫 스텝 예측을 밖에서 주면 (TF pass 의 위치 C-1 출력) 재사용한다 — 수학적으로 같은 값이다 (인과).
         return (B, n_steps*S, out). 되먹임은 grad 를 끊지 않는다 (AC 와 같다)."""
+        if self.ar_feedback == "state":
+            raise NotImplementedError("ar_feedback=state 는 KV 판 rollout_kv 만 지원한다 (ar_kv_rollout=True)")
         S = self.tokens_per_block
         seq, idx, preds = x_ctx, idx_ctx, []
         for r in range(int(n_steps)):
@@ -419,6 +524,47 @@ class VisionTransformerPredictorPrefix(nn.Module):
             s = self.predictor_norm(h)                                          # -> 블록 C+r 의 상태
             states.append(s)
         return torch.cat(states, dim=1)
+
+
+    # ---------------------------------------------------------------- ar KV 캐시 (2026-10-11)
+    def _ar_embed_obs(self, x):
+        """ar 입력 임베딩: 블록별 LN(h) -> predictor 공간. state 되먹임이면 관측 표시 type[0] 를 더한다."""
+        h = self.predictor_embed(x)
+        return h + self.type_embed[0] if self.ar_feedback == "state" else h
+
+    def _ar_step_kv(self, x_blk, idx_blk, caches, embedded=False):
+        """ar: 블록 하나 (B, S, embed_dim, LN 된 encoder 공간) 를 넣고 다음 블록 예측 (LN) 을 낸다. caches 는 층별 (k, v) 또는 None.
+        embedded=True 면 x_blk 가 이미 predictor 공간 토큰이다 (state 되먹임). return (예측 LN, caches, 상태 = predictor_norm 출력)."""
+        Hg, Wg = self.grid_height, self.grid_width
+        h = x_blk if embedded else self._ar_embed_obs(x_blk)
+        new = []
+        for i, blk in enumerate(self.predictor_blocks):
+            h, kv = blk.forward_kv(h, idx_blk, Hg, Wg, None if caches is None else caches[i])
+            new.append(kv)
+        st = self.predictor_norm(h)
+        h = self.predictor_proj(st)
+        return torch.nn.functional.layer_norm(h, (h.size(-1),)), new, st
+
+    def rollout_kv(self, x_ctx, idx_ctx, n_steps):
+        """`rollout` (ar) 의 **KV 캐시판**. ar 은 문맥까지 block-causal 이라 이미 계산한 블록의 층별 (k, v) 가
+        뒤에 블록을 붙여도 안 변한다 → 문맥을 블록 하나씩 채우고 (C 번), 걸음마다 새 블록 S 토큰만 계산한다.
+        값·grad 는 `rollout` 과 같다 (검증: z_training/RESULTS 참고). return (B, n_steps*S, out) LN."""
+        S = self.tokens_per_block
+        C = x_ctx.size(1) // S
+        caches, p, st = None, None, None
+        for b in range(C):                                   # 문맥: 블록 b 는 블록 <= b 만 본다
+            p, caches, st = self._ar_step_kv(x_ctx[:, b * S:(b + 1) * S], idx_ctx[:, b * S:(b + 1) * S], caches)
+        preds = [p]                                          # 위치 C-1 출력 = 블록 C 예측
+        pos = idx_ctx[:, -S:]
+        state = self.ar_feedback == "state"
+        for _ in range(1, int(n_steps)):
+            pos = pos + S
+            if state:   # 2026-10-12: 그리기 전 상태 (predictor_norm 출력, 384) + type[1] 을 블록 자리에 그대로 되먹인다 (grad 유지)
+                p, caches, st = self._ar_step_kv(st + self.type_embed[1], pos, caches, embedded=True)
+            else:       # 자기 예측 (LN) 을 다음 입력으로 (AC 와 같다)
+                p, caches, st = self._ar_step_kv(p, pos, caches)
+            preds.append(p)
+        return torch.cat(preds, dim=1)
 
 
 def vit_prefix_predictor(**kwargs) -> VisionTransformerPredictorPrefix:
