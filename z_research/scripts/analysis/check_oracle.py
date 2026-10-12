@@ -29,7 +29,7 @@ import json, pathlib, subprocess, sys
 import yaml
 
 REPO = pathlib.Path(__file__).resolve().parents[3]
-BASE = REPO / "z_research/Benchmarks/exp_results"
+BASE = REPO / "z_research/previous/Benchmarks/exp_results"
 # 창(C+M) 마다 실행이 나뉜다 (PROTOCOLS.md §2). oracle 은 그 둘을 합친 A.8 최고값이다.
 D16 = BASE / "intphys1_sliding__intphys1_dev_vith_w16"
 D32 = BASE / "intphys1_sliding__intphys1_dev_vith_w32"
@@ -53,7 +53,7 @@ def main():
     for D in (D16, D32):
         if not (D / "summary.json").exists():
             sys.exit(f"기준 실행이 없다: {D}\n  만들기: GPUS=8 BENCHES=intphys1_dev MODELS=vith "
-                     f"bash z_research/Benchmarks/run_all.sh")
+                     f"bash z_research/previous/Benchmarks/run_all.sh")
     print(f"기준 실행: {D16.name} + {D32.name}")
 
     print("\n1) 병합 config 가 A.8 격자인가 (창마다 모델도 그 프레임 수로 지어졌는가)")

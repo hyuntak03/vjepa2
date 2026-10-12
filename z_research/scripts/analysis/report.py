@@ -8,10 +8,10 @@
 v10_flat / occ_low 에는 없다). v11 처럼 k 가 내부 축이면 자동으로 잡힌다.
 
   python z_research/scripts/analysis/report.py \
-      --run z_research/IntPhysGenV10/exp_results/surprise_c16t32__v10_vith:data_csv/intphysgen_v10/index_probe.csv \
-      --run z_research/IntPhysGenV10/exp_results/surprise_c16t32__v10_flat_vith:data_csv/intphysgen_v10_flat/index_probe.csv \
-      --probe z_research/IntPhysGenV10/exp_results/attn_probe__v10_vith \
-      -o z_research/IntPhysGenV10/exp_results/report.json
+      --run z_research/previous/IntPhysGenV10/exp_results/surprise_c16t32__v10_vith:data_csv/intphysgen_v10/index_probe.csv \
+      --run z_research/previous/IntPhysGenV10/exp_results/surprise_c16t32__v10_flat_vith:data_csv/intphysgen_v10_flat/index_probe.csv \
+      --probe z_research/previous/IntPhysGenV10/exp_results/attn_probe__v10_vith \
+      -o z_research/previous/IntPhysGenV10/exp_results/report.json
 
 구조
   meta        무엇을 읽었나, 검증 결과

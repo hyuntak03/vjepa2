@@ -14,7 +14,7 @@
 
   $P z_research/scripts/figures/plot_v3_decoder_gif.py                          # P ≤ 16 인 창 12 개
   $P z_research/scripts/figures/plot_v3_decoder_gif.py --windows 16x32 32x32
-  → z_research/RollOutV3/figures/v3_gif/gif_C{c}_P{p}.gif
+  → z_research/previous/RollOutV3/figures/v3_gif/gif_C{c}_P{p}.gif
 """
 from __future__ import annotations
 import argparse, csv, json, sys
@@ -29,7 +29,7 @@ from rollout3_paths import PRES, WIN, check      # noqa: E402
 
 SRC = Path("/data2/local_datasets/world/world_analysis/RollOut_v3/Images")
 INDEX = ROOT / "data_csv/rollout_v3/index.csv"
-OUT = ROOT / "z_research/RollOutV3/figures/v3_gif"
+OUT = ROOT / "z_research/previous/RollOutV3/figures/v3_gif"
 RES, R, Z, SPLIT, MS = 144.0, 288, 1.0, 32, 150          # MS = 프레임당 ms (모두 같다)
 LAWS = ["flat_v", "flat_a", "flat_d", "ramp_a", "ramp_d", "arc", "ledge", "wall"]
 WHITE, ORANGE, BLUE, FUT, YEL, GRAY, CTX = (255, 255, 255), (235, 104, 52), (42, 120, 214), (215, 215, 215), (255, 230, 90), (170, 170, 170), (95, 95, 95)

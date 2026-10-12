@@ -86,7 +86,7 @@ def main():
             print(f"{tim:4s} {mo:6s} n={len(ii):3d}  귀무 (판 넓이) {rec['null_area']:.2f}  "
                   + "  ".join(f"{r}: '있음' {100*rec[r]['say']:.0f}% → 그중 판 위 {100*(rec[r]['on_panel_given_say'] or 0):.0f}%" for r in ("p", "h")),
                   flush=True)
-    o = ROOT / f"z_research/RollOutV3/audit/training_v8/panel_false_alarm_{PRES.name}.json"
+    o = ROOT / f"z_research/previous/RollOutV3/audit/training_v8/panel_false_alarm_{PRES.name}.json"
     o.write_text(json.dumps(dict(decoder=str(PRES), rule="present_thr", dilate_px=DIL, results=out), indent=1))
     print(f"→ {o}")
 

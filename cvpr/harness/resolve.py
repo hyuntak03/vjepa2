@@ -204,7 +204,8 @@ def window_spec(name: str, overrides: dict) -> tuple[dict, str]:
     if overrides:
         k = w["kind"]
         if k == "fixed":
-            label = f"c{w['context']}t{w['n_frames']}" + (f"s{w['stride']}" if "stride" in w else "")
+            label = f"c{w['context']}t{w['n_frames']}" + (f"s{w['stride']}" if "stride" in w else "") \
+                + (f"o{w['frames_start']}" if "frames_start" in w else "")   # 시작점이 다르면 캐시를 가른다 (2026-10-10)
         elif k == "sliding":
             label = "skip" + "-".join(map(str, w["frame_skips"])) + "_w" + "-".join(map(str, w["window_sizes"])) \
                 if isinstance(w.get("frame_skips"), list) else f"{name}_custom"

@@ -25,7 +25,7 @@ Subspace definition (used consistently): closed-form ridge readout W (D×k, k = 
 Baselines: isotropic random subspace (analytic max(k1,k2)/D + 200 draws), label-shuffled ridge subspace (5 permutations; data-aligned
          lower bound), split-half (disjoint block halves) reliability = upper bound; block-bootstrap 95 % CIs (--boot, default 200,
          λ fixed at the selected value) for readout, overlaps, variance and scoring shares.  Held-out readout = 4-fold CV by block.
-Outputs: z_research/context_encoder_analysis/exp_results/ctxenc_state_subspaces_v11/{results.json, RESULTS.md, features.npz, accum.npz}
+Outputs: z_research/previous/context_encoder_analysis/exp_results/ctxenc_state_subspaces_v11/{results.json, RESULTS.md, features.npz, accum.npz}
          (refuses to overwrite an existing results.json).  CPU only, no model, deterministic.  ~15–25 min at defaults.
 Run:
   cd /data/hyuntak/project/2026/2027_cvpr/vjepa2
@@ -43,7 +43,7 @@ ROOT = Path("/data/hyuntak/project/2026/2027_cvpr/vjepa2")
 CACHE = Path("/local_datasets/world/world_analysis/cache/v11_full_vith")
 INDEX = ROOT / "data_csv/intphysgen_v11_full/index_probe.csv"
 META = Path("/local_datasets/world/world_analysis/IntPhysGen_v11/metadata.csv")
-OUT_DEFAULT = ROOT / "z_research/context_encoder_analysis/exp_results/ctxenc_state_subspaces_v11"
+OUT_DEFAULT = ROOT / "z_research/previous/context_encoder_analysis/exp_results/ctxenc_state_subspaces_v11"
 SEED, D, CELL_PX = 0, 1280, 18.0
 # cell name, condition, k, motion, occ_state
 CELLS = [("static_visible", "static_visible", "0", "static", "visible"),

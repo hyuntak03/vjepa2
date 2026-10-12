@@ -49,7 +49,7 @@ ROOT = Path("/data/hyuntak/project/2026/2027_cvpr/vjepa2")
 sys.path.insert(0, str(ROOT))
 # 2026-09-25: 다른 predictor 의 p 로 돌리려고 환경변수로 덮을 수 있게 했다 (기본값 그대로). TrainingEffects/README.md
 CACHE = Path(__import__("os").environ.get("V11P_CACHE", "/local_datasets/world/world_analysis/cache/v11_pooled_vith"))
-OUT = Path(__import__("os").environ.get("V11P_PROBE_OUT", str(ROOT / "z_research/RollOutV3/figures/v11_probe")))
+OUT = Path(__import__("os").environ.get("V11P_PROBE_OUT", str(ROOT / "z_research/previous/RollOutV3/figures/v11_probe")))
 LAMS = [1e-4, 1e-3, 1e-2, 1e-1]
 TARGETS = {"shape": "shape_pre", "color": "color_pre"}
 MOTION = {"static": "static", "moving_flat": "flat", "moving": "ramp"}

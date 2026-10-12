@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """IntPhys 1 Garrido sliding — 창마다 pos/imp 가 처음 갈리는 프레임이 context 안 / 예측 구간 안 / 창 뒤 중 어디인가, 그리고 그걸로 정확도를 다시 낸다.
 
-왜: 88.89 칸 (skip2_w32) 의 창 그림 (`z_research/Benchmarks/figures/intphys1_windows/`) 에서 O1_01 쌍은 거의 모든 시작점에서
+왜: 88.89 칸 (skip2_w32) 의 창 그림 (`z_research/previous/Benchmarks/figures/intphys1_windows/`) 에서 O1_01 쌍은 거의 모든 시작점에서
 사건이 예측 구간에 있는데 start raw 20 만 Filtered 가 C=16 을 골라 사건이 context 안에 들어갔다. 이런 창은 모델이 위반을 **이미 본 뒤**
 미래를 예측하므로 "예측이 어긋나서 놀란다" 는 VoE 채점의 전제 (context 가 픽셀 단위로 같은 matched pair) 가 깨진다. 그 창이 점수에 얼마나 들어가나.
 
@@ -23,8 +23,8 @@
 CI: scene (4 중항) bootstrap, macro 는 principle 층화, B = 10000.
 
   python z_research/scripts/analysis/intphys1_event_position_acc.py
-  → z_research/Benchmarks/exp_results/intphys1_event_position/event_position_acc.json
-  문서: z_research/Benchmarks/Archive/INTPHYS1_EVENT_POSITION_2026-09-25.md
+  → z_research/previous/Benchmarks/exp_results/intphys1_event_position/event_position_acc.json
+  문서: z_research/previous/Benchmarks/Archive/INTPHYS1_EVENT_POSITION_2026-09-25.md
 """
 from __future__ import annotations
 import collections, csv, json, sys
@@ -36,7 +36,7 @@ ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 from evals.world_model_analysis.eval import _intphys1_windows  # noqa: E402
 
-BENCH = ROOT / "z_research/Benchmarks/exp_results"
+BENCH = ROOT / "z_research/previous/Benchmarks/exp_results"
 PAIRS = ROOT / "auto_research/_stage/IntPhys1_dev_by_scene/pairs.csv"
 FR = Path("/local_datasets/world/world_analysis/IntPhys1_dev_frame_png")
 OUT = BENCH / "intphys1_event_position"

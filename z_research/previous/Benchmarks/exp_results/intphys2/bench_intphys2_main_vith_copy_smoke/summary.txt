@@ -1,0 +1,16 @@
+===== IntPhys2 pairwise-surprise summary =====
+tag: bench_intphys2_main_vith_copy_smoke
+split: Main   root: /data2/local_datasets/world/Benchmark/IntPhys2
+model.checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vith-fpc64-256/snapshots/b5eac8703e3efdc1547fbb6ddfbeb133dc0bdee5/original/model.pth
+surprise: window=48 stride=2 C=[12, 18, 24, 30, 36, 42] dist=l1 agg=avg
+context_lengths evaluated: [12, 18, 24, 30, 36, 42]
+best_context_length (max pairwise): C=24
+  [overall (pairwise)]
+    pairwise_accuracy=60.00%  (correct=6/10, ties=0)
+  [single-video (AUROC)]
+    auroc=0.5200  (n_pos=10, n_neg=10)
+  breakdowns:
+    [condition=solidity|difficulty=Easy|camera=Fixed]
+      pairwise_accuracy=66.67%  (correct=4/6, ties=0)
+    [condition=solidity|difficulty=Easy|camera=Moving]
+      pairwise_accuracy=50.00%  (correct=2/4, ties=0)

@@ -1,0 +1,79 @@
+tag: bench_intphys2_main_vjepa21g
+folder: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/Benchmarks/exp_results/intphys2
+data:
+  root: /data2/local_datasets/world/Benchmark/IntPhys2
+  dataset_variant: intphys2
+  split: Main
+  target_fps: 6.0
+  min_frames: 8
+  img_size: 256
+  decord_threads: 2
+  frame_step: 10
+  crop_margin_ratio: 1.0
+model:
+  family: vjepa2_1
+  checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/v_jepa2.1/vjepa2_1_vitg_384.pt
+  arch_name: vit_giant
+  img_size: 256
+  patch_size: 16
+  tubelet_size: 2
+  use_rope: true
+  uniform_power: false
+  dual_encoder: true
+  context_encoder_key: encoder
+  target_encoder_key: target_encoder
+  predictor:
+    embed_dim: 384
+    depth: 12
+    num_heads: 12
+    num_mask_tokens: 10
+  dtype: float32
+  autocast: bfloat16
+  window_size: 48
+surprise:
+  window_size: 48
+  context_length: 12
+  context_length_sweep:
+  - 4
+  - 6
+  - 8
+  - 10
+  - 12
+  - 14
+  - 18
+  - 24
+  - 30
+  - 36
+  - 42
+  stride: 2
+  distance: l1
+  loss_exp: 1.0
+  target_layer_norm: false
+  aggregation: avg
+  protocol: growing
+  max_window_batch: 2
+  mask_index: 0
+  context_forward_mode: masked
+evaluation:
+  compute_pairwise: true
+  compute_auroc: true
+  breakdown_by:
+  - condition
+  - difficulty
+  - camera
+  ddp: true
+  num_workers: 6
+  prefetch_factor: 2
+  pin_memory: true
+  verbose: true
+  log_every_videos: 25
+  limit_videos: null
+  pairing: type_matched
+output:
+  save_per_video: true
+  save_per_window: true
+  save_config: true
+  plot_breakdowns: true
+  plot_context_sweep: true
+  plot_scene_curves: false
+  scene_curve_indices: null

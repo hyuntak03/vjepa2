@@ -14,7 +14,7 @@
    지금 자 identity_r8 은 0 % 다 (audit/training_v8/panel_false_alarm_identity_r8.json).
 ⚠️ 화면 가장자리 · 화면 밖 칸 (이동 물체의 t7) 은 자의 정의 밖이다. 그래도 사용자 지시로 빼지 않고 그린다.
 
-  $P z_research/scripts/figures/plot_v11_presence.py   → z_research/RollOutV3/figures/v11_presence/fig_v11_presence.png
+  $P z_research/scripts/figures/plot_v11_presence.py   → z_research/previous/RollOutV3/figures/v11_presence/fig_v11_presence.png
 """
 from __future__ import annotations
 import json, sys

@@ -17,7 +17,7 @@ IntPhysGen 판(plot_violation_bars.py)과 같은 그림을 IntPhys1 dev 에 대�
       --result-dir z_exp/world_model_analysis/results/intphys1_vith \
       --pairs /local_datasets/world/world_analysis/IntPhys1_dev_by_scene/pairs.csv \
       --combo skip2_w32/avg \
-      --output z_research/IntPhys/figures/fig1_intphys1_bars.pdf
+      --output z_research/previous/IntPhys/figures/fig1_intphys1_bars.pdf
 """
 from __future__ import annotations
 

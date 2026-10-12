@@ -22,10 +22,10 @@ import hashlib, json, os
 from pathlib import Path
 
 ROOT = Path("/data/hyuntak/project/2026/2027_cvpr/vjepa2")
-EXP = Path(os.environ.get("R3_EXP", str(ROOT / "z_research/RollOutV3/exp_results")))   # 2026-09-28: 다른 predictor 판 (ariel/) 은 R3_EXP 로 딴 뿌리
+EXP = Path(os.environ.get("R3_EXP", str(ROOT / "z_research/previous/RollOutV3/exp_results")))   # 2026-09-28: 다른 predictor 판 (ariel/) 은 R3_EXP 로 딴 뿌리
 # 옛 파이프라인 (rollout3_rerun.sh 의 profile · windows · examples · readout 그림, presence 자 시기) 이 쓰는 뿌리.
 # 2026-09-26 폴더 정리 때 그 그림들을 figures/_superseded/presence_era_2026-09-24/ 로 내렸으므로 다시 돌리면 그 옆에 쓴다
-FIGROOT = ROOT / "z_research/RollOutV3/figures/_superseded/presence_era_2026-09-24"
+FIGROOT = ROOT / "z_research/previous/RollOutV3/figures/_superseded/presence_era_2026-09-24"
 DECODER = os.environ.get("R3_DECODER", "presence")
 TAG = os.environ.get("R3_OUT", "")
 PRES = EXP / DECODER                                           # 자 (readout_attn.pt · summary.json · attn_bias_px.json)
@@ -35,7 +35,7 @@ V11_MID = EXP / (f"v11_mid_{TAG}" if TAG else "v11_mid")       # v11 문맥 중�
 # 지금 그림 폴더의 뿌리 = RollOutV3/figures/ (v3_signed_error{,_hhead} · v3_trajectory · v3_gif · v11_presence · v11_signed_error ·
 # v11_readout_overlay · v11_probe · v11_geometry). 2026-09-26 전에는 RollOutV3/new_archive/ 였다 (호환 링크 없음).
 # 시험 그림은 R3_FIGROOT 로 딴 데 그린다
-ARCHIVE = Path(os.environ.get("R3_FIGROOT", str(ROOT / "z_research/RollOutV3/figures")))
+ARCHIVE = Path(os.environ.get("R3_FIGROOT", str(ROOT / "z_research/previous/RollOutV3/figures")))
 
 
 def fig(sub: str) -> Path:

@@ -4,7 +4,7 @@
 held-out = v11_full 의 block 단위 test 절반 (condition × violation × k 층화, seed 0; 같은 조건·장면·물체 종류, 다른 block = 다른 문맥). 외형 holdout 은 없다.
 쪼개는 축: 조건 × 위반 / 조건 × k / 쌍 방향 (A = pos_a vs imp_ab, B = pos_b vs imp_ba) / shape·color 블록의 물체별 recall (순서 편향).
 정답 = surprise(imp) > surprise(pos), tie 0.5. 전체가 release 75.83 / post-FT 91.35 와 맞는지 검증한다.
-출력: z_research/predictor_training/predictor_IntPhysGenV11_PFT/{exp_results/scoring_breakdown.json, Archive/SCORING_2026-09-16.md}
+출력: z_research/previous/predictor_training/predictor_IntPhysGenV11_PFT/{exp_results/scoring_breakdown.json, Archive/SCORING_2026-09-16.md}
 
   /data/hyuntak/anaconda3/envs/vjepa2/bin/python z_research/scripts/analysis/pft_scoring_breakdown.py
 """
@@ -13,8 +13,8 @@ from collections import defaultdict
 from pathlib import Path
 import numpy as np
 
-ROOT = Path("/data/hyuntak/project/2026/2027_cvpr/vjepa2"); SET = ROOT / "z_research/predictor_training/predictor_IntPhysGenV11_PFT"
-RUNS = {"release": ROOT / "z_research/IntPhysGenV11_occlusion_timing_ablation/exp_results/surprise_c16t32__v11_full_vith/per_block.json",
+ROOT = Path("/data/hyuntak/project/2026/2027_cvpr/vjepa2"); SET = ROOT / "z_research/previous/predictor_training/predictor_IntPhysGenV11_PFT"
+RUNS = {"release": ROOT / "z_research/previous/IntPhysGenV11_occlusion_timing_ablation/exp_results/surprise_c16t32__v11_full_vith/per_block.json",
         "post-FT": ROOT / "z_training/runs/v11_postft/eval/surprise_c16t32__v11_split_test_e10/per_block.json",
         "IP1-FT": ROOT / "z_training/runs/intphys1_postft/eval/surprise_c16t32__v11_split_test_e40/per_block.json"}
 rows = {r["video_id"]: r for r in csv.DictReader(open(ROOT / "data_csv/intphysgen_v11_split/index_test.csv"))}

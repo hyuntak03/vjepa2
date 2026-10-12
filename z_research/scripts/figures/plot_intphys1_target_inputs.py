@@ -2,13 +2,13 @@
 """IntPhys 1 · 88.89 칸 (skip2_w32) 에서 **target encoder 가 실제로 받는 32 장** 을 원 해상도 (256×256) 그대로 저장한다.
 
 채점기와 같은 경로로 텐서를 만든다:
-  cfg   = 88.89 실행의 _resolved.yaml (z_research/Benchmarks/exp_results/intphys1_sliding__intphys1_dev_vith_w32/)
+  cfg   = 88.89 실행의 _resolved.yaml (z_research/previous/Benchmarks/exp_results/intphys1_sliding__intphys1_dev_vith_w32/)
   clip  = WMADataset(cfg).clip(i)        PNG 288×288 → bilinear (antialias 없음) 256×256 → ImageNet 정규화
   창    = _intphys1_windows(... yaml 의 skip/창/C/stride/frame_budget ...)   (eval.py 와 같은 생성기)
   입력  = clip[:, context + future]      eval.py 의 `x = clips[v][:, full_of[st]]` 와 같다 → target_encoder(x)
 저장할 때만 정규화를 되돌린다 (x·std + mean → 0..255). 그 밖의 가공은 없다.
 
-출력 (z_research/Benchmarks/figures/intphys1_windows/target_inputs/):
+출력 (z_research/previous/Benchmarks/figures/intphys1_windows/target_inputs/):
   start{SS}.png   시작점 SS (raw) 창 하나. 행 = 영상 (pos/imp 쌍 3 개), 열 = 창 32 장 (256 px 원본).
                   테두리 파랑 = context / 주황 = future — 그 영상·시작점에서 Filtered 가 고른 C* 기준 (per_window.json 의 min).
                   target encoder 는 색과 무관하게 32 장 전부를 받는다. ▼ = 그 쌍의 pos/imp PNG 가 처음 갈린 뒤 첫 장.
@@ -30,8 +30,8 @@ sys.path.insert(0, str(ROOT))
 from evals.world_model_analysis.data import WMADataset, MEAN, STD  # noqa: E402
 from evals.world_model_analysis.eval import _intphys1_windows       # noqa: E402
 
-RUN = ROOT / "z_research/Benchmarks/exp_results/intphys1_sliding__intphys1_dev_vith_w32"
-OUT = ROOT / "z_research/Benchmarks/figures/intphys1_windows/target_inputs"
+RUN = ROOT / "z_research/previous/Benchmarks/exp_results/intphys1_sliding__intphys1_dev_vith_w32"
+OUT = ROOT / "z_research/previous/Benchmarks/figures/intphys1_windows/target_inputs"
 COMBO, SKIP, WZ = "skip2_w32", 2, 32
 BLUE, ORANGE, INK = (42, 120, 214), (235, 104, 52), (34, 34, 34)
 FONT = font_manager.findfont("DejaVu Sans")

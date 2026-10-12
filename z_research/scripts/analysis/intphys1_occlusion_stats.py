@@ -15,7 +15,7 @@ IntPhys 1 dev — 사건 물체가 몇 프레임 가려지나, 그리고 Garrido
   skip 2 격자 (raw 짝수) 와 skip 5 격자 (raw 5 의 배수) 에서 그 구간에 드는 프레임 수 = 모델이 받는 '가려진 프레임' 수.
 
   python z_research/scripts/analysis/intphys1_occlusion_stats.py
-  → z_research/Benchmarks/exp_results/intphys1_event_position/occlusion_stats.json
+  → z_research/previous/Benchmarks/exp_results/intphys1_event_position/occlusion_stats.json
 """
 from __future__ import annotations
 import collections, csv, json
@@ -26,7 +26,7 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parents[3]
 AUX = ROOT / "auto_research/_stage/IntPhys1_dev_by_scene"
 FR = Path("/local_datasets/world/world_analysis/IntPhys1_dev_frame_png")
-OUT = ROOT / "z_research/Benchmarks/exp_results/intphys1_event_position"
+OUT = ROOT / "z_research/previous/Benchmarks/exp_results/intphys1_event_position"
 MO = {"정지": "static", "이동": "moving"}; VI = {"눈앞": "visible", "가려짐": "occluded"}
 LAG = 3          # d 가 가림 끝 뒤 몇 프레임 안이면 그 가림을 사건 가림으로 본다 (재등장 순간에 픽셀이 갈리는 경우)
 

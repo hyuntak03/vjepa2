@@ -184,6 +184,27 @@ checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--faceb
 predictor_checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_training/ariel_eval/ckpt/ar_ep38.pt
 predictor.kind: ar
 
+## vith_ariel_ar_ep40
+
+**팔 C — AR, epoch 40 / 40 최종** (2026-10-10 등록, step 35,840, loss 1.0442 — 체크포인트에서 읽음). `z_training/ariel/ar_future_1e_5/latest.pt`.
+`vith_ariel_ar_ep18` · `vith_ariel_ar_ep36` 도 같은 파일을 가리킨다 (파일이 09-29 에 ep40 으로 덮였다 — 그 이름의 epoch 는 옛것). 구조 · 단서는 `vith_ariel_ar_ep18` 과 같다.
+
+arch_name: vit_huge
+checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vith-fpc64-256/snapshots/b5eac8703e3efdc1547fbb6ddfbeb133dc0bdee5/original/model.pth
+predictor_checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_training/ariel/ar_future_1e_5/latest.pt
+predictor.kind: ar
+
+## vith_ariel_ar_state_ep40
+
+**ar_state — AR 에서 rollout 되먹임만 predictor 상태 (predictor_norm 출력, 384) 로, epoch 40 / 40** (2026-10-11 등록, step 11,760, loss 1.0743 — 체크포인트에서 읽음). `z_training/ariel/ar_state_future_1e_5/latest.pt` (ariel 브랜치 `c973560`).
+`ar` 와 TF · 블록별 LN(target_encoder) 문맥 · 손실 (render(상태) vs LN h) 이 같고 `type_embed` (관측 / 상태) 가 더 있다. 학습 데이터 · 예산은 `vith_ariel_ar_ep40` 와 **다르다** (K400 fps 6 + SSv2 stride 1, 32 장 창, C {2,4,8} → K {4,6,8}, 11,760 step × 504) — 둘의 차이를 되먹임 하나의 효과로 읽지 말 것.
+채점 경로 `analysis/predictors/ar_scoring.py` (`kind=ar` 와 같다). `model.predictor.kv_rollout=false` 면 전체 재계산 rollout (값 같음).
+
+arch_name: vit_huge
+checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vith-fpc64-256/snapshots/b5eac8703e3efdc1547fbb6ddfbeb133dc0bdee5/original/model.pth
+predictor_checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_training/ariel/ar_state_future_1e_5/latest.pt
+predictor.kind: ar_state
+
 ## vith_ariel_ctx_ar_ep18
 
 **팔 C' — ctx_ar (문맥은 창 단위 z, 미래만 블록별 되먹임), epoch 18 / 40** (2026-09-29 21:37 수령 `context_full_ar_1e_5/latest.pt`, step 16128, loss 1.0635 = tf + rollout; **학습 중**).

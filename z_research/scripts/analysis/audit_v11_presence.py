@@ -36,7 +36,7 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "z_research/scripts/analysis"))
 from rollout3_paths import PRES, EXP, check, fingerprint          # noqa: E402
 
-OUT = ROOT / "z_research/RollOutV3/audit/v11_presence"
+OUT = ROOT / "z_research/previous/RollOutV3/audit/v11_presence"
 RES, TC, TP, KMIN, EDGE, W = 144.0, 8, 8, 2, 36.0, 288.0
 NB = 2000
 MOTIONS = ("static", "flat", "ramp")
@@ -428,7 +428,7 @@ def main_analyze():
 
     # 자 없는 교차검증 — v11_full 표준 surprise (matched), vanish 쌍 A (문맥에 물체: pos_a 미래=물체 vs imp_ab 미래=빈)
     # "p 가 물체 미래 쪽에 더 가깝다" = S(pos_a) < S(imp_ab). 쌍 B (문맥 빈 장면) 는 대조.
-    PB = ROOT / "z_research/IntPhysGenV11_occlusion_timing_ablation/exp_results/surprise_c16t32__v11_full_vith/per_block.json"
+    PB = ROOT / "z_research/previous/IntPhysGenV11_occlusion_timing_ablation/exp_results/surprise_c16t32__v11_full_vith/per_block.json"
     IX = ROOT / "data_csv/intphysgen_v11_full/index.csv"
     lf = {}
     if PB.exists() and IX.exists():

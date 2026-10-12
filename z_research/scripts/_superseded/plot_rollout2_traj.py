@@ -16,7 +16,7 @@ from PIL import Image, ImageDraw
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "analysis"))
 import rollout2_position as rp                                            # noqa: E402
 
-FRAMES = Path("/local_datasets/world/world_analysis/RollOut_v2"); OUTROOT = rp.ROOT / "z_research/RollOutV2/figures"
+FRAMES = Path("/local_datasets/world/world_analysis/RollOut_v2"); OUTROOT = rp.ROOT / "z_research/previous/RollOutV2/figures"
 ORANGE, WHITE = (235, 104, 52), (255, 255, 255); R = 288
 
 

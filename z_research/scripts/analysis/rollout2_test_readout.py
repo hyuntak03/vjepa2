@@ -23,7 +23,7 @@ TRAIN = os.environ.get("ROLLOUT2_TRAIN", "v5")                                  
 TR_NAME = {"v5": "rollout_v2_training_v5"}[TRAIN]
 TR_CACHE = Path("/local_datasets/world/world_analysis/cache") / f"{TR_NAME}_vith"; TR_CACHE_CTX32 = Path("/local_datasets/world/world_analysis/cache") / f"{TR_NAME}_ctx32_vith"
 TR_INDEX = ROOT / f"data_csv/{TR_NAME}/index_probe.csv"
-RES_ROOT = ROOT / "z_research/RollOutV2/exp_results" / TRAIN; FIG_ROOT = ROOT / "z_research/RollOutV2/figures" / TRAIN
+RES_ROOT = ROOT / "z_research/previous/RollOutV2/exp_results" / TRAIN; FIG_ROOT = ROOT / "z_research/previous/RollOutV2/figures" / TRAIN
 W = RES_ROOT / "spatial_pooling/p/fit/w_p.npy"
 OUT = RES_ROOT / "spatial_pooling/p/test"
 POOLED = CACHE / "_pooled_p8.npz"

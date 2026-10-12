@@ -88,7 +88,7 @@ SETS = {
     #   우리 쪽 이름은 **`training_r8`** 로 둔다 (사용자 지시 "이름 다르게"). 폴더는 /data2 에만 있다 (/local_datasets 심링크 없음).
     #   빈 장면 1,920 이 물체 arm 의 같은 셀에 짝으로 얹혀 있고 v11 판 (MI_OccDark trapdoor) arm 이 있다.
     #   판 arm 1,296 은 2026-09-26 00:24 에 다시 찍혀 계획이 `…_v8panel.json` 에 따로 있다 → 계획 둘을 같이 준다.
-    #   감사: z_research/RollOutV3/audit/training_sets/RollOut_v2_training_v8.md (3 차 통과).
+    #   감사: z_research/previous/RollOutV3/audit/training_sets/RollOut_v2_training_v8.md (3 차 통과).
     "training_r8": dict(src="/data2/local_datasets/world/world_analysis/RollOut_v2_training_v8",
                         frames_root="/data2/local_datasets/world/world_analysis/RollOut_v2_training_v8",
                         plan=["/data/hyuntak/project/2026/2027_cvpr/UnrealEngine/gen/plans/blocks_rollout2_training_v8.json",

@@ -22,9 +22,9 @@
       k, timing 처럼 순서가 있는 축은 가능하면 축으로 뺀다
 
   python z_research/scripts/figures/plot_v11_timing.py \
-    --exp z_research/IntPhysGenV11_occlusion_timing_ablation/exp_results \
+    --exp z_research/previous/IntPhysGenV11_occlusion_timing_ablation/exp_results \
     --index data_csv/intphysgen_v11_full/index_probe.csv \
-    --outdir z_research/IntPhysGenV11_occlusion_timing_ablation/figures
+    --outdir z_research/previous/IntPhysGenV11_occlusion_timing_ablation/figures
 """
 from __future__ import annotations
 import argparse, collections, colorsys, csv, json

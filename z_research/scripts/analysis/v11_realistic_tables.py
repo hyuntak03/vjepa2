@@ -7,7 +7,7 @@
 검증: 재계산 overall 이 summary.json 의 block_pairwise 와 다르면 죽는다. CI = block 단위 부트스트랩 95 % (2,000 회).
 
   P=/data/hyuntak/anaconda3/envs/vjepa2/bin/python
-  $P z_research/scripts/analysis/v11_realistic_tables.py            # → z_research/v11_realistic/exp_results/tables.{md,json}
+  $P z_research/scripts/analysis/v11_realistic_tables.py            # → z_research/previous/v11_realistic/exp_results/tables.{md,json}
 """
 from __future__ import annotations
 import collections, csv, json, re, sys
@@ -15,11 +15,11 @@ from pathlib import Path
 import numpy as np
 
 REPO = Path(__file__).resolve().parents[3]
-OUT = REPO / "z_research/v11_realistic/exp_results"
+OUT = REPO / "z_research/previous/v11_realistic/exp_results"
 RUNS = dict(
     realistic=(OUT / "surprise_c16t32__v11_realistic_vith", REPO / "data_csv/intphysgen_v11_realistic/index.csv"),
     ledge=(OUT / "surprise_c16t32__v11_realistic_ledge_vith", REPO / "data_csv/intphysgen_v11_realistic_ledge/index.csv"),
-    v11=(REPO / "z_research/IntPhysGenV11/exp_results/surprise_c16t32__v11_vith", REPO / "data_csv/intphysgen_v11/index.csv"),
+    v11=(REPO / "z_research/previous/IntPhysGenV11/exp_results/surprise_c16t32__v11_vith", REPO / "data_csv/intphysgen_v11/index.csv"),
 )
 META = dict(realistic="/local_datasets/world/world_analysis/IntPhysGen_v11_realistic/metadata.csv",
             ledge="/local_datasets/world/world_analysis/IntPhysGen_v11_realistic_ledge/metadata.csv")

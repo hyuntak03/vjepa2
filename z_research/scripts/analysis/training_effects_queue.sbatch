@@ -6,15 +6,15 @@
 #SBATCH --cpus-per-task=64
 #SBATCH --mem=300G
 #SBATCH --time=0-10:00:00
-#SBATCH --output=/data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/TrainingEffects/logs/te_queue_%j.out
+#SBATCH --output=/data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/previous/TrainingEffects/logs/te_queue_%j.out
 # TrainingEffects — 세션 (job 216129, 05:34 종료) 이 못 끝낸 GPU 추출을 이어서 돈다 (2026-09-25).
 # 모든 단계가 이어쓰기 (resume) 를 지원하므로 이미 끝난 것은 건너뛴다. vll5 로컬 데이터 (/local_datasets, /data2) 를 쓴다.
 #   sbatch z_research/scripts/analysis/training_effects_queue.sbatch
-# 로그: z_research/TrainingEffects/logs/te_queue_<jobid>.out, 단계별 로그는 같은 폴더 te_*.log
+# 로그: z_research/previous/TrainingEffects/logs/te_queue_<jobid>.out, 단계별 로그는 같은 폴더 te_*.log
 set -uo pipefail
 cd /data/hyuntak/project/2026/2027_cvpr/vjepa2
 PY=/data/hyuntak/anaconda3/envs/vjepa2/bin/python
-L=z_research/TrainingEffects/logs
+L=z_research/previous/TrainingEffects/logs
 export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
 step() { echo "== $(date '+%F %T') START $1"; shift; "$@" && echo "== $(date '+%F %T') DONE" || echo "== $(date '+%F %T') FAILED ($?)"; }
 

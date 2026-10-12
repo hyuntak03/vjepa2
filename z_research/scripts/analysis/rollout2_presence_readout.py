@@ -29,7 +29,7 @@ probe 3 종 (같은 특징을 공유한다 — 추출 한 번):
 split: block 단위, scenario 층화. train 50 % / val 15 % / test 35 %.
 캐시를 디스크에 쓰지 않는다 — clip 마다 p·z·h 를 한 번에 뽑아 /dev/shm 에 두고 그 위에서 학습한다.
 
-출력: z_research/RollOutV3/exp_results/presence/{summary.json, RESULTS.md, <rep>/{readout_<kind>.pt, preds_<kind>.npz}}
+출력: z_research/previous/RollOutV3/exp_results/presence/{summary.json, RESULTS.md, <rep>/{readout_<kind>.pt, preds_<kind>.npz}}
 
   P=/data/hyuntak/anaconda3/envs/vjepa2/bin/python
   $P z_research/scripts/analysis/rollout2_presence_readout.py
@@ -63,7 +63,7 @@ DEFAULT_TAIL = ("## 재현\n\n```bash\n"
 # 프레임 폴더는 세트마다 (2026-09-26: training_r8 = 새 렌더 RollOut_v2_training_v8 은 /data2 에만 있다 — build_rollout2_index.py SETS 와 같다)
 FRAMES = os.environ.get("PRESENCE_FRAMES") or {"training_r8": "/data2/local_datasets/world/world_analysis/RollOut_v2_training_v8"}.get(
     SET, "/local_datasets/world/world_analysis/RollOut_v2_training")   # 2026-09-30: PRESENCE_FRAMES 로 덮어쓰기 (다른 노드)
-OUT = ROOT / "z_research/RollOutV3/exp_results/presence"      # 2026-09-22: 세트를 RollOutV3 로 분리
+OUT = ROOT / "z_research/previous/RollOutV3/exp_results/presence"      # 2026-09-22: 세트를 RollOutV3 로 분리
 # 특징 저장 위치. 기본은 /dev/shm (빠르지만 **세션이 끝나면 지워진다**) —
 # 재사용할 거면 `--feat-dir /data2/.../rollout3_presence_feats` 로 디스크에 둔다 (123 GB, 추출 27 분 절약).
 # ⚠️ mp.spawn 워커는 이 모듈을 **다시 import** 한다 — main() 에서 바꾼 값은 워커에 안 간다.
@@ -90,7 +90,8 @@ if os.environ.get("PRED_CKPT"):
 EXTRACT_REPS = tuple(x for x in os.environ.get("PRESENCE_REPS", "p,z,h").split(",") if x)
 DATA = dict(root=str(ROOT / f"data_csv/rollout_v2_{SET}"), index_csv="index.csv",
             frames_root=FRAMES, frames_pattern="{file_name}/{frame:06d}.png",
-            frames_start=0, frames_stride=3, n_frames=32, resolution=256, block_column="block_id")
+            frames_start=0, frames_stride=int(os.environ.get("PRESENCE_STRIDE", 3)), n_frames=32, resolution=256, block_column="block_id")
+# PRESENCE_STRIDE: 프레임이 이미 10 fps 32 장으로 렌더된 세트 (VOB_readout_primitive, 2026-10-12) 는 1
 
 
 def arr(s):
@@ -246,7 +247,7 @@ class Readout(nn.Module):
     고른 이유는 **v3 (측정셋) 에서 존재 판정이 전이된다**는 것이다. v3 는 물체가 내내 화면 안이라
     `z` 는 항상 "있다" 여야 하는데 (라벨 없는 검증), 그 오작동률은 `exp_results/windows/WINDOW_SUMMARY.md` 에 있다
     (자를 다시 배우면 바뀌는 수치라 코드에 적지 않는다).
-    비교한 후보들과 기각 사유는 `z_research/RollOutV3/Archive/READOUT_CHOICE_2026-09-23.md`.
+    비교한 후보들과 기각 사유는 `z_research/previous/RollOutV3/Archive/READOUT_CHOICE_2026-09-23.md`.
     **다시 비교하지 말 것.**
 
     ⚠️ 읽을 때 붙일 단서 셋 —

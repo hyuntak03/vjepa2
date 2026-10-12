@@ -106,7 +106,7 @@ def convert_models(md: Path):
 
 
 # ── md 에 없던 항목 (분석/학습 하네스가 통짜 yaml 로 들고 있던 것) ──────────────
-# Garrido A.8 격자의 벤치별 frame_skips (옛 z_research/Benchmarks/run_all.sh set_bench 의 case 문).
+# Garrido A.8 격자의 벤치별 frame_skips (옛 z_research/previous/Benchmarks/run_all.sh set_bench 의 case 문).
 #   GRASP 은 skip 2 를 뺀 부분 탐색 (2026-09-22 결정: 비용 66~71 %, Table S3 도 GRASP 에 skip 10). 보고할 때 "A.8 부분 탐색" 이라고 밝힌다.
 MANUAL_PATCH = {
     "intphys1_dev": {"sliding_frame_skips": [2, 5, 10]},
@@ -130,7 +130,7 @@ MANUAL_DATASETS = {
         "engine": "intphys2",
         "root": "${CVPR_DATA2}/local_datasets/world/Benchmark/IntPhys2",   # stage.sh 가 푼 노드 로컬 사본 (analysis/intphys2/configs/bench_*.yaml)
         "dataset_variant": "intphys2", "split": "Main",
-        "legacy_results_root": "${CVPR_REPO}/z_research/Benchmarks/exp_results/intphys2",
+        "legacy_results_root": "${CVPR_REPO}/z_research/previous/Benchmarks/exp_results/intphys2",
         "note": "IntPhys 2 Main 506 쌍. 다른 사본 ${CVPR_LOCAL}/world/IntPhys2 (TEMPLATE/repro 가 쓰던 것) 은 split 폴더 구성이 같다",
     },
     "intphys2_main_nfs": {
@@ -145,8 +145,28 @@ MANUAL_DATASETS = {
         "dataset_train": "${CVPR_NFS}/epic-kitchens-100-annotations/EPIC_100_train.csv",
         "dataset_val": "${CVPR_NFS}/epic-kitchens-100-annotations/EPIC_100_validation.csv",
         "file_format": 0,
-        "legacy_results_root": "${CVPR_REPO}/z_research/anticipation/EK100/exp_results",
-        "note": "공식 val 기하로 재인코딩한 256x256 영상 (train 495 + val 138). z_research/anticipation/EK100/README.md §3-1",
+        "legacy_results_root": "${CVPR_REPO}/z_research/previous/anticipation/EK100/exp_results",
+        "note": "공식 val 기하로 재인코딩한 256x256 영상 (train 495 + val 138). z_research/previous/anticipation/EK100/README.md §3-1",
+    },
+    "vobench_v1": {                       # 2026-10-10. index = z_research/scripts/data/build_vobench_index.py
+        "raw_frames": 96, "cache_tag": "vobench_v1",
+        "root": "${CVPR_DATA_CSV}/vobench_v1", "index_csv": "index.csv",
+        "frames_root": "${CVPR_DATA2}/local_datasets/world/Benchmark/VOBench_v1",
+        "frames_pattern": "{file_name}/{frame:06d}.png", "frames_start": 0, "frames_stride": 3,
+        "block_column": "block_id", "pair_column": "pair_id", "variant_column": "variant",
+        "plausible_column": "plausible", "type_column": "condition",
+        "engine": "wma",
+        "legacy_results_root": "${CVPR_REPO}/z_research/VOBench_v1/exp_results",
+    },
+    "vobench_v1_asymmetry": {             # 2026-10-10. index/프레임 = z_research/scripts/data/build_vobench_asym.py. 창 c16t28 로 쓴다
+        "raw_frames": 87, "cache_tag": "vobench_v1_asymmetry",
+        "root": "${CVPR_DATA_CSV}/vobench_v1_asymmetry", "index_csv": "index.csv",
+        "frames_root": "${CVPR_DATA2}/local_datasets/world/Benchmark/VOBench_v1_asymmetry",
+        "frames_pattern": "{file_name}/{frame:06d}.png", "frames_start": 0, "frames_stride": 3,
+        "block_column": "block_id", "pair_column": "pair_id", "variant_column": "variant",
+        "plausible_column": "plausible", "type_column": "condition",
+        "engine": "wma",
+        "legacy_results_root": "${CVPR_REPO}/z_research/VOBench_v1/exp_results",
     },
 }
 

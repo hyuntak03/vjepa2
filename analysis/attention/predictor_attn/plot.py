@@ -7,8 +7,8 @@
   group     조건별 비교 (문맥 질량 · 공간 거리 · 엔트로피)
 
   python -m analysis.attention.predictor_attn.plot \
-      --npz z_research/IntPhysGenV11/exp_results/predictor_attn__v11_vith/attn.npz \
-      --outdir z_research/IntPhysGenV11/figures/attention
+      --npz z_research/previous/IntPhysGenV11/exp_results/predictor_attn__v11_vith/attn.npz \
+      --outdir z_research/previous/IntPhysGenV11/figures/attention
 
 ⚠️ 시간 단위는 **샘플 프레임**이다 (프로토콜이 읽는 32장). 튜블릿 1 = 샘플 2장 = 원본 6장.
 ⚠️ 질의 튜블릿 0..C-1 은 진짜 문맥 토큰, C..T-1 은 **mask token** 이다. 둘은 성격이

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """TrainingEffects — 새로 학습한 모델들의 v11 · IntPhys1 점수를 산출물에서 다시 계산해 표로 만든다 (GPU 불필요).
 
-    python z_research/scripts/analysis/training_effects_scores.py            # -> z_research/TrainingEffects/scores/
+    python z_research/scripts/analysis/training_effects_scores.py            # -> z_research/previous/TrainingEffects/scores/
     python z_research/scripts/analysis/training_effects_scores.py --boot 0   # CI 없이 빠르게
 
 v11  : surprise_c16t32 × v11_split_test (10,752 matched pair, 학습 안 한 block 절반).
@@ -23,9 +23,9 @@ REPO = pathlib.Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO / "z_research/scripts/analysis"))
 import garrido_rescore as GR  # noqa: E402
 
-OUT = REPO / "z_research/TrainingEffects/scores"
-VX = REPO / "z_research/IntPhysGenV11/exp_results"
-BX = REPO / "z_research/Benchmarks/exp_results"
+OUT = REPO / "z_research/previous/TrainingEffects/scores"
+VX = REPO / "z_research/previous/IntPhysGenV11/exp_results"
+BX = REPO / "z_research/previous/Benchmarks/exp_results"
 ZR = REPO / "z_training/runs"
 INDEX = REPO / "data_csv/intphysgen_v11_split/index_test.csv"
 
@@ -34,7 +34,7 @@ MODELS = [
     # --- A: 릴리즈 ViT-H encoder (frozen) + predictor 만 다르다
     ("release", "release ViT-H", "A",
      [VX / "surprise_c16t32__v11_vith",
-      REPO / "z_research/IntPhysGenV11_occlusion_timing_ablation/exp_results/surprise_c16t32__v11_earlymid_vith"],
+      REPO / "z_research/previous/IntPhysGenV11_occlusion_timing_ablation/exp_results/surprise_c16t32__v11_earlymid_vith"],
      "vith", "Meta 릴리즈 (VideoMix22M, 학습 안 함)"),
     ("pft_v11", "PFT v11 e10", "A", [ZR / "v11_postft/eval/surprise_c16t32__v11_split_test_e10"],
      "vith_pft_v11_e10", "릴리즈 predictor post-FT · v11 train 절반 (가능 10,752 clip) · 10 ep"),

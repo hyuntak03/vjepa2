@@ -27,7 +27,7 @@ import yaml
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from intphys2_column_best import PAPER_VJEPA2_H, pair_acc  # noqa: E402
 
-BASE = Path(__file__).resolve().parents[2] / "Benchmarks/exp_results/intphys2"
+BASE = Path(__file__).resolve().parents[2] / "previous/Benchmarks/exp_results/intphys2"
 COLS = ["Easy", "Medium", "Hard", "Overall"]
 FRACS = (0.25, 0.375, 0.5, 0.625, 0.75, 0.875)
 

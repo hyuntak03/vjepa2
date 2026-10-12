@@ -65,11 +65,11 @@ PY = "/data/hyuntak/anaconda3/envs/vjepa2/bin/python"
 REL = Path("/local_datasets/world/world_analysis/cache/v11_pooled_vith")
 CROOT = Path("/data2/local_datasets/world/world_analysis/cache/training_effects")
 CURVES = CROOT / "v11readout_curves"
-OUTD = ROOT / "z_research/TrainingEffects/v11_identity"
+OUTD = ROOT / "z_research/previous/TrainingEffects/v11_identity"
 SPLIT_TEST = ROOT / "data_csv/intphysgen_v11_split/index_test.csv"
 SPLIT_TRAIN = ROOT / "data_csv/intphysgen_v11_split/index_train.csv"
-REF_PROBE = ROOT / "z_research/RollOutV3/figures/v11_probe/results.json"
-REF_GEOM = ROOT / "z_research/RollOutV3/figures/v11_geometry/results.json"
+REF_PROBE = ROOT / "z_research/previous/RollOutV3/figures/v11_probe/results.json"
+REF_GEOM = ROOT / "z_research/previous/RollOutV3/figures/v11_geometry/results.json"
 
 FINAL = ["release", "v11_e10", "ip1_e40", "ip2_e80", "pv1_e15", "ariel_ep43"]
 RUNS = ["release", "release_bs16", "v11_e10", "ip1_e40", "ip2_e80", "pv1_e15", "ariel_ep43"]

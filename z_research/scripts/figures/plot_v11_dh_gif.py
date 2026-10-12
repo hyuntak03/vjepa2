@@ -34,7 +34,7 @@ from rollout3_window_readout import MODEL                     # noqa: E402  (모
 FR = Path("/local_datasets/world/world_analysis/IntPhysGen_v11")
 INDEX = ROOT / "data_csv/intphysgen_v11_full/index_probe.csv"
 META = FR / "metadata.csv"
-OUT = ROOT / "z_research/RollOutV3/figures/v11_dh_gif"
+OUT = ROOT / "z_research/previous/RollOutV3/figures/v11_dh_gif"
 TMP = Path(os.environ.get("DH_TMP", "/dev/shm/v11_dh"))
 NS, CS, S, G, W = 32, 16, 256, 16, 288
 MOT = {"static": "static_{}", "flat": "moving_{}_flat", "ramp": "moving_{}"}

@@ -27,7 +27,7 @@ Shares    : variance share = tr(Q' C Q)/tr(C) on the centered clip-level feature
             'all' = 48 random future tokens per clip).  Random-k and PCA-top-k baselines per (scenario, window).
 CIs       : block bootstrap (clips resampled with replacement within scenario; block_id = clip for plausible-only RollOut_v2), B = --boot,
             refitting every readout with its fixed lambda; R^2 / accuracy CIs resample the out-of-fold predictions.  No GPU, no model.
-Outputs   : z_research/context_encoder_analysis/exp_results/ctxenc_state_subspaces_kinematics/{results.json, RESULTS.md, features.npz,
+Outputs   : z_research/previous/context_encoder_analysis/exp_results/ctxenc_state_subspaces_kinematics/{results.json, RESULTS.md, features.npz,
             scoring_tokens.npz}
 
   cd /data/hyuntak/project/2026/2027_cvpr/vjepa2 && \
@@ -46,7 +46,7 @@ INDEX = ROOT / "data_csv/rollout_v2/index.csv"
 CACHE_Z16 = Path("/local_datasets/world/world_analysis/cache/rollout_v2_z16_vith")
 CACHE_HP = Path("/local_datasets/world/world_analysis/cache/rollout_v2_vith")
 CACHE_Z32 = Path("/local_datasets/world/world_analysis/cache/rollout_v2_ctx32_vith")
-OUT_DEFAULT = ROOT / "z_research/context_encoder_analysis/exp_results/ctxenc_state_subspaces_kinematics"
+OUT_DEFAULT = ROOT / "z_research/previous/context_encoder_analysis/exp_results/ctxenc_state_subspaces_kinematics"
 SCEN = ["flat_v", "flat_a", "fall", "ledge", "arc", "ramp_a"]
 SEED, K_FOLD, N_INNER = 0, 5, 4
 LAM_REL = [float(v) for v in np.logspace(-3, 3, 13)]

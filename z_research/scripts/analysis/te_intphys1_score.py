@@ -90,9 +90,9 @@ Garrido 채점 (`--score`, CPU; 식은 `garrido_rescore.py` 의 함수를 **그�
     shards/v{i:04d}.npz           영상 i: p_std/p_causal (K, 925) · copy_std/copy_causal (925,) · sec
     arrays_v{V}.npz               병합: p_std/p_causal (K, V, 925) f32 · copy_* (V, 925) · rows (925, 4)=(combo_i, start, C, j)
                                   · combos · video_ids · tags   (--score / --validate 가 없으면 만든다)
-  z_research/TrainingEffects/ip1score/<out_tag>_scores.json       --score (있으면 시각 접미사로 새 이름)
-  z_research/TrainingEffects/ip1score/<out_tag>_validation.json   --validate
-  z_research/TrainingEffects/ip1score/loader_selftest.json         --selftest
+  z_research/previous/TrainingEffects/ip1score/<out_tag>_scores.json       --score (있으면 시각 접미사로 새 이름)
+  z_research/previous/TrainingEffects/ip1score/<out_tag>_validation.json   --validate
+  z_research/previous/TrainingEffects/ip1score/loader_selftest.json         --selftest
 
 ## 검증 (2026-09-25, vll5 RTX 4090 GPU 1 — 다른 eval 과 공유 중)
 
@@ -161,8 +161,8 @@ import garrido_rescore as GR  # noqa: E402  (채점 식은 이것을 그대로 �
 
 PY = sys.executable
 CACHE_ROOT = Path("/data2/local_datasets/world/world_analysis/cache/training_effects")
-DOC_DIR = ROOT / "z_research/TrainingEffects/ip1score"
-BENCH = ROOT / "z_research/Benchmarks/exp_results"
+DOC_DIR = ROOT / "z_research/previous/TrainingEffects/ip1score"
+BENCH = ROOT / "z_research/previous/Benchmarks/exp_results"
 TRUNS = ROOT / "z_training/runs"
 H6 = ROOT / "auto_research/exp_results/h6"
 AUX_PAIRS = ROOT / "auto_research/_stage/IntPhys1_dev_by_scene/pairs.csv"

@@ -23,7 +23,7 @@ evaluation:
   pin_memory: true
   prefetch_factor: 2
   verbose: true
-folder: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/Benchmarks/exp_results/intphys2
+folder: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/previous/Benchmarks/exp_results/intphys2
 model:
   arch_name: vit_huge
   autocast: bfloat16

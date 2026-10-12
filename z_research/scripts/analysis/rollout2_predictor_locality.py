@@ -18,7 +18,7 @@ frozen, 재학습 없음. 캐시를 만든 config (exp_results/attn_probe__rollo
                    block 단위 반반 split. 대조: 같은 자리 토큰이 위치만 주고 속도는 없을 때의 기준 = 평균 예측 (R² 0).
 
   CUDA_VISIBLE_DEVICES=0 python z_research/scripts/analysis/rollout2_predictor_locality.py [--n 200] [--exp 1,2,3]
-출력: z_research/RollOutV2/exp_results/v5/locality/{exp1_attention,exp2_knockout,exp3_velocity}.json + report.md
+출력: z_research/previous/RollOutV2/exp_results/v5/locality/{exp1_attention,exp2_knockout,exp3_velocity}.json + report.md
 """
 from __future__ import annotations
 import argparse, csv, json, math, re, sys, time
@@ -38,8 +38,8 @@ from src.models.utils.modules import rotate_queries_or_keys                  # n
 CACHE = Path("/local_datasets/world/world_analysis/cache")
 Z_NPY, P_NPY, H_NPY = CACHE / "rollout_v2_z16_vith/ctx_masked.npy", CACHE / "rollout_v2_vith/predictor.npy", CACHE / "rollout_v2_vith/target.npy"
 INDEX = ROOT / "data_csv/rollout_v2/index_probe.csv"
-RESOLVED = ROOT / "z_research/RollOutV2/exp_results/attn_probe__rollout_v2_vith/_resolved.yaml"
-OUT = ROOT / "z_research/RollOutV2/exp_results/v5/locality"
+RESOLVED = ROOT / "z_research/previous/RollOutV2/exp_results/attn_probe__rollout_v2_vith/_resolved.yaml"
+OUT = ROOT / "z_research/previous/RollOutV2/exp_results/v5/locality"
 G, TC, TF, CELL = 16, 8, 8, 18.0            # 16×16 토큰, 문맥/미래 8 튜블릿, 1 칸 = 18 px (288 px 좌표계)
 NCTX = TC * G * G
 BINS = [(0, 20), (20, 40), (40, 60), (60, 80), (80, 200)]

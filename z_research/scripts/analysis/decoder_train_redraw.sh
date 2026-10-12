@@ -11,14 +11,14 @@
 #   srun --jobid=<GPU job> --overlap --cpu-bind=none -n1 -c 96 --mem=0 --gres=gpu:8 \
 #        env SET=training_r8 NAME=identity_r8 FRAMES=/data2/local_datasets/world/world_analysis/RollOut_v2_training_v8 \
 #        bash z_research/scripts/analysis/decoder_train_redraw.sh
-# 로그: z_research/RollOutV3/exp_results/redraw_<NAME>/chain_*.log
+# 로그: z_research/previous/RollOutV3/exp_results/redraw_<NAME>/chain_*.log
 set -euo pipefail
 : "${SET:?SET=<data_csv/rollout_v2_ 뒤 이름> 을 줄 것}" "${NAME:?NAME=<exp_results 아래 자 이름> 을 줄 것}" "${FRAMES:?FRAMES=<세트 프레임 폴더> 를 줄 것}"
 cd /data/hyuntak/project/2026/2027_cvpr/vjepa2
 P=/data/hyuntak/anaconda3/envs/vjepa2/bin/python
 SHMF=/dev/shm/rollout2_${SET}_feats
 DISKF=/data2/local_datasets/world/world_analysis/cache/rollout2_${SET}_feats
-LOG=z_research/RollOutV3/exp_results/redraw_${NAME}; mkdir -p "$LOG"
+LOG=z_research/previous/RollOutV3/exp_results/redraw_${NAME}; mkdir -p "$LOG"
 t0=$(date +%s); log() { echo "[chain $(date +%H:%M:%S) +$(( ($(date +%s)-t0)/60 ))m] $*"; }
 log "SET=$SET NAME=$NAME FRAMES=$FRAMES  GPU $(nvidia-smi -L | wc -l) 장 · CPU $(nproc)"
 

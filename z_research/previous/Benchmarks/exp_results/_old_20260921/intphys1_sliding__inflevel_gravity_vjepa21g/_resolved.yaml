@@ -1,0 +1,65 @@
+eval_name: world_model_analysis
+data:
+  root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/inflevel_gravity
+  index_csv: index.csv
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: block_type
+  n_frames: 375
+  frames_stride: 1
+  resolution: 256
+  split: null
+model:
+  arch_name: vit_giant
+  checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/v_jepa2.1/vjepa2_1_vitg_384.pt
+  img_size: 256
+  patch_size: 16
+  tubelet_size: 2
+  window_size: 32
+  use_rope: true
+  uniform_power: false
+  dual_encoder: true
+  context_encoder_key: encoder
+  target_encoder_key: target_encoder
+  predictor:
+    embed_dim: 384
+    depth: 12
+    num_heads: 12
+    num_mask_tokens: 10
+  dtype: float32
+  autocast: float16
+  family: vjepa2_1
+surprise:
+  mode: intphys1
+  distance: l1
+  loss_exp: 1.0
+  target_layer_norm: false
+  mask_index: 0
+  intphys1:
+    frame_skips:
+    - 10
+    window_sizes:
+    - 16
+    context_mult:
+    - 2
+    - 4
+    - 6
+    - 8
+    - 10
+    stride: 2
+    context_reduce: min
+    frame_budget: official
+    aggregate:
+    - avg
+    - max
+    dump_windows: true
+    video_batch: 6
+    max_batch: 18
+scoring:
+  pairing: cross
+  breakdown:
+  - block_type
+tag: inflevel_gravity_vjepa21g
+output_dir: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/Benchmarks/exp_results/intphys1_sliding__inflevel_gravity_vjepa21g

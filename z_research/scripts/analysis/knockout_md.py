@@ -11,8 +11,8 @@ import argparse, json, re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
-RES = ROOT / "z_research/IntPhysGenV11_occlusion_timing_ablation/exp_results/knockout__v11_full_vith/results.json"
-README = ROOT / "z_research/IntPhysGenV11_occlusion_timing_ablation/README.md"
+RES = ROOT / "z_research/previous/IntPhysGenV11_occlusion_timing_ablation/exp_results/knockout__v11_full_vith/results.json"
+README = ROOT / "z_research/previous/IntPhysGenV11_occlusion_timing_ablation/README.md"
 BEGIN, END = "<!-- knockout_md:begin -->", "<!-- knockout_md:end -->"
 
 COLS = [("clean_null", "기준선"), ("mask->ctx@L0-3", "m←c L0-3"), ("mask->ctx@L4-10", "m←c L4-10"),

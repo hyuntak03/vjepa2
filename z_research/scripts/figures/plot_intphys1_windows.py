@@ -7,7 +7,7 @@
   C ∈ {4,8,12,16,20} (context_mult × 32/16). 창마다: target encoder = 32 장 전부, context encoder = 앞 C 장,
   predictor 가 뒤 M = 32 − C 장을 예측하고 그 자리의 LN(target) 과 L1 로 채점. Filtered = 시작점마다 C 중 최소 surprise.
 
-그림 (z_research/Benchmarks/figures/intphys1_windows/):
+그림 (z_research/previous/Benchmarks/figures/intphys1_windows/):
   window_map_skip2_w32.png         45 창 (9 시작 × 5 C) × raw 프레임 0–99 의 역할 지도
   frames_skip2_w32_<video>.png     한 영상의 9 창 × 창 안 32 장 썸네일. 행마다 Filtered 가 고른 C 로 경계를 긋는다
                                    (per_window.json 의 창 surprise 에서 min 을 다시 계산), pos/imp 픽셀이 처음 갈리는 프레임에 표식
@@ -29,8 +29,8 @@ sys.path.insert(0, str(ROOT))
 from evals.world_model_analysis.eval import _intphys1_windows  # noqa: E402
 
 FR = Path("/local_datasets/world/world_analysis/IntPhys1_dev_frame_png")
-PER_WIN = ROOT / "z_research/Benchmarks/exp_results/intphys1_sliding__intphys1_dev_vith_w32/per_window.json"
-OUT = ROOT / "z_research/Benchmarks/figures/intphys1_windows"
+PER_WIN = ROOT / "z_research/previous/Benchmarks/exp_results/intphys1_sliding__intphys1_dev_vith_w32/per_window.json"
+OUT = ROOT / "z_research/previous/Benchmarks/figures/intphys1_windows"
 N_RAW, SKIP, WZ, STRIDE, TUB = 100, 2, 32, 2, 2
 CTX = [m * WZ // 16 for m in (2, 4, 6, 8, 10)]
 BLUE, ORANGE, SKIPPED, BG, INK = "#2a78d6", "#eb6834", "#d9d9d9", "#ffffff", "#222222"

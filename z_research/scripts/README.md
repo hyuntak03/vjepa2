@@ -18,6 +18,9 @@ data/           인덱스·데이터 준비
                               쌍 1116/1182/450 (2026-09-21 전면 재작성)
   build_rollout2_index.py     RollOut_v2 인덱스 — 라벨은 metadata 가 아니라 plan 에서 (검증 15항목)
   build_probe_imp_index.py    불가능 변이를 probing 대상으로 여는 인덱스
+  build_vobench_asym.py       VOBench_v1 asymmetry 판: late 클립 창을 k 샘플 밀어 가림이 문맥 끝에서 끝나게 (프레임 심볼릭 링크 · 불가능 arm 문맥 = 가능 arm 링크) + 문맥 무결성 -> data_csv/vobench_v1_asymmetry (2026-10-10)
+  build_vobench_gravity_index.py  VOBench_v1 gravity metadata.csv -> index.csv (block = 과거 하나 + 미래 여럿, pair_id = block, condition = objset/law/cell) + block 안 모든 arm f0–47 무결성 감사 -> data_csv/vobench_v1_gravity (2026-10-10)
+  build_vobench_index.py      VOBench_v1 metadata.csv -> 표준 index.csv (+ 요인 열, condition = objset/violation/occlusion) + 문맥 무결성 전수 감사 -> data_csv/vobench_v1 (2026-10-10)
   build_intphysgen_index.py   IntPhysGen 렌더 metadata.csv -> 표준 index.csv (v11 열 + sym_k) + 문맥 무결성 전수 감사 (v11_realistic · ledge, 2026-10-06)
   build_ek100_resized.py      EPIC-KITCHENS 비디오 짧은변 256 -> 가운데 256x256, 프레임을 N/fps 로 재번호해 원본 decord 인덱스와 1:1 (파일마다 프레임 수 대조) -> /data2/local_datasets/EPIC-KITCHENS_resized (vll5 에서 확인)
   ek100_resized_progress.py   위 전처리 진행률 (완료 파일 + 도는 ffmpeg 읽은 양 -> %, 남은 시간). 로그가 비어 있는 초반에 쓴다
@@ -30,7 +33,13 @@ figures/        논문 그림. 전부 산출물에서 재계산해 summary.json 
   plot_v11_surprise.py      v11 채점 그림 전부.  상단 FIGDIR 표가 하위 폴더를 배정한다
                             (01_condition / 02_occlusion_k / 03_direction / 04_object_order)
                             표에 없는 이름은 최상위에 떨어진다 — 새 그림이 눈에 띄라고 일부러
+  gif_vobench_token_surprise.py  VOBench_v1 토큰별 Δ 를 불가능 영상 위에, 왼쪽 V-JEPA 2 릴리즈 · 오른쪽 Ariel AR (late k=2 전형 쌍 3 개, 모델별 눈금, 물체 자리 흰 원) -> z_research/VOBench_v1/ariel_ar_ep40/surprise/figures/token_surprise_vs_vjepa2/ (2026-10-11)
   gif_token_surprise.py     토큰별 surprise 차 Δ 를 원본 위에 겹친 GIF + 물체/배경 기여 표 -> z_research/v11_realistic/figures/token_surprise/ (2026-10-07)
+  plot_vobench_probe.py     VOBench_v1 튜블릿 정체 probe 그림 2 장 (fig_probe_transfer · fig_probe_by_t), 유효 4 run 평균 + 범위 -> z_research/VOBench_v1/vjepa2/probing/figures/ (2026-10-10)
+  plot_vobench.py           VOBench_v1 그림 4 장 (fig_timing · fig_k · fig_late_motion · fig_permanence_context), 행 = primitive · realistic 따로. --model vjepa2|dino_foresight. vobench_tables.py 의 load·stat 재사용, tables_<모델>.json 대조 assert -> z_research/VOBench_v1/<모델>/surprise/figures/ (2026-10-10)
+  plot_vobench_gravity.py   VOBench_v1 gravity 탐색용 그림 (fig_arc_choice · sliding 창이 있으면 fig_arc_sliding), tables.json 만 읽는다 -> z_research/VOBench_v1/vjepa2/gravity/figures/ (2026-10-10)
+  plot_vobench_gravity_choice.py  VOBench_v1 gravity arc 논문용 그림 (--model) (사용자 예시 판형: 문맥 상태 3 패널 · 후보 9 막대 + CI · 궤적 썸네일), objset 별 · 전체 / 공 칸 -> z_research/VOBench_v1/vjepa2/gravity/figures/fig_gravity_choice{,_ball}_<objset> (2026-10-11)
+  plot_vobench_gravity_horizon.py  VOBench_v1 gravity 예측 길이 그림 (fig_horizon_{ball,all}_<objset>: 패널 = 문맥 상태, x 절대 프레임, 선 = 예측 16 · 8 + CI 띠, 점 = 4 · 2, ▼ 창 끝) -> z_research/VOBench_v1/vjepa2/gravity_horizon/figures/ (2026-10-11)
   plot_v11_realistic.py     v11_realistic 그림 3 장 (가림 유무 · k × 방향 · ledge) -> z_research/v11_realistic/figures/ (2026-10-06)
   plot_v11_probing.py       v11 probing 그림.  324칸 전수 대조 후 by_condition/ by_k/ 로
   plot_v11_occtiming.py     가림 타이밍(early/mid/late) 그림.  **두 run 을 합친 report** 를 받는다
@@ -71,6 +80,12 @@ figures/        논문 그림. 전부 산출물에서 재계산해 summary.json 
   new_archive_redraw.py         **자 하나로 RollOutV3/figures 그림 여섯 폴더 다시 그리기** (2026-09-25, 이름은 옛 new_archive 시절 그대로): check → bias → extract (이 자로 안 읽힌 readings 만, v3 GPU 6 + v11 GPU 2 동시, v3 프레임 캐시 예열) → figs (옛 그림은 도장 보고 _superseded/<자>_<지문>/ 로)
 
 analysis/       산출물·토큰 캐시 기반 분석. **전부 GPU 불필요**
+  vobench_tempgen.py          VOBench_v1 temporal generalization: 시점 하나에서만 attentive head (shape · color · joint) 학습 → 미래 t8–15 전부에 (p→p · h→h · h→p · p→h · late). run <objset> <label> <gpu> <seed> / summarize (vobench_tempgen_summary.py) -> z_research/VOBench_v1/vjepa2/probing/temporal_generalization/{runs/,RESULTS.md,summary.json} (2026-10-10)
+  vobench_tubelet_probe.py    VOBench_v1 튜블릿 정체 probe: h (가림 없는 튜블릿) 로 학습한 AttentiveClassifier (depth 1 · query 1) 를 h 가림 · p 보임 · p late 에. extract (h 16 튜블릿 · p 8, /data2 캐시 23 GB) → probe (--objsets --epochs --seed --tag) -> z_research/VOBench_v1/vjepa2/probing/results/<tag>/ (2026-10-10)
+  vobench_asym_compare.py     VOBench_v1 asymmetry vs original (late, 창 16:12) 같은 쌍 비교 · 짝 부트스트랩 Δ -> z_research/VOBench_v1/vjepa2/surprise_asymmetry/ (2026-10-10)
+  vobench_gravity_tables.py   VOBench_v1 gravity 표 (--model vjepa2|ariel_ar_ep40 → <model>/gravity/): ledge 쌍 정확도 + 복사 · arc 고른 미래 (argmin, full · post · 공 칸 · 복사) · 위치 규칙 기준선 · sliding 창별 · 멈춤 후보 D. 창마다 summary.json assert -> z_research/VOBench_v1/vjepa2/gravity/tables.{md,json} (2026-10-10)
+  vobench_gravity_horizon.py  VOBench_v1 gravity arc 예측 길이 M 16·8·4·2 비교: 창 안 멈춤 시점 D · 튜블릿별 arc vs 정지 (전체 토큰 · 공 칸), 창마다 token_surprise.npz -> z_research/VOBench_v1/vjepa2/gravity_horizon/tables.{md,json} (2026-10-11)
+  vobench_tables.py           VOBench_v1 채점표 (위반 × 가림 시점 · objset · k · 운동 · 배경 · 물체, A/B 방향, block 부트스트랩 CI). per_block.json 에서 재계산 후 summary.json 과 assert. --model vjepa2|dino_foresight (MODELS 표) -> z_research/VOBench_v1/<모델>/surprise/tables.{md,json} (2026-10-10)
   check_prefix_predictor.py   **`kind: prefix` predictor 구조 검사** (Ariel block-causal 체크포인트).
                               mask 의미 + **인과 불변**(미래 slot 을 잘라도 앞 slot 출력 불변) +
                               prefix vs default 출력 차. 모델 로드 없음, 난수 문맥. 시작점
@@ -80,12 +95,15 @@ analysis/       산출물·토큰 캐시 기반 분석. **전부 GPU 불필요**
                               29 항목. **하네스/config/로더를 건드리면 이것부터 돌린다** (2026-09-21)
   garrido_rescore.py          공식 축약 규칙으로 **재실행 없이 다시 채점**. IntPhys=Filtered(min),
                               GRASP·InfLevel=property 마다 최고 C. 창 16/32 실행을 합쳐 A.8 최고를 고른다 (2026-09-21)
+  vobench_track_delta.py      VOBench 토큰 Δ 를 미래 걸음별로: 정답 물체 자리 Δ · 몫 · 마지막 관측 자리 잔상 (빈 문맥 대조) — release vs AR (2026-10-12)
+  encoder_voe_probe.py        context · target encoder 영상 32 장 T×N 평균 위 possible/impossible linear probe — VOBench · IntPhys 1 · IntPhys 2 (2026-10-12). → VOBench_v1/vjepa2/encoder_voe_probe/
+  intphys2_breakdown.py       IntPhys 2 Main 쌍 정확도를 condition · camera · occluder · difficulty · game 으로 나눈다. 모델마다 최고 (창, C) 칸 + --cell 공통 C, 장면 부트스트랩 CI (2026-10-12)
   intphys2_grid_best.py       IntPhys 2 — 창 16/32/48 실행을 **하나의 격자**로 합쳐 열 (Easy/Medium/Hard/Overall) 마다 최고.
                               C 는 공식 비율 (창 × ¼…⅞) 로 제한. pair_acc 는 intphys2_column_best 것 (2026-09-27)
   bench_table.py              위 재채점 결과로 z_research/Benchmarks/README.md §4 표를 생성 (--readme) (2026-09-21)
   report.py                   summary.json 검증 -> report.json (그림·문서의 단일 입력)
   token_surprise_background.py  배경 토큰 Δ 검사 — 픽셀 차 구간별 분해 · 쌍마다 배경/물체 부호 일치 -> token_surprise/background_checks.md (2026-10-07)
-  token_surprise_maps.py      surprise 채점을 토큰별로 다시 (같은 _resolved.yaml · forward) → <run>/token_surprise.npz. 토큰 평균 = per_block.json 검증 · 쌍 판정 대조 (2026-10-07)
+  token_surprise_maps.py      surprise 채점을 토큰별로 다시 (같은 _resolved.yaml · forward) → <run>/token_surprise.npz. 토큰 평균 = per_block.json 검증 · 쌍 판정 대조 (2026-10-07) · --copy 로 복사 기준선 토큰 지도 ec 도 (2026-10-10) · kind=ar (Ariel 팔 C) 분기 = ar_window 경로, ec = copy_blk (2026-10-11)
   gravity_retrieval.py        gravity_realistic — 미래 넷 (arc · rise · float · line) 중 p 가 가장 가까운 것 (argmin surprise), 쌍 정확도 · 순위 (2026-10-07)
   v11_realistic_tables.py     v11_realistic · ledge 채점표 (조건 × 방향 · k · 물체, 원본 v11 vanish 대조). summary.json 과 overall 대조 (2026-10-06)
   merge_probe_runs.py         쪼개서 제출한 probing job 을 합침. val_video_ids 가 다르면 죽는다

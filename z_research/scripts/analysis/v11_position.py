@@ -28,7 +28,7 @@ CACHE = Path("/local_datasets/world/world_analysis/cache/v11_full_vith")
 FRAMES = Path("/local_datasets/world/world_analysis/IntPhysGen_v11")
 META = FRAMES / "metadata.csv"
 INDEX = ROOT / "data_csv/intphysgen_v11_full/index_probe.csv"
-OUT = ROOT / "z_research/v11_roll_out/exp_results/position_regression.json"
+OUT = ROOT / "z_research/previous/v11_roll_out/exp_results/position_regression.json"
 S, T_FUT, T_ALL, D = 256, 8, 16, 1280
 FPS, STRIDE, CTX = 16.0, 3, 16          # 샘플 프레임 = raw 0,3,…,93 ; 문맥 = 앞 16장
 

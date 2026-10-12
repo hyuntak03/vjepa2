@@ -12,13 +12,13 @@ from PIL import Image, ImageDraw
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "analysis"))
 import rollout2_token_decoder as td                                       # noqa: E402
 
-FRAMES = Path("/local_datasets/world/world_analysis/RollOut_v2"); OUTROOT = td.ROOT / "z_research/RollOutV2/figures"
+FRAMES = Path("/local_datasets/world/world_analysis/RollOut_v2"); OUTROOT = td.ROOT / "z_research/previous/RollOutV2/figures"
 ORANGE, WHITE = (235, 104, 52), (255, 255, 255); R = 288
 
 
 def main():
     dev = torch.device("cuda:0"); model = td.TokenDecoder().to(dev)
-    model.load_state_dict(torch.load(td.ROOT / "z_research/RollOutV2/exp_results/token_decoder.pt", map_location=dev)); model.eval()
+    model.load_state_dict(torch.load(td.ROOT / "z_research/previous/RollOutV2/exp_results/token_decoder.pt", map_location=dev)); model.eval()
     idx = list(csv.DictReader(td.INDEX.open())); vids = [r["video_id"] for r in idx]
     meta = json.loads((td.CACHE / "meta.json").read_text()); row_of = {v: i for i, v in enumerate(meta["video_ids"])}; rows = np.array([row_of[v] for v in vids])
     res = R / 2; px = np.stack([td.arr(r["px_x_by_sample"]) for r in idx]); py = np.stack([td.arr(r["px_y_by_sample"]) for r in idx])

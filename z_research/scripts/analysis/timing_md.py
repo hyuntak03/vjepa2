@@ -12,9 +12,9 @@ import argparse, collections, csv, json
 from pathlib import Path
 import numpy as np
 
-E = Path("z_research/IntPhysGenV11_occlusion_timing_ablation/exp_results")
+E = Path("z_research/previous/IntPhysGenV11_occlusion_timing_ablation/exp_results")
 IDX = Path("data_csv/intphysgen_v11_full/index_probe.csv")
-README = Path("z_research/IntPhysGenV11_occlusion_timing_ablation/README.md")
+README = Path("z_research/previous/IntPhysGenV11_occlusion_timing_ablation/README.md")
 MARK = "## 전수 기록"
 PT = {"contextF__f1to16": "z", "pred__f17to32": "p", "targetF__f17to32": "h"}
 VIOL = ["vanish", "shape", "color"]

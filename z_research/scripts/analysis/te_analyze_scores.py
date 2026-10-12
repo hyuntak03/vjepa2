@@ -2,7 +2,7 @@
 """TrainingEffects — v11_split_test 점수 심층 분석: 복사 기준선 · 학습 곡선 · 슬롯별 · '예측한 변화량' (CPU 전용).
 
     PY=/data/hyuntak/anaconda3/envs/vjepa2/bin/python
-    $PY z_research/scripts/analysis/te_analyze_scores.py                 # -> z_research/TrainingEffects/scores/ANALYSIS.md + figures
+    $PY z_research/scripts/analysis/te_analyze_scores.py                 # -> z_research/previous/TrainingEffects/scores/ANALYSIS.md + figures
     $PY z_research/scripts/analysis/te_analyze_scores.py --boot 200      # 빠른 개발용 (CI 거칠다)
 
 입력 (읽기만 한다):
@@ -41,7 +41,7 @@ import training_effects_scores as TES  # noqa: E402  (읽기 전용 재사용: l
 
 CACHE = Path("/data2/local_datasets/world/world_analysis/cache/training_effects")
 CURVES = CACHE / "v11score_vith_curves"
-OUT = REPO / "z_research/TrainingEffects/scores"
+OUT = REPO / "z_research/previous/TrainingEffects/scores"
 INDEX = REPO / "data_csv/intphysgen_v11_split/index_test.csv"
 SCORES_JSON = OUT / "scores.json"
 H6F = REPO / "auto_research/exp_results/h6/h6f_v11.json"
@@ -1383,7 +1383,7 @@ def write_md(out, a, pairs, C, T, TH, tags, val, LS, chg, gb, gb_har, h6f, n_don
     P("")
     P(f"입력: `{a.curves}` (`meta.json` · `*.npy` · `done.npy`), 하네스 `per_block.json` (`training_effects_scores.py` 의 `MODELS` 폴더), "
       "`data_csv/intphysgen_v11_split/index_test.csv`. config: `configs/protocols/surprise_c16t32.yaml` + `configs/protocols/models.md` "
-      "(추출 쪽 `_resolved.yaml`). 출력: `z_research/TrainingEffects/scores/{ANALYSIS.md, analysis.json, fig_*.png}`.")
+      "(추출 쪽 `_resolved.yaml`). 출력: `z_research/previous/TrainingEffects/scores/{ANALYSIS.md, analysis.json, fig_*.png}`.")
     L[1:1] = [""] + correction_block(corr)
     (out / "ANALYSIS.md").write_text("\n".join(L) + "\n")
 

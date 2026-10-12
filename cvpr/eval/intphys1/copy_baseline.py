@@ -13,7 +13,7 @@ z_research/scripts/analysis/te_intphys1_score.py 로 돌린다 (추출 GPU → �
   2. te_intphys1_score.resolve_cfg() (옛 resolver) 의 config 와 1 의 config 의 data · model · surprise · scoring 블록을 대조한다.
   3. te_intphys1_score.main() 을 두 번 부른다: `--preds release` 로 추출 (release = z_training/runs/release_vith/latest.pt
      = model.pth predictor 추출본, te --selftest 가 state · p 비트 동일을 확인했다 — 문서 값) → `--score` (CPU, garrido_rescore 식 그대로).
-     te 의 CACHE_ROOT (:163) · DOC_DIR (:164) 는 /data2 · z_research/TrainingEffects 가 리터럴이라 **부모 프로세스의 모듈 변수만** 결과 폴더로
+     te 의 CACHE_ROOT (:163) · DOC_DIR (:164) 는 /data2 · z_research/previous/TrainingEffects 가 리터럴이라 **부모 프로세스의 모듈 변수만** 결과 폴더로
      덮는다 (파일 수정 없음; spawn 된 rank `worker` (:504) 는 job["out"] 을 받는다).
   4. <out>/doc/<tag>_scores.json 에서 copy_summary.json (release · copy · Δ, 표준 · 인과 표적 × 칸 × O1/O2/O3 × 운동×가림) 을 만든다.
 
@@ -157,7 +157,7 @@ def main():
     base = os.path.basename(meta["output_dir"]) + (f"_{a.subset}" if a.subset else "")      # <ds>_<model>[_smokeN][_valid6]
     out = Path(a.out) if a.out else Path(os.environ["CVPR_RESULTS"]) / "eval/intphys1/copy" / base
     te.CACHE_ROOT = out.parent                  # te 의 out_dir_of(a) = CACHE_ROOT / out_tag  → 결과 폴더
-    te.DOC_DIR = out / "doc"                    # *_scores.json · *_validation.json 이 z_research/TrainingEffects 로 가지 않게
+    te.DOC_DIR = out / "doc"                    # *_scores.json · *_validation.json 이 z_research/previous/TrainingEffects 로 가지 않게
 
     cfg_old = te.resolve_cfg()                  # 옛 resolver (intphys1_sliding, intphys1_dev, vith) + window_size 32
     diff = [] if a.no_check else cfg_diff(cfg_new, cfg_old)

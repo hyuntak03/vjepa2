@@ -32,7 +32,7 @@ Fits      : self (per cell; late pooled k1..4 and per k) ; visible -> late (pool
             early -> visible ; late -> early ; late -> visible.
 Controls  : label shuffle (train labels permuted, seed 0) for every fit; BG feature; h ceiling for everything; block-bootstrap 95 % CI
             (1000 resamples of test blocks, seed 0) on every accuracy.
-Outputs   : z_research/context_encoder_analysis/exp_results/ctxenc_boundary_identity_v2/{results.json, RESULTS.md, features.npz}
+Outputs   : z_research/previous/context_encoder_analysis/exp_results/ctxenc_boundary_identity_v2/{results.json, RESULTS.md, features.npz}
 
   cd /data/hyuntak/project/2026/2027_cvpr/vjepa2 && \
   /data/hyuntak/anaconda3/envs/vjepa2/bin/python z_research/scripts/analysis/ctxenc_boundary_identity_v2.py [--blocks 100] [--reuse-features]
@@ -49,7 +49,7 @@ import ctxenc_boundary_identity_occlusion as old   # noqa: E402  (arr, n3, strat
 
 CACHE = old.CACHE; INDEX = old.INDEX; META = old.META
 OLD_OUT = old.OUT
-OUT = ROOT / "z_research/context_encoder_analysis/exp_results/ctxenc_boundary_identity_v2"
+OUT = ROOT / "z_research/previous/context_encoder_analysis/exp_results/ctxenc_boundary_identity_v2"
 SEED = 0
 T7 = 7; T7_FRAMES = (42, 45)
 BG_TOKENS = old.BG_TOKENS

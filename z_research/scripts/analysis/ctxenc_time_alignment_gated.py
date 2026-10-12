@@ -20,7 +20,7 @@ cache), then every token subset is a mean over s.  Three additions to v1:
 Control: LN(z)[8+i] (isolated_ctx over all 32 frames) in place of p_i, through exactly the same sets, nulls and gates.
 CIs: block bootstrap over clips (v2: 1 plausible clip per block, so clip = block; v11: block = pos_a clip), B resamples, the gate is
 recomputed inside every resample from the resampled null.  No fitted readout anywhere, so no split / ridge is involved.
-Outputs: z_research/context_encoder_analysis/exp_results/ctxenc_time_alignment_gated/{results.json, RESULTS.md, per_clip.npz}
+Outputs: z_research/previous/context_encoder_analysis/exp_results/ctxenc_time_alignment_gated/{results.json, RESULTS.md, per_clip.npz}
 Run:
   cd /data/hyuntak/project/2026/2027_cvpr/vjepa2
   /data/hyuntak/anaconda3/envs/vjepa2/bin/python z_research/scripts/analysis/ctxenc_time_alignment_gated.py [--per-scen 60] [--v11-n 224] [--boot 500]
@@ -34,7 +34,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import ctxenc_time_alignment as v1                      # data selection, ln, n3, token_set, refine, contrast — reused verbatim
 
 ROOT = v1.ROOT
-OUT_DEFAULT = ROOT / "z_research/context_encoder_analysis/exp_results/ctxenc_time_alignment_gated"
+OUT_DEFAULT = ROOT / "z_research/previous/context_encoder_analysis/exp_results/ctxenc_time_alignment_gated"
 S_TOK, T_FUT, T_ALL, D, CELL_PX = v1.S_TOK, v1.T_FUT, v1.T_ALL, v1.D, v1.CELL_PX
 TARGET = np.arange(T_FUT) + T_FUT
 MIN_VALID_J = 6

@@ -19,7 +19,7 @@ Fits      : (1) self  = 4-fold CV by block within a cell (late pooled k1..4 and 
             (2b) transfer early k4 -> late k1..4 (occluder present in both; only hiddenness differs)
             controls: label shuffle (train labels permuted, seed 0) for every fit; BG feature; h ceiling for everything.
 Sanity    : per cell, fraction of tubelet-7 frames (raw 42, 45) inside [hidden_start, hidden_end] from metadata.csv (k=1 hides only frame 45).
-Outputs   : z_research/context_encoder_analysis/exp_results/ctxenc_boundary_identity_occlusion/{results.json, RESULTS.md, features.npz}
+Outputs   : z_research/previous/context_encoder_analysis/exp_results/ctxenc_boundary_identity_occlusion/{results.json, RESULTS.md, features.npz}
 
   cd /data/hyuntak/project/2026/2027_cvpr/vjepa2 && \
   /data/hyuntak/anaconda3/envs/vjepa2/bin/python z_research/scripts/analysis/ctxenc_boundary_identity_occlusion.py [--blocks 100] [--reuse-features]
@@ -34,7 +34,7 @@ ROOT = Path("/data/hyuntak/project/2026/2027_cvpr/vjepa2")
 CACHE = Path("/local_datasets/world/world_analysis/cache/v11_full_vith")
 INDEX = ROOT / "data_csv/intphysgen_v11_full/index_probe.csv"
 META = Path("/local_datasets/world/world_analysis/IntPhysGen_v11/metadata.csv")
-OUT = ROOT / "z_research/context_encoder_analysis/exp_results/ctxenc_boundary_identity_occlusion"
+OUT = ROOT / "z_research/previous/context_encoder_analysis/exp_results/ctxenc_boundary_identity_occlusion"
 SEED = 0
 T7 = 7                                   # boundary context tubelet (raw frames 42, 45)
 T7_FRAMES = (42, 45)

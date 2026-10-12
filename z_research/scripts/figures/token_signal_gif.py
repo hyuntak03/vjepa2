@@ -19,7 +19,7 @@
 
   python z_research/scripts/figures/token_signal_gif.py \
     --violation color --motion static --timing early --k 2 \
-    --out z_research/IntPhysGenV11_occlusion_timing_ablation/figures/04_token_signal
+    --out z_research/previous/IntPhysGenV11_occlusion_timing_ablation/figures/04_token_signal
 """
 from __future__ import annotations
 import argparse, csv, json
@@ -99,7 +99,7 @@ def main():
             continue
         blk.setdefault(r["source_block"], {})[r["variant"]] = r
 
-    S = json.loads((Path("z_research/IntPhysGenV11_occlusion_timing_ablation/exp_results")
+    S = json.loads((Path("z_research/previous/IntPhysGenV11_occlusion_timing_ablation/exp_results")
                     / "surprise_c16t32__v11_full_vith" / "per_block.json").read_text())
     S = S["per_video_surprise"]
     cands = {"correct": [], "wrong": []}

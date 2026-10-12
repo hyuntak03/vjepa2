@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """실험 6 그림 — 문맥 encoder 의 좌/우 운동 방향 (정방향 학습 → 역재생 시험).
 
-입력: z_research/context_encoder_analysis/exp_results/encoder_temporal_dynamics/{ssv2,ntu}/results.json (+ summary.json)
+입력: z_research/previous/context_encoder_analysis/exp_results/encoder_temporal_dynamics/{ssv2,ntu}/results.json (+ summary.json)
 출력 (figures/encoder_temporal_dynamics/):
   fig_direction_confusion.{png,pdf}  (a)~(d) 2x2 혼동행렬 4 개 — 데이터셋 2 x {정방향, 역재생}. attentive probe
   fig_direction_summary.{png,pdf}    probe·데이터셋별 정방향 정확도 / 역재생 정확도 (뒤집힌 라벨) / 뒤집힘 비율
@@ -22,8 +22,8 @@ import numpy as np
 from matplotlib.colors import LinearSegmentedColormap
 
 ROOT = Path("/data/hyuntak/project/2026/2027_cvpr/vjepa2")
-RES = ROOT / "z_research/context_encoder_analysis/exp_results/encoder_temporal_dynamics"
-FIG = ROOT / "z_research/context_encoder_analysis/figures/encoder_temporal_dynamics"
+RES = ROOT / "z_research/previous/context_encoder_analysis/exp_results/encoder_temporal_dynamics"
+FIG = ROOT / "z_research/previous/context_encoder_analysis/figures/encoder_temporal_dynamics"
 BLUE, ORANGE, GREEN = "#2a78d6", "#eb6834", "#1baf7a"
 SETS = [("ssv2", "ssv2_VP"), ("ntu", "NTU")]
 CLASSES = ["left", "right"]

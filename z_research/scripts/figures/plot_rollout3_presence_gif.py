@@ -11,9 +11,9 @@
   empty     빈 장면 clip (물체 없음)            offscreen 미래에 화면 밖으로 나감
 
 자는 **attn** 하나다 (attention pooling + Linear head 2 개). 기각한 후보는
-`z_research/RollOutV3/Archive/READOUT_CHOICE_2026-09-23.md` 를 볼 것.
+`z_research/previous/RollOutV3/Archive/READOUT_CHOICE_2026-09-23.md` 를 볼 것.
 
-출력: z_research/RollOutV3/figures/presence_gif/<종류>_<rep>_<video_id>.gif
+출력: z_research/previous/RollOutV3/figures/presence_gif/<종류>_<rep>_<video_id>.gif
 
   P=/data/hyuntak/anaconda3/envs/vjepa2/bin/python
   $P z_research/scripts/figures/plot_rollout3_presence_gif.py                      # p 로 4 개
@@ -30,12 +30,12 @@ import matplotlib.font_manager as fm
 
 ROOT = Path("/data/hyuntak/project/2026/2027_cvpr/vjepa2")
 # 자를 배운 세트의 인덱스 (summary.json 의 train_set). 옛 v6 를 하드코딩했었다 — 자를 다시 배우면 행이 안 맞는다
-TRAIN_SET = json.loads((ROOT / "z_research/RollOutV3/exp_results/presence/summary.json").read_text()).get("train_set", "training_v6")
+TRAIN_SET = json.loads((ROOT / "z_research/previous/RollOutV3/exp_results/presence/summary.json").read_text()).get("train_set", "training_v6")
 INDEX = ROOT / f"data_csv/rollout_v2_{TRAIN_SET}/index_probe.csv"
 FRAMES = Path("/local_datasets/world/world_analysis/RollOut_v2_training")
 KIND = "attn"                       # 자는 attn 하나로 확정 (2026-09-23)
-RES_DIR = ROOT / "z_research/RollOutV3/exp_results/presence"
-FIG = ROOT / "z_research/RollOutV3/figures/presence_gif"
+RES_DIR = ROOT / "z_research/previous/RollOutV3/exp_results/presence"
+FIG = ROOT / "z_research/previous/RollOutV3/figures/presence_gif"
 SAMPLES = list(range(0, 94, 3))
 Z = 2; PW = 288 * Z; PAD, HEAD, FOOT = 24, 74, 160
 BG, INK, MUTED = (18, 18, 22), (240, 240, 240), (150, 150, 160)

@@ -9,7 +9,7 @@ block = 과거 하나 + 미래 다섯 (문맥 픽셀 동일, 감사 mismatch 0).
 CI = block 부트스트랩 95 % (2,000 회). 조건 = 꼭대기 위치 (arc_pre f57 · arc_apex f48 · arc_post f42).
 
   P=/data/hyuntak/anaconda3/envs/vjepa2/bin/python
-  $P z_research/scripts/analysis/gravity_retrieval.py [--split]   → z_research/v11_realistic/exp_results/gravity_retrieval.{md,json}
+  $P z_research/scripts/analysis/gravity_retrieval.py [--split]   → z_research/previous/v11_realistic/exp_results/gravity_retrieval.{md,json}
      (--split: §7 arc vs float 를 공 · 그림자 · 나머지 토큰으로 나눔, 프레임 읽기 몇 분)
 """
 from __future__ import annotations
@@ -19,10 +19,10 @@ from pathlib import Path
 import numpy as np
 
 REPO = Path(__file__).resolve().parents[3]
-RUN = REPO / "z_research/v11_realistic/exp_results/surprise_c16t32__gravity_realistic_vith"
+RUN = REPO / "z_research/previous/v11_realistic/exp_results/surprise_c16t32__gravity_realistic_vith"
 IDX = REPO / "data_csv/intphysgen_gravity_realistic/index.csv"
 META = Path("/local_datasets/world/world_analysis/IntPhysGen_gravity_realistic/metadata.csv")
-OUT = REPO / "z_research/v11_realistic/exp_results"
+OUT = REPO / "z_research/previous/v11_realistic/exp_results"
 FUT = ["pos_arc", "imp_rise", "imp_float", "imp_line", "imp_stop"]
 LAB = {"pos_arc": "arc (possible)", "imp_rise": "rise", "imp_float": "float", "imp_line": "line", "imp_stop": "stop"}
 CONDS = ["arc_pre", "arc_apex", "arc_post"]

@@ -19,7 +19,7 @@ import numpy as np, torch, torch.nn as nn, torch.nn.functional as Fn
 ROOT = Path("/data/hyuntak/project/2026/2027_cvpr/vjepa2")
 CACHE = Path("/local_datasets/world/world_analysis/cache/rollout_v2_vith")
 INDEX = ROOT / "data_csv/rollout_v2/index_probe.csv"
-OUT = ROOT / "z_research/RollOutV2/exp_results/token_decoder.json"
+OUT = ROOT / "z_research/previous/RollOutV2/exp_results/token_decoder.json"
 G, S, D, T8 = 16, 256, 1280, 8
 SCEN = ["flat_v", "flat_a", "ramp_a", "arc", "fall", "ledge", "wall"]
 MOVING = {"flat_v": "x", "flat_a": "x", "ramp_a": "x", "arc": "xy", "fall": "y", "ledge": "xy", "wall": "x"}

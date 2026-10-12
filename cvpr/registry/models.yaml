@@ -63,6 +63,14 @@ vith_ariel_ar_ep38:
   base: vith
   predictor_checkpoint: ${CVPR_REPO}/z_training/ariel_eval/ckpt/ar_ep38.pt
   predictor.kind: ar
+vith_ariel_ar_ep40:               # 2026-10-10. 팔 C (AR) 최종 epoch 40 · step 35,840. ar_future_1e_5/latest.pt (ep18 · ep36 항목도 이 파일을 가리킨다 — 이름이 옛 epoch)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/ariel/ar_future_1e_5/latest.pt
+  predictor.kind: ar
+vith_ariel_ar_state_ep40:         # 2026-10-11. ar_state (상태 384 되먹임) epoch 40 · step 11,760. ar_state_future_1e_5/latest.pt
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/ariel/ar_state_future_1e_5/latest.pt
+  predictor.kind: ar_state
 vith_ariel_ctx_ar_ep18:
   base: vith
   predictor_checkpoint: ${CVPR_REPO}/z_training/ariel_eval/ckpt/ctx_ar_ep18.pt

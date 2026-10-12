@@ -23,7 +23,7 @@
   토큰 캐시를 디스크에 쓰지 않는다. clip 마다 정방향·역방향을 한 번씩 encoder 에 통과시켜 메모리에만 들고 probe 를 학습한다
             (샘플이 결정론적이라 매 epoch 다시 돌리는 것과 같은 값이다)
 
-출력: z_research/context_encoder_analysis/exp_results/encoder_temporal_dynamics/<ssv2|ntu>/{results.json, RESULTS.md, preds.npz}
+출력: z_research/previous/context_encoder_analysis/exp_results/encoder_temporal_dynamics/<ssv2|ntu>/{results.json, RESULTS.md, preds.npz}
       데이터셋 2 개 x {정방향 test, 역방향 test} = 2x2 혼동행렬 4 개.
 
   P=/data/hyuntak/anaconda3/envs/vjepa2/bin/python
@@ -49,7 +49,7 @@ SETS = {
     "ssv2": dict(root=Path("/local_datasets/vlm_direction/ssv2_VP/ssv2_VP_default"), split="clip"),
     "ntu": dict(root=Path("/local_datasets/vlm_direction/ntu_direction_benchmark"), split="performer"),
 }
-OUT_ROOT = ROOT / "z_research/context_encoder_analysis/exp_results/encoder_temporal_dynamics"
+OUT_ROOT = ROOT / "z_research/previous/context_encoder_analysis/exp_results/encoder_temporal_dynamics"
 MEAN = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1, 1)
 STD = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1, 1)
 MODEL = dict(                                                  # configs/protocols/models.md `vith` + attn_probe 의 model 블록

@@ -7,8 +7,8 @@
 #
 # 과학은 여기 없다 — 각 스텝은 z_research/scripts/{analysis,figures}/ 의 기존 스크립트를 **그대로** 부른다.
 # 이 파일은 (스크립트, 인자, 환경변수, 입·출력 실물) 을 한 곳에 적어 둔 것이고 readout.py 가 읽는다.
-# 정본 문서: z_research/RollOutV2/figures/v5/summary/POSITION_READOUT_2026-09-12.md ## 재현 (B 묶음),
-#            z_research/RollOutV3/README.md · Archive/IDENTITY_R8_2026-09-26.md ## 재현 (C 묶음).
+# 정본 문서: z_research/previous/RollOutV2/figures/v5/summary/POSITION_READOUT_2026-09-12.md ## 재현 (B 묶음),
+#            z_research/previous/RollOutV3/README.md · Archive/IDENTITY_R8_2026-09-26.md ## 재현 (C 묶음).
 #
 # 자리표시자 (readout.py 가 치환한다)
 #   ${CVPR_X}            cvpr/env.sh 변수
@@ -35,7 +35,7 @@ knobs:
   EPOCHS:        {default: "300",        doc: "attentive 위치 자 학습 epoch (정본 재현 300)"}
   DECODER:       {default: identity_r8,  doc: "R3_DECODER — RollOutV3 자 폴더 <R3_EXP>/<DECODER>. 스크립트 기본값은 presence (옛 자) 지만 여기 기본은 지금 자"}
   R3_OUT:        {default: identity_r8,  doc: "readings 꼬리표 → <R3_EXP>/windows_<R3_OUT>/ · v11_<R3_OUT>/ · v11_mid_<R3_OUT>/"}
-  R3_EXP:        {default: "${CVPR_REPO}/z_research/RollOutV3/exp_results", doc: "자 · readings 뿌리 (R3_EXP). 다른 predictor 판 (Ariel) 은 딴 뿌리로. ⚠️ doc_numbers · redraw_figs 는 이걸 안 읽는다 (README 엔진 수정 제안)"}
+  R3_EXP:        {default: "${CVPR_REPO}/z_research/previous/RollOutV3/exp_results", doc: "자 · readings 뿌리 (R3_EXP). 다른 predictor 판 (Ariel) 은 딴 뿌리로. ⚠️ doc_numbers · redraw_figs 는 이걸 안 읽는다 (README 엔진 수정 제안)"}
   PSET:          {default: training_r8,  doc: "PRESENCE_SET — 정체 자 학습셋 이름 (data_csv/rollout_v2_<PSET>/index_probe.csv). 지금 자 identity_r8 = training_r8"}
   FRAMES:        {default: "{ds.frames_root}", doc: "PRESENCE_FRAMES — 학습셋 프레임 폴더. 기본 = 그 스텝 데이터셋의 frames_root (training_r8 → ${CVPR_DATA2}/…/RollOut_v2_training_v8)"}
   FEAT_DIR:      {default: "${CVPR_DATA2}/local_datasets/world/world_analysis/cache/rollout2_{PSET}_feats", doc: "학습셋 p·z·h 특징 (추출 1 회, 약 123 GB). /dev/shm/… 로 주면 세션이 끝나면 사라진다"}
@@ -119,7 +119,7 @@ steps:
     gpu: 0
     help: false
     inputs: ["${CVPR_CACHE}/{ds.cache_tag}_{model}/predictor.npy", "${CVPR_CACHE}/{ds.cache_tag}_{model}/meta.json", "{ds.root}/index_probe.csv"]
-    outputs: ["${CVPR_REPO}/z_research/RollOutV2/exp_results/{TRAIN}/spatial_pooling/p/fit/{w_p.npy,fit.json}"]
+    outputs: ["${CVPR_REPO}/z_research/previous/RollOutV2/exp_results/{TRAIN}/spatial_pooling/p/fit/{w_p.npy,fit.json}"]
   test_position:
     script: z_research/scripts/analysis/rollout2_test_readout.py
     doc: "spatial 자 w_p 를 RollOut_v2 (9 시나리오, 가능 clip) 의 p 에 test 로만. CPU"
@@ -129,8 +129,8 @@ steps:
     gpu: 0
     help: false
     inputs: ["${CVPR_CACHE}/{ds.cache_tag}_{model}/predictor.npy", "{ds.root}/index_probe.csv",
-             "${CVPR_REPO}/z_research/RollOutV2/exp_results/{TRAIN}/spatial_pooling/p/fit/w_p.npy"]
-    outputs: ["${CVPR_REPO}/z_research/RollOutV2/exp_results/{TRAIN}/spatial_pooling/p/test/{test.json,preds.npz}"]
+             "${CVPR_REPO}/z_research/previous/RollOutV2/exp_results/{TRAIN}/spatial_pooling/p/fit/w_p.npy"]
+    outputs: ["${CVPR_REPO}/z_research/previous/RollOutV2/exp_results/{TRAIN}/spatial_pooling/p/test/{test.json,preds.npz}"]
   attn_position:
     script: z_research/scripts/analysis/rollout2_attn_readout.py
     doc: "★ 본체. 쿼리 1 개 attentive 위치 자 (3,842 파라미터) 를 학습셋 p 로 학습하고 RollOut_v2 에 test. GPU 2 장 샤딩 (42 GB 특징)"
@@ -142,7 +142,7 @@ steps:
     help: true
     inputs: ["${CVPR_CACHE}/{ds.cache_tag}_{model}/predictor.npy", "{ds.root}/index_probe.csv",
              "${CVPR_CACHE}/rollout_v2_{model}/predictor.npy", "${CVPR_DATA_CSV}/rollout_v2/index_probe.csv"]
-    outputs: ["${CVPR_REPO}/z_research/RollOutV2/exp_results/{TRAIN}/attentive_pooling/p/{attn.pt,fit.json,test.json,preds.npz}"]
+    outputs: ["${CVPR_REPO}/z_research/previous/RollOutV2/exp_results/{TRAIN}/attentive_pooling/p/{attn.pt,fit.json,test.json,preds.npz}"]
   attn_position_holdout:
     script: z_research/scripts/analysis/rollout2_attn_readout.py
     doc: "검증 A — 학습셋 block 50 % held-out (scenario 층화, seed 0) 로 같은 자. 정본 §2-3 (held-out 0.87 칸)"
@@ -153,7 +153,7 @@ steps:
     gpu: 2
     help: true
     inputs: ["${CVPR_CACHE}/{ds.cache_tag}_{model}/predictor.npy", "{ds.root}/index_probe.csv", "${CVPR_CACHE}/rollout_v2_{model}/predictor.npy"]
-    outputs: ["${CVPR_REPO}/z_research/RollOutV2/exp_results/{TRAIN}/attentive_pooling/p_holdout50/{holdout.json,attn.pt,…}"]
+    outputs: ["${CVPR_REPO}/z_research/previous/RollOutV2/exp_results/{TRAIN}/attentive_pooling/p_holdout50/{holdout.json,attn.pt,…}"]
   attn_position_test:
     script: z_research/scripts/analysis/rollout2_attn_readout.py
     doc: "저장된 attn.pt 로 RollOut_v2 test 만 (재학습 없음 — 2026-09-19 감속 시나리오 추가 때 쓴 길). GPU 1"
@@ -163,8 +163,8 @@ steps:
     dataset_lock: true
     gpu: 1
     help: true
-    inputs: ["${CVPR_REPO}/z_research/RollOutV2/exp_results/{TRAIN}/attentive_pooling/p/attn.pt", "${CVPR_CACHE}/{ds.cache_tag}_{model}/predictor.npy"]
-    outputs: ["${CVPR_REPO}/z_research/RollOutV2/exp_results/{TRAIN}/attentive_pooling/p/{test.json,preds.npz}"]
+    inputs: ["${CVPR_REPO}/z_research/previous/RollOutV2/exp_results/{TRAIN}/attentive_pooling/p/attn.pt", "${CVPR_CACHE}/{ds.cache_tag}_{model}/predictor.npy"]
+    outputs: ["${CVPR_REPO}/z_research/previous/RollOutV2/exp_results/{TRAIN}/attentive_pooling/p/{test.json,preds.npz}"]
   encoder_ruler_z:
     script: z_research/scripts/analysis/rollout2_encoder_readout.py
     doc: "encoder 대조 — 같은 자를 context encoder z (32 frames, ctx32 캐시) 에. spatial + attentive 둘 다. GPU 2. ARGS='--test-only' 로 test 만"
@@ -175,7 +175,7 @@ steps:
     gpu: 2
     help: true
     inputs: ["${CVPR_CACHE}/{ds.cache_tag}_ctx32_{model}/isolated_ctx_0_32.npy", "${CVPR_CACHE}/rollout_v2_ctx32_{model}/isolated_ctx_0_32.npy"]
-    outputs: ["${CVPR_REPO}/z_research/RollOutV2/exp_results/{TRAIN}/{spatial_pooling,attentive_pooling}/z/"]
+    outputs: ["${CVPR_REPO}/z_research/previous/RollOutV2/exp_results/{TRAIN}/{spatial_pooling,attentive_pooling}/z/"]
   encoder_ruler_h:
     script: z_research/scripts/analysis/rollout2_encoder_readout.py
     doc: "encoder 대조 — target encoder h (32 frames, target.npy) 에. GPU 2"
@@ -186,7 +186,7 @@ steps:
     gpu: 2
     help: true
     inputs: ["${CVPR_CACHE}/{ds.cache_tag}_{model}/target.npy", "${CVPR_CACHE}/rollout_v2_{model}/target.npy"]
-    outputs: ["${CVPR_REPO}/z_research/RollOutV2/exp_results/{TRAIN}/{spatial_pooling,attentive_pooling}/h/"]
+    outputs: ["${CVPR_REPO}/z_research/previous/RollOutV2/exp_results/{TRAIN}/{spatial_pooling,attentive_pooling}/h/"]
   ceiling:
     script: z_research/scripts/analysis/rollout2_ceiling.py
     doc: "v2 30 % p-fit 천장 (spatial) — 학습셋 w 의 이식 결론은 안 바꾼다, 대조용. CPU"
@@ -195,8 +195,8 @@ steps:
     dataset_lock: true
     gpu: 0
     help: true
-    inputs: ["${CVPR_CACHE}/{ds.cache_tag}_{model}/predictor.npy", "${CVPR_REPO}/z_research/RollOutV2/exp_results/{TRAIN}/spatial_pooling/p/fit/w_p.npy"]
-    outputs: ["${CVPR_REPO}/z_research/RollOutV2/exp_results/{TRAIN}/spatial_pooling/p/ceiling/{ceiling.json,preds.npz}"]
+    inputs: ["${CVPR_CACHE}/{ds.cache_tag}_{model}/predictor.npy", "${CVPR_REPO}/z_research/previous/RollOutV2/exp_results/{TRAIN}/spatial_pooling/p/fit/w_p.npy"]
+    outputs: ["${CVPR_REPO}/z_research/previous/RollOutV2/exp_results/{TRAIN}/spatial_pooling/p/ceiling/{ceiling.json,preds.npz}"]
   two_futures_attn:
     script: z_research/scripts/analysis/rollout2_two_futures_attn.py
     doc: "ledge / wall 슬롯별 — p 자 attention 이 가능/불가능 궤적 3×3 어느 쪽에 실리나, 읽기−기본값 거리 (정본 §4-3). CPU"
@@ -205,10 +205,10 @@ steps:
     dataset_lock: true
     gpu: 0
     help: false
-    inputs: ["${CVPR_REPO}/z_research/RollOutV2/exp_results/{TRAIN}/attentive_pooling/p/preds.npz",
-             "${CVPR_REPO}/z_research/RollOutV2/exp_results/{TRAIN}/attentive_pooling/p/attn.pt",
+    inputs: ["${CVPR_REPO}/z_research/previous/RollOutV2/exp_results/{TRAIN}/attentive_pooling/p/preds.npz",
+             "${CVPR_REPO}/z_research/previous/RollOutV2/exp_results/{TRAIN}/attentive_pooling/p/attn.pt",
              "${CVPR_CACHE}/{ds.cache_tag}_{model}/predictor.npy"]
-    outputs: ["${CVPR_REPO}/z_research/RollOutV2/figures/{TRAIN}/summary/two_futures_attn.{json,md}"]
+    outputs: ["${CVPR_REPO}/z_research/previous/RollOutV2/figures/{TRAIN}/summary/two_futures_attn.{json,md}"]
   distance_decay:
     script: z_research/scripts/analysis/rollout2_distance_decay.py
     doc: "p 물체다운 토큰의 거리 × 슬롯 분해 — 자 attention + 자 없는 검사 (cos 템플릿). 2026-09-19 거리 한계의 근거. CPU"
@@ -217,9 +217,9 @@ steps:
     dataset_lock: true
     gpu: 0
     help: false
-    inputs: ["${CVPR_REPO}/z_research/RollOutV2/exp_results/v5/attentive_pooling/p/preds.npz",
+    inputs: ["${CVPR_REPO}/z_research/previous/RollOutV2/exp_results/v5/attentive_pooling/p/preds.npz",
              "${CVPR_CACHE}/{ds.cache_tag}_{model}/predictor.npy", "${CVPR_CACHE}/{ds.cache_tag}_{model}/target.npy"]
-    outputs: ["${CVPR_REPO}/z_research/RollOutV2/exp_results/v5/locality/distance_decay.{json,md}"]
+    outputs: ["${CVPR_REPO}/z_research/previous/RollOutV2/exp_results/v5/locality/distance_decay.{json,md}"]
     note: "출력 폴더가 v5 로 고정돼 있다 (rollout2_distance_decay.py:21) — TRAIN 을 안 읽는다"
   attn_diag:
     script: z_research/scripts/analysis/v11_readout_attn_diag.py
@@ -230,8 +230,8 @@ steps:
     gpu: 1
     help: false
     inputs: ["${CVPR_CACHE}/{ds.cache_tag}_{model}/predictor.npy", "{ds.root}/index_probe.csv", "{ds.frames_root}/metadata.csv",
-             "${CVPR_REPO}/z_research/RollOutV2/exp_results/{TRAIN}/attentive_pooling/p/attn.pt"]
-    outputs: ["${CVPR_REPO}/z_research/RollOutV2/figures/{TRAIN}/v11_vanish/timing/attn_diag.{json,md}"]
+             "${CVPR_REPO}/z_research/previous/RollOutV2/exp_results/{TRAIN}/attentive_pooling/p/attn.pt"]
+    outputs: ["${CVPR_REPO}/z_research/previous/RollOutV2/figures/{TRAIN}/v11_vanish/timing/attn_diag.{json,md}"]
   token_object_test:
     script: z_research/scripts/analysis/v11_token_object_test.py
     doc: "검증 C — 자 없이 (파라미터 0) v11 p 안의 물체 검사: r = |p−h_imp| / |p−h_pos| (정본 §2-3). ARGS='<n_per_cond>' 로 표본. CPU"
@@ -241,7 +241,7 @@ steps:
     gpu: 0
     help: false
     inputs: ["${CVPR_CACHE}/{ds.cache_tag}_{model}/predictor.npy", "${CVPR_CACHE}/{ds.cache_tag}_{model}/target.npy", "{ds.frames_root}/metadata.csv"]
-    outputs: ["${CVPR_REPO}/z_research/RollOutV2/figures/{TRAIN}/v11_vanish/timing/token_test.{json,md}"]
+    outputs: ["${CVPR_REPO}/z_research/previous/RollOutV2/figures/{TRAIN}/v11_vanish/timing/token_test.{json,md}"]
   probe_pos_imp:
     script: z_research/scripts/analysis/rollout2_probe_pos_imp.py
     doc: "ledge / wall pos·imp attentive probe — h (32 frames) 로 학습해 [z16 ; p] 에 (정본 §4-4). GPU 1 (--device cuda:0 = GPU_IDS 의 첫 장)"
@@ -252,7 +252,7 @@ steps:
     help: true
     inputs: ["${CVPR_CACHE}/{ds.cache_tag}_{model}/target.npy", "${CVPR_CACHE}/{ds.cache_tag}_{model}/predictor.npy",
              "${CVPR_CACHE}/{ds.cache_tag}_z16_{model}/ctx_masked.npy", "{ds.root}/index_probe.csv"]
-    outputs: ["${CVPR_REPO}/z_research/RollOutV2/exp_results/probe_pos_imp/probe_pos_imp.json", "${CVPR_REPO}/z_research/RollOutV2/figures/probe_pos_imp/"]
+    outputs: ["${CVPR_REPO}/z_research/previous/RollOutV2/exp_results/probe_pos_imp/probe_pos_imp.json", "${CVPR_REPO}/z_research/previous/RollOutV2/figures/probe_pos_imp/"]
 
   # ── C. 정체 자 (RollOutV3. 특징은 온라인 추출 → /dev/shm 또는 FEAT_DIR. 자 · readings 자리는 rollout3_paths.py = R3_*) ──
   presence_extract:
@@ -278,7 +278,7 @@ steps:
     gpu: 8
     help: true
     inputs: ["{FEAT_DIR}/p.npy", "{FEAT_DIR}/z.npy", "{FEAT_DIR}/h.npy", "{ds.root}/index_probe.csv"]
-    outputs: ["${CVPR_REPO}/z_research/RollOutV3/exp_results/presence/{summary.json,RESULTS.md,<rep>/readout_attn.pt}"]
+    outputs: ["${CVPR_REPO}/z_research/previous/RollOutV3/exp_results/presence/{summary.json,RESULTS.md,<rep>/readout_attn.pt}"]
   identity_dry:
     script: z_research/scripts/analysis/rollout2_identity_readout.py
     doc: "정체 자 라벨 개수만 (조합 · 없음 · 제외, split) — 배관 점검, GPU 0 장 · 몇 초"
@@ -380,7 +380,7 @@ steps:
     gpu: 0
     help: false
     inputs: ["{R3_EXP}/v11_{R3_OUT}/readings.npz", "{ds.frames_root}"]
-    outputs: ["${CVPR_REPO}/z_research/RollOutV3/audit/… (panel_false_alarm_*.json)"]
+    outputs: ["${CVPR_REPO}/z_research/previous/RollOutV3/audit/… (panel_false_alarm_*.json)"]
     note: "프레임 폴더가 /local_datasets v11 로 고정 (v11_panel_false_alarm.py:25)"
   presence_compare:
     script: z_research/scripts/analysis/presence_readout_compare.py
@@ -402,9 +402,9 @@ steps:
     dataset_lock: true
     gpu: 0
     help: true
-    inputs: ["${CVPR_REPO}/z_research/RollOutV3/exp_results/{DECODER}/summary.json",
-             "${CVPR_REPO}/z_research/RollOutV3/exp_results/windows_{DECODER}/readings.npz",
-             "${CVPR_REPO}/z_research/RollOutV3/exp_results/v11_{DECODER}/readings.npz", "{FRAMES}/metadata.csv"]
+    inputs: ["${CVPR_REPO}/z_research/previous/RollOutV3/exp_results/{DECODER}/summary.json",
+             "${CVPR_REPO}/z_research/previous/RollOutV3/exp_results/windows_{DECODER}/readings.npz",
+             "${CVPR_REPO}/z_research/previous/RollOutV3/exp_results/v11_{DECODER}/readings.npz", "{FRAMES}/metadata.csv"]
     outputs: ["(stdout 표)"]
     note: "exp_results 뿌리가 고정돼 R3_EXP 를 안 읽는다 (rollout3_doc_numbers.py:23)"
   paths:
@@ -425,10 +425,10 @@ steps:
     dataset_lock: true
     gpu: 0
     help: true
-    inputs: ["${CVPR_REPO}/z_research/RollOutV3/exp_results/{DECODER}/summary.json",
-             "${CVPR_REPO}/z_research/RollOutV3/exp_results/windows_{DECODER}/readings.npz",
-             "${CVPR_REPO}/z_research/RollOutV3/exp_results/v11_{DECODER}/readings.npz"]
-    outputs: ["${CVPR_REPO}/z_research/RollOutV3/figures/{train_readout,context_to_future,v3_signed_error,v3_trajectory,v11_presence,v11_signed_error,…}/"]
+    inputs: ["${CVPR_REPO}/z_research/previous/RollOutV3/exp_results/{DECODER}/summary.json",
+             "${CVPR_REPO}/z_research/previous/RollOutV3/exp_results/windows_{DECODER}/readings.npz",
+             "${CVPR_REPO}/z_research/previous/RollOutV3/exp_results/v11_{DECODER}/readings.npz"]
+    outputs: ["${CVPR_REPO}/z_research/previous/RollOutV3/figures/{train_readout,context_to_future,v3_signed_error,v3_trajectory,v11_presence,v11_signed_error,…}/"]
     note: "exp_results 뿌리 · v3 프레임이 고정 (new_archive_redraw.py:41-42) — R3_EXP · V3_FRAMES 를 안 읽는다"
 
   # ── D. 체인 (옛 shell 체인을 그대로 부른다. cd · 인터프리터가 안에 하드코딩 — README 엔진 수정 제안) ───────────
@@ -443,7 +443,7 @@ steps:
     cuda: false
     help: false
     inputs: ["{FRAMES}/Images", "{ds.root}/index_probe.csv", "${CVPR_DATA_CSV}/rollout_v3/index.csv"]
-    outputs: ["${CVPR_REPO}/z_research/RollOutV3/exp_results/{NAME}/", "${CVPR_REPO}/z_research/RollOutV3/exp_results/redraw_{NAME}/chain_*.log"]
+    outputs: ["${CVPR_REPO}/z_research/previous/RollOutV3/exp_results/{NAME}/", "${CVPR_REPO}/z_research/previous/RollOutV3/exp_results/redraw_{NAME}/chain_*.log"]
     note: "GPU 수는 nvidia-smi -L 로 센다 (GPUS 무시). 특징 디스크 자리는 /data2 고정 (decoder_train_redraw.sh:20)"
   rerun_v3:
     kind: bash
@@ -455,5 +455,5 @@ steps:
     gpu: 8
     cuda: false
     help: false
-    inputs: ["${CVPR_REPO}/z_research/RollOutV3/exp_results/{DECODER}/summary.json", "{V3_FRAMES}/Images"]
-    outputs: ["${CVPR_REPO}/z_research/RollOutV3/exp_results/windows_{R3_OUT}/", "${CVPR_REPO}/z_research/RollOutV3/figures/_superseded/presence_era_2026-09-24/{R3_OUT}/"]
+    inputs: ["${CVPR_REPO}/z_research/previous/RollOutV3/exp_results/{DECODER}/summary.json", "{V3_FRAMES}/Images"]
+    outputs: ["${CVPR_REPO}/z_research/previous/RollOutV3/exp_results/windows_{R3_OUT}/", "${CVPR_REPO}/z_research/previous/RollOutV3/figures/_superseded/presence_era_2026-09-24/{R3_OUT}/"]

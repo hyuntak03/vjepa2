@@ -17,7 +17,7 @@ Part B (matched-pair RE-SCORING under the map):
              per-family Procrustes / ridge, CONTROL ridge fit p→h of a different clip, CONTROL z-scoring |z − h| and |ridge_z→h(z) − h|}.
         Verification: raw per-video surprise vs per_video_surprise of the established run (max |Δ|), and raw accuracy on the SAME blocks vs that run's per_block.json.
         Block-bootstrap 95 % CI (N_BOOT resamples over blocks) for accuracy, margin and their paired deltas vs raw.
-Outputs: z_research/context_encoder_analysis/exp_results/ctxenc_subspace_v2/{results.json, RESULTS.md}
+Outputs: z_research/previous/context_encoder_analysis/exp_results/ctxenc_subspace_v2/{results.json, RESULTS.md}
 Run (CPU only, ~20–30 min; env overrides N_CLIPS N_TOK N_PERK N_FIT N_VAL N_TEST N_BOOT N_BOOT_SUB WORKERS):
   cd /data/hyuntak/project/2026/2027_cvpr/vjepa2 && /data/hyuntak/anaconda3/envs/vjepa2/bin/python z_research/scripts/analysis/ctxenc_subspace_v2.py
 """
@@ -40,8 +40,8 @@ import scipy.linalg as sla
 ROOT = Path("/data/hyuntak/project/2026/2027_cvpr/vjepa2")
 CACHE = Path("/local_datasets/world/world_analysis/cache/v11_full_vith")
 INDEX = ROOT / "data_csv/intphysgen_v11_full/index_probe.csv"
-REF = ROOT / "z_research/IntPhysGenV11_occlusion_timing_ablation/exp_results/surprise_c16t32__v11_full_vith"
-OUT = Path(os.environ.get("OUT_DIR", ROOT / "z_research/context_encoder_analysis/exp_results/ctxenc_subspace_v2"))
+REF = ROOT / "z_research/previous/IntPhysGenV11_occlusion_timing_ablation/exp_results/surprise_c16t32__v11_full_vith"
+OUT = Path(os.environ.get("OUT_DIR", ROOT / "z_research/previous/context_encoder_analysis/exp_results/ctxenc_subspace_v2"))
 SEED = 0
 N_CLIPS = int(os.environ.get("N_CLIPS", 120))
 N_TOK = int(os.environ.get("N_TOK", 256))

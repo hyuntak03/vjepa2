@@ -10,7 +10,7 @@
 #   GPUS=4 bash cvpr/eval/intphys1/run.sh intphys1_dev dinof_highres       # DINO-Foresight: 창 {5,8,16} (C=4 고정) 자동
 #   COPY=1 GPUS=4 bash cvpr/eval/intphys1/run.sh intphys1_dev dinof_highres   # 복사 기준선 (이름에 _copy)
 #   DRYRUN=1 bash cvpr/eval/intphys1/run.sh intphys1_dev vith              # 병합 config 만
-#   RESULTS_ROOT=legacy ...   # 옛 폴더·이름 (z_research/Benchmarks/exp_results/intphys1_sliding__<bench>_<model>_w<N>) 그대로
+#   RESULTS_ROOT=legacy ...   # 옛 폴더·이름 (z_research/previous/Benchmarks/exp_results/intphys1_sliding__<bench>_<model>_w<N>) 그대로
 #
 # 규칙 (PROTOCOLS.md)
 #   · 창(C+M) 마다 **실행을 나눈다** — 공식은 창마다 모델을 그 프레임 수로 짓는다. 한 프로세스에 두 창을 섞지 말 것
@@ -38,7 +38,7 @@ for b in $BENCHES; do for m in $MODELS; do for w in $(win_for "$m"); do
   extra=()
   if [[ ${RESULTS_ROOT:-} == legacy ]]; then         # 옛 run_all.sh 이름: <bench>_<model>_w<N>
     n=${w##*_w}; n=${n//[!0-9]/}
-    extra=(TAG="${b}_${m}_w${n}${SFX}" OUTDIR="$CVPR_REPO/z_research/Benchmarks/exp_results/intphys1_sliding__${b}_${m}_w${n}${SFX}")
+    extra=(TAG="${b}_${m}_w${n}${SFX}" OUTDIR="$CVPR_REPO/z_research/previous/Benchmarks/exp_results/intphys1_sliding__${b}_${m}_w${n}${SFX}")
   fi
   echo "### intphys1  $b / $m / $w${SFX}  ($(date '+%H:%M:%S'))"
   env "${extra[@]}" WINDOW="$w" SET="$S" SUFFIX="$SFX" bash "$CVPR_ROOT/harness/launch.sh" "$HERE/protocol.yaml" "$b" "$m" \

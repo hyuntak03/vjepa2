@@ -5,10 +5,10 @@
 그 이식의 k 분해, 붕괴 통계를 전부 적는다. 숫자는 전부 산출물에서 다시 계산한다.
 
     python z_research/scripts/analysis/probing_md.py \
-        --run    z_research/IntPhysGenV11/exp_results/attn_probe__v11_vith \
+        --run    z_research/previous/IntPhysGenV11/exp_results/attn_probe__v11_vith \
         --index  data_csv/intphysgen_v11/index_probe.csv \
-        --report z_research/IntPhysGenV11/exp_results/report.json \
-        --append z_research/IntPhysGenV11/Archive/surprising_score/RESULTS_2026-08-30.md
+        --report z_research/previous/IntPhysGenV11/exp_results/report.json \
+        --append z_research/previous/IntPhysGenV11/Archive/surprising_score/RESULTS_2026-08-30.md
 
 MARK 이후를 통째로 갈아끼우므로 몇 번을 돌려도 중복되지 않는다.
 """
@@ -354,7 +354,7 @@ def main() -> int:
     w("---\n")
     w("## 14. 그림\n")
     w("```")
-    w("z_research/IntPhysGenV11/figures/probing/")
+    w("z_research/previous/IntPhysGenV11/figures/probing/")
     w("  README.md                                어느 그림이 무슨 주장을 담는가")
     w("  by_condition/  fig_information_vs_scoring   핵심 1 — 정보 있음 vs 채점 실패")
     w("                 fig_transfer_vis_occ         핵심 2 — 팔 안 VIS<->OCC")

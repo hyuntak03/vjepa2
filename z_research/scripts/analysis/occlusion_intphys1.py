@@ -31,7 +31,7 @@ V-JEPA 2 정답: 공식 88.89 실행 (skip2_w32) 의 창별 surprise → Filtere
 통계 단위: 사건 가림은 **고유한 (영상, 가림)** 하나씩 (O1 의 두 쌍은 같은 영상의 같은 가림을 공유한다). 정답만 쌍 단위.
 
   python z_research/scripts/analysis/occlusion_intphys1.py            (CPU 약 3 분, mask 1.8 만 장)
-  → z_research/OcclusionStats/intphys1/{summary.json, videos.json, gaps.csv, pairs.csv}
+  → z_research/previous/OcclusionStats/intphys1/{summary.json, videos.json, gaps.csv, pairs.csv}
 """
 from __future__ import annotations
 import collections, csv, json, sys
@@ -45,8 +45,8 @@ from evals.world_model_analysis.eval import _intphys1_windows  # noqa: E402
 
 AUX = ROOT / "auto_research/_stage/IntPhys1_dev_by_scene"
 FR = Path("/local_datasets/world/world_analysis/IntPhys1_dev_frame_png")
-PER_WIN = ROOT / "z_research/Benchmarks/exp_results/intphys1_sliding__intphys1_dev_vith_w32/per_window.json"
-OUT = ROOT / "z_research/OcclusionStats/intphys1"
+PER_WIN = ROOT / "z_research/previous/Benchmarks/exp_results/intphys1_sliding__intphys1_dev_vith_w32/per_window.json"
+OUT = ROOT / "z_research/previous/OcclusionStats/intphys1"
 FPS, NF, LAG, T_DEF, T_SENS = 15.0, 100, 3, 20, (1, 20, 50)
 MO = {"정지": "static", "이동": "moving"}; VI = {"눈앞": "visible", "가려짐": "occluded"}
 

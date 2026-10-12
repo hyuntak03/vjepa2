@@ -17,7 +17,7 @@ Parameter-free check: within scenario, clip pairs with |d pos7| < 0.3 cell, spli
   mean cosine similarity of the F1 vectors with bootstrap 95 % CI over pairs.  Acceleration: pairs matched on pos7 AND v7,
   split by |d a7| relative to the scenario's a7 std (scenarios with a7 std > 0.005 only).
 No GPU, no model; caches read one clip at a time (mmap).  Deterministic.
-Outputs: z_research/context_encoder_analysis/exp_results/ctxenc_boundary_kinematics/{results.json, RESULTS.md, features.npz}
+Outputs: z_research/previous/context_encoder_analysis/exp_results/ctxenc_boundary_kinematics/{results.json, RESULTS.md, features.npz}
 Run:
   cd /data/hyuntak/project/2026/2027_cvpr/vjepa2
   /data/hyuntak/anaconda3/envs/vjepa2/bin/python z_research/scripts/analysis/ctxenc_boundary_kinematics.py [n_per_scenario=300]
@@ -30,7 +30,7 @@ ROOT = Path("/data/hyuntak/project/2026/2027_cvpr/vjepa2")
 INDEX = ROOT / "data_csv/rollout_v2/index.csv"
 CACHE_Z = Path("/local_datasets/world/world_analysis/cache/rollout_v2_z16_vith")
 CACHE_HP = Path("/local_datasets/world/world_analysis/cache/rollout_v2_vith")
-OUT = ROOT / "z_research/context_encoder_analysis/exp_results/ctxenc_boundary_kinematics"
+OUT = ROOT / "z_research/previous/context_encoder_analysis/exp_results/ctxenc_boundary_kinematics"
 SCEN = ["flat_v", "flat_a", "ramp_a", "arc", "fall", "ledge"]
 N_PER = int(sys.argv[1]) if len(sys.argv) > 1 else 300
 SEED, K_FOLD, VAL_FRAC = 0, 5, 0.25

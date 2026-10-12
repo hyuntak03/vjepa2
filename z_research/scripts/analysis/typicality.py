@@ -28,7 +28,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--cache", default="/local_datasets/world/world_analysis/cache/v10_vith")
     ap.add_argument("--index", default="data_csv/intphysgen_v10/index_probe.csv")
-    ap.add_argument("--surprise", default="z_research/IntPhysGenV10/exp_results/surprise_c16t32__v10_vith")
+    ap.add_argument("--surprise", default="z_research/previous/IntPhysGenV10/exp_results/surprise_c16t32__v10_vith")
     ap.add_argument("--n-mu", type=int, default=12)
     a = ap.parse_args()
 

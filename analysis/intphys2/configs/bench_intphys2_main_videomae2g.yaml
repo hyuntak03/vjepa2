@@ -1,5 +1,5 @@
 tag: bench_intphys2_main_videomae2g
-folder: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/Benchmarks/exp_results/intphys2
+folder: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/previous/Benchmarks/exp_results/intphys2
 data:
   root: /data2/local_datasets/world/Benchmark/IntPhys2
   dataset_variant: intphys2

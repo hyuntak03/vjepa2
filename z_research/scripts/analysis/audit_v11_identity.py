@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """감사 (2026-09-25): v11 정체 (shape · color) probe 와 풀링 기하 주장을 두 probe 로 다시 낸다.
 
-대상 문서: z_research/RollOutV3/figures/v11_probe/PROBE.md · v11_geometry/GEOMETRY.md
+대상 문서: z_research/previous/RollOutV3/figures/v11_probe/PROBE.md · v11_geometry/GEOMETRY.md
 입력 캐시: /local_datasets/world/world_analysis/cache/v11_pooled_vith/{z,p,h}.npy, meta.npz (v11_pooled_features.py)
-출력    : z_research/RollOutV3/audit/v11_identity/{audit_probe.json (1)(2)(3), audit_geom.json (4); AUDIT.md 는 사람이 씀}
+출력    : z_research/previous/RollOutV3/audit/v11_identity/{audit_probe.json (1)(2)(3), audit_geom.json (4); AUDIT.md 는 사람이 씀}
 
 (1) 궤적 반복 — meta.truth (n,32,2) 로 궤적을 식별해 block 사이 반복 · split 누수 · 라벨과의 교차를 센다.
     누수가 정체 probe 에 영향을 주는지 보려고 두 가지를 한다.
@@ -40,8 +40,8 @@ ROOT = Path("/data/hyuntak/project/2026/2027_cvpr/vjepa2")
 sys.path.insert(0, str(ROOT)); sys.path.insert(0, str(ROOT / "z_research/scripts/analysis"))
 import v11_pooled_probe as P  # noqa: E402  (함수만 쓴다. 그 스크립트의 OUT 에는 쓰지 않는다)
 
-OUT = ROOT / "z_research/RollOutV3/audit/v11_identity"
-REF = ROOT / "z_research/RollOutV3/figures"
+OUT = ROOT / "z_research/previous/RollOutV3/audit/v11_identity"
+REF = ROOT / "z_research/previous/RollOutV3/figures"
 RIDGE_LAMS = [1.0, 10.0, 100.0, 1e3, 1e4, 1e5]
 TARGETS = {"shape": "shape_pre", "color": "color_pre"}
 T0 = time.time()

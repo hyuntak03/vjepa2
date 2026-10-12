@@ -4,9 +4,9 @@
 입력: `te_v3_readout.py` 의 curves 추출 (`cache/training_effects/v3readout_curves/`). 끝났으면 `readings.npz`, 진행 중이면
       `_parts/` memmap + done 플래그 (창마다 **모든 tag · zh 가 done 인 clip 만** 쓴다 = 모든 predictor 가 같은 clip).
       수정하지 않는다. 메타 (진실 · in_frame · 궤적) 는 `data_csv/rollout_v3/index.csv` 에서 (추출과 같은 식, clip 순서 sha1 대조).
-출력: `z_research/TrainingEffects/v3_motion/` — MOTION.md (본문) · TABLES.md (전 칸 표) · motion.json · fig_*.png
+출력: `z_research/previous/TrainingEffects/v3_motion/` — MOTION.md (본문) · TABLES.md (전 칸 표) · motion.json · fig_*.png
 
-정의 (README `z_research/TrainingEffects/README.md` §1, `audit_v3_motion.py` 머리말을 따른다 — 읽기 전용 재사용)
+정의 (README `z_research/previous/TrainingEffects/README.md` §1, `audit_v3_motion.py` 머리말을 따른다 — 읽기 전용 재사용)
   좌표   X(t) = GT 프레임 (32+2t, 33+2t) 평균 (px, 288 화면), x0 = GT 프레임 30·31 평균, v0 = x0 − GT 28·29 평균 (px/튜블릿)
   읽기   x̂ = (readings[..., :2] + 1)·144 − 치우침[자] (`attn_bias_px.json`),  '있다' = logit > 문턱[자] (자마다 하나, 릴리즈에서 정한 값):
          h 자 −0.961 (p@h, **주 판독**) · p 자 0.8307 (p@p, 보조 = 릴리즈 p 로 배운 자의 이식 판독) · z 자 −0.662 (자 검사)
@@ -50,12 +50,12 @@ sys.path.insert(0, str(ROOT / "z_research/scripts/figures"))
 from plot_v3_l2_error import axis_dir  # noqa: E402  부호 규칙 정본 (audit_v3_motion 이 원본과 비트 대조한 함수)
 
 CACHE = Path("/data2/local_datasets/world/world_analysis/cache/training_effects/v3readout_curves")
-OUT = ROOT / "z_research/TrainingEffects/v3_motion"
+OUT = ROOT / "z_research/previous/TrainingEffects/v3_motion"
 INDEX = ROOT / "data_csv/rollout_v3/index.csv"
-PRES = ROOT / "z_research/RollOutV3/exp_results/presence"
-REF_WIN = ROOT / "z_research/RollOutV3/exp_results/windows/readings.npz"
-REF_SIGNED = {"p": ROOT / "z_research/RollOutV3/figures/v3_signed_error/_superseded/presence_decoder/values.json",
-              "h": ROOT / "z_research/RollOutV3/figures/v3_signed_error_hhead/_superseded/presence_decoder/values.json"}
+PRES = ROOT / "z_research/previous/RollOutV3/exp_results/presence"
+REF_WIN = ROOT / "z_research/previous/RollOutV3/exp_results/windows/readings.npz"
+REF_SIGNED = {"p": ROOT / "z_research/previous/RollOutV3/figures/v3_signed_error/_superseded/presence_decoder/values.json",
+              "h": ROOT / "z_research/previous/RollOutV3/figures/v3_signed_error_hhead/_superseded/presence_decoder/values.json"}
 EXPECT_FP = "dcd24d8a8a47"
 RES, SPLIT, CELL, EDGE, W = 144.0, 32, 18.0, 36.0, 288.0
 MASS_U = 9 / 256
@@ -1477,7 +1477,7 @@ def report(R, out):
           "$P z_research/scripts/analysis/te_analyze_v3.py                                  # 이 문서 · TABLES.md · motion.json · fig_*.png (CPU, ~6 분)",
           "```",
           "입력: `/data2/local_datasets/world/world_analysis/cache/training_effects/v3readout_curves/readings.npz` (자 지문 dcd24d8a8a47) · "
-          "`z_research/RollOutV3/exp_results/presence/{summary.json, attn_bias_px.json}` · `data_csv/rollout_v3/index.csv`. "
+          "`z_research/previous/RollOutV3/exp_results/presence/{summary.json, attn_bias_px.json}` · `data_csv/rollout_v3/index.csv`. "
           "sanity 대조: `RollOutV3/exp_results/windows/readings.npz` · `RollOutV3/figures/v3_signed_error{,_hhead}/_superseded/presence_decoder/values.json` · `CROSS_HEAD.md` (읽기 전용).", ""]
     (out / "MOTION.md").write_text("\n".join(L) + "\n")
 

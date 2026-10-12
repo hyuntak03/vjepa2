@@ -1,7 +1,7 @@
 # =============================================================================
 # PROTOCOL — EK100 action anticipation (V-JEPA 2 §6, Appendix D.1, Table 19): frozen encoder + predictor + attentive probe
 #
-#   GPUS=8 bash cvpr/eval/ek100/run.sh ek100 vith            [옛 z_research/anticipation/EK100/run.sh + configs/ek100_vith.yaml]
+#   GPUS=8 bash cvpr/eval/ek100/run.sh ek100 vith            [옛 z_research/previous/anticipation/EK100/run.sh + configs/ek100_vith.yaml]
 #
 # 엔진은 evals/action_anticipation_frozen (evals.main). 영상·annotation 경로는 레지스트리 (ek100), 체크포인트·arch 는 모델 레지스트리,
 # 프레임 배치 (frames_per_clip · fps · anticipation 시각) 는 창 preset ek100_32f8fps 가 채운다.

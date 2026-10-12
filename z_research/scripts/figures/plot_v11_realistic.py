@@ -5,11 +5,11 @@
   fig_rl_direction   k × 방향 (물체→빈 / 빈→물체), 실물 = 진한 선 + 95 % CI, 기하 도형 v11 = 회색 참조선
   fig_rl_ledge       (a) 예시 프레임 (낙하 vs 공중 직진) (b) 쌍별 surprise 산점도 (c) 상대 차 (불가능 − 가능) / 가능
 
-입력: z_research/v11_realistic/exp_results/tables.json (v11_realistic_tables.py 가 summary.json 과 대조 검증해 만든다)
+입력: z_research/previous/v11_realistic/exp_results/tables.json (v11_realistic_tables.py 가 summary.json 과 대조 검증해 만든다)
      + ledge per_block.json (산점도) + ledge 프레임 (예시)
 
   P=/data/hyuntak/anaconda3/envs/vjepa2/bin/python
-  $P z_research/scripts/figures/plot_v11_realistic.py          # → z_research/v11_realistic/figures/
+  $P z_research/scripts/figures/plot_v11_realistic.py          # → z_research/previous/v11_realistic/figures/
 """
 from __future__ import annotations
 import csv, json, sys
@@ -23,8 +23,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from plot_v11_surprise import BLUE, ORANGE, GREEN, INK, INK2, MUTED, BAND, PANEL, frame, tint, stack_labels  # noqa: E402  (rcParams 도 같이 들어온다)
 
 REPO = Path(__file__).resolve().parents[3]
-EXP = REPO / "z_research/v11_realistic/exp_results"
-OUT = REPO / "z_research/v11_realistic/figures"
+EXP = REPO / "z_research/previous/v11_realistic/exp_results"
+OUT = REPO / "z_research/previous/v11_realistic/figures"
 LEDGE_RUN = EXP / "surprise_c16t32__v11_realistic_ledge_vith"
 LEDGE_IDX = REPO / "data_csv/intphysgen_v11_realistic_ledge/index.csv"
 LEDGE_FR = Path("/local_datasets/world/world_analysis/IntPhysGen_v11_realistic_ledge")

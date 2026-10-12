@@ -22,7 +22,7 @@ import rollout2_position as rp                                            # noqa
 import rollout2_token_decoder as td                                       # noqa: E402
 
 FRAMES = Path("/local_datasets/world/world_analysis/RollOut_v2")
-OUT = rp.ROOT / "z_research/RollOutV2/figures/overlay"
+OUT = rp.ROOT / "z_research/previous/RollOutV2/figures/overlay"
 ORANGE, GREEN, BLUE, WHITE, CYAN = (235, 104, 52), (27, 175, 122), (42, 120, 214), (255, 255, 255), (80, 220, 255)
 R = 288
 
@@ -73,7 +73,7 @@ def main():
     W = {"p_A": {c: rp.fit_lstsq(fut("p", tr), L[tr].ravel()) for c, L in (("x", Lx), ("y", Ly))},
          "p_B": {c: rp.fit_lstsq(fut("p", tr_B), L[tr_B].ravel()) for c, L in (("x", Lx), ("y", Ly))}}
     # 토큰 decoder (h 학습, 저장본)
-    model = td.TokenDecoder().to(dev); model.load_state_dict(torch.load(rp.ROOT / "z_research/RollOutV2/exp_results/token_decoder.pt", map_location=dev)); model.eval()
+    model = td.TokenDecoder().to(dev); model.load_state_dict(torch.load(rp.ROOT / "z_research/previous/RollOutV2/exp_results/token_decoder.pt", map_location=dev)); model.eval()
     P = np.load(rp.CACHE / "predictor.npy", mmap_mode="r"); H = np.load(rp.CACHE / "target.npy", mmap_mode="r")
     gx = model.gx.cpu().numpy(); gy = model.gy.cpu().numpy()
 

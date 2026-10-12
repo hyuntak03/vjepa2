@@ -3,15 +3,15 @@
 #   v11     : surprise_c16t32 × v11_split_test (학습 안 한 block 절반, 10,752 쌍)
 #   IntPhys1: intphys1_sliding × intphys1_dev, 창(C+M) 16 / 32 를 따로 (Garrido A.8, PROTOCOLS.md §2)
 # 결과 폴더는 기존 관례 그대로 — v11 은 IntPhysGenV11/exp_results, IntPhys1 은 Benchmarks/exp_results.
-# 이미 summary.json 이 있는 칸은 건너뛴다. 집계는 z_research/TrainingEffects/ 의 스크립트가 한다.
+# 이미 summary.json 이 있는 칸은 건너뛴다. 집계는 z_research/previous/TrainingEffects/ 의 스크립트가 한다.
 #
 #   bash z_research/scripts/analysis/training_effects_run.sh            # vll5 8 GPU 할당 안에서
 #   LANES="lane7" bash z_research/scripts/analysis/training_effects_run.sh   # 일부 lane 만
 set -uo pipefail
 cd /data/hyuntak/project/2026/2027_cvpr/vjepa2
-LOG=z_research/TrainingEffects/logs; mkdir -p "$LOG"
-BX=z_research/Benchmarks/exp_results
-VX=z_research/IntPhysGenV11/exp_results
+LOG=z_research/previous/TrainingEffects/logs; mkdir -p "$LOG"
+BX=z_research/previous/Benchmarks/exp_results
+VX=z_research/previous/IntPhysGenV11/exp_results
 
 v11() {  # model gpu_ids port
   local m=$1 out=$VX/surprise_c16t32__v11_split_test_$1

@@ -9,8 +9,8 @@ from pathlib import Path
 import matplotlib as mpl, matplotlib.pyplot as plt, numpy as np
 
 ROOT = Path("/data/hyuntak/project/2026/2027_cvpr/vjepa2")
-R = json.loads((ROOT / "z_research/RollOutV2/exp_results/probe_pos_imp.json").read_text())
-OUT = ROOT / "z_research/RollOutV2/figures/probe"; OUT.mkdir(parents=True, exist_ok=True)
+R = json.loads((ROOT / "z_research/previous/RollOutV2/exp_results/probe_pos_imp.json").read_text())
+OUT = ROOT / "z_research/previous/RollOutV2/figures/probe"; OUT.mkdir(parents=True, exist_ok=True)
 mpl.rcParams.update({"font.family": "sans-serif", "font.sans-serif": ["DejaVu Sans"], "pdf.fonttype": 42})
 LAB = {"ledge": ("falls", "floats"), "wall": ("stops", "passes")}
 

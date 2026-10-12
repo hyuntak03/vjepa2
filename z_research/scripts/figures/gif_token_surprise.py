@@ -10,7 +10,7 @@
 예시 고르기: 조건마다 쌍 Δ 평균 (= 채점 차) 이 그 조건 중앙값에 가장 가까운 block (전형 사례). 가림은 k=2.
 
   P=/data/hyuntak/anaconda3/envs/vjepa2/bin/python
-  $P z_research/scripts/figures/gif_token_surprise.py      → z_research/v11_realistic/figures/token_surprise/*.gif · *_strip.png
+  $P z_research/scripts/figures/gif_token_surprise.py      → z_research/previous/v11_realistic/figures/token_surprise/*.gif · *_strip.png
 """
 from __future__ import annotations
 import csv, json
@@ -21,8 +21,8 @@ from PIL import Image, ImageDraw, ImageFont
 from matplotlib import font_manager
 
 REPO = Path(__file__).resolve().parents[3]
-EXP = REPO / "z_research/v11_realistic/exp_results"
-OUT = REPO / "z_research/v11_realistic/figures/token_surprise"
+EXP = REPO / "z_research/previous/v11_realistic/exp_results"
+OUT = REPO / "z_research/previous/v11_realistic/figures/token_surprise"
 SETS = {
     "realistic": (EXP / "surprise_c16t32__v11_realistic_vith", REPO / "data_csv/intphysgen_v11_realistic/index.csv",
                   Path("/local_datasets/world/world_analysis/IntPhysGen_v11_realistic")),

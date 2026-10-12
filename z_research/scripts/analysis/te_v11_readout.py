@@ -128,7 +128,7 @@ from rollout3_window_readout import MODEL, readout_cls, prefetch            # no
 import v11_readout_online as vro                                            # noqa: E402  (clip 선택 · 가림 샘플 규약 공유)
 
 CACHE_ROOT = Path(os.environ.get("TE_CACHE", "/data2/local_datasets/world/world_analysis/cache/training_effects"))
-DOC_DIR = ROOT / "z_research/TrainingEffects/v11readout"
+DOC_DIR = ROOT / "z_research/previous/TrainingEffects/v11readout"
 POOLED_REF = Path("/local_datasets/world/world_analysis/cache/v11_pooled_vith")
 FP_WANT = "dcd24d8a8a47"
 NS, CS, S, D, RES, CELL = 32, 16, 256, 1280, 144.0, 18.0
@@ -580,7 +580,7 @@ def main():
     ap.add_argument("--max-bs", type=int, default=16)
     ap.add_argument("--workers", type=int, default=8, help="PNG 읽기 스레드 (GPU 당)")
     ap.add_argument("--flush-every", type=int, default=20, help="몇 배치마다 flush + done 표시")
-    ap.add_argument("--validate", action="store_true", help="끝나고 (a)(b)(c) 대조 → z_research/TrainingEffects/v11readout/")
+    ap.add_argument("--validate", action="store_true", help="끝나고 (a)(b)(c) 대조 → z_research/previous/TrainingEffects/v11readout/")
     ap.add_argument("--xcheck", nargs="*", default=None,
                     help="build_from_config(predictor_checkpoint) 와 출력 대조할 tag (--validate 기본: v11_e10 · ariel_prefix_ep45 · "
                          "ariel_full_ep40 중 있는 것)")

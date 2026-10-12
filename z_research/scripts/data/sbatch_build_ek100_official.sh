@@ -6,7 +6,7 @@
 #SBATCH --cpus-per-task=48
 #SBATCH --mem=96G
 #SBATCH --time=08:00:00
-#SBATCH --output=/data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/anticipation/EK100/slurm_logs/%x_%j.out
+#SBATCH --output=/data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/previous/anticipation/EK100/slurm_logs/%x_%j.out
 # EK100 train (기본) 을 공식 val 기하 256x256 으로 /data2/local_datasets/EPIC-KITCHENS_resized (옛 이름 epic_test) 에 만든다. CPU 작업이라 GPU 는 잡지 않는다.
 # (2026-09-15: 처음 판은 GPU 8 · CPU 128 · mem 전체를 잡아 다른 사용자 GPU job 뒤에서 대기했다 → CPU·mem 만)
 #

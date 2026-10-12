@@ -5,7 +5,7 @@
 
 > # 시작점
 > **논문 스토리 정본 `auto_research/paper/PAPER_STORY_2026-10-08.md` 를 먼저 읽는다** (2026-10-08 사용자 스토리 · 근거 지도 · 결정 대기 · 하네스 · 금지 표현).
-> 결과 로그와 철회표는 `auto_research/README.md`, 본 testbed (v11) 의 데이터·수치는 `z_research/IntPhysGenV11/README.md`.
+> 결과 로그와 철회표는 `auto_research/README.md`, 본 testbed (v11) 의 데이터·수치는 `z_research/previous/IntPhysGenV11/README.md`.
 > 이 파일은 그 아래 깔린 **레포 운영 규칙**이다.
 
 ---
@@ -40,7 +40,7 @@ world model (V-JEPA 2 중심) 이 **intuitive physics 를 따르는 plausible fu
 ⚠️ **결정 대기 하나**: 주 평가를 intuitive physics 판 (IntPhys 1/2 · GRASP · InfLevel + testbed copy-hard · 위치 쌍) 으로 옮기나 — 문서는 이것을 기본값으로 썼다.
 
 ⚠️ **intuitive physics 의 판정은 행동으로 한다.** 조작적 정의는 2026-09-19 의 **네 능력 (1 읽기 · 2 지속 · 3 전이 · 4 영속)** 을 그대로 쓴다
-(정본 `z_research/context_encoder_analysis/Archive/STATE_EVOLUTION_CAPABILITIES_2026-09-19.md`): 보이는 것 외삽 = 지속 · reach / 안 보이는 것 = 영속 /
+(정본 `z_research/previous/context_encoder_analysis/Archive/STATE_EVOLUTION_CAPABILITIES_2026-09-19.md`): 보이는 것 외삽 = 지속 · reach / 안 보이는 것 = 영속 /
 없는 것 = **3 전이를 둘로: 3a 추세 (가속 · 감속 · 꼭대기에서 되돌아옴) + 3b 사건 (받침 끝 낙하 · 벽 충돌)** (10-08, 사건 포함) / encoder 정보 = 읽기.
 현재 V-JEPA 2: 읽기 ✅ / 지속 ❌ / 전이 3a ◐ (방향·속도는 이어 가고 가속도는 반영 안 함) · 3b ❌ (선반 높이 유지, 벽 통과 뒤 소실) / 영속 ❌.
 ⚠️ ledge · wall 을 쓰는 조건 넷 (정본 §2-3 iii): 떠 가는 미래는 복사와 닮았다 (H23 §3-7) → 불가능 미래가 복사와 다른 방향인 다중 미래 설계로 / 갈림 시점 누수 / 자 둘의 다른 답 / L1 교란.
@@ -55,7 +55,7 @@ world model (V-JEPA 2 중심) 이 **intuitive physics 를 따르는 plausible fu
 
 | 날짜 | 한 줄 | 문서 |
 |---|---|---|
-| 08-31 | 정보는 남고 배치가 무너진다, frozen 개입으로 되돌린다 ("frozen 위에서 닫힌다") | `z_research/IntPhysGenV11/Archive/PAPER_STORY_2026-08-31.md` |
+| 08-31 | 정보는 남고 배치가 무너진다, frozen 개입으로 되돌린다 ("frozen 위에서 닫힌다") | `z_research/previous/IntPhysGenV11/Archive/PAPER_STORY_2026-08-31.md` |
 | 09-03 | 가림이 사건 순간에 걸리는 건 corner case — 가림은 testbed 로 | `…/STATUS_AND_CRITIQUE_2026-09-03.md` |
 | 09-06 · 09-22 | predictor 는 상태를 이어가지 않는다, 문맥을 조회할 뿐 ("frozen 위에서 닫힌다" 폐기) | `…/PAPER_STORY_2026-09-06.md` · `…/PAPER_STORY_2026-09-22.md` |
 | 09-19 | state evolution = 네 능력, ledge · wall 은 common sense 라 정의 밖 (**10-08 번복 — 포함**) | `STATE_EVOLUTION_CAPABILITIES_2026-09-19.md` |
@@ -133,10 +133,10 @@ block 안 4개는 2×2 로 context/future 를 공유한다.
 | 무엇을 재나 | 진입점 | 실제 코드 | config | 정본 문서 |
 |---|---|---|---|---|
 | **① 우리 표준 채점**<br>(surprise / probing) | `z_research/scripts/run.sh <프로토콜> <데이터셋> [모델]` | `evals/world_model_analysis/eval.py` | **`configs/protocols/`** (프로토콜 yaml + `datasets.md` + `models.md`) | `configs/protocols/README.md` |
-| **② 외부 벤치마크**<br>(IntPhys 1 · GRASP · InfLevel) | `bash z_research/Benchmarks/run_all.sh` | ① 을 감싼다 (A.8 격자, 창별 분리) | ① 과 같음 + `run_all.sh` 가 `SET=` 으로 격자 주입 | **`z_research/Benchmarks/README.md` → `PROTOCOLS.md`** |
+| **② 외부 벤치마크**<br>(IntPhys 1 · GRASP · InfLevel) | `bash z_research/previous/Benchmarks/run_all.sh` | ① 을 감싼다 (A.8 격자, 창별 분리) | ① 과 같음 + `run_all.sh` 가 `SET=` 으로 격자 주입 | **`z_research/previous/Benchmarks/README.md` → `PROTOCOLS.md`** |
 | **③ IntPhys 2** ⚠️범위 밖 | `python -m analysis.intphys2.eval --config <yaml>` | `analysis/intphys2/eval.py` | **`analysis/intphys2/configs/`** (통짜 yaml, 코드 옆) | `analysis/intphys2/README.md` |
 | **④ predictor 학습·채점** | `bash z_training/eval.sh <run> <데이터셋>` | ① 에 `model.predictor_checkpoint` 만 얹는다 | `configs/training/` | `z_training/README.md` |
-| **⑤ EK100 action anticipation** | `bash z_research/anticipation/EK100/run.sh` | `evals/action_anticipation_frozen/` (업스트림) | `configs/eval*/` (업스트림) | `z_research/anticipation/EK100/README.md` |
+| **⑤ EK100 action anticipation** | `bash z_research/previous/anticipation/EK100/run.sh` | `evals/action_anticipation_frozen/` (업스트림) | `configs/eval*/` (업스트림) | `z_research/previous/anticipation/EK100/README.md` |
 | **⑥ attention knockout** | `bash analysis/attention/knockout/run_sharded.sh` | `analysis/attention/knockout/runner.py` | 스크립트 인자 | `analysis/attention/README.md` |
 
 **기본은 ①이다.** ②④는 ①을 감싼 것이라 채점 규칙이 같다. ③만 별도 하네스다 (프로토콜이 다르다).
@@ -218,19 +218,19 @@ output_dir = <데이터셋.results_root>/<프로토콜>__<데이터셋>_<모델>
 ⚠️ **2026-09-21 — Garrido 프로토콜은 A.8 격자를 모델마다 탐색하고 최고를 보고한다.**
 Table S3 는 *그들 모델*(`vit_huge_rope`, fpc 16)의 탐색 *결과*지 고정 규격이 아니다.
 V-JEPA 2 ViT-H IntPhys1 = **88.89** (`skip2_w32`, **Filtered**, property macro). IntPhys 은 C 스윕을 Filtered 로 대체한다 (논문 A.7/A.8). 지표는 **쌍 비교 AvgSurprise 하나** (Max 철회). 창(C+M)마다 **실행을 나눈다** —
-공식은 창마다 모델을 그 프레임 수로 짓기 때문이다. 정본 `z_research/Benchmarks/PROTOCOLS.md`,
+공식은 창마다 모델을 그 프레임 수로 짓기 때문이다. 정본 `z_research/previous/Benchmarks/PROTOCOLS.md`,
 기준값 검사 `python z_research/scripts/analysis/check_oracle.py`.
 
 등록된 데이터셋: `intphys1_dev`, `grasp_level2`, `inflevel_{continuity,gravity,solidity}`, `v8`, `v8_halfsize`, **`v11`**, `v11_earlymid`, `v11_timing`, `v11_full`, `v11_split_test`, `v13_black`,
-`v10`, `v10_flat`, `v10_occ_low`, `jongseo_physv3`, **`rollout_v2`**, **`rollout_v2_training_v5`**, **`v11_vanish_all`** (위치 readout, §5-5), **`v11_realistic`** · **`v11_realistic_ledge`** · **`gravity_realistic`** (실물 메시, 2026-10-06/07 · `z_research/v11_realistic/`; gravity 는 `SET="scoring.pairing=cross"`)
+`v10`, `v10_flat`, `v10_occ_low`, `jongseo_physv3`, **`rollout_v2`**, **`rollout_v2_training_v5`**, **`v11_vanish_all`** (위치 readout, §5-5), **`v11_realistic`** · **`v11_realistic_ledge`** · **`gravity_realistic`** (실물 메시, 2026-10-06/07 · `z_research/previous/v11_realistic/`; gravity 는 `SET="scoring.pairing=cross"`)
 (+ `available: false` 인 `2d_v8_transit`, `v11_occtiming`). 모델: `vith`, `vitl`. 지운 데이터셋 (RollOut_v1, 학습셋 v1~v4) 은 레지스트리에서도 뺐다 — 기록은 각 세트 문서.
 
 ⚠️ **v11 은 2026-09-01 에 43,008 clip 으로 커졌다** (`*_early`/`*_mid` 6조건 추가).
 기존 6조건은 프레임이 그대로라 재채점하지 않는다. 새 팔만 담은 것이 `v11_earlymid`,
 probing 용으로 `visible + early + mid` 를 묶은 것이 `v11_timing` 이다.
-가림 타이밍 결과는 `z_research/IntPhysGenV11_occlusion_timing_ablation/`.
+가림 타이밍 결과는 `z_research/previous/IntPhysGenV11_occlusion_timing_ablation/`.
 
-`results_root`: `intphys1_dev` → `z_research/IntPhys/exp_results`,
+`results_root`: `intphys1_dev` → `z_research/previous/IntPhys/exp_results`,
 `v8`·`v8_halfsize` → `IntPhysGenV8`, `v10`류 → `IntPhysGenV10`, **`v11` → `IntPhysGenV11`**,
 나머지는 기본값 `z_exp/world_model_analysis/results`.
 
@@ -511,7 +511,7 @@ plausible, pair_id, condition, motion, has_occlusion, violation_type, game_name,
 - ❌ **shape 은 인코더도 흔들린다** (`z` 3팔 평균 64.8, 등속 팔 42.4).
   "인코더는 조건과 무관" 은 **color·env 로만** 주장할 수 있다
 
-전수는 `z_research/IntPhysGenV11/Archive/surprising_score/RESULTS_2026-08-30.md`.
+전수는 `z_research/previous/IntPhysGenV11/Archive/surprising_score/RESULTS_2026-08-30.md`.
 
 ### 5-3. v11 방향 비대칭 — 고정된 순서
 
@@ -547,12 +547,12 @@ cylinder 90 > cube 86 > pyramid 59 > capsule 58 > cone 48 > sphere 36 > torus 3
 **IntPhys1 을 운동 × 가림으로 쪼개면** (sliding): 정지 100 / 100, 이동(포물선) 91.67 / **75.0**.
 **세 셀이 천장이고 한 셀만 떨어진다** — 실제 벤치마크에서 P3 (움직이는 물체가 마지막 관측에서 가려지면) 의 다리다 (정본 `PAPER_STORY_2026-10-08`).
 
-v8 의 정보손실/정렬손실 분해, 2D 대조는 `z_research/IntPhysGenV8/`.
+v8 의 정보손실/정렬손실 분해, 2D 대조는 `z_research/previous/IntPhysGenV8/`.
 
 ⚠️ **α 분해 관련 수치는 인용 금지다** (지시 전까지). `z_world_model_analysis/PREDICTOR_HEDGING_*`,
 `MECHANISM_*` 및 옛 문서의 α·보정 값 전부 해당.
 
-### 5-5. 위치 readout — RollOut_v2 학습셋 v5 자 (2026-09-12) · `z_research/RollOutV2/`
+### 5-5. 위치 readout — RollOut_v2 학습셋 v5 자 (2026-09-12) · `z_research/previous/RollOutV2/`
 
 **정본**: `RollOutV2/figures/v5/summary/POSITION_READOUT_2026-09-12.md` (수치·정정·재현 전부). 시작점 `RollOutV2/README.md`.
 별도 학습셋 (무중력 등속 8,064 clip, `visible_by_sample` 마스크) 에서 attentive 위치 자 (3,842 파라미터) 를 p / z / h 각각에 정하고
@@ -591,7 +591,7 @@ v8 의 정보손실/정렬손실 분해, 2D 대조는 `z_research/IntPhysGenV8/`
 | gravity (포물선의 미래 다섯 중 고른 비율, chance 20 %) | 오르는 문맥 float 83.3 · 꼭대기 arc 62.5 / float 33.3 · 내려가는 문맥 arc 85.4 · stop 고른 block 1/144 |
 
 ⚠️ ledge 0 % 는 "덜 움직이는 미래가 L1 로 싸다" 와 못 가른다 (같은 높이 직진은 문맥 끝 속도 그대로) — 위치 자 (§5-5 ledge) 와 같이 쓴다.
-⚠️ gravity 는 튜블릿별로 처음 1–4 튜블릿만 진짜 궤적 (arc) 을 따르고 그 뒤 벗어난다. 꼭대기 문맥에서 arc 가 이기는 건 공 자리가 아니라 두 미래 픽셀이 같은 칸 때문이다 (공 자리는 98 % block 이 높이 유지 쪽) — `z_research/v11_realistic/README.md` §4 (10-08 정정).
+⚠️ gravity 는 튜블릿별로 처음 1–4 튜블릿만 진짜 궤적 (arc) 을 따르고 그 뒤 벗어난다. 꼭대기 문맥에서 arc 가 이기는 건 공 자리가 아니라 두 미래 픽셀이 같은 칸 때문이다 (공 자리는 98 % block 이 높이 유지 쪽) — `z_research/previous/v11_realistic/README.md` §4 (10-08 정정).
 ⚠️ ledge · wall · 꼭대기는 09-19 정의에서 "common sense, 범위 밖" 이었다 — **10-08 사용자 결정으로 포함** (3b 사건). 단 떠 가는 미래는 복사와 닮아 VoE 쌍 하나로는 "불가능한 연속을 예측" 과 "머묾" 을 못 가른다 (H23 §3-7) — 다중 미래 설계로 낸다 (정본 §2-3 iii).
 
 ---
@@ -686,15 +686,16 @@ v8 의 정보손실/정렬손실 분해, 2D 대조는 `z_research/IntPhysGenV8/`
 |---|---|---|
 | `configs/protocols/` | 프로토콜 yaml + `datasets.md`/`models.md` 레지스트리 | ✅ |
 | `z_research/scripts/` | 최상위엔 **직접 치는 것만**. 나머지는 `harness/`·`data/`·`figures/`·`analysis/` | ✅ |
+| **`z_research/VOBench_v1/`** | **새 세트 (2026-10-10 개설).** 이전 세트는 전부 `z_research/previous/` 로 내렸다 (`previous/README.md` = 옮긴 목록 · 경로 갱신 범위). `z_research/scripts/` 는 제자리 | 부분 |
 | **`auto_research/`** | **논문 스토리 정본 (`paper/PAPER_STORY_2026-10-08.md`) + predictor 분석 결과 로그 (`README.md`, 철회표 · 문서 지도)**. 분석 문서 `Archive/`, 스크립트 `scripts/` | ❌ (아직 git 추적 밖 — 커밋 결정 대기) |
-| **`z_research/Benchmarks/`** | **외부 벤치마크 × 세 모델 (Garrido 프로토콜).** `README.md` → `PROTOCOLS.md` | 부분 |
-| **`z_research/IntPhysGenV11/`** | **본 실험 세트.** `README.md` 가 시작점 | 부분 |
-| `z_research/anticipation/EK100/` | V-JEPA 2 EK100 action anticipation 재현 (논문 §6). `README.md` 가 시작점 — 릴리즈 코드와 논문이 다른 곳과 우리 기본값 | 부분 |
-| **`z_research/RollOutV2/`** | **위치 readout 세트** (p 가 물체를 어디에 두나). `README.md` → `figures/v5/summary/POSITION_READOUT_2026-09-12.md` | 부분 |
-| **`z_research/RollOutV3/`** | **p 의 미래를 위치 + 정체 자로 읽는 세트** (v3 가림 없음 · v11 가림). 지금 자 = **`identity_r8`** (위치 + 56 조합 + 없음, 학습셋 `RollOut_v2_training_v8`, v11 판 빈 장면 오탐 0 %). `README.md` 가 시작점 → `Archive/IDENTITY_R8_2026-09-26.md`. 그림 `figures/` · 감사 `audit/` · 자와 읽은 값 `exp_results/` (폴더마다 README). 옛 `new_archive/` = 지금 `figures/` (2026-09-22 개설, 2026-09-26 정리) | 부분 |
-| **`z_research/TrainingEffects/`** | **학습한 모델 비교** — post-FT predictor 4 · Ariel · jongseo 사전학습 8 을 v11 · IntPhys 1 점수 + 복사 기준선 + 네 능력 (영속 · 지속 · 전이 · 읽기) 로. `README.md` 가 시작점 (2026-09-25 개설) | 부분 |
-| **`z_research/v11_realistic/`** | **실물 메시로 다시 렌더한 v11 (vanish) + 선반 낙하 (gravity)** surprise 채점. `README.md` 가 시작점 (2026-10-06 개설) | 부분 |
-| **`z_research/OcclusionStats/`** | **벤치마크의 가림 통계** — 가려진 시간 × 가려진 동안 움직이나. IntPhys 1 dev 완료: 이동 물체 0.2 초 (skip-2 로 1–3 장) · 정지 물체만 5 초. `README.md` 가 시작점 (2026-09-26 개설) | 부분 |
+| **`z_research/previous/Benchmarks/`** | **외부 벤치마크 × 세 모델 (Garrido 프로토콜).** `README.md` → `PROTOCOLS.md` | 부분 |
+| **`z_research/previous/IntPhysGenV11/`** | **본 실험 세트.** `README.md` 가 시작점 | 부분 |
+| `z_research/previous/anticipation/EK100/` | V-JEPA 2 EK100 action anticipation 재현 (논문 §6). `README.md` 가 시작점 — 릴리즈 코드와 논문이 다른 곳과 우리 기본값 | 부분 |
+| **`z_research/previous/RollOutV2/`** | **위치 readout 세트** (p 가 물체를 어디에 두나). `README.md` → `figures/v5/summary/POSITION_READOUT_2026-09-12.md` | 부분 |
+| **`z_research/previous/RollOutV3/`** | **p 의 미래를 위치 + 정체 자로 읽는 세트** (v3 가림 없음 · v11 가림). 지금 자 = **`identity_r8`** (위치 + 56 조합 + 없음, 학습셋 `RollOut_v2_training_v8`, v11 판 빈 장면 오탐 0 %). `README.md` 가 시작점 → `Archive/IDENTITY_R8_2026-09-26.md`. 그림 `figures/` · 감사 `audit/` · 자와 읽은 값 `exp_results/` (폴더마다 README). 옛 `new_archive/` = 지금 `figures/` (2026-09-22 개설, 2026-09-26 정리) | 부분 |
+| **`z_research/previous/TrainingEffects/`** | **학습한 모델 비교** — post-FT predictor 4 · Ariel · jongseo 사전학습 8 을 v11 · IntPhys 1 점수 + 복사 기준선 + 네 능력 (영속 · 지속 · 전이 · 읽기) 로. `README.md` 가 시작점 (2026-09-25 개설) | 부분 |
+| **`z_research/previous/v11_realistic/`** | **실물 메시로 다시 렌더한 v11 (vanish) + 선반 낙하 (gravity)** surprise 채점. `README.md` 가 시작점 (2026-10-06 개설) | 부분 |
+| **`z_research/previous/OcclusionStats/`** | **벤치마크의 가림 통계** — 가려진 시간 × 가려진 동안 움직이나. IntPhys 1 dev 완료: 이동 물체 0.2 초 (skip-2 로 1–3 장) · 정지 물체만 5 초. `README.md` 가 시작점 (2026-09-26 개설) | 부분 |
 | `z_AC_training/` | V-JEPA 2-AC (action-conditioned predictor, DROID) 학습 파악·하네스 (2026-09-19 개설, 아직 실행 없음). `README.md` 가 시작점 | ✅ (runs/ 제외) |
 | `z_research/IntPhysGen{V8,V10}/`, `IntPhys/` | 아카이브 | 부분 |
 | `z_research/<셋>/Archive/*.md` | 분석 문서. **파일명에 날짜** `TOPIC_YYYY-MM-DD.md` | ✅ |

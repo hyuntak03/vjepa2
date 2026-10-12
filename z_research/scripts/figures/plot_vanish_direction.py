@@ -8,9 +8,9 @@ vanish 블록의 문맥일치 쌍은 두 방향으로 갈린다:
 가림에서 이 둘이 0% / 100% 로 갈리면 평균은 신호와 무관하게 50% 가 된다.
 
   python z_research/scripts/figures/plot_vanish_direction.py \
-      --result-dir z_research/IntPhysGenV10/exp_results/surprise_c16t32__v10_vith \
+      --result-dir z_research/previous/IntPhysGenV10/exp_results/surprise_c16t32__v10_vith \
       --index data_csv/intphysgen_v10/index_probe.csv \
-      --output z_research/IntPhysGenV10/figures/fig2_vanish_direction.pdf
+      --output z_research/previous/IntPhysGenV10/figures/fig2_vanish_direction.pdf
 """
 from __future__ import annotations
 

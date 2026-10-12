@@ -35,7 +35,7 @@
 
 raw_frames: 100
 cache_tag: intphys1_dev
-results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/IntPhys/exp_results
+results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/previous/IntPhys/exp_results
 root: /local_datasets/world/world_analysis/IntPhys1_dev_videos
 index_csv: index.csv
 frames_root: /local_datasets/world/world_analysis/IntPhys1_dev_frame_png
@@ -56,12 +56,12 @@ GRASP level2 (Jassim et al. 2024). 시나리오 16 x (P/IP) x 128 = **4,096 영�
 "untrained network 가 spurious feature 로 높은 정확도를 낸다" 고 스스로 단서를 단다 — 수치를 쓸 때 같이 적을 것.
 `GravitySupport` 처럼 두 property 가 붙은 시나리오는 집계 때 양쪽에 각각 넣는다 (A.4).
 ⚠️ `file` 이 **노드 로컬 절대경로**다 (`/data2/...`). 스테이징 안 된 노드에서는 resolve 가 죽는다 —
-   `bash z_research/Benchmarks/stage.sh` 를 먼저 돌린다.
+   `bash z_research/previous/Benchmarks/stage.sh` 를 먼저 돌린다.
 인덱스: `z_research/scripts/data/build_grasp_index.py --write` (검증 5항목).
 
 raw_frames: 501
 cache_tag: grasp_level2
-results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/Benchmarks/exp_results
+results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/previous/Benchmarks/exp_results
 root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/grasp_level2
 index_csv: index.csv
 block_column: block_id
@@ -91,7 +91,7 @@ InfLevel-lab (Weihs et al. 2022) 의 `continuity`. **쌍 1116 / 영상 2232.**
 
 raw_frames: 300
 cache_tag: inflevel_continuity
-results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/Benchmarks/exp_results
+results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/previous/Benchmarks/exp_results
 root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/inflevel_continuity
 index_csv: index.csv
 frames_start_column: frame_start
@@ -121,7 +121,7 @@ InfLevel-lab (Weihs et al. 2022) 의 `gravity`. **쌍 1182 / 영상 2364.**
 
 raw_frames: 210
 cache_tag: inflevel_gravity
-results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/Benchmarks/exp_results
+results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/previous/Benchmarks/exp_results
 root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/inflevel_gravity
 index_csv: index.csv
 frames_start_column: frame_start
@@ -151,7 +151,7 @@ InfLevel-lab (Weihs et al. 2022) 의 `solidity`. **쌍 450 / 영상 900.**
 
 raw_frames: 300
 cache_tag: inflevel_solidity
-results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/Benchmarks/exp_results
+results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/previous/Benchmarks/exp_results
 root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/inflevel_solidity
 index_csv: index.csv
 frames_start_column: frame_start
@@ -169,7 +169,7 @@ type_column: block_type
 
 raw_frames: 100
 cache_tag: v8
-results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/IntPhysGenV8/exp_results
+results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/previous/IntPhysGenV8/exp_results
 root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/intphysgen_v8
 index_csv: index.csv
 frames_root: /data/hyuntak/project/2026/2027_cvpr/UnrealEngine/IntPhysGen_v8
@@ -188,7 +188,7 @@ v8 과 같은 장면을 물체 겉보기 크기 28.1px 로 줄여 렌더한 것.
 
 raw_frames: 100
 cache_tag: v8_halfsize
-results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/IntPhysGenV8/exp_results
+results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/previous/IntPhysGenV8/exp_results
 root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/intphysgen_v8_halfsize
 index_csv: index.csv
 frames_root: /data/hyuntak/project/2026/2027_cvpr/UnrealEngine/IntPhysGen_v8_halfsize
@@ -234,7 +234,7 @@ type_column: condition
 
 raw_frames: 100
 cache_tag: v11
-results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/IntPhysGenV11/exp_results
+results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/previous/IntPhysGenV11/exp_results
 root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/intphysgen_v11
 index_csv: index.csv
 frames_root: /local_datasets/world/world_analysis/IntPhysGen_v11
@@ -273,7 +273,7 @@ type_column: condition
 
 raw_frames: 100
 cache_tag: v11_earlymid
-results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/IntPhysGenV11/exp_results
+results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/previous/IntPhysGenV11/exp_results
 root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/intphysgen_v11_earlymid
 index_csv: index.csv
 frames_root: /local_datasets/world/world_analysis/IntPhysGen_v11
@@ -340,7 +340,7 @@ type_column: condition
 
 raw_frames: 100
 cache_tag: rollout_v2
-results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/RollOutV2/exp_results
+results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/previous/RollOutV2/exp_results
 root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/rollout_v2
 index_csv: index.csv
 frames_root: /local_datasets/world/world_analysis/RollOut_v2
@@ -364,7 +364,7 @@ type_column: condition
 
 raw_frames: 100
 cache_tag: rollout_v2_training_v5
-results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/RollOutV2/exp_results/v5
+results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/previous/RollOutV2/exp_results/v5
 root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/rollout_v2_training_v5
 index_csv: index.csv
 frames_root: /local_datasets/world/world_analysis/RollOut_v2_training
@@ -388,7 +388,7 @@ index: `build_rollout2_index.py --set training_v6 --write` (plan 3 개). 쓰는 
 
 raw_frames: 100
 cache_tag: rollout_v2_training_v6
-results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/RollOutV2/exp_results/v6
+results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/previous/RollOutV2/exp_results/v6
 root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/rollout_v2_training_v6
 frames_root: /local_datasets/world/world_analysis/RollOut_v2_training
 frames_pattern: "{file_name}/{frame:06d}.png"
@@ -438,7 +438,7 @@ variant_column: variant
 plausible_column: plausible
 type_column: condition
 cache_tag: v11_vanish_all
-results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/RollOutV2/exp_results/v11_vanish_all
+results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/previous/RollOutV2/exp_results/v11_vanish_all
 root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/intphysgen_v11_vanish_all
 index_csv: index.csv
 
@@ -480,7 +480,7 @@ python z_scripts/world_model_analysis/build_probe_index.py v11_full
 
 raw_frames: 100
 cache_tag: v11_full
-results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/IntPhysGenV11_occlusion_timing_ablation/exp_results
+results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/previous/IntPhysGenV11_occlusion_timing_ablation/exp_results
 root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/intphysgen_v11_full
 index_csv: index.csv
 frames_root: /local_datasets/world/world_analysis/IntPhysGen_v11
@@ -518,7 +518,7 @@ type_column: condition
 
 raw_frames: 100
 cache_tag: v11_timing
-results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/IntPhysGenV11_occlusion_timing_ablation/exp_results
+results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/previous/IntPhysGenV11_occlusion_timing_ablation/exp_results
 root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/intphysgen_v11_timing
 index_csv: index.csv
 frames_root: /local_datasets/world/world_analysis/IntPhysGen_v11
@@ -535,7 +535,7 @@ type_column: condition
 
 > ⚠️ **available: false (2026-09-01).** 원본 렌더가 v11 본체로 병합되면서 사라졌다.
 > 후속은 아래 `## v11_earlymid` 다. 이 셋의 결과는 기록으로만 남는다
-> (`z_research/IntPhysGenV11_occlusion_timing_ablation/`).
+> (`z_research/previous/IntPhysGenV11_occlusion_timing_ablation/`).
 > ⚠️ pilot 은 early/mid 가 문맥을 **2k** 장 가렸다. 후속은 **k** 로 맞췄다 — 수치를 섞지 말 것.
 
 available: false
@@ -563,7 +563,7 @@ v11 은 가림이 **문맥 끝 k 장 + 미래 앞 k 장** 으로 `semantic_event
 
 raw_frames: 100
 cache_tag: v11_occtiming
-results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/IntPhysGenV11_occlusion_timing_ablation/exp_results
+results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/previous/IntPhysGenV11_occlusion_timing_ablation/exp_results
 root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/intphysgen_v11_occtiming
 index_csv: index.csv
 frames_root: /local_datasets/world/world_analysis/IntPhysGenV11_occlusion_timing_ablation
@@ -594,7 +594,7 @@ probing 캐시는 `v10_flat_vith` 로 따로 생기고 약 80 GiB 다.
 
 raw_frames: 100
 cache_tag: v10_flat
-results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/IntPhysGenV10/exp_results
+results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/previous/IntPhysGenV10/exp_results
 root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/intphysgen_v10_flat
 index_csv: index.csv
 frames_root: /local_datasets/world/world_analysis/IntPhysGen_v10
@@ -702,7 +702,7 @@ probing 은 `LIMIT=` 나 부분집합 index 로 줄여서 돌릴 것.
 
 raw_frames: 100
 cache_tag: v10
-results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/IntPhysGenV10/exp_results
+results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/previous/IntPhysGenV10/exp_results
 root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/intphysgen_v10
 index_csv: index.csv
 frames_root: /local_datasets/world/world_analysis/IntPhysGen_v10
@@ -725,7 +725,7 @@ predictor 학습(`z_training/`)의 held-out 채점용. 짝인 train 절반(가�
 
 raw_frames: 100
 cache_tag: v11_split_test
-results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/IntPhysGenV11/exp_results
+results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/previous/IntPhysGenV11/exp_results
 root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/intphysgen_v11_split
 index_csv: index_test.csv
 frames_root: /local_datasets/world/world_analysis/IntPhysGen_v11
@@ -747,7 +747,7 @@ type_column: condition
 
 raw_frames: 100
 cache_tag: predictor_v1_holdout
-results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/predictor_training/exp_results/predictor_v1_holdout
+results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/previous/predictor_training/exp_results/predictor_v1_holdout
 root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/predictor_v1_training
 index_csv: index_holdout.csv
 frames_root: /local_datasets/world/world_analysis/Predictor_v1_training
@@ -770,7 +770,7 @@ secondary `flat_a` −20/−30 cm/s²), `ramp_d` 오르막 감속 784 (primary `
 
 raw_frames: 100
 cache_tag: rollout_v2_decel
-results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/RollOutV2/exp_results
+results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/previous/RollOutV2/exp_results
 root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/rollout_v2_decel
 index_csv: index.csv
 frames_root: /local_datasets/world/world_analysis/RollOut_v2
@@ -795,7 +795,7 @@ index 는 `z_research/scripts/data/build_intphysgen_index.py` 로 metadata 에�
 
 raw_frames: 100
 cache_tag: v11_realistic
-results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/v11_realistic/exp_results
+results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/previous/v11_realistic/exp_results
 root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/intphysgen_v11_realistic
 index_csv: index.csv
 frames_root: /local_datasets/world/world_analysis/IntPhysGen_v11_realistic
@@ -820,7 +820,7 @@ type_column: condition
 
 raw_frames: 100
 cache_tag: v11_realistic_ledge
-results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/v11_realistic/exp_results
+results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/previous/v11_realistic/exp_results
 root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/intphysgen_v11_realistic_ledge
 index_csv: index.csv
 frames_root: /local_datasets/world/world_analysis/IntPhysGen_v11_realistic_ledge
@@ -836,7 +836,7 @@ type_column: condition
 ## gravity_realistic
 
 **포물선 비행의 미래 다섯 (2026-10-07 추가, 같은 날 20:36 재렌더).** 720 clip / 144 block. block = 과거 하나 (공이 떠서 나는 포물선) + 미래 다섯
-(재렌더로 `imp_stop` = 문맥 끝 자리에서 멈춤 추가, 꼭대기 f66 / f48 / f30, g 120 — 옛 넷 판 결과는 `z_research/v11_realistic/exp_results/_previous_20261007_4futures/`):
+(재렌더로 `imp_stop` = 문맥 끝 자리에서 멈춤 추가, 꼭대기 f66 / f48 / f30, g 120 — 옛 넷 판 결과는 `z_research/previous/v11_realistic/exp_results/_previous_20261007_4futures/`):
 `pos_arc` 포물선 계속 (가능) · `imp_rise` 거울 (꼭대기 뒤에도 계속 올라감) · `imp_float` 높이 유지 (수평으로만) · `imp_line` 같은 끝점까지 직선.
 조건 = 꼭대기가 문맥 경계의 어디에 오나: `arc_pre` (f66, 문맥은 오르는 중만) · `arc_apex` (f48, 경계 = 꼭대기) · `arc_post` (f30, 문맥이 꼭대기를 지나 내려가는 중) — 재렌더판 (옛 판 f57 / f48 / f42).
 `imp_stop` = 문맥 끝 자리에서 멈춤 · `imp_rise` = 포물선을 문맥 끝 높이에서 위아래로 뒤집음.
@@ -849,7 +849,7 @@ type_column: condition
 
 raw_frames: 100
 cache_tag: gravity_realistic
-results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/v11_realistic/exp_results
+results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/previous/v11_realistic/exp_results
 root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/intphysgen_gravity_realistic
 index_csv: index.csv
 frames_root: /local_datasets/world/world_analysis/IntPhysGen_gravity_realistic
@@ -862,3 +862,27 @@ variant_column: variant
 plausible_column: plausible
 type_column: condition
 
+## vobench_v1
+
+**VOBench_v1 (2026-10-10 추가).** UE 5.4 TestBed 렌더. 2,880 clip / 720 block / 1,440 matched pair (A = pos_a·imp_ab, B = pos_b·imp_ba).
+요인: objset (primitive · realistic) × violation (permanence · shape · color) × motion 6 × background 2 (v11 · assets) × occlusion (visible · early/mid/late × k 1–3).
+원본 96 프레임 · 30 fps · 512 px, splice 48. stride 3 → 32 샘플 (raw 0–93), 문맥 16 (raw 0–45) · 예측 16 (raw 48–93).
+index 는 `z_research/scripts/data/build_vobench_index.py` (열 = v11 index 14 열 + `sym_k` + 요인 열; `condition` = `<objset>/<violation>/<occlusion>`).
+문맥 무결성 전수 감사 **1,440 쌍 × 16 장, mismatch 0** (`data_csv/vobench_v1/context_integrity.json`).
+
+⚠️ 프레임은 `/data2` (HDD) 에 있다 — 노드 로컬 vll5. 첫 추출은 PNG 읽기가 병목일 수 있다.
+
+raw_frames: 96
+cache_tag: vobench_v1
+results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/VOBench_v1/exp_results
+root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/vobench_v1
+index_csv: index.csv
+frames_root: /data2/local_datasets/world/Benchmark/VOBench_v1
+frames_pattern: "{file_name}/{frame:06d}.png"
+frames_start: 0
+frames_stride: 3
+block_column: block_id
+pair_column: pair_id
+variant_column: variant
+plausible_column: plausible
+type_column: condition

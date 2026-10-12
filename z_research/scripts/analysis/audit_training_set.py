@@ -16,7 +16,7 @@
   L 판 속성  판 clip 튜블릿에서 **보이는** 판 속성 (위치 · 폭 · 높이 · 폭×높이 · 상태) ↔ 있음/없음, 순열 귀무와 함께
 
   $P z_research/scripts/analysis/audit_training_set.py --root /data2/local_datasets/world/world_analysis/RollOut_v2_training_v8
-      → z_research/RollOutV3/audit/training_sets/<폴더 이름>.json (+ 표준 출력 보고)
+      → z_research/previous/RollOutV3/audit/training_sets/<폴더 이름>.json (+ 표준 출력 보고)
 """
 from __future__ import annotations
 import argparse, collections, csv, json, os, random
@@ -26,7 +26,7 @@ from pathlib import Path
 import numpy as np
 
 ROOT = Path("/data/hyuntak/project/2026/2027_cvpr/vjepa2")
-OUT = ROOT / "z_research/RollOutV3/audit/training_sets"
+OUT = ROOT / "z_research/previous/RollOutV3/audit/training_sets"
 V11 = Path("/local_datasets/world/world_analysis/IntPhysGen_v11/metadata.csv")
 SH = ["capsule", "cone", "cube", "cylinder", "pyramid", "sphere", "torus"]
 CO = ["blue", "cyan", "green", "magenta", "orange", "purple", "red", "yellow"]

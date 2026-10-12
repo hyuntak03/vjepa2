@@ -6,12 +6,12 @@
 #SBATCH --cpus-per-task=24
 #SBATCH --mem=100G
 #SBATCH --time=8:00:00
-#SBATCH --output=/data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/Benchmarks/exp_results/logs/ip2copy_%j.out
+#SBATCH --output=/data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/previous/Benchmarks/exp_results/logs/ip2copy_%j.out
 # IntPhys 2 Main 복사 기준선 (IP2_COPY=1, predictor 대신 문맥 마지막 튜블릿 LN 복사) — 2026-09-26 permanence 감사. w48 → w32.
 set -uo pipefail
 REPO=/data/hyuntak/project/2026/2027_cvpr/vjepa2; cd "$REPO"; source /data/hyuntak/anaconda3/bin/activate vjepa2
 export IP2_COPY=1 PYTHONPATH=$REPO
-OUT=$REPO/z_research/Benchmarks/exp_results/intphys2; L=$OUT
+OUT=$REPO/z_research/previous/Benchmarks/exp_results/intphys2; L=$OUT
 base=$REPO/analysis/intphys2/configs/bench_intphys2_main_vith.yaml
 echo "job ${SLURM_JOB_ID:-?} host $(hostname) $(date)"; ls -d /data2/local_datasets/world/Benchmark/IntPhys2/Main || exit 1
 # smoke 20 영상

@@ -38,7 +38,7 @@ import numpy as np
 
 ROOT = Path("/data/hyuntak/project/2026/2027_cvpr/vjepa2")
 AN, FG = ROOT / "z_research/scripts/analysis", ROOT / "z_research/scripts/figures"
-EXP = ROOT / "z_research/RollOutV3/exp_results"
+EXP = ROOT / "z_research/previous/RollOutV3/exp_results"
 V3_FRAMES = Path("/data2/local_datasets/world/world_analysis/RollOut_v3/Images")
 sys.path.insert(0, str(AN))
 from rollout3_paths import fingerprint, head_file, is_identity   # noqa: E402  (경로를 인자로 받는 함수만 쓴다)
@@ -207,7 +207,7 @@ def main():
                     choices=["check", "bias", "extract", "figs"])
     ap.add_argument("--gpus-v3", default="0,1,2,3,4,5")
     ap.add_argument("--gpus-v11", default="6,7")
-    ap.add_argument("--figroot", default=str(ROOT / "z_research/RollOutV3/figures"))
+    ap.add_argument("--figroot", default=str(ROOT / "z_research/previous/RollOutV3/figures"))
     ap.add_argument("--force", action="store_true", help="이미 이 자로 읽힌 readings · 치우침도 다시")
     # 2026-09-26: 네 폴더 그림과 판 검사에 **쓰이는 표현만** 뽑는다 — ViT-H 한 바퀴씩 아껴 5 단계가 ~35 분 → ~20 분.
     #   v3: p (p 자 · p@h) · z (그림의 기준선). h@h 는 그림에 안 쓰인다 (v3_gif · 감사가 쓰면 --v3-reps p z h)

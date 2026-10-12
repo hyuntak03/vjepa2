@@ -160,7 +160,7 @@ def main():
     if a.dataset != TE_DEFAULT_DATASET:
         print(f"[copy] ⚠️ te_v11_score.DATASET {TE_DEFAULT_DATASET!r} → {a.dataset!r} 로 덮는다 (부모 프로세스만, 파일 수정 없음; 미검증 경로)")
         te.DATASET = a.dataset
-    te.DOC_DIR = out / "doc"                                              # --validate 산출물이 z_research/TrainingEffects 로 가지 않게
+    te.DOC_DIR = out / "doc"                                              # --validate 산출물이 z_research/previous/TrainingEffects 로 가지 않게
 
     cfg_old, _ = te.resolve_cfg(a.model)                                  # 옛 resolver + surprise_c16t32 규격 검사 (te 자신의 규칙)
     diff = [] if a.no_check else cfg_diff(cfg_new, cfg_old)

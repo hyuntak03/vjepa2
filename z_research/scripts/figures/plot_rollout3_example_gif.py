@@ -14,7 +14,7 @@
 - 문맥 구간은 테두리 파랑, 예측 구간은 주황. `p` 는 예측 구간에만 값이 있다
 - `wall`·`ledge` 는 불가능 미래의 진실을 ○ 빨강으로 같이 찍는다 (문맥이 같으므로 p 는 하나뿐)
 
-출력: z_research/RollOutV3/figures/examples/<scenario>_C<c>_P<p>.gif
+출력: z_research/previous/RollOutV3/figures/examples/<scenario>_C<c>_P<p>.gif
 
   P=/data/hyuntak/anaconda3/envs/vjepa2/bin/python
   $P z_research/scripts/figures/plot_rollout3_example_gif.py                    # 8 시나리오, C16/P32

@@ -13,7 +13,7 @@ import matplotlib as mpl; mpl.use("Agg"); import matplotlib.pyplot as plt
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "analysis"))
 import rollout2_position as rp; import rollout2_token_decoder as td       # noqa: E402
 
-OUT = rp.ROOT / "z_research/RollOutV2/figures/traj_all"; BLACK, ORANGE, GREEN = "#000000", "#eb6834", "#1baf7a"
+OUT = rp.ROOT / "z_research/previous/RollOutV2/figures/traj_all"; BLACK, ORANGE, GREEN = "#000000", "#eb6834", "#1baf7a"
 mpl.rcParams.update({"font.family": "sans-serif", "font.sans-serif": ["DejaVu Sans"], "pdf.fonttype": 42})
 
 

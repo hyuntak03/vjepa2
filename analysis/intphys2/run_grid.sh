@@ -15,8 +15,8 @@ set -uo pipefail
 REPO=/data/hyuntak/project/2026/2027_cvpr/vjepa2
 cd "$REPO"
 PY=/data/hyuntak/anaconda3/envs/vjepa2/bin
-OUT=$REPO/z_research/Benchmarks/exp_results/intphys2
-L=$REPO/z_research/Benchmarks/exp_results/logs; mkdir -p "$L"
+OUT=$REPO/z_research/previous/Benchmarks/exp_results/intphys2
+L=$REPO/z_research/previous/Benchmarks/exp_results/logs; mkdir -p "$L"
 
 MODELS=${MODELS:-"vith vjepa21g videomae2g"}
 # video_batch: 영상을 몇 개 쌓을지. **기본 1 (보고용)**.

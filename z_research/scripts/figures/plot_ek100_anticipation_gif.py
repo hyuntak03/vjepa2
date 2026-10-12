@@ -30,7 +30,7 @@ from PIL import Image, ImageDraw, ImageFont
 REPO = Path("/data/hyuntak/project/2026/2027_cvpr/vjepa2")
 ANNOT = Path("/data/hyuntak/project/2026/2027_cvpr/epic-kitchens-100-annotations")
 VIDEO_ROOT = Path("/data/dataset/EPIC-KITCHENS")
-OUTDIR = REPO / "z_research/anticipation/EK100/figures/samples"
+OUTDIR = REPO / "z_research/previous/anticipation/EK100/figures/samples"
 
 # 프로토콜 (configs/ek100_vith.yaml 과 같아야 한다)
 FPC, FPS, TAU_A = 32, 8, 1.0
@@ -41,7 +41,7 @@ DISP_W = 640  # GIF 가로
 def _default_spatial():
     """본 config(ek100_vith)의 spatial 설정을 읽어 온다."""
     import yaml
-    d = yaml.safe_load((REPO / "z_research/anticipation/EK100/configs/ek100_vith.yaml").read_text())
+    d = yaml.safe_load((REPO / "z_research/previous/anticipation/EK100/configs/ek100_vith.yaml").read_text())
     e = d["experiment"]["data"]
     return e["spatial_mode"], int(e.get("width") or e["resolution"])
 

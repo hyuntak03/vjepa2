@@ -80,7 +80,7 @@ predictor 교체 (`load_sd` + `build_pred`)
   · 배치 크기 (`bs_for`): 기본은 **모든 창에 같은 값** (`--token-budget` // 가장 긴 창) — 창 사이 비교 (③) 에서 배치 차이를 없앤다.
     `--base-bs` = 정본처럼 창 총합마다 (C16/P16 8 · C16/P32 5) → 정본 readings 를 비트 수준으로 재현한다.
     ⚠️ bf16 읽은 값은 **배치 크기**에 따라 흔들린다 (커널 선택). 같은 배치 크기면 옆 clip 이 달라도 같은 값이 나온다 (아래 ④)
-  · ⚠️ `z_research/RollOutV3/exp_results/windows` 에는 절대 쓰지 않는다 (정본은 읽기만)
+  · ⚠️ `z_research/previous/RollOutV3/exp_results/windows` 에는 절대 쓰지 않는다 (정본은 읽기만)
 
 내장 검사 (매 실행, validation.json)
 ------------------------------------

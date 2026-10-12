@@ -20,7 +20,7 @@ new_archive 의 v3_signed_error · v3_trajectory 가 적은 운동 주장을 궤
   읽을 수 있는 칸 = 물체가 화면 안 (두 프레임) 이고 화면 가장자리에서 36 px 이상 (GT 기준, 궤적마다 같다)
 
   $P z_research/scripts/analysis/audit_v3_motion.py            # C16/P16 · C16/P32 · C32/P32 · C8/P32
-  → z_research/RollOutV3/audit/v3/{audit_v3_motion.json, tables.md}
+  → z_research/previous/RollOutV3/audit/v3/{audit_v3_motion.json, tables.md}
 """
 from __future__ import annotations
 import csv, json, sys
@@ -32,7 +32,7 @@ ROOT = Path("/data/hyuntak/project/2026/2027_cvpr/vjepa2")
 sys.path.insert(0, str(ROOT / "z_research/scripts/analysis"))
 from rollout3_paths import PRES, WIN, check, fingerprint  # noqa: E402
 
-OUT = ROOT / "z_research/RollOutV3/audit/v3"
+OUT = ROOT / "z_research/previous/RollOutV3/audit/v3"
 RESN, SPLIT, CELL, EDGE, STILL, W = 144.0, 32, 18.0, 36.0, 1.0, 288.0
 LAWS = ["flat_v", "flat_a", "flat_d", "ramp_a", "ramp_d", "arc", "ledge", "wall"]
 FREE = ["flat_v", "flat_a", "flat_d", "ramp_a", "ramp_d", "arc"]

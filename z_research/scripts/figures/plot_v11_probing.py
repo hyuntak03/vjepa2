@@ -650,11 +650,11 @@ def fig_transfer_vis_occ_k(R, out, width=9.0):
 
 def main():
     ap = argparse.ArgumentParser()
-    base = "z_research/IntPhysGenV11/exp_results/attn_probe__v11_vith"
+    base = "z_research/previous/IntPhysGenV11/exp_results/attn_probe__v11_vith"
     ap.add_argument("--run", default=base)
     ap.add_argument("--index", default="data_csv/intphysgen_v11/index_probe.csv")
-    ap.add_argument("--outdir", default="z_research/IntPhysGenV11/figures/probing")
-    ap.add_argument("--report", default="z_research/IntPhysGenV11/exp_results/report.json")
+    ap.add_argument("--outdir", default="z_research/previous/IntPhysGenV11/figures/probing")
+    ap.add_argument("--report", default="z_research/previous/IntPhysGenV11/exp_results/report.json")
     a = ap.parse_args()
     R = Runs(f"{a.run}/predictions.json", a.index, f"{a.run}/summary.json")
     if not R.verify():

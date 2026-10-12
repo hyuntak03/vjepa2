@@ -6,8 +6,8 @@
   drift    같은 축의 예측 이동량 (pred_drift 를 켰을 때만)
 
   python -m analysis.attention.knockout.plot \
-      --results z_research/IntPhysGenV11/exp_results/knockout__v11_vith/results.json \
-      --outdir  z_research/IntPhysGenV11/figures/knockout
+      --results z_research/previous/IntPhysGenV11/exp_results/knockout__v11_vith/results.json \
+      --outdir  z_research/previous/IntPhysGenV11/figures/knockout
 
 ⚠️ Δ 는 `meta.delta_ref` 기준선 대비다 (기본 `clean_null` = 전부 True 인 마스크로 돈 판).
    전수 채점 73.37% 가 아니라 **그 표본의 기준선** 대비로 읽을 것.

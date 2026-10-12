@@ -18,7 +18,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path("/data/hyuntak/project/2026/2027_cvpr/vjepa2"); sys.path.insert(0, str(ROOT / "z_research/scripts/analysis"))
 import rollout2_test_readout as rt                                   # noqa: E402
-SET = ROOT / "z_research/predictor_training/predictor_IntPhysGenV11_PFT"
+SET = ROOT / "z_research/previous/predictor_training/predictor_IntPhysGenV11_PFT"
 FRAMES = {"v11": Path("/local_datasets/world/world_analysis/IntPhysGen_v11"), "rollout_v2": Path("/local_datasets/world/world_analysis/RollOut_v2")}
 INDEX = {"v11": ROOT / "data_csv/intphysgen_v11_full/index_probe.csv", "rollout_v2": ROOT / "data_csv/rollout_v2/index_probe.csv"}
 META = Path("/local_datasets/world/world_analysis/IntPhysGen_v11/metadata.csv")

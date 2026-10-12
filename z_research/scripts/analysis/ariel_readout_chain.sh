@@ -1,6 +1,6 @@
 #!/bin/bash
 # Ariel predictor 세 팔 (z_training/ariel: full · prefix · ar) 로 RollOutV3 v3 읽기를 한 번에 (2026-09-28).
-#   출력 뿌리 z_research/RollOutV3/ariel/ — exp_results/<자> · figures/<팔> · logs (릴리즈 결과는 건드리지 않는다)
+#   출력 뿌리 z_research/previous/RollOutV3/ariel/ — exp_results/<자> · figures/<팔> · logs (릴리즈 결과는 건드리지 않는다)
 #
 #   1 프레임 페이지 캐시 예열 (학습셋 · v3)
 #   2 학습셋 (training_r8) 특징 → /dev/shm. full · prefix = p 만 (encoder 가 릴리즈와 같아 z · h 는 identity_r8 것을 쓴다),
@@ -14,13 +14,13 @@
 set -euo pipefail
 cd /data/hyuntak/project/2026/2027_cvpr/vjepa2
 P=/data/hyuntak/anaconda3/envs/vjepa2/bin/python
-A=$PWD/z_research/RollOutV3/ariel
+A=$PWD/z_research/previous/RollOutV3/ariel
 export R3_EXP=$A/exp_results
 LOG=$A/logs; mkdir -p "$LOG" "$R3_EXP"
 SET=training_r8
 TRF=/data2/local_datasets/world/world_analysis/RollOut_v2_training_v8
 V3F=/data2/local_datasets/world/world_analysis/RollOut_v3/Images
-R8=$PWD/z_research/RollOutV3/exp_results/identity_r8
+R8=$PWD/z_research/previous/RollOutV3/exp_results/identity_r8
 NG=$(nvidia-smi -L | wc -l)
 # 팔: 이름 | 체크포인트 | 자 이름 | 학습셋 특징 | v3 표현 | 기준선
 ARMS=(
@@ -81,7 +81,7 @@ for arm in "${ARMS[@]}"; do
   R3_DECODER=$dec R3_OUT=$dec PRED_CKPT=$PWD/$ck R3_TMP=/dev/shm/r3w_$name $P -u z_research/scripts/analysis/rollout3_window_readout.py \
       --reps $vreps --gpus "$NG" --token-budget 65536 --max-bs 32 > "$LOG/windows_$name.log" 2>&1
   if [[ "$ref" == "z" ]]; then                      # 릴리즈 판의 z 읽은 값 (같은 encoder · 같은 z 자) 을 붙인다
-    $P - "$PWD/z_research/RollOutV3/exp_results/windows_identity_r8/readings.npz" "$R3_EXP/windows_$dec/readings.npz" <<'PYEOF'
+    $P - "$PWD/z_research/previous/RollOutV3/exp_results/windows_identity_r8/readings.npz" "$R3_EXP/windows_$dec/readings.npz" <<'PYEOF'
 import sys, numpy as np
 rel, new = np.load(sys.argv[1], allow_pickle=True), dict(np.load(sys.argv[2], allow_pickle=True))
 assert (rel["video_id"] == new["video_id"]).all(), "clip 순서가 다르다"

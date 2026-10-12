@@ -10,8 +10,8 @@ report.json 은 생성 시 summary.json 과 대조 검증된다(`verified`). 이
 그 플래그를 확인하고, cells 에서 overall 을 다시 합산해 한 번 더 맞춘다.
 
   python z_research/scripts/figures/plot_v11_surprise.py \
-      --report z_research/IntPhysGenV11/exp_results/report.json \
-      --outdir z_research/IntPhysGenV11/figures/surprise
+      --report z_research/previous/IntPhysGenV11/exp_results/report.json \
+      --outdir z_research/previous/IntPhysGenV11/figures/surprise
 """
 from __future__ import annotations
 import argparse, collections, json

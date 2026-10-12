@@ -4,8 +4,8 @@
 입력  exp_results/knockout__v11_full_vith/results.json  (merge.py 산출물, `breakdown` 포함)
 
   python z_research/scripts/figures/plot_v11_knockout.py \
-    --results z_research/IntPhysGenV11_occlusion_timing_ablation/exp_results/knockout__v11_full_vith/results.json \
-    --outdir  z_research/IntPhysGenV11_occlusion_timing_ablation/figures
+    --results z_research/previous/IntPhysGenV11_occlusion_timing_ablation/exp_results/knockout__v11_full_vith/results.json \
+    --outdir  z_research/previous/IntPhysGenV11_occlusion_timing_ablation/figures
 
 ── 읽는 법 ────────────────────────────────────────────────────────────────────
 x 축은 **창의 중심 층**이다 (`--width` 1 = 층 하나씩, 3 = ±1, 7 = ±3; 양 끝은 잘린다).

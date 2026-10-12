@@ -20,7 +20,7 @@ from matplotlib.colors import ListedColormap
 from matplotlib.patches import Patch
 
 ROOT = Path(__file__).resolve().parents[3]
-D = ROOT / "z_research/OcclusionStats/intphys1"
+D = ROOT / "z_research/previous/OcclusionStats/intphys1"
 FIG = D / "figures"
 BLUE, ORANGE, GREEN, GREY, INK = "#2a78d6", "#eb6834", "#1baf7a", "#e3e3e3", "#222222"
 ORDER = ["moving/occluded", "static/occluded", "moving/visible", "static/visible"]

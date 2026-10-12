@@ -24,7 +24,7 @@ split · 가중치 · 특징 · 학습 루프 설정은 presence 자 (`rollout2_
   위치     조합 칸 중심 오차 (칸 = 18 px)
   무대 가족별 (plain · prop · ledge · wedge · wall · edge · empty)
 
-출력: z_research/RollOutV3/exp_results/identity/{summary.json, <rep>/{readout.pt, preds.npz}}
+출력: z_research/previous/RollOutV3/exp_results/identity/{summary.json, <rep>/{readout.pt, preds.npz}}
 
   P=/data/hyuntak/anaconda3/envs/vjepa2/bin/python
   $P z_research/scripts/analysis/rollout2_identity_readout.py --dry                         # 라벨 개수만 (GPU 0 장)
@@ -52,7 +52,7 @@ spec = importlib.util.spec_from_file_location("rp", ROOT / "z_research/scripts/a
 rp = importlib.util.module_from_spec(spec); sys.modules["rp"] = rp; spec.loader.exec_module(rp)   # split · 가중치 · Shards 를 그대로 쓴다
 
 FEAT = Path(os.environ.get("IDENTITY_FEAT_DIR", str(rp.FEAT_DEFAULT_DISK)))   # 기본 = /data2/.../cache/rollout2_<PRESENCE_SET>_feats
-OUT = Path(os.environ.get("IDENTITY_OUT", ROOT / "z_research/RollOutV3/exp_results/identity"))   # 속도 측정은 임시 폴더로
+OUT = Path(os.environ.get("IDENTITY_OUT", ROOT / "z_research/previous/RollOutV3/exp_results/identity"))   # 속도 측정은 임시 폴더로
 S, T, D, RES, CELL, W = rp.S, rp.T, rp.D, rp.RES, rp.CELL, 288
 SHAPES = ["capsule", "cone", "cube", "cylinder", "pyramid", "sphere", "torus"]
 COLORS = ["blue", "cyan", "green", "magenta", "orange", "purple", "red", "yellow"]
@@ -420,7 +420,7 @@ def main():
     a = ap.parse_args()
     global OUT
     if a.name:
-        OUT = ROOT / "z_research/RollOutV3/exp_results" / a.name
+        OUT = ROOT / "z_research/previous/RollOutV3/exp_results" / a.name
     if a.bias:
         write_bias()
         return

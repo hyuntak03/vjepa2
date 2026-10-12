@@ -7,7 +7,7 @@
 set -uo pipefail
 cd /data/hyuntak/project/2026/2027_cvpr/vjepa2
 EP=${EP:?EP 를 줄 것}; m=vith_ariel_ar_ep$EP; CK=$PWD/z_training/ariel_eval/ckpt/ar_ep$EP.pt
-L=z_training/ariel_eval; BX=z_research/Benchmarks/exp_results
+L=z_training/ariel_eval; BX=z_research/previous/Benchmarks/exp_results
 [[ -f $CK ]] || { echo "사본 없음 $CK"; exit 1; }
 echo "$(date +%T) 시작 $m"
 [[ ${SKIP_IP2_W16:-0} == 1 ]] || CK=$CK ARTAG=ar_ep$EP GPU_W16=7 bash $L/run_ip2_ar.sh &

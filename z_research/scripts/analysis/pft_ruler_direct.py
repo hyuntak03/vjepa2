@@ -7,7 +7,7 @@
 --predictor release 로 같은 파이프라인을 릴리즈 predictor 에 돌리면 캐시 기반 RollOutV2 수치와 대조할 수 있다 (파이프라인 검증).
 캐시를 쓰지 않는다 (디스크 0). GPU 1 장, ViT-H 로딩 ~2 분 + clip 당 ~0.1 s.
 
-출력: z_research/predictor_training/predictor_IntPhysGenV11_PFT/exp_results/<release|pft>/<rollout_v2|v11>/{results.json, RESULTS.md, preds.npz}
+출력: z_research/previous/predictor_training/predictor_IntPhysGenV11_PFT/exp_results/<release|pft>/<rollout_v2|v11>/{results.json, RESULTS.md, preds.npz}
 
   P=/data/hyuntak/anaconda3/envs/vjepa2/bin/python
   CUDA_VISIBLE_DEVICES=0 $P z_research/scripts/analysis/pft_ruler_direct.py --predictor pft     --set rollout_v2 v11
@@ -27,7 +27,7 @@ from evals.analysis_vlm.occlusion_identity.forward import extract_batch  # noqa:
 
 PY = "/data/hyuntak/anaconda3/envs/vjepa2/bin/python"
 PFT_CKPT = ROOT / "z_training/runs/v11_postft/latest.pt"
-OUT_ROOT = ROOT / "z_research/predictor_training/predictor_IntPhysGenV11_PFT/exp_results"
+OUT_ROOT = ROOT / "z_research/previous/predictor_training/predictor_IntPhysGenV11_PFT/exp_results"
 V11_META = Path("/local_datasets/world/world_analysis/IntPhysGen_v11/metadata.csv")
 V11_CONDS = [("flat", "k=0", "moving_visible_flat", "0"), ("flat", "early k=4", "moving_occlusion_flat_early", "4"), ("flat", "mid k=4", "moving_occlusion_flat_mid", "4"), ("flat", "late k=4", "moving_occlusion_flat", "4"),
              ("ramp", "k=0", "moving_visible", "0"), ("ramp", "early k=4", "moving_occlusion_early", "4"), ("ramp", "mid k=4", "moving_occlusion_mid", "4"), ("ramp", "late k=4", "moving_occlusion", "4")]

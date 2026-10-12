@@ -17,7 +17,7 @@ intphys1_dev:
   plausible_column: plausible
   type_column: block_type
   engine: wma
-  legacy_results_root: ${CVPR_REPO}/z_research/IntPhys/exp_results
+  legacy_results_root: ${CVPR_REPO}/z_research/previous/IntPhys/exp_results
   sliding_frame_skips:
   - 2
   - 5
@@ -33,7 +33,7 @@ grasp_level2:
   plausible_column: plausible
   type_column: block_type
   engine: wma
-  legacy_results_root: ${CVPR_REPO}/z_research/Benchmarks/exp_results
+  legacy_results_root: ${CVPR_REPO}/z_research/previous/Benchmarks/exp_results
   sliding_frame_skips:
   - 5
   - 10
@@ -49,7 +49,7 @@ inflevel_continuity:
   plausible_column: plausible
   type_column: block_type
   engine: wma
-  legacy_results_root: ${CVPR_REPO}/z_research/Benchmarks/exp_results
+  legacy_results_root: ${CVPR_REPO}/z_research/previous/Benchmarks/exp_results
   sliding_frame_skips:
   - 5
   - 10
@@ -66,7 +66,7 @@ inflevel_gravity:
   plausible_column: plausible
   type_column: block_type
   engine: wma
-  legacy_results_root: ${CVPR_REPO}/z_research/Benchmarks/exp_results
+  legacy_results_root: ${CVPR_REPO}/z_research/previous/Benchmarks/exp_results
   sliding_frame_skips:
   - 5
   - 10
@@ -83,7 +83,7 @@ inflevel_solidity:
   plausible_column: plausible
   type_column: block_type
   engine: wma
-  legacy_results_root: ${CVPR_REPO}/z_research/Benchmarks/exp_results
+  legacy_results_root: ${CVPR_REPO}/z_research/previous/Benchmarks/exp_results
   sliding_frame_skips:
   - 5
   - 10
@@ -103,7 +103,7 @@ v8:
   plausible_column: plausible
   type_column: condition
   engine: wma
-  legacy_results_root: ${CVPR_REPO}/z_research/IntPhysGenV8/exp_results
+  legacy_results_root: ${CVPR_REPO}/z_research/previous/IntPhysGenV8/exp_results
   available: false
   note: '실물 없음 (frames_root: /data/hyuntak/project/2026/2027_cvpr/UnrealEngine/IntPhysGen_v8) — 2026-10-09 변환 때 vll5 기준'
 v8_halfsize:
@@ -121,7 +121,7 @@ v8_halfsize:
   plausible_column: plausible
   type_column: condition
   engine: wma
-  legacy_results_root: ${CVPR_REPO}/z_research/IntPhysGenV8/exp_results
+  legacy_results_root: ${CVPR_REPO}/z_research/previous/IntPhysGenV8/exp_results
   available: false
   note: '실물 없음 (frames_root: /data/hyuntak/project/2026/2027_cvpr/UnrealEngine/IntPhysGen_v8_halfsize) — 2026-10-09 변환 때 vll5 기준'
 v11:
@@ -139,7 +139,7 @@ v11:
   plausible_column: plausible
   type_column: condition
   engine: wma
-  legacy_results_root: ${CVPR_REPO}/z_research/IntPhysGenV11/exp_results
+  legacy_results_root: ${CVPR_REPO}/z_research/previous/IntPhysGenV11/exp_results
 v11_earlymid:
   raw_frames: 100
   cache_tag: v11_earlymid
@@ -155,7 +155,7 @@ v11_earlymid:
   plausible_column: plausible
   type_column: condition
   engine: wma
-  legacy_results_root: ${CVPR_REPO}/z_research/IntPhysGenV11/exp_results
+  legacy_results_root: ${CVPR_REPO}/z_research/previous/IntPhysGenV11/exp_results
 v13_black:
   raw_frames: 100
   cache_tag: v13_black
@@ -189,7 +189,7 @@ rollout_v2:
   plausible_column: plausible
   type_column: condition
   engine: wma
-  legacy_results_root: ${CVPR_REPO}/z_research/RollOutV2/exp_results
+  legacy_results_root: ${CVPR_REPO}/z_research/previous/RollOutV2/exp_results
 rollout_v2_training_v5:
   raw_frames: 100
   cache_tag: rollout_v2_training_v5
@@ -205,7 +205,7 @@ rollout_v2_training_v5:
   plausible_column: plausible
   type_column: condition
   engine: wma
-  legacy_results_root: ${CVPR_REPO}/z_research/RollOutV2/exp_results/v5
+  legacy_results_root: ${CVPR_REPO}/z_research/previous/RollOutV2/exp_results/v5
 rollout_v2_training_v6:
   raw_frames: 100
   cache_tag: rollout_v2_training_v6
@@ -217,7 +217,7 @@ rollout_v2_training_v6:
   frames_stride: 3
   block_column: block_id
   engine: wma
-  legacy_results_root: ${CVPR_REPO}/z_research/RollOutV2/exp_results/v6
+  legacy_results_root: ${CVPR_REPO}/z_research/previous/RollOutV2/exp_results/v6
 rollout_v2_training_v8:
   raw_frames: 100
   cache_tag: rollout_v2_training_v8
@@ -245,7 +245,7 @@ v11_vanish_all:
   root: ${CVPR_DATA_CSV}/intphysgen_v11_vanish_all
   index_csv: index.csv
   engine: wma
-  legacy_results_root: ${CVPR_REPO}/z_research/RollOutV2/exp_results/v11_vanish_all
+  legacy_results_root: ${CVPR_REPO}/z_research/previous/RollOutV2/exp_results/v11_vanish_all
 v11_full:
   raw_frames: 100
   cache_tag: v11_full
@@ -261,7 +261,7 @@ v11_full:
   plausible_column: plausible
   type_column: condition
   engine: wma
-  legacy_results_root: ${CVPR_REPO}/z_research/IntPhysGenV11_occlusion_timing_ablation/exp_results
+  legacy_results_root: ${CVPR_REPO}/z_research/previous/IntPhysGenV11_occlusion_timing_ablation/exp_results
 v11_timing:
   raw_frames: 100
   cache_tag: v11_timing
@@ -277,7 +277,7 @@ v11_timing:
   plausible_column: plausible
   type_column: condition
   engine: wma
-  legacy_results_root: ${CVPR_REPO}/z_research/IntPhysGenV11_occlusion_timing_ablation/exp_results
+  legacy_results_root: ${CVPR_REPO}/z_research/previous/IntPhysGenV11_occlusion_timing_ablation/exp_results
 v11_occtiming:
   available: false
   raw_frames: 100
@@ -294,7 +294,7 @@ v11_occtiming:
   plausible_column: plausible
   type_column: condition
   engine: wma
-  legacy_results_root: ${CVPR_REPO}/z_research/IntPhysGenV11_occlusion_timing_ablation/exp_results
+  legacy_results_root: ${CVPR_REPO}/z_research/previous/IntPhysGenV11_occlusion_timing_ablation/exp_results
 v10_flat:
   raw_frames: 100
   cache_tag: v10_flat
@@ -310,7 +310,7 @@ v10_flat:
   plausible_column: plausible
   type_column: condition
   engine: wma
-  legacy_results_root: ${CVPR_REPO}/z_research/IntPhysGenV10/exp_results
+  legacy_results_root: ${CVPR_REPO}/z_research/previous/IntPhysGenV10/exp_results
   available: false
   note: '실물 없음 (frames_root: /local_datasets/world/world_analysis/IntPhysGen_v10) — 2026-10-09 변환 때 vll5 기준'
 v10_occ_low:
@@ -376,7 +376,7 @@ v10:
   plausible_column: plausible
   type_column: condition
   engine: wma
-  legacy_results_root: ${CVPR_REPO}/z_research/IntPhysGenV10/exp_results
+  legacy_results_root: ${CVPR_REPO}/z_research/previous/IntPhysGenV10/exp_results
   available: false
   note: '실물 없음 (frames_root: /local_datasets/world/world_analysis/IntPhysGen_v10) — 2026-10-09 변환 때 vll5 기준'
 v11_split_test:
@@ -394,7 +394,7 @@ v11_split_test:
   plausible_column: plausible
   type_column: condition
   engine: wma
-  legacy_results_root: ${CVPR_REPO}/z_research/IntPhysGenV11/exp_results
+  legacy_results_root: ${CVPR_REPO}/z_research/previous/IntPhysGenV11/exp_results
 predictor_v1_holdout:
   raw_frames: 100
   cache_tag: predictor_v1_holdout
@@ -410,7 +410,7 @@ predictor_v1_holdout:
   plausible_column: plausible
   type_column: condition
   engine: wma
-  legacy_results_root: ${CVPR_REPO}/z_research/predictor_training/exp_results/predictor_v1_holdout
+  legacy_results_root: ${CVPR_REPO}/z_research/previous/predictor_training/exp_results/predictor_v1_holdout
 rollout_v2_decel:
   raw_frames: 100
   cache_tag: rollout_v2_decel
@@ -426,7 +426,7 @@ rollout_v2_decel:
   plausible_column: plausible
   type_column: condition
   engine: wma
-  legacy_results_root: ${CVPR_REPO}/z_research/RollOutV2/exp_results
+  legacy_results_root: ${CVPR_REPO}/z_research/previous/RollOutV2/exp_results
 v11_realistic:
   raw_frames: 100
   cache_tag: v11_realistic
@@ -442,7 +442,7 @@ v11_realistic:
   plausible_column: plausible
   type_column: condition
   engine: wma
-  legacy_results_root: ${CVPR_REPO}/z_research/v11_realistic/exp_results
+  legacy_results_root: ${CVPR_REPO}/z_research/previous/v11_realistic/exp_results
 v11_realistic_ledge:
   raw_frames: 100
   cache_tag: v11_realistic_ledge
@@ -458,7 +458,7 @@ v11_realistic_ledge:
   plausible_column: plausible
   type_column: condition
   engine: wma
-  legacy_results_root: ${CVPR_REPO}/z_research/v11_realistic/exp_results
+  legacy_results_root: ${CVPR_REPO}/z_research/previous/v11_realistic/exp_results
 gravity_realistic:
   raw_frames: 100
   cache_tag: gravity_realistic
@@ -474,7 +474,7 @@ gravity_realistic:
   plausible_column: plausible
   type_column: condition
   engine: wma
-  legacy_results_root: ${CVPR_REPO}/z_research/v11_realistic/exp_results
+  legacy_results_root: ${CVPR_REPO}/z_research/previous/v11_realistic/exp_results
   overrides:
     scoring.pairing: cross
 intphys2_main:
@@ -482,7 +482,7 @@ intphys2_main:
   root: ${CVPR_DATA2}/local_datasets/world/Benchmark/IntPhys2
   dataset_variant: intphys2
   split: Main
-  legacy_results_root: ${CVPR_REPO}/z_research/Benchmarks/exp_results/intphys2
+  legacy_results_root: ${CVPR_REPO}/z_research/previous/Benchmarks/exp_results/intphys2
   note: IntPhys 2 Main 506 쌍. 다른 사본 ${CVPR_LOCAL}/world/IntPhys2 (TEMPLATE/repro 가 쓰던 것) 은 split 폴더 구성이 같다
 intphys2_main_nfs:
   engine: intphys2
@@ -497,5 +497,55 @@ ek100:
   dataset_train: ${CVPR_NFS}/epic-kitchens-100-annotations/EPIC_100_train.csv
   dataset_val: ${CVPR_NFS}/epic-kitchens-100-annotations/EPIC_100_validation.csv
   file_format: 0
-  legacy_results_root: ${CVPR_REPO}/z_research/anticipation/EK100/exp_results
-  note: 공식 val 기하로 재인코딩한 256x256 영상 (train 495 + val 138). z_research/anticipation/EK100/README.md §3-1
+  legacy_results_root: ${CVPR_REPO}/z_research/previous/anticipation/EK100/exp_results
+  note: 공식 val 기하로 재인코딩한 256x256 영상 (train 495 + val 138). z_research/previous/anticipation/EK100/README.md §3-1
+vobench_v1:                       # 2026-10-10. UE 5.4 TestBed, 720 block × 4 arm, 96 프레임 30 fps 512 px PNG. 문맥 무결성 1440 쌍 mismatch 0
+  raw_frames: 96
+  cache_tag: vobench_v1
+  root: ${CVPR_DATA_CSV}/vobench_v1   # z_research/scripts/data/build_vobench_index.py
+  index_csv: index.csv
+  frames_root: ${CVPR_DATA2}/local_datasets/world/Benchmark/VOBench_v1
+  frames_pattern: '{file_name}/{frame:06d}.png'
+  frames_start: 0
+  frames_stride: 3
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: condition            # <objset>/<violation>/<occlusion>
+  engine: wma
+  legacy_results_root: ${CVPR_REPO}/z_research/VOBench_v1/exp_results
+vobench_v1_asymmetry:             # 2026-10-10. late 만 864 arm, 창을 k 샘플 (원본 3k) 밀어 가림이 문맥 끝에서 끝난다. 불가능 arm 문맥 = 가능 arm 프레임 링크. 창 c16t28 로 쓴다
+  raw_frames: 87
+  cache_tag: vobench_v1_asymmetry
+  root: ${CVPR_DATA_CSV}/vobench_v1_asymmetry   # z_research/scripts/data/build_vobench_asym.py
+  index_csv: index.csv
+  frames_root: ${CVPR_DATA2}/local_datasets/world/Benchmark/VOBench_v1_asymmetry
+  frames_pattern: '{file_name}/{frame:06d}.png'
+  frames_start: 0
+  frames_stride: 3
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: condition
+  engine: wma
+  legacy_results_root: ${CVPR_REPO}/z_research/VOBench_v1/exp_results
+vobench_v1_gravity:                # 2026-10-11 재렌더 (g 375). VOBench gravity: 216 block / 936 arm. block = 과거 하나 + 미래 여럿 (ledge pos·imp_float / arc 미래 9, 꼭대기 f66·f48·f30). f0–47 공유 (hard link), 감사 720 arm × 48 장 mismatch 0
+  raw_frames: 96
+  cache_tag: vobench_v1_gravity
+  root: ${CVPR_DATA_CSV}/vobench_v1_gravity   # z_research/scripts/data/build_vobench_gravity_index.py
+  index_csv: index.csv
+  frames_root: ${CVPR_DATA2}/local_datasets/world/Benchmark/VOBench_v1/gravity
+  frames_pattern: '{file_name}/{frame:06d}.png'
+  frames_start: 0
+  frames_stride: 3
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: condition            # <objset>/<law>/<cell>
+  engine: wma
+  legacy_results_root: ${CVPR_REPO}/z_research/VOBench_v1/exp_results
+  overrides:
+    scoring.pairing: cross          # block 하나 = 문맥 하나라 cross (가능 1 × 불가능 전부) = 문맥 일치 쌍 전부

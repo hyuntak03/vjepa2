@@ -20,7 +20,7 @@ import numpy as np
 ROOT = Path("/data/hyuntak/project/2026/2027_cvpr/vjepa2")
 CACHE = Path("/local_datasets/world/world_analysis/cache/rollout_v2_vith")
 INDEX = ROOT / "data_csv/rollout_v2/index_probe.csv"
-OUT = ROOT / "z_research/RollOutV2/exp_results/position_regression.json"
+OUT = ROOT / "z_research/previous/RollOutV2/exp_results/position_regression.json"
 POOLED = CACHE / "_pooled_zph8.npz"
 S, T, D, CTX = 256, 8, 1280, 16
 FPS, STRIDE = 16.0, 3

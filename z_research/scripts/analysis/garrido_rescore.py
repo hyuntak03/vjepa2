@@ -261,7 +261,7 @@ def main():
     ap.add_argument("--all", action="store_true", help="(데이터셋, 모델) 마다 창을 합쳐 채점")
     ap.add_argument("--json", default=None)
     a = ap.parse_args()
-    base = REPO / "z_research/Benchmarks/exp_results"
+    base = REPO / "z_research/previous/Benchmarks/exp_results"
     out = {}
 
     if a.dirs:

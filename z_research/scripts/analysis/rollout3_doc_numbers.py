@@ -20,9 +20,9 @@ from pathlib import Path
 import numpy as np
 
 ROOT = Path("/data/hyuntak/project/2026/2027_cvpr/vjepa2")
-EXP = ROOT / "z_research/RollOutV3/exp_results"
-AUD = ROOT / "z_research/RollOutV3/audit"
-FIG = ROOT / "z_research/RollOutV3/figures"
+EXP = ROOT / "z_research/previous/RollOutV3/exp_results"
+AUD = ROOT / "z_research/previous/RollOutV3/audit"
+FIG = ROOT / "z_research/previous/RollOutV3/figures"
 import os
 TRAIN_META = Path(os.environ.get("R3_TRAIN_META", "/data2/local_datasets/world/world_analysis/RollOut_v2_training_v8/metadata.csv"))   # 2026-09-30: 로그인 노드 (/data2 없음) 용 덮어쓰기
 R, SPLIT = 144.0, 32

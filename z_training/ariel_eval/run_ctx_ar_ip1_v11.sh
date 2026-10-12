@@ -5,7 +5,7 @@
 set -uo pipefail
 cd /data/hyuntak/project/2026/2027_cvpr/vjepa2
 EP=${EP:?EP 를 줄 것}; m=vith_ariel_ctx_ar_ep$EP; CK=$PWD/z_training/ariel_eval/ckpt/ctx_ar_ep$EP.pt
-L=z_training/ariel_eval; BX=z_research/Benchmarks/exp_results
+L=z_training/ariel_eval; BX=z_research/previous/Benchmarks/exp_results
 [[ -f $CK ]] || { echo "사본 없음 $CK"; exit 1; }
 echo "$(date +%T) 시작 $m"
 # 스모크 (GPU 0, 2 영상) — 경로 · kind · 되먹임 모양 검사. 실패하면 멈춘다.

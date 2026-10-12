@@ -11,7 +11,7 @@
 가능 프레임 위에 불가능 위치를 빨간 테두리로 얹고, 칸마다 그 창의 최대 분리량을 px 로 적는다.
 **자 한 칸 = 18 px** 이라 그보다 작은 창은 라벨이 빨갛다 (= 자로는 판정 불가).
 
-출력: z_research/RollOutV3/figures/windows_gif/<scenario>.gif
+출력: z_research/previous/RollOutV3/figures/windows_gif/<scenario>.gif
 
   P=/data/hyuntak/anaconda3/envs/vjepa2/bin/python
   $P z_research/scripts/figures/plot_rollout3_windows_gif.py

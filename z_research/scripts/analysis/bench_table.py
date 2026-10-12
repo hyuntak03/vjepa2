@@ -15,13 +15,13 @@
 창(C+M)마다 실행이 나뉘어 있고 A.8 은 그 창들을 **하나의 탐색 공간**으로 보므로 합쳐서 고른다.
 
 읽는 곳
-    z_research/Benchmarks/exp_results/intphys1_sliding__<데이터셋>_<모델>_w{16,32}/per_window.json
+    z_research/previous/Benchmarks/exp_results/intphys1_sliding__<데이터셋>_<모델>_w{16,32}/per_window.json
 """
 from __future__ import annotations
 import argparse, pathlib, re, sys
 
 REPO = pathlib.Path(__file__).resolve().parents[3]
-BASE = REPO / "z_research/Benchmarks/exp_results"
+BASE = REPO / "z_research/previous/Benchmarks/exp_results"
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from garrido_rescore import collect, collect_inflevel      # noqa: E402
 
@@ -79,7 +79,7 @@ if __name__ == "__main__":
     table = build()
     if not a.readme:
         print(table); sys.exit(0)
-    p = REPO / "z_research/Benchmarks/README.md"
+    p = REPO / "z_research/previous/Benchmarks/README.md"
     s = p.read_text()
     m = re.search(r"(<!--TABLE:start-->\n)(.*?)(<!--TABLE:end-->)", s, re.S)
     if not m:

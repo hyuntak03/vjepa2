@@ -16,9 +16,9 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parents[3]
 C = Path("/local_datasets/world/world_analysis/cache/rollout_v2_vith")
-PRED = ROOT / "z_research/RollOutV2/exp_results/v5/attentive_pooling/p/preds.npz"
+PRED = ROOT / "z_research/previous/RollOutV2/exp_results/v5/attentive_pooling/p/preds.npz"
 INDEX = ROOT / "data_csv/rollout_v2/index_probe.csv"
-OUT = ROOT / "z_research/RollOutV2/exp_results/v5/locality"
+OUT = ROOT / "z_research/previous/RollOutV2/exp_results/v5/locality"
 BINS = [(0, 20), (20, 40), (40, 60), (60, 80), (80, 120)]
 arr = lambda s: np.array([float(v) for v in re.split(r"[;,\s|]+", s.strip()) if v])
 ln = lambda x: (x - x.mean(-1, keepdims=True)) / np.sqrt(x.var(-1, keepdims=True) + 1e-6)

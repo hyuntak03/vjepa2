@@ -12,7 +12,7 @@ metadata 를 대조해 다음을 잰다. 전부 **미래 튜블릿 8 개** (자�
   E. v11 과의 차이  가림막의 화면 크기 · 깊이 · 재질 · 자세 vs 학습셋 판 (둘 다 metadata 에서)
   F. v11 가장자리  visible 이동 조건 미래 튜블릿에서 학습 정의 ('물체 전체가 화면 안') 로 양성인 비율
 
-  $P z_research/scripts/analysis/audit_training_v8.py   → z_research/RollOutV3/audit/training_v8/audit.json
+  $P z_research/scripts/analysis/audit_training_v8.py   → z_research/previous/RollOutV3/audit/training_v8/audit.json
 """
 from __future__ import annotations
 import csv, json, collections
@@ -23,9 +23,9 @@ ROOT = Path("/data/hyuntak/project/2026/2027_cvpr/vjepa2")
 INDEX = ROOT / "data_csv/rollout_v2_training_v8/index.csv"
 META = Path("/data2/local_datasets/world/world_analysis/RollOut_v2_training/metadata.csv")
 V11 = Path("/local_datasets/world/world_analysis/IntPhysGen_v11/metadata.csv")
-SUMMARY = ROOT / "z_research/RollOutV3/exp_results/presence/summary.json"
-READ = ROOT / "z_research/RollOutV3/exp_results/v11/readings.npz"
-OUT = ROOT / "z_research/RollOutV3/audit/training_v8"
+SUMMARY = ROOT / "z_research/previous/RollOutV3/exp_results/presence/summary.json"
+READ = ROOT / "z_research/previous/RollOutV3/exp_results/v11/readings.npz"
+OUT = ROOT / "z_research/previous/RollOutV3/audit/training_v8"
 T = 8                        # 미래 튜블릿 시작 (튜블릿 16 개 중 8..15)
 CAM_Y = -1150.0              # 두 세트 공통 카메라 (metadata 에서 확인)
 

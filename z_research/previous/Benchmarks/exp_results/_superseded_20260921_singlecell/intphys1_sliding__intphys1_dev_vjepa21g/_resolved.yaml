@@ -1,0 +1,68 @@
+eval_name: world_model_analysis
+data:
+  root: /local_datasets/world/world_analysis/IntPhys1_dev_videos
+  index_csv: index.csv
+  frames_root: /local_datasets/world/world_analysis/IntPhys1_dev_frame_png
+  frames_pattern: '{block}/{quadruplet}/{run}/scene/scene_{frame:03d}.png'
+  frames_start: 1
+  frames_stride: 1
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: block_type
+  n_frames: 100
+  resolution: 256
+  split: null
+model:
+  family: vjepa2_1
+  arch_name: vit_giant
+  checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/v_jepa2.1/vjepa2_1_vitg_384.pt
+  img_size: 256
+  patch_size: 16
+  tubelet_size: 2
+  context_encoder_key: encoder
+  target_encoder_key: target_encoder
+  window_size: 32
+  use_rope: true
+  uniform_power: false
+  dual_encoder: true
+  predictor:
+    embed_dim: 384
+    depth: 12
+    num_heads: 12
+    num_mask_tokens: 10
+  dtype: float32
+  autocast: float16
+surprise:
+  mode: intphys1
+  distance: l1
+  loss_exp: 1.0
+  target_layer_norm: false
+  mask_index: 0
+  intphys1:
+    frame_skips:
+    - 2
+    window_sizes:
+    - 16
+    context_mult:
+    - 2
+    - 4
+    - 6
+    - 8
+    - 10
+    stride: 2
+    context_reduce: min
+    frame_budget: official
+    aggregate:
+    - avg
+    - max
+    dump_windows: true
+    video_batch: 6
+    max_batch: 48
+scoring:
+  pairing: matched
+  breakdown:
+  - block_type
+tag: intphys1_dev_vjepa21g
+output_dir: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/Benchmarks/exp_results/intphys1_sliding__intphys1_dev_vjepa21g

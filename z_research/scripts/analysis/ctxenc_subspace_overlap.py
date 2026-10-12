@@ -20,7 +20,7 @@ Measures (all deterministic):
   (c) orthogonal Procrustes W (1280×1280, after centering; also a scaled variant) and ridge (λ chosen on a block-disjoint validation fold) fit p→h on
       visible-set train blocks; report the fraction of mean|p−h| removed on visible held-out blocks and on late / early (transfer). Controls: mean-shift only,
       h→h sanity (must be ~100 %), map fit on late itself (late train → late test = linear-alignability ceiling for late), pooled-visible fit.
-Outputs: z_research/context_encoder_analysis/exp_results/ctxenc_subspace_overlap/{results.json, RESULTS.md}
+Outputs: z_research/previous/context_encoder_analysis/exp_results/ctxenc_subspace_overlap/{results.json, RESULTS.md}
 Run (CPU only, ~5–10 min; N_CLIPS / N_TOK env vars override 120 / 256):
   cd /data/hyuntak/project/2026/2027_cvpr/vjepa2 && /data/hyuntak/anaconda3/envs/vjepa2/bin/python z_research/scripts/analysis/ctxenc_subspace_overlap.py
 """
@@ -36,7 +36,7 @@ import pandas as pd
 ROOT = Path("/data/hyuntak/project/2026/2027_cvpr/vjepa2")
 CACHE = Path("/local_datasets/world/world_analysis/cache/v11_full_vith")
 INDEX = ROOT / "data_csv/intphysgen_v11_full/index_probe.csv"
-OUT = ROOT / "z_research/context_encoder_analysis/exp_results/ctxenc_subspace_overlap"
+OUT = ROOT / "z_research/previous/context_encoder_analysis/exp_results/ctxenc_subspace_overlap"
 SEED = 0
 N_CLIPS = int(os.environ.get("N_CLIPS", 120))
 N_TOK = int(os.environ.get("N_TOK", 256))

@@ -6,9 +6,9 @@ per_block.json 의 per_video_surprise 를 index 와 조인해 쌍 단위로 다�
 이 스크립트가 그걸 하고, 재계산한 overall 이 summary.json 과 맞는지 스스로 검증한다.
 
   python z_research/scripts/figures/plot_violation_bars.py \
-      --result-dir z_research/IntPhysGenV10/exp_results/surprise_c16t32__v10_vith \
+      --result-dir z_research/previous/IntPhysGenV10/exp_results/surprise_c16t32__v10_vith \
       --index data_csv/intphysgen_v10/index.csv \
-      --output z_research/IntPhysGenV10/figures/fig1_violation_bars.pdf
+      --output z_research/previous/IntPhysGenV10/figures/fig1_violation_bars.pdf
 """
 from __future__ import annotations
 

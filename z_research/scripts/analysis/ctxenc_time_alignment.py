@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """시간 정렬 행렬 — predictor 의 미래 슬롯 i 가 실제 어느 시점 j 의 장면과 가장 닮았나 (캐시만, GPU 불필요, 파라미터 0).
 
-2026-09-15 H1 파일럿을 레포로 옮긴 것 (스크래치 h1_pilot.py). 결과: z_research/context_encoder_analysis/exp_results/time_alignment/
-읽는 법·단서는 z_research/context_encoder_analysis/Archive/STATE_EVOLUTION_HYPOTHESES_2026-09-15.md §3.
+2026-09-15 H1 파일럿을 레포로 옮긴 것 (스크래치 h1_pilot.py). 결과: z_research/previous/context_encoder_analysis/exp_results/time_alignment/
+읽는 법·단서는 z_research/previous/context_encoder_analysis/Archive/STATE_EVOLUTION_HYPOTHESES_2026-09-15.md §3.
 
 D_ph[i][j] = mean_{s in S} mean_d |p[i,s,d] - LN(h)[j,s,d]|   (i = 0..7 predicted future tubelet, j = 0..15 true tubelet)
 D_zh[i][j] = mean_{s in S} |LN(z)[8+i,s] - LN(h)[j,s]|         (control: must be diagonal, argmin_j = 8+i)
@@ -23,7 +23,7 @@ from pathlib import Path
 import numpy as np
 
 HERE = Path(__file__).resolve().parent
-OUT_DEFAULT = Path("/data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/context_encoder_analysis/exp_results/time_alignment")
+OUT_DEFAULT = Path("/data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/previous/context_encoder_analysis/exp_results/time_alignment")
 ROOT = Path("/data/hyuntak/project/2026/2027_cvpr/vjepa2")
 CACHE = Path("/local_datasets/world/world_analysis/cache")
 V2_INDEX = ROOT / "data_csv/rollout_v2/index.csv"

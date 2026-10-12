@@ -71,7 +71,7 @@ predictor 목록 (`--preset` 또는 `--preds`):
 ## CLI
 
     PY=/data/hyuntak/anaconda3/envs/vjepa2/bin/python
-    # 검증 (GPU 1 장, 48 clip; 결과 → z_research/TrainingEffects/v11score/validate_<model>.json)
+    # 검증 (GPU 1 장, 48 clip; 결과 → z_research/previous/TrainingEffects/v11score/validate_<model>.json)
     CUDA_VISIBLE_DEVICES=0 $PY z_research/scripts/analysis/te_v11_score.py --model vith --validate
     CUDA_VISIBLE_DEVICES=0 $PY z_research/scripts/analysis/te_v11_score.py --model vittiny_k400 --validate
     # 본 실행 (visible GPU 앞 N 장을 cuda:0..N-1 로 mp.spawn)
@@ -98,7 +98,7 @@ predictor 목록 (`--preset` 또는 `--preds`):
 
 ## 검증 (2026-09-25, vll5 GPU 0 = 다른 eval 과 공유한 RTX 4090, batch 8)
 
-  결과 파일: z_research/TrainingEffects/v11score/validate_{vith,vittiny_k400,vitb_k400_e240}.json (수치는 거기서 다시 읽을 것)
+  결과 파일: z_research/previous/TrainingEffects/v11score/validate_{vith,vittiny_k400,vitb_k400_e240}.json (수치는 거기서 다시 읽을 것)
   --validate 는 참조 per_block.json 전부에 4 clip 이 다 있는 block 중 고르게 12 block = 48 clip 을 쓴다.
   (a) p 비트 대조 (첫 batch 8 clip):
       release 추출본 가중치 vs model.pth predictor              max|Δw| = 0.0
@@ -153,11 +153,11 @@ from evals.world_model_analysis.data import WMADataset  # noqa: E402
 PROTOCOL, DATASET = "surprise_c16t32", "v11_split_test"
 RESOLVE = REPO / "z_research/scripts/harness/resolve.py"
 OUT_ROOT = Path("/data2/local_datasets/world/world_analysis/cache/training_effects")
-DOC_DIR = REPO / "z_research/TrainingEffects/v11score"
+DOC_DIR = REPO / "z_research/previous/TrainingEffects/v11score"
 ZR = REPO / "z_training/runs"
 AR = REPO / "z_training/ariel"
-VX = REPO / "z_research/IntPhysGenV11/exp_results"
-TA = REPO / "z_research/IntPhysGenV11_occlusion_timing_ablation/exp_results"
+VX = REPO / "z_research/previous/IntPhysGenV11/exp_results"
+TA = REPO / "z_research/previous/IntPhysGenV11_occlusion_timing_ablation/exp_results"
 N_SLOT = 8
 ARR_K = ("l1", "pz", "pstep")                 # (n, K, 8)
 ARR_1 = ("copy", "hcopy", "hstep")            # (n, 8)

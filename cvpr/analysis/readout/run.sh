@@ -13,7 +13,7 @@
 #   GPUS=8 bash cvpr/harness/submit.sh cvpr/analysis/readout/run.sh       # sbatch (STEP= 등 env 는 --export=ALL 로 그대로 간다)
 #
 # 노브 (env): GPUS GPU_IDS DRYRUN HELP FORCE OUTDIR ARGS + config.yaml knobs: (TRAIN DECODER R3_OUT R3_EXP PSET FRAMES FEAT_DIR NAME PLAN …)
-# 결과: 스크립트 자신의 자리 (z_research/RollOutV2 · RollOutV3/exp_results, 토큰 캐시) — 명령 · 로그 사본은
+# 결과: 스크립트 자신의 자리 (z_research/previous/RollOutV2 · RollOutV3/exp_results, 토큰 캐시) — 명령 · 로그 사본은
 #       $CVPR_RESULTS/analysis/readout/<step>__<dataset>_<model>/{_cmd.json,stdout.log}
 # =============================================================================
 set -uo pipefail

@@ -1,0 +1,66 @@
+eval_name: world_model_analysis
+data:
+  root: /local_datasets/world/world_analysis/IntPhys1_dev_videos
+  index_csv: index.csv
+  frames_root: /local_datasets/world/world_analysis/IntPhys1_dev_frame_png
+  frames_pattern: '{block}/{quadruplet}/{run}/scene/scene_{frame:03d}.png'
+  frames_start: 1
+  frames_stride: 1
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: block_type
+  n_frames: 100
+  resolution: 448
+  split: null
+model:
+  family: dinof
+  arch_name: dinof_vitb14
+  checkpoint: /data/hyuntak/project/2026/2027_cvpr/DINO-Foresight/checkpoints/dinof_highres.ckpt
+  img_size: 448
+  patch_size: 14
+  tubelet_size: 1
+  window_size: 8
+  use_rope: true
+  uniform_power: false
+  dual_encoder: true
+  context_encoder_key: encoder
+  target_encoder_key: target_encoder
+  predictor:
+    embed_dim: 384
+    depth: 12
+    num_heads: 12
+    num_mask_tokens: 10
+  dtype: float32
+  autocast: float16
+  dinof_copy: true
+surprise:
+  mode: intphys1
+  distance: l1
+  loss_exp: 1.0
+  target_layer_norm: false
+  mask_index: 0
+  intphys1:
+    frame_skips:
+    - 2
+    - 5
+    - 10
+    window_sizes:
+    - 8
+    context_mult:
+    - 8
+    stride: 2
+    context_reduce: min
+    frame_budget: official
+    aggregate:
+    - avg
+    dump_windows: true
+    video_batch: 2
+    max_batch: 16
+scoring:
+  pairing: matched
+  breakdown:
+  - block_type
+tag: intphys1_dev_dinof_highres_w8_copy
+output_dir: z_research/IntPhys/exp_results/intphys1_sliding__intphys1_dev_dinof_highres_w8_copy

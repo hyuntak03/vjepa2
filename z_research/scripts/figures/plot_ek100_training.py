@@ -2,7 +2,7 @@
 """EK100 probe 학습 곡선 — 규약별 arm 을 겹쳐 그린다 (수렴 여지 판단용).
 
 입력: <run>/log_r0.csv (epoch 별 train/val, nan = 그 epoch 에 val 안 함) · <run>/val_metrics.jsonl (exact val, head 중 max)
-출력: z_research/anticipation/EK100/figures/training/fig_ek100_training.{png,pdf}
+출력: z_research/previous/anticipation/EK100/figures/training/fig_ek100_training.{png,pdf}
   (a) action mean-class recall@5 — train (선) 과 val (표식)
   (b) val verb / noun recall
 
@@ -22,8 +22,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 ROOT = Path("/data/hyuntak/project/2026/2027_cvpr/vjepa2")
-EXP = ROOT / "z_research/anticipation/EK100/exp_results/action_anticipation_frozen"
-FIG = ROOT / "z_research/anticipation/EK100/figures/training"
+EXP = ROOT / "z_research/previous/anticipation/EK100/exp_results/action_anticipation_frozen"
+FIG = ROOT / "z_research/previous/anticipation/EK100/figures/training"
 BLUE, ORANGE, GREEN = "#2a78d6", "#eb6834", "#1baf7a"
 RUNS = [("ek100_vith_official256_released_grid8", "released anchor (official code)", BLUE),
         ("ek100_vith_official256_paper_grid8", "paper anchor (our branch)", ORANGE)]

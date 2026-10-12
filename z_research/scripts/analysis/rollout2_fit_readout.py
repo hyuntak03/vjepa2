@@ -6,7 +6,7 @@
 순수 최소제곱 (ridge 없음). 896 clip 전부로 정한다 — test 는 rollout_v2 이므로 학습셋 안 held-out 은 두지 않는다
 (2026-09-10 50/50 확인: held-out R² x 0.91 / y 0.90, fit 대비 −0.05 → 표본 충분).
 
-저장: z_research/RollOutV2/exp_results/<train>/spatial_pooling/p/fit/{w_p.npy, fit.json}
+저장: z_research/previous/RollOutV2/exp_results/<train>/spatial_pooling/p/fit/{w_p.npy, fit.json}
   w_p.npy  (1281, 2) float64 — [:1280] 가중치, [1280] bias; 열 0 = x, 열 1 = y.  적용: X @ w[:-1] + w[-1]
 
   python z_research/scripts/analysis/rollout2_fit_readout.py

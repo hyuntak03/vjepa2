@@ -8,7 +8,7 @@
     → 배경 Δ 가 잡음 (부호 들쭉날쭉) 인가, 같은 판단의 메아리 (부호 일치) 인가
 
   P=/data/hyuntak/anaconda3/envs/vjepa2/bin/python
-  $P z_research/scripts/analysis/token_surprise_background.py   → z_research/v11_realistic/figures/token_surprise/background_checks.md
+  $P z_research/scripts/analysis/token_surprise_background.py   → z_research/previous/v11_realistic/figures/token_surprise/background_checks.md
 """
 from __future__ import annotations
 import csv, sys

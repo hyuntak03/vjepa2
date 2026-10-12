@@ -25,7 +25,7 @@ Tests:
   (3) the same for the binary label 'has nonzero acceleration' (balanced by subsampling negatives, seed 0): balanced accuracy + AUC,
       plus the stationary control (flat_v v=0 vs flat_a a=0 scenario classification, must be chance).
 No GPU, no model; caches read one clip at a time (mmap, float16). Deterministic (seed 0).
-Outputs: z_research/context_encoder_analysis/exp_results/ctxenc_accel_crosspair/{results.json, RESULTS.md, features.npz}
+Outputs: z_research/previous/context_encoder_analysis/exp_results/ctxenc_accel_crosspair/{results.json, RESULTS.md, features.npz}
 Run:
   cd /data/hyuntak/project/2026/2027_cvpr/vjepa2
   /data/hyuntak/anaconda3/envs/vjepa2/bin/python z_research/scripts/analysis/ctxenc_accel_crosspair.py [--n-per-scenario 784] [--boot 300]
@@ -41,7 +41,7 @@ ROOT = Path("/data/hyuntak/project/2026/2027_cvpr/vjepa2")
 INDEX = ROOT / "data_csv/rollout_v2/index.csv"
 CACHE_Z = Path("/local_datasets/world/world_analysis/cache/rollout_v2_z16_vith")
 CACHE_HP = Path("/local_datasets/world/world_analysis/cache/rollout_v2_vith")
-OUT = ROOT / "z_research/context_encoder_analysis/exp_results/ctxenc_accel_crosspair"
+OUT = ROOT / "z_research/previous/context_encoder_analysis/exp_results/ctxenc_accel_crosspair"
 SCEN = ["flat_v", "flat_a"]
 SEED, K_FOLD, VAL_FRAC = 0, 5, 0.25
 LAMBDAS = [float(v) for v in np.logspace(-2, 6, 17)]

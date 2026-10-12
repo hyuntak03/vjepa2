@@ -28,7 +28,7 @@ import numpy as np
 
 CACHE = Path("/local_datasets/world/world_analysis/cache/v11_full_vith")
 IDX = Path("data_csv/intphysgen_v11_full/index_probe.csv")
-EXP = Path("z_research/IntPhysGenV11_occlusion_timing_ablation/exp_results")
+EXP = Path("z_research/previous/IntPhysGenV11_occlusion_timing_ablation/exp_results")
 OUT = EXP / "token_time_profile.npz"
 
 

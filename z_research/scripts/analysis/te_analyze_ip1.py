@@ -6,7 +6,7 @@
   /data2/.../cache/training_effects/ip1score_final/{manifest.json, shards/v*.npz | arrays_v360.npz}   (te_intphys1_score.py 추출)
       p_std / p_causal (K, 925) · copy_std / copy_causal (925,)  — 행 = (combo, start, C, j) 튜블릿 L1
   auto_research/_stage/IntPhys1_dev_by_scene/{pairs.csv, videos.csv, obj_vis.npz}   라벨 (scene, principle, 운동·가림, 분기 프레임)
-  z_research/Benchmarks/exp_results/intphys1_sliding__intphys1_dev_<model>_w{16,32}/per_window.json   공식 하네스 (검증 · 그룹 B)
+  z_research/previous/Benchmarks/exp_results/intphys1_sliding__intphys1_dev_<model>_w{16,32}/per_window.json   공식 하네스 (검증 · 그룹 B)
   auto_research/exp_results/h6/h6g_intphys1.json   릴리즈 기준값 (H6g)
 
 정의 (te_intphys1_score.py docstring 과 같다; 기호 PROTOCOLS.md §1):
@@ -23,7 +23,7 @@
       문맥 끝 가시 (H6d) = pos 영상 obj_vis[max(0, e0−2)] > 0 또는 obj_vis[max(0, e0−4)] > 0.
   copy 는 encoder 만의 함수 → 그룹 A 여섯 predictor 가 같은 copy 를 공유한다 (MODELS.md).
 
-산출: z_research/TrainingEffects/ip1_copy/{IP1_COPY.md, ip1_copy.json, fig_*.png}
+산출: z_research/previous/TrainingEffects/ip1_copy/{IP1_COPY.md, ip1_copy.json, fig_*.png}
 
   python z_research/scripts/analysis/te_analyze_ip1.py                  # 전체 (B = 10,000)
   python z_research/scripts/analysis/te_analyze_ip1.py --B 2000         # 빠르게
@@ -48,9 +48,9 @@ import garrido_rescore as GR  # noqa: E402  (채점 식 — 읽기 전용 재사
 import te_intphys1_score as TE  # noqa: E402  (창 배치 Layout — 읽기 전용 재사용)
 
 CACHE_ROOT = Path("/data2/local_datasets/world/world_analysis/cache/training_effects")
-OUT = ROOT / "z_research/TrainingEffects/ip1_copy"
+OUT = ROOT / "z_research/previous/TrainingEffects/ip1_copy"
 AUX = ROOT / "auto_research/_stage/IntPhys1_dev_by_scene"
-BX = ROOT / "z_research/Benchmarks/exp_results"
+BX = ROOT / "z_research/previous/Benchmarks/exp_results"
 ZR = ROOT / "z_training/runs"
 H6G = ROOT / "auto_research/exp_results/h6/h6g_intphys1.json"
 N_VIDEOS = 360
@@ -446,7 +446,7 @@ def explain_ties(O, lay, man, pairs_used):
 
 def builtin_check(cells, n_videos):
     """te_intphys1_score.py --score 의 칸 macro (같은 배열 · garrido_rescore 함수) 와 이 스크립트의 strict macro 가 같은가."""
-    d = ROOT / "z_research/TrainingEffects/ip1score"
+    d = ROOT / "z_research/previous/TrainingEffects/ip1score"
     fs = sorted(d.glob("ip1score_final_scores*.json"), key=lambda f: f.stat().st_mtime)
     fs = [f for f in fs if json.load(open(f)).get("n_videos") == n_videos]
     if not fs:
@@ -830,7 +830,7 @@ def write_md(R, path):
     # ---------------- 표 1 검증
     A("## 표 1 — 검증: 이 배열의 표준 표적 Filtered macro vs 공식 하네스 per_window")
     A("")
-    A("하네스 = `z_research/Benchmarks/exp_results/intphys1_sliding__intphys1_dev_<model>_w{16,32}` (창마다 모델을 지은 공식 실행). "
+    A("하네스 = `z_research/previous/Benchmarks/exp_results/intphys1_sliding__intphys1_dev_<model>_w{16,32}` (창마다 모델을 지은 공식 실행). "
       "창 |ΔS| = 같은 (영상, 시작점, C) 창 surprise 의 차. 뒤집힘 = 쌍 정오가 다른 쌍.")
     A("")
     A("| predictor | 칸 | 배열 | 하네스 | garrido_rescore | 창 \\|ΔS\\| 중앙값 / 최대 | 뒤집힘 |")
@@ -1152,7 +1152,7 @@ def write_md(R, path):
     A("# 추출 (GPU, 다른 세션 소유 — 이 분석은 읽기만 한다)")
     A("CUDA_VISIBLE_DEVICES=0,1,2,3 python z_research/scripts/analysis/te_intphys1_score.py --preset final --gpus 4")
     A("CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 python z_research/scripts/analysis/te_intphys1_score.py --preset curves --gpus 8   # 학습 곡선 (22 predictor)")
-    A("# 내장 채점 · 검증 (CPU) → z_research/TrainingEffects/ip1score/ip1score_final_{scores,validation}.json")
+    A("# 내장 채점 · 검증 (CPU) → z_research/previous/TrainingEffects/ip1score/ip1score_final_{scores,validation}.json")
     A("python z_research/scripts/analysis/te_intphys1_score.py --preset final --validate --score")
     A("# 이 분석 (CPU, ~1-2 분)")
     A(f"python z_research/scripts/analysis/te_analyze_ip1.py --B {meta['B']}")
@@ -1160,7 +1160,7 @@ def write_md(R, path):
     A("")
     A("입력: `/data2/local_datasets/world/world_analysis/cache/training_effects/ip1score_final/` (shards 또는 arrays_v360.npz) · "
       "`auto_research/_stage/IntPhys1_dev_by_scene/{pairs.csv, videos.csv, obj_vis.npz}` (읽기 전용) · "
-      "`z_research/Benchmarks/exp_results/intphys1_sliding__intphys1_dev_*_w{16,32}/per_window.json`. "
+      "`z_research/previous/Benchmarks/exp_results/intphys1_sliding__intphys1_dev_*_w{16,32}/per_window.json`. "
       "config: `configs/protocols/intphys1_sliding.yaml` + `configs/protocols/models.md` (`vith`). "
       "채점 식: `z_research/scripts/analysis/garrido_rescore.py` (import), 창 배치: `te_intphys1_score.Layout` (import).")
     path.write_text("\n".join(L) + "\n")

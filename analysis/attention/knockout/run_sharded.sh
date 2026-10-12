@@ -19,7 +19,7 @@ cd "$(dirname "$0")/../../.."
 D=${D:-v11_full}; M=${M:-vith}; N=${N:-8}; BPC=${BPC:-0}; BS=${BS:-4}; W=${W:-3}
 LAYERS=${LAYERS:-window}
 EDGES=${EDGES:-"mask..ctx mask..mask ctx..ctx"}
-OUT=${OUT:-z_research/IntPhysGenV11_occlusion_timing_ablation/exp_results/knockout__${D}_${M}}
+OUT=${OUT:-z_research/previous/IntPhysGenV11_occlusion_timing_ablation/exp_results/knockout__${D}_${M}}
 PY=/data/hyuntak/anaconda3/envs/vjepa2/bin/python
 mkdir -p "$OUT/logs"
 args=()

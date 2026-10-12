@@ -16,9 +16,9 @@ eval.py 가 probing 을 마치면 <output_dir>/predictions.json 에 val 행별 �
 
   # p self-probe 의 shape confusion, 조건별로 쪼개서
   python z_research/scripts/figures/plot_confusion.py \
-      --predictions z_research/IntPhysGenV10/exp_results/attn_probe__v10_vith/predictions.json \
+      --predictions z_research/previous/IntPhysGenV10/exp_results/attn_probe__v10_vith/predictions.json \
       --fit pred__f17to32 --target shape --by-condition \
-      --output z_research/IntPhysGenV10/figures/fig4_p_self_confusion.pdf
+      --output z_research/previous/IntPhysGenV10/figures/fig4_p_self_confusion.pdf
 """
 from __future__ import annotations
 

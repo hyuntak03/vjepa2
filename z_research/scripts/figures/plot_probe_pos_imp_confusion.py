@@ -11,7 +11,7 @@ import numpy as np
 import matplotlib; matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-ROOT = Path("/data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/RollOutV2")
+ROOT = Path("/data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/previous/RollOutV2")
 J = ROOT / "exp_results/probe_pos_imp/probe_pos_imp.json"; FIG = ROOT / "figures/probe_pos_imp"
 TESTS = ("[h_ctx ; h_fut]", "[z ; h_fut]", "[z ; p]", "[h_ctx ; p]")
 TTL = {"[h_ctx ; h_fut]": "[h ctx ; h future]\n(train distribution)", "[z ; h_fut]": "[z ctx ; h future]", "[z ; p]": "[z ctx ; predictor p]", "[h_ctx ; p]": "[h ctx ; predictor p]"}

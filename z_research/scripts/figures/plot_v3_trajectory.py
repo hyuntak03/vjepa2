@@ -14,7 +14,7 @@
 
   $P z_research/scripts/figures/plot_v3_trajectory.py                  # 16 창 전부
   $P z_research/scripts/figures/plot_v3_trajectory.py --windows 16x32
-  → z_research/RollOutV3/figures/v3_trajectory/fig_C{c}_P{p}.png
+  → z_research/previous/RollOutV3/figures/v3_trajectory/fig_C{c}_P{p}.png
 """
 from __future__ import annotations
 import argparse, json, sys

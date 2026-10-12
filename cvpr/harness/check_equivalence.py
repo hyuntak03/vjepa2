@@ -87,9 +87,9 @@ MONO_ROWS = [
         "eval/intphys2", "intphys2_main", "vjepa21g", "ip2_w32", ["surprise.max_window_batch=8"], {"tag", "folder", "model.window_size"}),
     ("intphys2 videomae2g w16 fps6", "analysis/intphys2/configs/bench_intphys2_main_videomae2g.yaml", _ip2_sets(16, 16),
         "eval/intphys2", "intphys2_main", "videomae2g", "ip2_vmae_fps6", ["surprise.max_window_batch=16"], {"tag", "folder", "model.window_size"}),
-    ("ek100 vith (ek100_vith.yaml)", "z_research/anticipation/EK100/configs/ek100_vith.yaml", [],
+    ("ek100 vith (ek100_vith.yaml)", "z_research/previous/anticipation/EK100/configs/ek100_vith.yaml", [],
         "eval/ek100", "ek100", "vith", None, [], {"tag", "folder"}),
-    ("ek100 vith heads=grid8", "z_research/anticipation/EK100/configs/ek100_vith.yaml", ["__heads__=grid8"],
+    ("ek100 vith heads=grid8", "z_research/previous/anticipation/EK100/configs/ek100_vith.yaml", ["__heads__=grid8"],
         "eval/ek100", "ek100", "vith", None, ["heads=grid8"], {"tag", "folder"}),
 ]
 EK_LRS = {"sweep": ([5e-3, 3e-3, 1e-3, 3e-4, 1e-4], [1e-4, 1e-3, 1e-2, 1e-1]), "grid8": ([3e-4, 1e-4], [1e-4, 1e-3, 1e-2, 1e-1]), "hi2": ([1e-3, 3e-3], [1e-2])}

@@ -5,7 +5,7 @@
 #SBATCH --cpus-per-task=48
 #SBATCH --mem=200G
 #SBATCH --time=12:00:00
-#SBATCH --output=/data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/Benchmarks/exp_results/logs/ip2_%j.out
+#SBATCH --output=/data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/previous/Benchmarks/exp_results/logs/ip2_%j.out
 # =============================================================================
 # IntPhys 2 — 논문 D.3 격자. 설정의 정본은 `analysis/intphys2/README.md`.
 #

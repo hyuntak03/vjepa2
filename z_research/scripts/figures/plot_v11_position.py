@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """v11_full — predictor 미래 8슬롯에서 읽은 물체 위치·속도를 가림 k / 타이밍 축으로.
 
-입력  z_research/v11_roll_out/exp_results/position_regression.json  (`v11_position.py`)
-출력  z_research/v11_roll_out/figures/position/
+입력  z_research/previous/v11_roll_out/exp_results/position_regression.json  (`v11_position.py`)
+출력  z_research/previous/v11_roll_out/figures/position/
 
 그림 하나 = 주장 하나. 선 = h(파랑, 미래를 본 인코더 = 천장) / p(주황, predictor). 나머지 축은 패널·x.
   fig_pos_by_k        위치 오차(cm)      x = k (0 = 가림 없음, 1~4 = late)   패널 = static / flat / ramp
@@ -22,8 +22,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 ROOT = Path("/data/hyuntak/project/2026/2027_cvpr/vjepa2")
-JSON = ROOT / "z_research/v11_roll_out/exp_results/position_regression.json"
-OUT = ROOT / "z_research/v11_roll_out/figures/position"     # main() 이 --fit-by 로 하위 폴더를 정한다
+JSON = ROOT / "z_research/previous/v11_roll_out/exp_results/position_regression.json"
+OUT = ROOT / "z_research/previous/v11_roll_out/figures/position"     # main() 이 --fit-by 로 하위 폴더를 정한다
 BLUE, ORANGE, GREEN = "#2a78d6", "#eb6834", "#1baf7a"
 INK, INK2, MUTED = "#000000", "#3b3b3b", "#9a9a9a"
 SRC = {"h": (BLUE, "h  target encoder (saw the future)"), "p": (ORANGE, "p  predictor (did not)")}

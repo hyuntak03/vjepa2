@@ -11,8 +11,8 @@
 timing 은 4단계라 `vis` 만 중립 회색을 쓴다 (팔레트가 3색뿐).
 
   python z_research/scripts/figures/plot_v11_time_profile.py \
-    --npz z_research/IntPhysGenV11_occlusion_timing_ablation/exp_results/token_time_profile.npz \
-    --outdir z_research/IntPhysGenV11_occlusion_timing_ablation/figures/05_time_profile
+    --npz z_research/previous/IntPhysGenV11_occlusion_timing_ablation/exp_results/token_time_profile.npz \
+    --outdir z_research/previous/IntPhysGenV11_occlusion_timing_ablation/figures/05_time_profile
 """
 from __future__ import annotations
 import argparse, colorsys

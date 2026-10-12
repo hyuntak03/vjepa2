@@ -425,13 +425,16 @@ def run_surprise_intphys1(ds, cfg, device):
     W = S.get("intphys1", {}) or {}
     bundle = build_from_config(cfg["model"], device)
     ts, spatial = bundle.tubelet_size, bundle.num_spatial_tokens
-    # kind=ar (2026-09-27): 시작점마다 창을 블록별로 인코딩하고, C 마다 문맥 C/ts 블록에서 rollout 한다.
-    # min-over-C · 시작점 평균 · 쌍 비교는 그대로. 정의는 analysis/predictors/ar_scoring.py.
-    ctx_mode = PV.is_ctx_ar(bundle.predictor)                      # 2026-09-29 Ariel 팔 C' (문맥 z + 미래 되먹임)
-    ar_mode = PV.is_ar(bundle.predictor) or ctx_mode
+    # rollout 계열 (ar · ar_state · ctx_ar): 시작점마다 창을 블록별로 인코딩하고 C 마다 rollout. 정의 · 노브는 ar_scoring.py
+    ctx_mode = PV.is_ctx_ar(bundle.predictor)
+    ar_mode = PV.is_rollout(bundle.predictor)
+    ar_base = S.get("ar_baseline")
     if ar_mode:
-        ARS.check_ar_ready(bool(S.get("target_layer_norm", True)))
-        logger.info("[surprise] intphys1 · predictor kind=ar — 블록별 LN(target_encoder) + rollout (창 타깃과 다른 공간)")
+        ARS.check_ar_ready(bool(S.get("target_layer_norm", True)), ar_base)
+        if ctx_mode and ar_base:
+            raise ValueError("surprise.ar_baseline 은 kind=ar · ar_state 전용이다")
+        logger.info(f"[surprise] intphys1 · predictor kind={PV.kind_of(bundle.predictor)} "
+                    f"kv_rollout={getattr(bundle.predictor, 'kv_rollout', None)} ar_baseline={ar_base}")
 
     skips = [int(x) for x in W.get("frame_skips", [2, 5, 10])]
     wsizes = [int(x) for x in W.get("window_sizes", [16, 32])]
@@ -553,7 +556,7 @@ def run_surprise_intphys1(ds, cfg, device):
                             if ctx_mode:
                                 p, h, _ = ARS.ctx_ar_from_blocks(bundle.context_encoder, bundle.predictor, x, h_blk, C // ts, spatial)
                             else:
-                                p, h, _ = ARS.rollout_from_blocks(bundle.predictor, h_blk, C // ts, spatial)
+                                p, h, _ = ARS.rollout_from_blocks(bundle.predictor, h_blk, C // ts, spatial, baseline=ar_base)
                         ARS.assert_finite(p, "run_surprise_intphys1")
                         d = (p.float() - h.float()).abs()
                         sv = (d.pow(lexp).mean(dim=(1, 2)) / lexp) if dist == "l1" else d.mean(dim=(1, 2))
@@ -739,16 +742,17 @@ def run_surprise(ds, cfg, device):
     ts, spatial = bundle.tubelet_size, bundle.num_spatial_tokens
     ctx, N = int(S.get("context_length", 32)), ds.n_frames
     bs = int(S.get("batch_size", 4))
-    # kind=ar (Ariel 팔 C, 2026-09-27 이식): 블록별 target encoder 인코딩 + rollout. 정의 · 단서는
-    # analysis/predictors/ar_scoring.py. 문맥 encoder 는 안 쓴다. surprise.ar_tf: true 면 보조 키 'ar_tf' 를 더 낸다.
-    ctx_mode = PV.is_ctx_ar(bundle.predictor)                      # 2026-09-29 Ariel 팔 C'
-    ar_mode = PV.is_ar(bundle.predictor) or ctx_mode
+    # rollout 계열 (ar · ar_state · ctx_ar): 블록별 LN(target_encoder) 문맥 → rollout. 정의 · 노브는 ar_scoring.py
+    ctx_mode = PV.is_ctx_ar(bundle.predictor)
+    ar_mode = PV.is_rollout(bundle.predictor)
     ar_tf = ar_mode and bool(S.get("ar_tf", False))
+    ar_base = S.get("ar_baseline")
     if ar_mode:
-        ARS.check_ar_ready(bool(S.get("target_layer_norm", True)))
-        logger.info(f"[surprise] predictor kind=ar — 블록별 LN(target_encoder) 문맥 {ctx // ts} 블록 → "
-                    f"rollout {(N - ctx) // ts} 블록, 타깃도 블록별 (표준 창 타깃과 다른 공간)"
-                    + (" + 보조 ar_tf" if ar_tf else ""))
+        ARS.check_ar_ready(bool(S.get("target_layer_norm", True)), ar_base)
+        if ctx_mode and ar_base:
+            raise ValueError("surprise.ar_baseline 은 kind=ar · ar_state 전용이다")
+        logger.info(f"[surprise] predictor kind={PV.kind_of(bundle.predictor)} — 문맥 {ctx // ts} 블록 → rollout {(N - ctx) // ts} 블록 "
+                    f"(kv_rollout={getattr(bundle.predictor, 'kv_rollout', None)}, ar_baseline={ar_base}, ar_tf={ar_tf})")
     decode_workers = int(S.get("decode_workers", 0))
     ci, ti = _context_target_indices(ctx_frames=ctx, tgt_frames=N - ctx, tubelet_size=ts,
                                      spatial_tokens=spatial, batch_size=bs, device=device)
@@ -793,7 +797,7 @@ def run_surprise(ds, cfg, device):
                         p, h, p_tf = ARS.ctx_ar_window(bundle.context_encoder, bundle.target_encoder, bundle.predictor, x, ctx, ts, spatial, with_tf=ar_tf)
                     else:
                         p, h, p_tf = ARS.ar_window(bundle.target_encoder, bundle.predictor, x, ctx, ts, spatial,
-                                               with_tf=ar_tf)
+                                                   with_tf=ar_tf, baseline=ar_base)
                 else:
                     z = bundle.context_encoder(x, masks=[ci[:n]])
                     p = bundle.predictor(z, ci[:n], ti[:n], mask_index=int(S.get("mask_index", 0)))
@@ -889,7 +893,7 @@ def single_video_metrics(ds, surprise):
 
     ⚠️ 이 경로는 **현재 프로토콜에서 꺼져 있다** (`scoring.single_video: false` 가 기본).
     Garrido 프로토콜의 보고 지표는 **쌍 비교 AvgSurprise 하나**이고 MaxSurprise 는
-    2026-09-21 에 철회했다 (`z_research/Benchmarks/PROTOCOLS.md` §1-b).
+    2026-09-21 에 철회했다 (`z_research/previous/Benchmarks/PROTOCOLS.md` §1-b).
     단일 영상을 다시 하려면 여기 **Max + AUROC** 를 쓴다 — 쌍 비교에 Max 를 쓰는 게 아니다.
 
     돌려주는 값

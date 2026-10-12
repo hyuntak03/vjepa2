@@ -24,8 +24,8 @@ ROOT = Path("/data/hyuntak/project/2026/2027_cvpr/vjepa2")
 CACHE = Path("/local_datasets/world/world_analysis/cache/rollout_v2_vith")           # target.npy, predictor.npy (2026-09-11 재추출, ctx_masked 없음)
 CACHE_Z = Path("/local_datasets/world/world_analysis/cache/rollout_v2_z16_vith")      # ctx_masked.npy 만 (context encoder, 문맥 16 frames, LN)
 INDEX = ROOT / "data_csv/rollout_v2/index_probe.csv"
-OUT = ROOT / "z_research/RollOutV2/exp_results/probe_pos_imp/probe_pos_imp.json"
-FIG = ROOT / "z_research/RollOutV2/figures/probe_pos_imp"
+OUT = ROOT / "z_research/previous/RollOutV2/exp_results/probe_pos_imp/probe_pos_imp.json"
+FIG = ROOT / "z_research/previous/RollOutV2/figures/probe_pos_imp"
 S, D = 256, 1280
 
 

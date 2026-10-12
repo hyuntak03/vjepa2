@@ -2,9 +2,9 @@
 """TrainingEffects — v11 있음 (presence) 읽기: 영속 (permanence) · 지속 (persistence), predictor 별 + 학습 곡선 (CPU).
 
 입력: `te_v11_readout.py` 의 curves 추출 (`cache/training_effects/v11readout_curves/`, `load()` 로 읽는다). 수정하지 않는다.
-출력: `z_research/TrainingEffects/v11_presence/` — PRESENCE.md (본문) · TABLES.md (전 칸 표) · presence.json · fig_*.png
+출력: `z_research/previous/TrainingEffects/v11_presence/` — PRESENCE.md (본문) · TABLES.md (전 칸 표) · presence.json · fig_*.png
 
-정의 (전부 README `z_research/TrainingEffects/README.md` §1 과 `audit_v11_presence.py` 를 따른다):
+정의 (전부 README `z_research/previous/TrainingEffects/README.md` §1 과 `audit_v11_presence.py` 를 따른다):
   읽기 (reading) — 자 (ruler) 는 릴리즈 특징으로 학습·보정한 것 그대로, 문턱은 자마다 하나 (thr_val_fpr5):
       p@h = h 자로 p 를 읽음 (주 판독, 문턱 −0.961) · p@p = 릴리즈 p 자 (보조, 이식 판독, 0.8307)
       h@h · z@z = predictor 와 무관한 자 검사 (미래 튜블릿 8..15 = p 의 t0..t7). z 는 z_full (32 샘플을 다 본 encoder)
@@ -40,13 +40,13 @@ sys.path.insert(0, str(ROOT / "z_research/scripts/analysis"))
 from te_v11_readout import load  # noqa: E402  (memmap 로더; torch import 는 하지만 GPU 는 안 쓴다)
 
 CACHE = Path("/data2/local_datasets/world/world_analysis/cache/training_effects/v11readout_curves")
-OUT = ROOT / "z_research/TrainingEffects/v11_presence"
+OUT = ROOT / "z_research/previous/TrainingEffects/v11_presence"
 TEST_CSV = ROOT / "data_csv/intphysgen_v11_split/index_test.csv"
-REF_VALUES = ROOT / "z_research/RollOutV3/figures/v11_presence/_superseded/presence_decoder/values.json"
-REF_AUDIT = ROOT / "z_research/RollOutV3/audit/v11_presence/results.json"
-CTX_ONLY = ROOT / "z_research/RollOutV3/audit/v11_presence/ctx_only_readings.npz"
-BIAS_JSON = ROOT / "z_research/RollOutV3/exp_results/presence/attn_bias_px.json"
-SCORES_JSON = ROOT / "z_research/TrainingEffects/scores/scores.json"
+REF_VALUES = ROOT / "z_research/previous/RollOutV3/figures/v11_presence/_superseded/presence_decoder/values.json"
+REF_AUDIT = ROOT / "z_research/previous/RollOutV3/audit/v11_presence/results.json"
+CTX_ONLY = ROOT / "z_research/previous/RollOutV3/audit/v11_presence/ctx_only_readings.npz"
+BIAS_JSON = ROOT / "z_research/previous/RollOutV3/exp_results/presence/attn_bias_px.json"
+SCORES_JSON = ROOT / "z_research/previous/TrainingEffects/scores/scores.json"
 
 RES, TC, TP, KMIN, EDGE, W = 144.0, 8, 8, 2, 36.0, 288.0
 MASS_U = 9 / 256
@@ -977,9 +977,9 @@ def render(res):
     P("$P z_research/scripts/analysis/te_analyze_presence.py            # CPU, 이 문서 · TABLES.md · presence.json · fig_*.png")
     P("```")
     P("")
-    P("입력 (읽기 전용): 추출 폴더 · `data_csv/intphysgen_v11_split/index_test.csv` · `z_research/RollOutV3/exp_results/presence/attn_bias_px.json` · "
-      "`z_research/RollOutV3/figures/v11_presence/_superseded/presence_decoder/values.json` (sanity) · `RollOutV3/audit/v11_presence/{results.json,ctx_only_readings.npz}` (sanity · 복사 기준선) · "
-      "`z_research/TrainingEffects/scores/scores.json` (vanish A/B).")
+    P("입력 (읽기 전용): 추출 폴더 · `data_csv/intphysgen_v11_split/index_test.csv` · `z_research/previous/RollOutV3/exp_results/presence/attn_bias_px.json` · "
+      "`z_research/previous/RollOutV3/figures/v11_presence/_superseded/presence_decoder/values.json` (sanity) · `RollOutV3/audit/v11_presence/{results.json,ctx_only_readings.npz}` (sanity · 복사 기준선) · "
+      "`z_research/previous/TrainingEffects/scores/scores.json` (vanish A/B).")
     return "\n".join(L) + "\n"
 
 
