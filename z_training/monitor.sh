@@ -155,9 +155,24 @@ else:
     print(f" step  {c(f'{step:>4}/{total}', B)}  {bar(step / total, col=CY)}  ({ipe} step/epoch" + (f", micro {ipe * acc}" if acc > 1 else "") + ")")
     print(f" ETA   {c(hms(eta), B + ';' + MG)}   ({t_it * acc:.2f} s/step" + (f" = {acc} × {t_it:.2f} s micro" if acc > 1 else "") +
           f", 최근 {20 * acc} micro)   끝나는 시각 ≈ {time.strftime('%m-%d %H:%M', time.localtime(time.time() + eta))}")
+    if bs and ngpu:                                                   # 본 clip 수 (2026-10-15): optimizer step × global batch
+        gb = bs * ngpu * acc
+        print(f" clip  {c(f'{step * gb / 1e6:.2f} M', B)} / {total * gb / 1e6:.2f} M 본 clip  (global batch {gb})")
     print(c("─" * W, DIM))
     l10 = [x[2] for x in rows[-10:]]; first = by_ep[min(by_ep)]
     print(f" loss  지금 {c(f'{loss:.4f}', B)} (C={C})   최근 10 평균 {c(f'{sum(l10) / len(l10):.4f}', B)}   첫 epoch 평균 {sum(first) / len(first):.4f}   lr {lr:.2e}")
+    try:                                                              # 손실 항 분해 (AR: tf / rollout, 시간 보조 손실 dyn) — train.log 최근 로그 줄
+        tl = open(os.path.join(rd, "train.log"), errors="ignore").read()[-200000:]
+        mt = re.findall(r"\[tf ([\d.]+) ar ([\d.]+) R=(\d+)\](?: \[dyn tf ([\d.]+) ar ([\d.]+) ×([\d.e+-]+)\])?", tl)
+        if mt:
+            k = mt[-40:]; f = lambda j: sum(float(x[j]) for x in k) / len(k)
+            msg = f" 항    TF {f(0):.4f}   rollout {f(1):.4f}"
+            if k[-1][3]:
+                kd = [x for x in k if x[3]]; g = lambda j: sum(float(x[j]) for x in kd) / len(kd)
+                msg += f"   | dyn TF {g(3):.4f}  dyn rollout {g(4):.4f}  (×{kd[-1][5]})"
+            print(msg + c(f"   (최근 {len(k)} 로그 줄 평균)", DIM))
+    except Exception:
+        pass
     em = [sum(v) / len(v) for e, v in sorted(by_ep.items()) if e < ep]
     if em:
         d = em[-1] - em[0]

@@ -197,7 +197,7 @@ class ACRoPEAttention(nn.Module):
         nb = mask.size(1) // (H * W)
         if action_tokens > 0:
             xb = x.view(B, nb, action_tokens + H * W, C)
-            blk_pos = (mask.view(B, nb, H * W)[:, :, 0] // (H * W)).unsqueeze(1).repeat(1, self.num_heads, 1)   # (B, heads, nb)
+            blk_pos = (mask.view(mask.size(0), nb, H * W)[:, :, 0] // (H * W)).unsqueeze(1).repeat(1, self.num_heads, 1)   # (B 또는 1, heads, nb)
             aq, ak, av = [], [], []
             for i in range(action_tokens):
                 a = xb[:, :, i, :]                                                      # (B, nb, C)

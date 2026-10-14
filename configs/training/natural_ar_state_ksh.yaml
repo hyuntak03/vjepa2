@@ -1,0 +1,37 @@
+# =============================================================================
+# 팔 C-state-ksh — **상태 되먹임 AR (natural_ar_state) · K400 + SSv2 + HowTo100M 1 % · vast ep70 예산** (2026-10-15, 사용자 결정)
+#
+#   GPUS=8 NAME=nat_ar_state_ksh_scratch bash z_training/tmux_train.sh natural_ar_state_ksh
+#
+# natural_ar_state 와 **데이터·길이만** 다르다 (predictor·마스크·손실·창·증강·val 은 그대로):
+#   데이터 = natural_full_ksh 와 같다 — K400 fps 6 + SSv2 frame_step 1 + HowTo100M 1 % fps 6 (1 : 1 : 1)
+#   예산   = vast k710_ssv2_how_ep70 과 같다 — 32 × 8 GPU × grad_accum 2 = global 512, 70 epoch × 294 = 20,580 step (1,054 만 clip)
+#            (natural_full_ksh 는 504 × 20,580 = 1,037 만, -1.6 %). VRAM 실측 (2026-10-15, GPU 8 장 DDP, 최악 C8K8, dyn 손실 포함):
+#            batch 32 + activation checkpointing = max allocated 45.2 G / 48 G (expandable_segments)
+# → nat_full_ksh_scratch (미래만 · full attention · mask token) 와 데이터·예산이 같다.
+# + 시간 변화량 보조 손실 (2026-10-15 사용자 결정): 예측 a_t = Linear(|s_{t+1} − s_t|) (s = predictor 상태 384, 384 → 1280) 와
+#   타깃 b_t = |PE(x_{t+1}) − PE(x_t)| (frozen encoder patch embedding 직후, 픽셀에서 바로) 의 L1 을 TF · rollout 둘 다에서 더한다.
+# 스케줄: lr 5.2e-4, warmup 1 epoch, cosine → 1e-6 (natural_ar_state 상속; vast 의 상수 + cooldown 은 안 쓴다).
+# =============================================================================
+extends: natural_ar_state
+
+meta:
+  save_every_freq: 10         # e{N}.pt 10 epoch 마다
+
+model:
+  predictor:
+    dyn_head: true            # 시간 변화량 보조 손실 head: a_t = Linear(|s_{t+1} − s_t|), 384 → 1280 (2026-10-15, 사용자 결정)
+
+loss:
+  dyn_weight: 1.0             # loss += w × (L1(a, b)_TF + L1(a, b)_rollout), b_t = |PE(x_{t+1}) − PE(x_t)| (encoder patch embedding 직후)
+
+data:
+  batch_size: 32              # rank 당 × 8 GPU × grad_accum 2 = 512 (VRAM 꽉 채움 — 사용자 지시)
+  datasets:
+    - {name: k400_320_fps6_f32, weight: 1.0}   # K400 fps 6, 32 장 = 5.3 s
+    - {name: ssv2_fs1_min32,    weight: 1.0}   # SSv2 frame_step 1, 32 장 = 2.7 s
+    - {name: ht100m_1pct_fps6,  weight: 1.0}   # HowTo100M 1 % fps 6, 32 장 = 5.3 s
+
+optimization:
+  epochs: 70                  # × ipe 294 = 20,580 step
+  grad_accum: 2

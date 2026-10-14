@@ -41,6 +41,18 @@ def encode_blocks(enc, clips: torch.Tensor, tubelet: int) -> torch.Tensor:
     return F.layer_norm(h, (h.size(-1),))
 
 
+def patch_embed_blocks(enc, clips: torch.Tensor, tubelet: int) -> torch.Tensor:
+    """(B, 3, T, H, W) → encoder 의 patch embedding 직후 (transformer 이전) 토큰 (B, nb*S, D). 시간 보조 손실 타깃용 (2026-10-15).
+    tubelet conv 가 시간 stride = tubelet 이라 블록별로 넣어도 통째로 넣어도 같다."""
+    m = getattr(enc, "_orig_mod", enc)                                  # torch.compile 래퍼면 원 모듈
+    m = getattr(m, "module", m)
+    B, Cc, T, H, W = clips.shape
+    nb = T // tubelet
+    x = clips[:, :, : nb * tubelet].reshape(B, Cc, nb, tubelet, H, W).permute(0, 2, 1, 3, 4, 5).reshape(B * nb, Cc, tubelet, H, W)
+    pe = m.patch_embed(x)                                              # (B*nb, S, D)
+    return pe.reshape(B, nb * pe.size(1), pe.size(-1))
+
+
 def block_indices(B: int, nb: int, S: int, device) -> torch.Tensor:
     return torch.arange(nb * S, device=device, dtype=torch.long).unsqueeze(0).expand(B, -1).contiguous()
 
@@ -49,22 +61,36 @@ def l1(p: torch.Tensor, h: torch.Tensor, loss_exp: float) -> torch.Tensor:
     return (p.float() - h.float()).abs().pow(loss_exp).mean() / loss_exp
 
 
-def ar_losses(predictor, h: torch.Tensor, S: int, C: int, K: int, loss_exp: float, rollout_steps: int, actions=None):
+def ar_losses(predictor, h: torch.Tensor, S: int, C: int, K: int, loss_exp: float, rollout_steps: int, actions=None,
+              pe: torch.Tensor = None, dyn_weight: float = 1.0, extra: dict = None):
     """h (B, nb*S, D) LN 된 블록 토큰. return (loss, jloss, sloss, R). predictor 는 DDP 래퍼여도 된다 (forward 한 번).
-    actions (B, nb, A): action 조건부 predictor (Push-T) 일 때만."""
+    actions (B, nb, A): action 조건부 predictor (Push-T) 일 때만.
+    pe (B, nb*S, D_pe): 시간 변화량 보조 손실 (2026-10-15, 사용자 결정). 주면 predictor 가 a_t = Linear(|s_{t+1} − s_t|) 를 내고
+      b_t = |PE_{t+1} − PE_t| (patch embedding 직후) 와 L1 — TF (예측 블록 1..nb-1 의 인접 쌍) 와 rollout (예측 블록 C..C+R-1 의 인접 쌍) 둘 다.
+      loss += dyn_weight × (dyn_tf + dyn_ar). extra (dict) 에 dyn_tf · dyn_ar 를 적는다."""
     B, N = h.shape[:2]
     nb = N // S
     if nb != C + K or nb < 2:
         raise ValueError(f"ar_losses: nb={nb} 가 C+K={C + K} 와 다르거나 2 미만")
     R = max(1, min(int(K), int(rollout_steps)))
     idx = block_indices(B, nb, S, h.device)
-    p_tf, p_ar = predictor(h, ar={"idx": idx, "n_ctx_blocks": C, "rollout_steps": R, "actions": actions})
+    if pe is None:
+        p_tf, p_ar = predictor(h, ar={"idx": idx, "n_ctx_blocks": C, "rollout_steps": R, "actions": actions})
+    else:
+        p_tf, p_ar, a_tf, a_ar = predictor(h, ar={"idx": idx, "n_ctx_blocks": C, "rollout_steps": R, "actions": actions, "dyn": True})
     jloss = l1(p_tf, h[:, S:], loss_exp)
     sloss = l1(p_ar, h[:, C * S: (C + R) * S], loss_exp)
-    return jloss + sloss, jloss, sloss, R
+    loss = jloss + sloss
+    if pe is not None:
+        b = (pe[:, S:] - pe[:, :-S]).abs()                       # b[:, k] = |PE_{k+1} − PE_k|, k = 0..nb-2 (블록 단위, S 토큰씩)
+        dl_tf = l1(a_tf, b[:, S:], 1.0) if a_tf.size(1) else h.new_zeros(())                 # TF 상태 j 는 블록 j+1 예측 → 쌍 (j+1, j+2) = b[k=1..]
+        dl_ar = l1(a_ar, b[:, C * S: (C + R - 1) * S], 1.0) if a_ar.size(1) else h.new_zeros(())   # rollout r → 블록 C+r → 쌍 b[k=C..C+R-2]
+        loss = loss + float(dyn_weight) * (dl_tf + dl_ar)
+        if extra is not None:
+            extra.update(dyn_tf=dl_tf.detach(), dyn_ar=dl_ar.detach())
+    return loss, jloss, sloss, R
 
 
-@torch.no_grad()
 def run_val_ar(vs: ValSet, tgt_enc, pred_mod, device, autocast_dtype, rank: int, ws: int,
                tubelet: int, spatial: int, context_length: int, batch_size: int, loss_exp: float) -> Dict:
     """val.run_val 의 팔 C 판. 주지표 = rollout surprise, 보조 = tf surprise (res['tf'])."""

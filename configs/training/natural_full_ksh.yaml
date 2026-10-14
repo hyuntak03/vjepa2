@@ -1,0 +1,57 @@
+# =============================================================================
+# 팔 F-ksh — **미래만 예측, full bidirectional attention + 미래 자리 learnable mask token** (릴리즈 predictor 위상, kind oneshot)
+#   · K400 + SSv2 + HowTo100M 1 % (1 : 1 : 1) · vast `k710_ssv2_how_ep70` 과 같은 본 clip 수 (2026-10-12, 사용자 결정)
+#
+#   GPUS=8 NAME=nat_full_ksh_scratch bash z_training/tmux_train.sh natural_full_ksh
+#
+# 과제: 32 장 창에서 문맥 C ∈ {2,4,8} 블록 → 그 뒤 K ∈ {4,6,8} 블록 (C+K ≤ 16). 문맥 = context encoder (online) 토큰,
+#   미래 = mask token (위치 RoPE), predictor 는 문맥·미래 전부를 서로 본다 (블록 인과 없음). 타깃 = LN(target_encoder(창))[미래].
+#   = nat_full_scratch (2026-09-26, prefix_window + oneshot) 와 같은 몸통 · 같은 과제 정의. 창·데이터·예산만 바꿨다.
+# 창·증강·val 은 nat_ar_state_scratch (natural_ar_state) 와 같다 → 두 사전학습 predictor 를 같은 창 분포로 비교할 수 있다
+#   (K400 fps 6 + SSv2 frame_step 1, 32 장, square_crop center + RRC [0.3, 1.0], val IntPhys1 60 쌍 문맥 16 장).
+# 예산 (사용자 지시 "vast nature_tubelet 처럼 본 샘플 수 비슷하게, batch 만 조절"):
+#   vast k710_ssv2_how_ep70 = 63 + 7 epoch × 294 = 20,580 step × 512 = 1,054 만 clip (96 GB GPU, rank 당 64).
+#   여기 = 21 × 8 GPU × grad_accum 3 = global 504, 70 × 294 = 20,580 step × 504 = 1,037 만 clip (-1.6 %).
+#   lr 5.2e-4 (= 3e-4 × √(512/168), vast · ar_state 와 같다), warmup 1 epoch, cosine → 1e-6.
+# vast 와 다른 것: 과제 (tube inpainting → 미래만), K710 → K400 (이 기계), 스케줄 (상수 + 32/64 장 cooldown → cosine 한 단계),
+#   창 (16 장 fps 4 → 32 장 K400 fps 6 / SSv2 stride 1 / HowTo fps 6).
+# =============================================================================
+extends: natural_prefix
+
+meta:
+  save_every_freq: 10         # e{N}.pt 10 epoch 마다 (2,940 step)
+
+model:
+  context_encoder_key: encoder         # 릴리즈: 문맥 = online encoder, 타깃 = EMA target encoder
+  predictor:
+    kind: oneshot                      # 릴리즈 predictor 위상 (full attention + mask token)
+    use_activation_checkpointing: false
+
+data:
+  n_frames: 32
+  batch_size: 21              # rank 당 × 8 GPU × grad_accum 3 = 504 (natural_ar_state 와 같다)
+  datasets:
+    - {name: k400_320_fps6_f32, weight: 1.0}   # K400 fps 6, 32 장 = 5.3 s
+    - {name: ssv2_fs1_min32,    weight: 1.0}   # SSv2 frame_step 1, 32 장 = 2.7 s
+    - {name: ht100m_1pct_fps6,  weight: 1.0}   # HowTo100M 1 % fps 6, 32 장 = 5.3 s
+
+mask:
+  - type: prefix_window
+    context_blocks: [2, 4, 8]
+    predict_blocks: [4, 6, 8]
+    weight: 1.0
+
+optimization:
+  epochs: 70
+  ipe: 294                    # optimizer step / epoch (고정)
+  grad_accum: 3
+  lr: 5.2e-4
+  start_lr: 1.0e-5
+  final_lr: 1.0e-6
+  warmup: 1
+
+val:
+  context_length: 16          # 8 블록 보고 8 블록 — natural_ar_state 와 같다
+  batch_size: 4
+  data:
+    frames_stride: 3          # IntPhys1 100 장에서 32 장

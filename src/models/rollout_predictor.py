@@ -149,6 +149,12 @@ class VisionTransformerPredictorPrefix(nn.Module):
             for i in range(depth)])
         self.predictor_norm = norm_layer(predictor_embed_dim)
         self.predictor_proj = nn.Linear(predictor_embed_dim, out_embed_dim or embed_dim, bias=True)
+        # ── 시간 변화량 보조 손실 (2026-10-15, 사용자 결정): a_t = Linear(|s_{t+1} − s_t|), s = predictor 상태 (predictor_norm 출력, 384),
+        #    Linear 384 → encoder 공간 (dyn_dim). 타깃은 학습 루프가 b_t = |PE(x_{t+1}) − PE(x_t)| (encoder patch embedding 직후) 로 준다.
+        #    dyn_dim = 0 이면 만들지 않는다 → 파라미터·연산이 기존과 같다 (기존 ckpt strict 로드 그대로)
+        self.dyn_dim = int(kwargs.get("dyn_dim", 0))
+        if self.dyn_dim > 0:
+            self.dyn_head = nn.Linear(predictor_embed_dim, self.dyn_dim, bias=True)
 
         # prefix 구현: split(기본, 마스크 없는 블록별 dense SDPA) | flex(DDP 에서 컴파일 실패 사례 있음) | dense
         self.prefix_impl = str(kwargs.get("prefix_impl", "split"))
@@ -208,6 +214,12 @@ class VisionTransformerPredictorPrefix(nn.Module):
             S = self.tokens_per_block
             idx, C, R = ar["idx"], int(ar["n_ctx_blocks"]), int(ar["rollout_steps"])
             acts = ar.get("actions")                                   # (B, nb, A) 또는 None
+            if ar.get("dyn"):                                            # 시간 변화량 보조 손실 (2026-10-15): 상태도 받아 a_t 를 만든다
+                if not (self.dyn_dim > 0 and self.kv_rollout):
+                    raise ValueError("ar['dyn'] 는 dyn_dim > 0 · kv_rollout=True predictor 전용")
+                p_tf, st_tf = self.forward_seq(x[:, :-S], idx[:, :-S], acts, return_states=True)
+                p_ar, st_ar = self.rollout_kv(x[:, : C * S], idx[:, : C * S], R, actions=acts, return_states=True)
+                return p_tf, p_ar, self._dyn(st_tf), self._dyn(st_ar)
             p_tf = self.forward_seq(x[:, :-S], idx[:, :-S], acts)
             if self.mask_mode == "ar_state" and not self.kv_rollout:
                 p_ar = self.rollout_state(x[:, : C * S], idx[:, : C * S], R, actions=acts)
@@ -299,7 +311,14 @@ class VisionTransformerPredictorPrefix(nn.Module):
         S = self.tokens_per_block
         return h.view(h.size(0), nb, 1 + S, h.size(-1))[:, :, 1:].flatten(1, 2)
 
-    def forward_seq(self, x, idx, actions=None):
+    def _dyn(self, st):
+        """st (B, n*S, 384) 블록 순 상태 → a (B, (n-1)*S, dyn_dim) = dyn_head(|s_{t+1} − s_t|) (패치 자리끼리). n = 1 이면 빈 텐서."""
+        S = self.tokens_per_block
+        n = st.size(1) // S
+        st = st.view(st.size(0), n, S, st.size(-1))
+        return self.dyn_head((st[:, 1:] - st[:, :-1]).abs()).flatten(1, 2)
+
+    def forward_seq(self, x, idx, actions=None, return_states=False):
         """팔 C. x (B, N, embed_dim) = 블록 0..nb-1 의 **LN 된** encoder 토큰 (블록 정렬·연속), idx (B, N) 절대 인덱스.
         블록 인과 attention (블록 b 의 query 는 블록 <= b 의 key). return (B, N, out): 위치 b 의 출력 = 블록 b+1 예측,
         출력에도 affine-free LN (AC `normalize_reps`) — 되먹임 입력과 타깃이 같은 공간에 있게 한다.
@@ -319,8 +338,9 @@ class VisionTransformerPredictorPrefix(nn.Module):
         h = self._run_blocks(h, idx, spec, T=nb if self.n_act else None, n_act=self.n_act)
         if self.n_act:
             h = self._strip_actions(h, nb)
-        h = self.predictor_proj(self.predictor_norm(h))
-        return torch.nn.functional.layer_norm(h, (h.size(-1),))
+        st = self.predictor_norm(h)
+        h = torch.nn.functional.layer_norm(self.predictor_proj(st), (self.predictor_proj.out_features,))
+        return (h, st) if return_states else h
 
     def rollout(self, x_ctx, idx_ctx, n_steps, first=None, actions=None):
         """팔 C. 문맥 C 블록의 LN(h) 에서 `n_steps` 블록을 자기회귀로 채운다 (KV 캐시 없음, 매 스텝 전체 재계산).
@@ -340,7 +360,7 @@ class VisionTransformerPredictorPrefix(nn.Module):
         return torch.cat(preds, dim=1)
 
 
-    def rollout_kv(self, x_ctx, idx_ctx, n_steps, actions=None):
+    def rollout_kv(self, x_ctx, idx_ctx, n_steps, actions=None, return_states=False):
         """`rollout` 의 KV 캐시판 (2026-10-10; vast 브랜치 rollout_state_kv 를 ar 모드·action 토큰으로). 값·gradient 가 같다
         (block-causal 이라 이미 계산한 토큰의 층별 (k, v) 는 뒤에 블록을 붙여도 안 변한다). 문맥 C 블록을 block-causal 로
         한 번 prefill 하고, 걸음마다 **새 블록 (action 1 + 패치 S) 토큰만** 계산한다. activation checkpointing 은 안 쓴다
@@ -348,6 +368,10 @@ class VisionTransformerPredictorPrefix(nn.Module):
         S, Hg, Wg = self.tokens_per_block, self.grid_height, self.grid_width
         B = x_ctx.size(0)
         C = idx_ctx.size(1) // S
+        if B > 1 and bool((idx_ctx == idx_ctx[:1]).all()):
+            # 위치가 배치 전체에 같으면 (AR.block_indices) 한 줄만 넘긴다 — RoPE 각 (sin/cos) 을 B 배 만들지 않고 broadcast.
+            # 원소별 값이 같아 출력은 비트 단위로 같다 (2026-10-12, planning CEM 에서 elementwise 가 GPU 시간의 2/3 였다)
+            idx_ctx = idx_ctx[:1]
         n_act = self.n_act
         state_fb = self.mask_mode == "ar_state"
         h = self.predictor_embed(x_ctx)
@@ -363,7 +387,7 @@ class VisionTransformerPredictorPrefix(nn.Module):
         last = h.view(B, C, S + n_act, -1)[:, -1, n_act:]                # 위치 C-1 (패치 자리) -> 블록 C 예측
         st = self.predictor_norm(last)                                    # 상태 (그리기 전, 384)
         p = torch.nn.functional.layer_norm(self.predictor_proj(st), (self.predictor_proj.out_features,))
-        preds = [p]
+        preds, states = [p], [st]
         pos = idx_ctx[:, -S:]
         for r in range(1, int(n_steps)):
             pos = pos + S                                                 # p_{C+r-1} 은 블록 C+r-1 자리
@@ -375,7 +399,9 @@ class VisionTransformerPredictorPrefix(nn.Module):
             out = h[:, n_act:]
             st = self.predictor_norm(out)
             p = torch.nn.functional.layer_norm(self.predictor_proj(st), (self.predictor_proj.out_features,))
-            preds.append(p)
+            preds.append(p); states.append(st)
+        if return_states:
+            return torch.cat(preds, dim=1), torch.cat(states, dim=1)
         return torch.cat(preds, dim=1)
 
     def rollout_state(self, x_ctx, idx_ctx, n_steps, actions=None):

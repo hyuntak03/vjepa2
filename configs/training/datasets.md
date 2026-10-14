@@ -330,6 +330,18 @@ csv: ${DATA_CSV}/k400_320/train_fps6_f32.csv
 fps: 6
 filter_short_videos: true
 
+## ht100m_1pct_fps6
+
+**HowTo100M 1 % 층화 부분집합** (2026-10-12). `${TRAIN_DATA_ROOT}/HowTo100M/{TornadoLabs_howto100m,youtube}/videos_324/*.mp4`
+(카테고리 × 길이 층화 1 %, 짧은 변 324 재인코딩 — `HowTo100M/release/README.md`). 받은 13,517 편 중 decord 로 끝까지 열리는 것만
+(`build_video_index.py ht100m_1pct --probe --deep-probe --min-frames 160 --write`). fps 24~60, 길이 수 분이라 fps 6 × 32 장 (5.3 s) 이 전부 들어간다.
+vast 브랜치 `ht100m_1pct_fps4` (12,374 편, 짧은 변 320) 와 같은 부분집합 정의이고 fps 만 K400 판 (`k400_320_fps6_f32`) 에 맞췄다.
+
+type: video_csv
+csv: ${DATA_CSV}/ht100m_1pct/train_min160.csv
+fps: 6
+filter_short_videos: true
+
 ## wall_single
 
 DINO-WM 의 Wall 궤적 (OSF, 2026-10-09 수신). `${WORLD_ROOT}/action_planning/dino_wm/wall_single` — 1,920 episode × 50 step, 점이 벽의 문을 지나 반대편으로.

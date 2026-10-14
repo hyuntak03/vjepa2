@@ -89,6 +89,8 @@ def build_predictor(m: dict, encoder_embed_dim: int, state: Optional[dict], devi
              "zero_init_mask_tokens": bool(pc.get("zero_init_mask_tokens", True))}
     if "kv_rollout" in pc:
         extra["kv_rollout"] = bool(pc["kv_rollout"])          # ar 모드 rollout KV 캐시 (2026-10-10)
+    if pc.get("dyn_head"):
+        extra["dyn_dim"] = int(encoder_embed_dim)             # 시간 변화량 보조 손실 head 384 → encoder 공간 (2026-10-15)
     # ── kind: oneshot(기본, 릴리즈 위상 = 팔 A) | prefix(prefix 마스크 = 팔 B) | causal ──
     #    prefix 판은 파라미터 이름·모양이 릴리즈와 **완전히 같아서** strict 로드가 그대로 되고,
     #    mask_mode=full 로 두면 릴리즈와 **비트 단위로 같은 출력**을 낸다 (2026-09-22 실측).
@@ -115,8 +117,10 @@ def build_predictor(m: dict, encoder_embed_dim: int, state: Optional[dict], devi
         elif init_path:
             ck = torch.load(init_path, map_location="cpu", weights_only=False)
             r = pred.load_state_dict(ck["predictor"], strict=False)
-            allowed = {"action_embed.weight", "action_embed.bias", "type_embed"}   # action 토큰 사영 · type embedding 만 새로 — 그 외 빠지면 구조가 다른 것
-            if set(r.missing_keys) - allowed or r.unexpected_keys:
+            allowed = {"action_embed.weight", "action_embed.bias", "type_embed",   # action 토큰 사영 · type embedding 만 새로 — 그 외 빠지면 구조가 다른 것
+                       "dyn_head.weight", "dyn_head.bias"}                       # 시간 보조 head (2026-10-15): 있든 없든 본 predictor 와 무관
+            unexpected = set(r.unexpected_keys) - {"dyn_head.weight", "dyn_head.bias"}
+            if set(r.missing_keys) - allowed or unexpected:
                 raise RuntimeError(f"init_predictor {init_path}: missing {r.missing_keys} unexpected {r.unexpected_keys}")
             logger.info(f"predictor({kind}) <- {init_path} (epoch {ck.get('epoch')}, step {ck.get('step')}); "
                         f"새로 초기화: {sorted(r.missing_keys) or '없음'}")

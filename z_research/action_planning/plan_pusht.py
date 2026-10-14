@@ -52,6 +52,7 @@ class VJEPAARWorldModel(torch.nn.Module):
         self.res, self.ac_dtype, self.fs, self.action_dim = resolution, autocast_dtype, frameskip, action_dim
         self.decoder = None
         self.chunk = 0
+        self.distance = "l1"               # CEM 점수의 latent 거리 (2026-10-12 사용자 결정: L1 — 학습 손실·surprise 채점과 같다). "mse" = DINO-WM 원판
         self.full_return_max = 64          # 이보다 큰 배치 (CEM 샘플) 는 [처음 ; 마지막] 만 돌려준다 (objective mode=last 전제)
         self.S = (resolution // 16) ** 2
         self.n_enc_calls = 0
@@ -76,7 +77,7 @@ class VJEPAARWorldModel(torch.nn.Module):
     @torch.no_grad()
     def cem_losses(self, visual_goals, z_goal, act, chunk=600):
         """배치 CEM 용 (2026-10-10). visual_goals (G, n, 3, r, r) uint8 = 목표마다 현재 관측, z_goal (G, S, D) 목표 latent,
-        act (G, N, H, A) 정규화 action 샘플 → loss (G, N) = MSE(마지막 예측 프레임, 목표) (objective mode=last, alpha 0 과 같다).
+        act (G, N, H, A) 정규화 action 샘플 → loss (G, N) = 거리(마지막 예측 프레임, 목표) — self.distance (l1 기본 | mse = objective mode=last, alpha 0).
         관측은 목표마다 한 번만 인코딩하고, 샘플은 chunk 개씩 굴려 마지막 프레임만 남긴다 (큰 배치를 메모리 없이)."""
         G, N, H, A = act.shape
         h = self._encode_visual(visual_goals)                                     # (G, n, S, D)
@@ -92,7 +93,8 @@ class VJEPAARWorldModel(torch.nn.Module):
                 g = gi[i: i + chunk]
                 idx = AR.block_indices(g.numel(), n, self.S, act.device)
                 pc = roll(hf[g], idx, n_steps, actions=af[i: i + chunk])[:, -self.S:].float()   # 마지막 블록
-                out[i: i + chunk] = (pc - z_goal[g].float()).pow(2).mean(dim=(1, 2))
+                dz = pc - z_goal[g].float()
+                out[i: i + chunk] = (dz.abs() if self.distance == "l1" else dz.pow(2)).mean(dim=(1, 2))
         return out.view(G, N)
 
     def encode_obs(self, obs):
@@ -170,6 +172,8 @@ class BatchedCEMPlanner(CEMPlanner):
     def __init__(self, *args, wm_chunk=600, **kw):
         super().__init__(*args, **kw)
         self.wm_chunk = wm_chunk
+        self.mpc = None            # main 이 MPCPlanner 를 걸어 준다 → 이미 성공한 목표는 world model 을 안 돌린다 (skip_solved)
+        self.skip_solved = True
 
     def plan(self, obs_0, obs_g, actions=None):
         trans_obs_0 = move_to_device(self.preprocessor.transform_obs(obs_0), self.device)
@@ -178,10 +182,20 @@ class BatchedCEMPlanner(CEMPlanner):
         mu, sigma = self.init_mu_sigma(obs_0, actions)
         mu, sigma = mu.to(self.device), sigma.to(self.device)
         G = mu.shape[0]
+        # skip_solved (2026-10-12): DINO-WM MPC 는 성공한 목표도 계속 planning 하고 그 action 을 0 으로 덮어 버린다 (_apply_success_mask,
+        #   n_taken = horizon 이라 다음 회차로 넘어가는 몫도 없다). 그 목표의 world model rollout 은 결과에 안 쓰이므로 건너뛴다.
+        #   난수는 여전히 목표 전체로 뽑아 남은 목표의 샘플 흐름이 바뀌지 않는다 (chunk 구성만 달라진다)
+        live = None
+        if self.skip_solved and self.mpc is not None and self.mpc.is_success is not None and self.mpc.is_success.any():
+            live = torch.nonzero(torch.as_tensor(~self.mpc.is_success), as_tuple=True)[0].to(self.device)
         for i in range(self.opt_steps):
             act = torch.randn(G, self.num_samples, self.horizon, self.action_dim, device=self.device) * sigma[:, None] + mu[:, None]
             act[:, 0] = mu
-            loss = self.wm.cem_losses(trans_obs_0["visual"], z_g, act, chunk=self.wm_chunk)   # (G, N)
+            if live is None:
+                loss = self.wm.cem_losses(trans_obs_0["visual"], z_g, act, chunk=self.wm_chunk)   # (G, N)
+            else:
+                loss = torch.zeros(G, self.num_samples, device=self.device)
+                loss[live] = self.wm.cem_losses(trans_obs_0["visual"][live], z_g[live], act[live], chunk=self.wm_chunk)
             top = torch.argsort(loss, dim=1)[:, : self.topk]                          # (G, k)
             ta = torch.gather(act, 1, top[:, :, None, None].expand(-1, -1, self.horizon, self.action_dim))
             mu, sigma = ta.mean(dim=1), ta.std(dim=1)
@@ -314,9 +328,16 @@ def main():
     ap.add_argument("--mem_frac", type=float, default=0.0, help="이 프로세스의 GPU 메모리 상한 (비율). 학습과 GPU 를 같이 쓸 때")
     ap.add_argument("--only", default=None, help="쉼표로 목표 번호 (예: 0,4,3). 전체 n_evals 목표 집합을 만든 뒤 이 번호만 planning")
     ap.add_argument("--batched", action="store_true", help="목표 전체를 한 배치로 도는 CEM (BatchedCEMPlanner). 결과 분포는 원판과 같고 훨씬 빠르다")
+    ap.add_argument("--distance", default="l1", choices=["l1", "mse"],
+                    help="CEM 점수 = 마지막 예측 latent 와 목표 latent 의 거리. l1 (기본, 2026-10-12~) | mse (DINO-WM 원판, 그 전 결과는 전부 mse)")
+    ap.add_argument("--no_skip_solved", action="store_true", help="--batched 에서 이미 성공한 목표도 world model 을 돌린다 (원판 그대로; 결과는 같고 느리다)")
     ap.add_argument("--gif", action="store_true", help="목표마다 시뮬레이터 궤적 GIF (왼쪽 실제, 오른쪽 목표) 와 planned action 을 저장")
     ap.add_argument("--shard", default=None, help="i/N: 같은 n_evals 목표 집합을 만든 뒤 i 번째 조각만 planning (GPU 병렬). merge_shards.py 로 합친다")
     a = ap.parse_args()
+    # CPU 스레드 (2026-10-12): Wall env 는 torch CPU 로 그린다. 조각 8 개가 각자 코어 전부 (128) 를 잡으면 부하 300+ 로
+    #   MPC 회차가 4 분 → 수 시간이 됐다 (CLAUDE.md §7-1 과다구독). OMP_NUM_THREADS 를 안 주면 코어 / 16 (최소 4) 으로 묶는다
+    if not os.environ.get("OMP_NUM_THREADS"):
+        torch.set_num_threads(max(4, (os.cpu_count() or 64) // 16))
     device = torch.device(a.device)
     if a.mem_frac > 0:
         torch.cuda.set_per_process_memory_fraction(a.mem_frac, device)
@@ -329,7 +350,7 @@ def main():
     if env_kind == "wall" and a.goal_source == "dset":
         a.goal_source = "random_state"                            # DINO-WM plan_wall.yaml 기본
     tag = f"{a.run}_{Path(a.ckpt).stem}_gH{a.goal_H}_{a.goal_source}_{a.actions}" + (f"_s{a.samples}o{a.opt_steps}" if a.actions == "plan" else "") \
-          + (f"_n{a.n_evals}" if a.n_evals != 50 else "") + ("_batched" if a.batched else "") + (f"_seed{a.seed}" if a.seed != 99 else "") \
+          + (f"_n{a.n_evals}" if a.n_evals != 50 else "") + ("_batched" if a.batched else "") + ("_l1" if a.distance == "l1" else "") + (f"_seed{a.seed}" if a.seed != 99 else "") \
           + (f"_shard{a.shard.replace('/', 'of')}" if a.shard else "") + (f"_only{a.only.replace(',', '-')}" if a.only else "")
     out = Path(a.out or (ROOT / "z_research/action_planning/exp_results" / tag)); out.mkdir(parents=True, exist_ok=True)
     os.chdir(out)                                                                     # planner 가 logs.json 을 cwd 에 쓴다
@@ -338,6 +359,7 @@ def main():
     assert spec["type"] == env_kind
     fs = wm.fs
     wm.chunk = a.wm_chunk
+    wm.distance = a.distance
     pre = Preproc(stats, wm.res, fs, action_scale=(WallDataset if env_kind == "wall" else PushTDataset).ACTION_SCALE)
     seeds = [a.seed * n + 1 for n in range(a.n_evals)]
     env = make_env(env_kind, a.n_evals)
@@ -366,6 +388,11 @@ def main():
     evaluator = PlanEvaluator(obs_0=obs_0, obs_g=obs_g, state_0=state_0, state_g=state_g, env=env, wm=wm,
                               frameskip=fs, seed=seeds, preprocessor=pre, n_plot_samples=0)
     objective = create_objective_fn(alpha=a.alpha, base=2, mode="last")   # ⚠️ wm.full_return_max 는 mode=last 전제다
+    if a.distance == "l1":                                        # DINO-WM objective_fn_last 와 같고 metric 만 L1 (원판 경로 · evaluator 지표용)
+        def objective(z_pred, z_tgt, _al=a.alpha):
+            lv = (z_pred["visual"][:, -1:] - z_tgt["visual"]).abs().mean(dim=tuple(range(1, z_pred["visual"].ndim)))
+            lp = (z_pred["proprio"][:, -1:] - z_tgt["proprio"]).abs().mean(dim=tuple(range(1, z_pred["proprio"].ndim)))
+            return lv + _al * lp
     wm.full_return_max = max(64, a.n_evals)
     action_dim = 2 * fs
     t0 = time.time()
@@ -381,6 +408,9 @@ def main():
                              action_dim=action_dim, objective_fn=objective, preprocessor=pre, evaluator=evaluator,
                              wandb_run=DummyRun(), log_filename="logs.json")
         planner.sub_planner.horizon = a.goal_H; planner.n_taken_actions = a.goal_H
+        if a.batched:
+            # skip_solved 는 n_taken = horizon 전제 (성공 목표의 남은 plan 이 다음 회차로 안 넘어간다) — 바로 윗줄이 그렇게 고정한다
+            planner.sub_planner.mpc = planner; planner.sub_planner.skip_solved = not a.no_skip_solved
         actions, action_len = planner.plan(obs_0=obs_0, obs_g=obs_g)
     else:
         if a.actions == "gt":
@@ -407,8 +437,16 @@ def main():
                "err_agent_px": err_agent.round(1).tolist(), "err_block_px": err_block.round(1).tolist(), "err_angle_deg": err_angle.round(1).tolist(),
                "successes": successes.astype(int).tolist(), "state_dist": [float(x) for x in ev["state_dist"]],
                "metrics": res, "elapsed_s": round(time.time() - t0, 1), "n_encoder_calls": wm.n_enc_calls,
-               "protocol": "DINO-WM plan_pusht.yaml (CEM horizon=goal_H, MPC n_taken=goal_H); objective visual-only alpha=%g; max_iter=%d" % (a.alpha, a.max_iter)}
+               "protocol": "DINO-WM plan_pusht.yaml (CEM horizon=goal_H, MPC n_taken=goal_H); objective visual-only %s alpha=%g; max_iter=%d" % (a.distance, a.alpha, a.max_iter)}
     json.dump(summary, open("summary.json", "w"), indent=1)
+    # 재생 기록 (2026-10-12, 사용자 지시 "앞으로 할 때는 저장"): 목표별 env action · 초기/목표 상태 · 상태 궤적.
+    #   render_plan_gifs.py 가 이것만으로 시뮬레이터를 다시 돌려 GIF 를 만든다 (planning · GPU 불필요). 목표당 수 KB
+    b_ = actions.shape[0]
+    exec_actions = pre.denormalize_actions(actions.detach().cpu().float().reshape(b_, -1, fs, actions.shape[-1] // fs).flatten(1, 2)).numpy()
+    np.savez_compressed("rollout.npz", eval_index=np.asarray(sel), seeds=np.asarray(seeds), state_0=np.asarray(state_0, np.float64),
+                        state_g=np.asarray(state_g, np.float64), actions_normalized=actions.detach().cpu().float().numpy(),
+                        exec_actions=exec_actions, action_len=np.asarray(action_len, np.float64), successes=successes.astype(np.int8),
+                        e_states=np.asarray(e_states, np.float32), frameskip=fs, env_kind=env_kind)
     if a.gif:
         save_gifs(a, sel, e_obses, obs_g, successes, action_len, fs, actions)
     print(f"[{tag}] success_rate {summary['success_rate']:.3f}  ({a.n_evals} evals, {summary['elapsed_s']} s)  -> {out}/summary.json")

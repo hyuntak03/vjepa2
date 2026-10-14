@@ -1,7 +1,9 @@
 """plan_pusht.py --shard i/N 결과를 합친다.  python z_research/action_planning/merge_shards.py <exp_results 의 tag 접두어 (…_shard 앞까지)>"""
 import glob, json, sys, numpy as np
 pre = sys.argv[1].rstrip("_")
-files = sorted(glob.glob(f"{pre}_shard*of*/summary.json"))
+import re
+files = sorted(f for f in glob.glob(f"{pre}_shard*of*/summary.json")
+               if re.fullmatch(r"_shard\d+of\d+", f[len(pre):].split("/")[0]))   # 2026-10-12: 보관 폴더 (…_shard0of4_stuck…) 는 뺀다
 if not files:
     sys.exit(f"없다: {pre}_shard*of*/summary.json")
 rows = []

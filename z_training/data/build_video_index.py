@@ -56,6 +56,11 @@ SETS = {
         "dur_from_name": r"_clip_\d+_[\d.]+_([\d.]+)\.mp4$",
         "fps_floor": 24,          # 24/25/30 fps 가 섞여 있다. 가장 낮은 fps 기준으로 필요한 초를 계산
     },
+    "ht100m_1pct": {
+        # 2026-10-12: HowTo100M 1 % 층화 부분집합 (HowTo100M/release/README.md). HF (TornadoLabs) 몫 + YouTube 몫, 둘 다 짧은 변 324 재인코딩.
+        "glob": "HowTo100M/*/videos_324/*.mp4",
+        "note": "HowTo100M 1 % (카테고리 × 길이 층화). 24~60 fps, 길이 수 분, 짧은 변 324.",
+    },
 }
 
 

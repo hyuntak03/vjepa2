@@ -24,6 +24,7 @@
 #   SET 값에 dict/list 를 쓸 때는 JSON 식으로 따옴표를 쓴다 (공백 금지, YAML flow 의 {a:b} 는 잘못 읽힌다):
 #     SET='data.datasets=[{"name":"v11_possible","exclude":{"condition":["static_occlusion"]}}]'
 #   DEBUG=1       --debugmode (프로세스 1개)        DRYRUN=1   병합만
+#   DEVICES=      "cuda:3" 처럼 GPU 지정 (기본 cuda:0..GPUS-1). launch.py 가 CUDA_VISIBLE_DEVICES 를 이걸로 덮어쓴다
 #   THREADS=      rank 당 OMP 스레드 (기본 min(12, nproc/GPUS))
 #   TRAIN_DDP_PORT=   지정 시 탐색 생략
 #
@@ -68,7 +69,7 @@ SET_ARGS=()
 for kv in ${SET:-}; do SET_ARGS+=(--set "$kv"); done
 [[ -n "${LIMIT:-}" ]] && SET_ARGS+=(--limit "$LIMIT")
 "$PY" z_training/harness/resolve_train.py "$CONFIG" -o "$CFG" --folder "$FOLDER" "${SET_ARGS[@]}"
-DEVICES=$(for i in $(seq 0 $((GPUS-1))); do echo -n "cuda:$i "; done)
+DEVICES=${DEVICES:-$(for i in $(seq 0 $((GPUS-1))); do echo -n "cuda:$i "; done)}   # DEVICES="cuda:3" 로 GPU 를 고정할 수 있다 (2026-10-15)
 echo "  devices  : $DEVICES (world_size=$GPUS)"
 [[ -f "$FOLDER/latest.pt" ]] && echo "  resume   : $FOLDER/latest.pt 가 있다 -> 이어서 돈다 (새로 시작하려면 다른 NAME)"
 echo "=================================================="

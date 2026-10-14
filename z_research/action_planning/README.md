@@ -81,3 +81,15 @@ GPUS=8 NAME=pusht_ar_postft  bash z_training/sbatch.sh pusht_ar_postft
 python z_training/tests/ar_action_cpu_test.py                    # CPU 정합성
 # planning (학습 후): python z_research/action_planning/plan_pusht.py --run pusht_ar_postft --ckpt latest.pt   (작성 중)
 ```
+
+## ⚠️ 운영 함정 — 평가가 멈춘 것처럼 보일 때 (2026-10-12)
+
+- **CPU 스레드 과다구독.** Wall env 는 torch CPU 로 그린다. 조각 8 개가 각자 코어 전부 (128) 를 잡자 부하 300+ 가 되어
+  MPC 회차가 4 분에서 **수 시간**이 됐다 (04:22 시작한 Wall 평가가 11 시간 동안 GPU 0 %). `plan_pusht.py` 는 이제
+  `OMP_NUM_THREADS` 가 없으면 `torch.set_num_threads(코어 // 16)` 로 묶는다. 스레드 12 로 같은 8 조각이 **24 분**에 끝났다.
+- **성공한 goal 건너뛰기 (`skip_solved`, 기본 켬) 는 원인이 아니었다.** 스레드를 묶은 뒤 Wall 8 goal 로 켜기/끄기가 같은 결과·같은 시간
+  (842 / 831 s), 마지막 chunk 가 새 모양이 되는 회차 (남은 7 goal × 300 = 2,100, chunk 200) 도 다른 회차와 같다 (2 분 28 초).
+- **`python` 출력은 파일로 보내면 버퍼링된다** — 진행은 조각 폴더의 `logs.json` (MPC 회차마다 한 줄) 으로 보거나 `python -u` 로 띄운다.
+  `logs.json` 은 append 라 같은 폴더에 다시 돌리면 앞 run 줄이 남는다 (멈춘 run 폴더는 `*_stuck<날짜>` 로 옮겨 둔다).
+- `merge_shards.py` 는 `<prefix>_shard<i>of<N>` 폴더만 읽는다 (보관 폴더 제외).
+- 재생 기록: 평가마다 조각 폴더에 `rollout.npz` → `render_plan_gifs.py` 로 GPU 없이 GIF.

@@ -16,13 +16,15 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--src", default="z_research/action_planning/figures/gif_2026-10-10")
 ap.add_argument("--scale", type=int, default=2)
 ap.add_argument("--fps", type=float, default=12)
+ap.add_argument("--arms", nargs=2, default=["pusht_ar_postft", "pusht_ar_scratch"], help="왼쪽 · 가운데 팔의 run 이름 (2026-10-12)")
+ap.add_argument("--labels", nargs=2, default=["post-FT (natural-video AR init, lr 5e-5)", "scratch (lr 3e-4)"])
 a = ap.parse_args()
-ARMS = [("pusht_ar_postft", "post-FT (natural-video AR init, lr 5e-5)"), ("pusht_ar_scratch", "scratch (lr 3e-4)")]
+ARMS = list(zip(a.arms, a.labels))
 GREEN, RED = (0, 130, 0), (200, 0, 0)
 
 
 def load(arm, k):
-    f = glob.glob(f"{a.src}/{arm}_goal{k:02d}_*.gif")
+    f = glob.glob(f"{a.src}/{arm}_goal{k:02d}_[SF]*.gif")
     assert len(f) == 1, (arm, k, f)
     ok = "SUCCESS" in f[0]
     fr = iio.imread(f[0])                                   # (n, 258, 454, 3)
@@ -34,7 +36,7 @@ def up(x):
     return np.asarray(Image.fromarray(x).resize((x.shape[1] * a.scale, x.shape[0] * a.scale), Image.NEAREST))
 
 
-goals = sorted({int(m.group(1)) for f in glob.glob(f"{a.src}/pusht_ar_*_goal*.gif") if (m := re.search(r"goal(\d+)_", f))})
+goals = sorted({int(m.group(1)) for f in glob.glob(f"{a.src}/{a.arms[0]}_goal*.gif") if (m := re.search(r"goal(\d+)_", f))})
 per_goal = {}
 for k in goals:
     sims, oks, ns = [], [], []
@@ -56,7 +58,7 @@ for k in goals:
         frames.append(np.asarray(im))
     per_goal[k] = frames
     imageio.mimsave(f"{a.src}/compare_goal{k:02d}.gif", frames, duration=1.0 / a.fps, loop=0)
-    print(f"compare_goal{k:02d}.gif  post-FT {'S' if oks[0] else 'F'}  scratch {'S' if oks[1] else 'F'}  ({T} frames)")
+    print(f"compare_goal{k:02d}.gif  {a.arms[0]} {'S' if oks[0] else 'F'}  {a.arms[1]} {'S' if oks[1] else 'F'}  ({T} frames)")
 
 # 전체 격자 (목표마다 한 줄) — 크기 때문에 scale 1 로 다시 줄인다
 T = max(len(v) for v in per_goal.values())

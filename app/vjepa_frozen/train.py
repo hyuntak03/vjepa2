@@ -67,6 +67,7 @@ def main(args, resume_preempt=False):
     loss_exp = float(L.get("loss_exp", 1.0))
     target_ln = bool(L.get("target_layer_norm", True))
     rollout_steps = int(L.get("rollout_steps", 8))                        # 팔 C: R = min(K, rollout_steps)
+    dyn_weight = float(L.get("dyn_weight", 0.0))                         # 시간 변화량 보조 손실 (2026-10-15). >0 이면 model.predictor.dyn_head 필요
     kind = str((MD.get("predictor") or {}).get("kind", "oneshot"))
     is_ar = kind in ("ar", "ar_state")   # 팔 C (app/vjepa_frozen/ar.py): 문맥·미래 블록별 인코딩 (AC 판). ar_state = 상태 되먹임 (2026-10-10)
     is_ctx_ar = kind == "ctx_ar"    # 팔 C' (2026-09-27): 문맥은 창 단위 z, 미래 GT 만 블록별 LN(h)
@@ -163,7 +164,7 @@ def main(args, resume_preempt=False):
                                    timeout_s=float(D.get("loader_timeout_s", 0)))
     # ── gradient accumulation (2026-10-10): optimization.grad_accum = A. ipe 는 **optimizer step** 수 (scheduler 기준),
     #    loader 는 epoch 마다 ipe × A 개 micro-batch 를 낸다. global batch = rank batch × world_size × A.
-    #    지금은 ar 계열 (train_step_ar) 만 지원한다 — 다른 kind 는 A = 1 이어야 한다.
+    #    ar 계열 (train_step_ar) 과 oneshot 계열 (train_step, 2026-10-12) 이 지원한다 — ctx_ar 는 A = 1 이어야 한다.
     grad_accum = int(O.get("grad_accum", 1))
     if grad_accum < 1:
         raise ValueError("optimization.grad_accum 은 1 이상")
@@ -257,8 +258,8 @@ def main(args, resume_preempt=False):
     sampler.set_epoch(start_epoch)
     loader_it = iter(loader)
     lr_now = wd_now = float("nan")
-    if grad_accum > 1 and not is_ar:
-        raise ValueError("grad_accum > 1 은 kind=ar | ar_state 에서만 구현돼 있다")
+    if grad_accum > 1 and is_ctx_ar:
+        raise ValueError("grad_accum > 1 은 kind=ar | ar_state | oneshot 계열 (train_step) 에서만 구현돼 있다")
     if rank == 0 and grad_accum > 1:
         logger.info(f"grad_accum {grad_accum}: global batch {batch_size} x {world_size} x {grad_accum} = {batch_size * world_size * grad_accum} | "
                     f"optimizer step/epoch {ipe}, micro-batch/epoch {ipe * grad_accum}")
@@ -318,11 +319,14 @@ def main(args, resume_preempt=False):
                     raise ValueError("kind=ar 는 mask.type=prefix_window 만 지원한다 (C·K 블록 수가 필요)")
                 with torch.no_grad(), _ac():
                     h = AR.encode_blocks(tgt_enc, clips.to(enc_dtype), tubelet)                # (B, nb*S, D) LN
+                    pe = AR.patch_embed_blocks(tgt_enc, clips.to(enc_dtype), tubelet) if dyn_weight > 0 else None   # (B, nb*S, D) patch embedding 직후
                 sync_ctx = predictor.no_sync() if (grad_accum > 1 and not do_update and hasattr(predictor, "no_sync")) else nullcontext()
+                dx = {}
                 with sync_ctx:
                     with _ac():
                         loss, jl, sl, R = AR.ar_losses(predictor, h, spatial, int(info["context_blocks"]),
-                                                       int(info["predict_blocks"]), loss_exp, rollout_steps, actions=info.get("actions"))
+                                                       int(info["predict_blocks"]), loss_exp, rollout_steps, actions=info.get("actions"),
+                                                       pe=pe, dyn_weight=dyn_weight, extra=dx)
                     lb = loss / grad_accum
                     if scaler is not None:
                         scaler.scale(lb).backward()
@@ -339,6 +343,8 @@ def main(args, resume_preempt=False):
                         optimizer.step()
                     optimizer.zero_grad(set_to_none=True)
                 aux.update(jloss=float(jl.detach()), sloss=float(sl.detach()), R=R)
+                if dx:
+                    aux.update(dyn_tf=float(dx["dyn_tf"]), dyn_ar=float(dx["dyn_ar"]))
                 return float(loss.detach()), lr_now, wd_now
 
             def train_step_ctx_ar():
@@ -371,8 +377,10 @@ def main(args, resume_preempt=False):
                 return float(loss.detach()), lr_now, wd_now
 
             def train_step():
-                lr_now = scheduler.step()
-                wd_now = wd_scheduler.step()
+                # grad_accum (2026-10-12, oneshot 판 — train_step_ar 와 같은 방식): scheduler 는 묶음 첫 micro, optimizer 는 마지막 micro
+                if first_micro:
+                    lr_hold[0] = scheduler.step(); lr_hold[1] = wd_scheduler.step()
+                lr_now, wd_now = lr_hold
                 with torch.no_grad(), _ac():
                     xe = clips.to(enc_dtype)
                     h = tgt_enc(xe)                                                   # (B, N, D)
@@ -380,21 +388,26 @@ def main(args, resume_preempt=False):
                     if target_ln:
                         h = torch.nn.functional.layer_norm(h, (h.size(-1),))       # affine-free, target 에만
                     z = ctx_enc(xe, masks=[m_enc])                                    # context 토큰만 (B, K, D)
-                with _ac():
-                    p = predictor(z, m_enc, m_pred, mask_index=int(info.get("mask_index", mask_index)))   # (B, M, D); block3d 는 스펙별 mask token
-                loss = (p.float() - h.float()).abs().pow(loss_exp).mean() / loss_exp
-                if scaler is not None:
-                    scaler.scale(loss).backward()
-                    scaler.unscale_(optimizer)
-                else:
-                    loss.backward()
-                if clip_grad:
-                    torch.nn.utils.clip_grad_norm_(pred_mod.parameters(), float(clip_grad))
-                if scaler is not None:
-                    scaler.step(optimizer); scaler.update()
-                else:
-                    optimizer.step()
-                optimizer.zero_grad(set_to_none=True)
+                sync_ctx = predictor.no_sync() if (grad_accum > 1 and not do_update and hasattr(predictor, "no_sync")) else nullcontext()
+                with sync_ctx:
+                    with _ac():
+                        p = predictor(z, m_enc, m_pred, mask_index=int(info.get("mask_index", mask_index)))   # (B, M, D); block3d 는 스펙별 mask token
+                    loss = (p.float() - h.float()).abs().pow(loss_exp).mean() / loss_exp
+                    lb = loss / grad_accum
+                    if scaler is not None:
+                        scaler.scale(lb).backward()
+                    else:
+                        lb.backward()
+                if do_update:
+                    if scaler is not None:
+                        scaler.unscale_(optimizer)
+                    if clip_grad:
+                        torch.nn.utils.clip_grad_norm_(pred_mod.parameters(), float(clip_grad))
+                    if scaler is not None:
+                        scaler.step(optimizer); scaler.update()
+                    else:
+                        optimizer.step()
+                    optimizer.zero_grad(set_to_none=True)
                 return float(loss.detach()), lr_now, wd_now
 
             (loss, lr_now, wd_now), gpu_ms = gpu_timer(train_step_ar if is_ar else (train_step_ctx_ar if is_ctx_ar else train_step))
@@ -407,6 +420,8 @@ def main(args, resume_preempt=False):
             csv_logger.log(epoch + 1, itr, loss, info["context_frames"], lr_now, it_ms, gpu_ms, data_ms)
             if (itr % log_freq == 0) or (itr == ipe * grad_accum - 1) or not np.isfinite(loss):
                 ar_s = (" [tf %.4f ar %.4f R=%d]" % (aux["jloss"], aux["sloss"], aux["R"])) if (is_ar or is_ctx_ar) else ""
+                if "dyn_tf" in aux:
+                    ar_s += " [dyn tf %.4f ar %.4f ×%g]" % (aux["dyn_tf"], aux["dyn_ar"], dyn_weight)
                 logger.info("[%d, %5d] loss %.4f (avg %.4f)%s | mask %s C=%s | lr %.2e wd %.2e | mem %.1fG | iter %.0f ms gpu %.0f ms data %.0f ms"
                             % (epoch + 1, itr, loss, loss_meter.avg, ar_s, info["type"], info["context_frames"], lr_now, wd_now,
                                torch.cuda.max_memory_allocated() / 1024**3, it_meter.avg, gpu_meter.avg, data_meter.avg))
