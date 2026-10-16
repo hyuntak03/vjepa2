@@ -324,8 +324,51 @@ def run_val_ctx_ar(vs: ValSet, ctx_enc, tgt_enc, pred_mod, device, autocast_dtyp
 # 입력과 타깃을 나눈다 — 되먹임이 출력 공간을 안 쓰므로 가능하다:
 #   TF 관측 입력 : target encoder **블록별** LN(h)   (encoder 는 양방향이라 미래 구간을 한 번에 넣으면 블록 t 가 t 뒤를 본다 = 누수)
 #   손실 타깃    : target encoder **창(C+K) 전체** LN(h) 의 미래 블록  (릴리즈 사전학습 · surprise 채점 · in-loop val 과 같은 타깃)
+def make_ctx_hole(B: int, C: int, S: int, cfg: dict, gen: torch.Generator, gen_shape: torch.Generator = None):
+    """문맥 구멍 (2026-10-16, 사용자 결정 — "문맥에 구멍을 내서 채우게", encoding **전에** 낸다 = V-JEPA 2 사전학습과 같다).
+    return (hole (B, C*S) bool, keep (B, n_keep) long) 또는 (None, None). keep = context encoder 가 볼 토큰 (오름차순).
+    cfg = {p, k_max, num_blocks, spatial_scale, aspect}. 기본 = V-JEPA 2 긴 범위 마스크 (70 % 직사각형 2 개, 가로세로 0.75–1.5).
+      * **step 단위**로 확률 p 적용 (batch 안 clip 전부). 구멍 블록 수 k ~ U{1..min(k_max, C-1)} 도 step 공통
+        (보이는 문맥 블록을 최소 하나 남긴다 — ZWM 의 대칭 마스킹 ablation 교훈. C < 2 면 구멍 없음)
+      * 구멍 = **문맥 끝** 블록 C-k..C-1 (AR 이 마지막 1–2 블록만 보는 것 · late 가림 위치). 공간은 clip 마다 다른 직사각형,
+        k 블록 내내 같은 자리 (**tube** — 블록마다 다르면 옆 블록 같은 자리에서 베낀다)
+      * encoder 입력 길이를 batch 안에서 맞추려고 (V-JEPA 2 collator 와 같다) 보이는 토큰 수를 batch 최소로 자른다 —
+        더 가리는 토큰은 **구멍 블록 안의 보이는 자리**에서 먼저 고른다 (앞쪽 문맥 블록은 되도록 그대로)"""
+    kmax = min(int(cfg.get("k_max", 4)), C - 1)
+    if kmax < 1 or float(torch.rand(1, generator=gen)) >= float(cfg.get("p", 0.75)):
+        return None, None
+    k = int(torch.randint(1, kmax + 1, (1,), generator=gen))
+    gen = gen if gen_shape is None else gen_shape            # 적용 여부 · k 는 gen (rank 공통), 직사각형 · 길이 맞춤은 gen_shape (rank 별)
+    g = int(round(S ** 0.5))
+    nblk, sc = int(cfg.get("num_blocks", 2)), float(cfg.get("spatial_scale", 0.7))
+    lo, hi = cfg.get("aspect", [0.75, 1.5])
+    hole = torch.zeros(B, C, S, dtype=torch.bool)
+    for i in range(B):
+        sp = torch.zeros(g, g, dtype=torch.bool)
+        for _ in range(nblk):
+            ar_ = float(torch.empty(1).uniform_(float(lo), float(hi), generator=gen))
+            area = sc * g * g
+            hh = max(1, min(g, int(round((area / ar_) ** 0.5)))); ww = max(1, min(g, int(round((area * ar_) ** 0.5))))
+            t = int(torch.randint(0, g - hh + 1, (1,), generator=gen)); l_ = int(torch.randint(0, g - ww + 1, (1,), generator=gen))
+            sp[t:t + hh, l_:l_ + ww] = True
+        hole[i, C - k:] = sp.view(1, S)
+    hole = hole.view(B, C * S)
+    n_keep = int((~hole).sum(1).min())
+    for i in range(B):
+        extra = int((~hole[i]).sum()) - n_keep
+        if extra > 0:
+            vis = (~hole[i]).nonzero().flatten()
+            in_k = vis[vis >= (C - k) * S]                       # 구멍 블록 안의 보이는 자리부터
+            pool = in_k if in_k.numel() >= extra else vis
+            pick = pool[torch.randperm(pool.numel(), generator=gen)[:extra]]
+            hole[i, pick] = True
+    keep = torch.stack([(~hole[i]).nonzero().flatten() for i in range(B)])
+    return hole, keep
+
+
 def ctx_state_losses(predictor, z_ctx, h_obs, tgt, S: int, C: int, K: int, loss_exp: float, rollout_steps: int,
-                     tf_weight: float = 1.0):
+                     tf_weight: float = 1.0, hole=None, tgt_ctx=None,
+                     recon_weight: float = 0.0, aux: dict = None):
     """z_ctx (B, C*S, D), h_obs (B, K*S, D) 블록별 LN(h) 또는 None (tf_weight=0), tgt (B, K*S, D) 창 LN(h) 의 미래 블록.
     loss = tf_weight * jloss + sloss. return (loss, jloss, sloss, R) — TF 를 끄면 jloss 는 0."""
     B = z_ctx.size(0)
@@ -335,12 +378,27 @@ def ctx_state_losses(predictor, z_ctx, h_obs, tgt, S: int, C: int, K: int, loss_
                          f"tgt {tuple(tgt.shape)} C={C} K={K} tf_weight={tf_weight}")
     R = max(1, min(int(K), int(rollout_steps)))
     idx = block_indices(B, C + K, S, z_ctx.device)
-    p_tf, p_ar = predictor(z_ctx, ar={"h_obs": h_obs if use_tf else None, "idx": idx, "n_ctx_blocks": C, "rollout_steps": R})
+    recon = hole is not None and float(recon_weight) > 0
+    arg = {"h_obs": h_obs if use_tf else None, "idx": idx, "n_ctx_blocks": C, "rollout_steps": R}
+    if hole is not None:                                      # 2026-10-16 문맥 구멍 (z 는 그 자리에 0, 입력은 mask token)
+        arg["ctx_hole"] = hole
+        arg["ctx_recon"] = recon
+    out = predictor(z_ctx, ar=arg)
+    p_tf, p_ar = out[0], out[1]
     sloss = l1(p_ar, tgt[:, : R * S], loss_exp)
     if not use_tf:
         return sloss, sloss.new_zeros(()), sloss, R
     jloss = l1(p_tf, tgt, loss_exp)
-    return float(tf_weight) * jloss + sloss, jloss, sloss, R
+    loss = float(tf_weight) * jloss + sloss
+    if recon:                                                 # 가려진 문맥 토큰만: |render(상태) − 타깃 (창 LN(h) 의 문맥 자리)|
+        d = (out[2].float() - tgt_ctx.float()).abs().pow(loss_exp).mean(dim=-1) / loss_exp    # (B, C*S)
+        rloss = (d * hole).sum() / hole.sum().clamp(min=1)
+        loss = loss + float(recon_weight) * rloss
+        if aux is not None:
+            aux["rloss"] = float(rloss.detach())
+    if aux is not None and hole is not None:
+        aux["hole_frac"] = float(hole.float().mean())
+    return loss, jloss, sloss, R
 
 
 @torch.no_grad()

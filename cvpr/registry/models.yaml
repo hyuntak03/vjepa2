@@ -292,6 +292,11 @@ vast_ar_vw_state_vob:             # 상태 되먹임 + VOBench 학습 split 10 %
   predictor_checkpoint: ${CVPR_REPO}/z_training/runs/natural_ar_vw_state_vob/latest.pt
   predictor.kind: ar
   predictor.ar_feedback: state
+vast_ar_vw_state_op:              # 상태 되먹임 + object_permanence 경계 정렬 창 10 % (op320), 2026-10-16
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/natural_ar_vw_state_op/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
 vast_ar_vw_state_ctxt_video:      # 문맥 = 창 단위 encoder, 예측 구간 블록별 TF + 상태 rollout (kind=ctx_state, 타깃 블록별), 2026-10-16
   base: vith
   predictor_checkpoint: ${CVPR_REPO}/z_training/runs/natural_ar_vw_state_ctxt_video/latest.pt

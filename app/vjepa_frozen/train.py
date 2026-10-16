@@ -84,6 +84,7 @@ def main(args, resume_preempt=False):
     rollout_steps = int(L.get("rollout_steps", 8))                        # 팔 C: R = min(K, rollout_steps)
     tf_weight = float(L.get("tf_weight", 1.0))                           # ctx_state: 0 이면 TF(블록별 관측 인코딩 + TF 패스) 생략
     delta_weight = float(L.get("delta_weight", 0.0))                    # 차이 L1 (2026-10-13, kind=ar 전용)
+    CTX_HOLE = L.get("ctx_hole")                                         # 문맥 구멍 (2026-10-16, kind=ctx_state 전용). 없으면 꺼짐
     dyn_weight = float(L.get("dyn_weight", 0.0))                        # 움직임 크기 손실 (2026-10-14, kind=ar 전용, predictor.dyn_head 필요)
     tf_span = str(L.get("tf_span", "all"))                              # TF 손실 범위 (2026-10-15): all | predict (kind=ar 전용)
     HINT = cfg.get("hint")                                               # 힌트 일정 (2026-10-11, kind=ar + hint_cross_dim 전용). 없으면 꺼짐
@@ -98,6 +99,9 @@ def main(args, resume_preempt=False):
         raise ValueError(f"model.predictor.ctx_target 는 window | block: {ctx_target!r}")
     if ctx_target != "window" and not is_ctx_state:
         raise ValueError("model.predictor.ctx_target 는 kind=ctx_state 전용")
+    if CTX_HOLE and not (is_ctx_state and ctx_target == "window" and tf_weight > 0):
+        # kind=ar (블록 단위 인코딩) 에 encoding 뒤 구멍을 내면 같은 블록의 보이는 토큰이 가린 자리를 이미 본 뒤라 누수다 → 안 받는다
+        raise ValueError("loss.ctx_hole 은 kind=ctx_state + ctx_target=window + tf_weight>0 전용 (구멍은 context encoder 입력 전에 낸다)")
     if dyn_weight and not (is_ar and (MD.get("predictor") or {}).get("dyn_head")):
         raise ValueError("loss.dyn_weight 는 kind=ar + model.predictor.dyn_head: true 에서만 쓴다")
     if delta_weight and not is_ar:
@@ -482,19 +486,33 @@ def main(args, resume_preempt=False):
                 if "context_blocks" not in info:
                     raise ValueError("kind=ctx_state 는 mask.type=prefix_window 만 지원한다")
                 C_, K_ = int(info["context_blocks"]), int(info["predict_blocks"])
+                hole = keep = None
+                if CTX_HOLE:   # 적용 여부 · k = (seed, step) 전용 생성기 (rank 공통 → step 시간 균형), 직사각형 = (seed, step, rank) 생성기 (rank 마다 다른 구멍)
+                    gh = torch.Generator().manual_seed(int(seed) * 10**9 + int(step) * 1000 + 17)
+                    gs = torch.Generator().manual_seed(int(seed) * 10**9 + int(step) * 1000 + 17 + 100 * (int(rank) + 1))
+                    hole, keep = AR.make_ctx_hole(clips.size(0), C_, spatial, CTX_HOLE, gh, gs)
                 with torch.no_grad(), _ac():
                     xe = clips.to(enc_dtype)
-                    z = ctx_enc(xe, masks=[m_enc])                                              # (B, C*S, D) 문맥 z
+                    if hole is None:
+                        z = ctx_enc(xe, masks=[m_enc])                                          # (B, C*S, D) 문맥 z
+                    else:      # 2026-10-16: encoder 는 보이는 토큰만 본다 (V-JEPA 2 사전학습과 같다). 가린 자리 z = 0 (predictor 가 mask token 으로 바꾼다)
+                        hole, keep = hole.to(xe.device), keep.to(xe.device)
+                        zk = ctx_enc(xe, masks=[keep])                                          # (B, n_keep, D)
+                        z = zk.new_zeros(zk.size(0), C_ * spatial, zk.size(-1))
+                        z.scatter_(1, keep.unsqueeze(-1).expand(-1, -1, zk.size(-1)), zk)
+                    tgt_ctx = None
                     if ctx_target == "block":                                                    # 2026-10-16: 타깃 = TF 관측과 같은 블록별 LN
                         tgt = AR.encode_blocks(tgt_enc, xe[:, :, C_ * tubelet:], tubelet)        # (B, K*S, D)
                         h_obs = tgt if tf_weight > 0 else None
                     else:
                         h_obs = (AR.encode_blocks(tgt_enc, xe[:, :, C_ * tubelet:], tubelet)     # (B, K*S, D) 블록별 LN (TF 관측)
                                  if tf_weight > 0 else None)
-                        tgt = torch.nn.functional.layer_norm(tgt_enc(xe), (z.size(-1),))[:, C_ * spatial:]       # (B, K*S, D) 창 LN (타깃)
+                        tgt_all = torch.nn.functional.layer_norm(tgt_enc(xe), (z.size(-1),))                    # 창 LN
+                        tgt, tgt_ctx = tgt_all[:, C_ * spatial:], tgt_all[:, : C_ * spatial]                     # (B, K*S, D) 타깃 · 문맥 자리 (구멍 복원)
                 with _ac():
                     loss, jl, sl, R = AR.ctx_state_losses(predictor, z, h_obs, tgt, spatial, C_, K_, loss_exp, rollout_steps,
-                                                          tf_weight)
+                                                          tf_weight, hole=hole, tgt_ctx=tgt_ctx,
+                                                          recon_weight=float((CTX_HOLE or {}).get("recon_weight", 1.0)), aux=aux)
                 if scaler is not None:
                     scaler.scale(loss).backward()
                     scaler.unscale_(optimizer)
@@ -584,6 +602,8 @@ def main(args, resume_preempt=False):
                     ar_s += " dl %.4f" % aux.get("dloss", 0.0)
                 if dyn_weight:
                     ar_s += " dyn %.4f" % aux.get("dyn", 0.0)
+                if CTX_HOLE:   # 2026-10-16: 이 step 의 구멍 비율 (문맥 토큰 중) · 가려진 문맥 토큰 복원 손실 (구멍 없는 step 은 0)
+                    ar_s += " hole %.2f rec %.4f" % (aux.pop("hole_frac", 0.0), aux.pop("rloss", 0.0))
                 logger.info("[%d, %5d] loss %.4f (avg %.4f)%s | mask %s C=%s | lr %.2e wd %.2e | mem %.1fG | iter %.0f ms gpu %.0f ms data %.0f ms"
                             % (epoch + 1, itr, loss, loss_meter.avg, ar_s, info["type"], info["context_frames"], lr_now, wd_now,
                                torch.cuda.max_memory_allocated() / 1024**3, it_meter.avg, gpu_meter.avg, data_meter.avg))

@@ -268,12 +268,20 @@ class VisionTransformerPredictorPrefix(nn.Module):
             S = self.tokens_per_block
             idx, C, R = ar["idx"], int(ar["n_ctx_blocks"]), int(ar["rollout_steps"])
             # h_obs 가 None 이면 TF 를 건너뛴다 (loss.tf_weight = 0). rollout 은 KV 캐시판 (결과는 rollout_state 와 같다)
-            p_tf = None
+            # 2026-10-16 문맥 구멍: ar["ctx_hole"] (B, C*S) bool — 그 자리 z 는 encoder 가 보지 않았다 (mask token 으로 채운다).
+            #   ar["ctx_recon"] 이면 문맥 자리 출력 render(상태) 도 돌려준다 (가려진 문맥 토큰 복원 손실용, V-JEPA 2 목적)
+            hole, recon = ar.get("ctx_hole"), bool(ar.get("ctx_recon", False))
+            p_tf, p_ctx = None, None
             if ar.get("h_obs") is not None:
-                h_tf = self.forward_state(x, self.embed_obs(ar["h_obs"][:, :-S]), idx[:, : idx.size(1) - S], C)
+                out = self.forward_state(x, self.embed_obs(ar["h_obs"][:, :-S]), idx[:, : idx.size(1) - S], C,
+                                         hole=hole, return_ctx=recon)
+                h_tf, h_ctx = out if recon else (out, None)
                 p_tf = self.render(h_tf)                                               # 블록 C..C+K-1 예측 (K 블록)
-            p_ar = self.render(self.rollout_state_kv(x, idx[:, : C * S], R))
-            return p_tf, p_ar
+                p_ctx = None if h_ctx is None else self.render(h_ctx)
+            elif recon:
+                raise ValueError("ctx_recon 은 TF (h_obs) 가 있어야 한다")
+            p_ar = self.render(self.rollout_state_kv(x, idx[:, : C * S], R, hole=hole))
+            return (p_tf, p_ar, p_ctx) if recon else (p_tf, p_ar)
         if ar is not None and self.mask_mode == "ctx_ar":
             # ar={"h_fut": (B, K*S, D) 블록별 LN(h) 미래 GT, "idx": (B, (C+K)*S), "n_ctx_blocks": C, "rollout_steps": R}
             S = self.tokens_per_block
@@ -482,17 +490,27 @@ class VisionTransformerPredictorPrefix(nn.Module):
         """상태 (B, n, predictor_dim, predictor_norm 뒤) -> encoder 공간 LN (B, n, out). 손실·채점은 여기서."""
         return torch.nn.functional.layer_norm(self.predictor_proj(s), (self.predictor_proj.out_features,))
 
-    def forward_state(self, z_ctx, fut_tok, idx, n_ctx_blocks):
+    def _embed_ctx(self, z_ctx, hole=None):
+        """문맥 z -> predictor 공간 + type[0]. hole (B, C*S) bool 자리는 mask_tokens[0] (2026-10-16 문맥 구멍 — z 가 없는 자리).
+        ctx_state 는 원래 mask token 을 안 쓴다 → 새 파라미터 없음, 기존 체크포인트 · 채점 (구멍 없음) 은 그대로."""
+        x = self.predictor_embed(z_ctx)
+        if hole is not None:
+            x = torch.where(hole.unsqueeze(-1), self.mask_tokens[0].to(x.dtype).expand_as(x), x)
+        return x + self.type_embed[0]
+
+    def forward_state(self, z_ctx, fut_tok, idx, n_ctx_blocks, hole=None, return_ctx=False):
         """z_ctx (B, C*S, embed_dim), fut_tok (B, F*S, predictor_dim) 이미 임베딩된 미래 토큰 (관측 또는 상태, F >= 0),
         idx (B, (C+F)*S). return 상태 (B, (F+1)*S, predictor_dim) = predictor_norm 출력:
         [위치 C-1 = 블록 C 의 상태 ; 미래 위치 C..C+F-1 = 블록 C+1..C+F 의 상태]."""
         S, C = self.tokens_per_block, int(n_ctx_blocks)
         F_ = fut_tok.size(1) // S
-        x = self.predictor_embed(z_ctx) + self.type_embed[0]
+        x = self._embed_ctx(z_ctx, hole)
         if F_ > 0:
             x = torch.cat([x, fut_tok], dim=1)
         spec = PrefixSpec(C, F_, S, future_causal=True)
         h = self._run_blocks(x, idx, spec)
+        if return_ctx:      # 문맥 자리 상태도 (문맥끼리 양방향이라 가려진 자리 = 보이는 문맥에서 추정한 값)
+            return self.predictor_norm(h[:, (C - 1) * S:]), self.predictor_norm(h[:, : C * S])
         return self.predictor_norm(h[:, (C - 1) * S:])
 
     def rollout_state(self, z_ctx, idx_ctx, n_steps, first=None):
@@ -515,7 +533,7 @@ class VisionTransformerPredictorPrefix(nn.Module):
         return torch.cat(states, dim=1)
 
 
-    def rollout_state_kv(self, z_ctx, idx_ctx, n_steps):
+    def rollout_state_kv(self, z_ctx, idx_ctx, n_steps, hole=None):
         """rollout_state 의 **KV 캐시판** (2026-09-30). 결과·gradient 가 같다 (tests: z_training/harness 의 검증 참고):
         문맥은 미래를 안 보고 (문맥끼리 양방향), 미래는 block-causal 이라 이미 계산한 토큰의 층별 (k, v) 가
         뒤에 블록을 붙여도 안 변한다. 그래서 문맥을 한 번 prefill 하고, 걸음마다 **새 블록 S 토큰만** 계산한다.
@@ -523,7 +541,7 @@ class VisionTransformerPredictorPrefix(nn.Module):
         ⚠️ activation checkpointing 은 이 경로에서 안 쓴다 (새 블록 활성값만 쌓여 메모리가 작다).
         return 상태 (B, n_steps*S, predictor_dim)."""
         S, Hg, Wg = self.tokens_per_block, self.grid_height, self.grid_width
-        h = self.predictor_embed(z_ctx) + self.type_embed[0]
+        h = self._embed_ctx(z_ctx, hole)
         caches = []
         for blk in self.predictor_blocks:                                       # prefill: 문맥끼리만
             h, kv = blk.forward_kv(h, idx_ctx, Hg, Wg, None)

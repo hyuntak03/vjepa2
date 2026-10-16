@@ -71,7 +71,7 @@ else:
     print(" (아직 step 로그 없음)")
 
 tl = os.path.join(D, "train.log")
-pat = re.compile(r"\] loss ([\d.]+) \(avg [\d.]+\) \[tf ([\d.]+) ar ([\d.]+) R=(\d+)\](?: hint (\d+))?(?: dl [\d.]+)?(?: dyn [\d.]+)? \| mask var C(\d+)K(\d+) (\w+) B(\d+)")
+pat = re.compile(r"\] loss ([\d.]+) \(avg [\d.]+\) \[tf ([\d.]+) ar ([\d.]+) R=(\d+)\](?: hint (\d+))?(?: dl [\d.]+)?(?: dyn [\d.]+)?(?: hole [\d.]+ rec [\d.]+)? \| mask var C(\d+)K(\d+) (\w+) B(\d+)")
 pat_ms = re.compile(r"\] loss ([\d.]+) \(avg [\d.]+\) \[tf ([\d.]+) ar ([\d.]+) R=(\d+)\] \| mask ms W(\d+) (\w+) B(\d+) s([\d-]+)")   # multistart (10-14)
 seen = []
 if os.path.isfile(tl):
@@ -128,10 +128,10 @@ if os.path.isfile(tl):      # 데이터별 step 수 (op320 · vob 같은 고정/
     if cnt:
         tot = sum(cnt.values())
         print(" 데이터별 step  " + "  ".join(f"{k} {v:,} ({100 * v / tot:.1f}%)" for k, v in cnt.most_common()))
-for ch in ("chain_ctxt", "chain_ar"):        # 지금 도는 chain 이 있으면 그것만, 없으면 가장 최근 로그
+for ch in ("chain_hole", "chain_ctxt", "chain_ar"):        # 지금 도는 chain 이 있으면 그것만, 없으면 가장 최근 로그
     cl = os.path.join(ROOT, f"z_training/logs/{ch}.log")
     alive = subprocess.run(["tmux", "has-session", "-t", f"={ch}"], capture_output=True).returncode == 0
-    if not alive and ch == "chain_ctxt" and not os.path.isfile(cl):
+    if not alive and ch in ("chain_hole", "chain_ctxt") and not os.path.isfile(cl):
         continue
     lines = open(cl).read().strip().splitlines() if os.path.isfile(cl) and os.path.getsize(cl) else ["(로그 없음)"]
     print(f" {B}{ch}{N} {'살아 있음' if alive else '세션 없음'}")

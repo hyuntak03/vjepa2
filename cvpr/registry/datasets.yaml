@@ -515,6 +515,22 @@ vobench_v1:                       # 2026-10-10. UE 5.4 TestBed, 720 block × 4 a
   type_column: condition            # <objset>/<violation>/<occlusion>
   engine: wma
   legacy_results_root: ${CVPR_REPO}/z_research/VOBench_v1/exp_results
+vobench_v1_late:                  # 2026-10-16 vast: vobench_v1 의 occlusion=late 만 (216 block × 4 arm = 864). index = vobench_v1 index.csv 를 occlusion==late 로 거른 것. 채점 규약 같음
+  raw_frames: 96
+  cache_tag: vobench_v1_late
+  root: ${CVPR_DATA_CSV}/vobench_v1_late   # z_research/scripts/data/build_vobench_index.py
+  index_csv: index.csv
+  frames_root: ${CVPR_VOBENCH}
+  frames_pattern: '{file_name}/{frame:06d}.png'
+  frames_start: 0
+  frames_stride: 3
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: condition            # <objset>/<violation>/<occlusion>
+  engine: wma
+  legacy_results_root: ${CVPR_REPO}/z_research/VOBench_v1/exp_results
 vobench_v1_asymmetry:             # 2026-10-10. late 만 864 arm, 창을 k 샘플 (원본 3k) 밀어 가림이 문맥 끝에서 끝난다. 불가능 arm 문맥 = 가능 arm 프레임 링크. 창 c16t28 로 쓴다
   raw_frames: 87
   cache_tag: vobench_v1_asymmetry

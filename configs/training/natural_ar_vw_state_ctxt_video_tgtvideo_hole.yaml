@@ -1,0 +1,32 @@
+# =============================================================================
+# ctxt_video_tgtvideo + **문맥 구멍** (2026-10-16, 사용자 결정 — "문맥에 구멍을 내서 채우게, 공격적으로") — 처음부터 (scratch)
+#
+#   GPUS=8 bash z_training/tmux_train.sh natural_ar_vw_state_ctxt_video_tgtvideo_hole
+#
+# 바탕 = natural_ar_vw_state_ctxt_video_tgtvideo (문맥 = encoder 영상, 타깃 = 창 영상 LN(h), TF 입력 = 예측 구간 블록별, 상태 rollout,
+#        샘플링 = ctxt_video: C · K {4,8,16,32} 장, k710 0.65 : ssv2 0.60 : how 1.00 → 본 프레임 33 / 10 / 57 %, 릴리즈 비율.
+#        AR 의 38 / 20 / 42 % 와 다르다). 비교 대상은 tgtvideo (다른 서버) — 구멍 하나만 다르다
+# 바뀐 것 = loss.ctx_hole:
+#   * **encoding 전에** 구멍을 낸다 — context encoder 는 보이는 문맥 토큰만 본다 (V-JEPA 2 사전학습과 같다. encoding 뒤에 가리면
+#     같은 창의 보이는 토큰이 가린 자리를 이미 본 뒤라 누수다). predictor 는 가린 자리를 mask_tokens[0] 으로 채운다 (새 파라미터 없음)
+#   * step 의 75 % 에 적용 (batch 전체). 구멍 = **문맥 끝 k 블록**, k ~ U{1..min(4, C-1)} (보이는 문맥 블록 최소 하나)
+#   * 공간 = V-JEPA 2 긴 범위 tube (70 % 직사각형 2 개, 가로세로 0.75–1.5, k 블록 내내 같은 자리). batch 안 길이 맞춤으로
+#     더 가리는 토큰은 구멍 블록 안에서 → 구멍 블록당 평균 약 90 %
+#   * 손실 = TF + rollout (그대로) + recon_weight · L1(가린 문맥 자리의 predictor 출력, 창 LN(h) 의 그 자리) — V-JEPA 2 목적
+# 왜: AR 은 마지막 1–2 블록만 본다 · late 가림에서 가려진 마지막 블록을 본다. 문맥 끝을 가려 먼 블록에서 가져오게 한다.
+#     블록마다 무작위 구멍은 옆 블록에서 베끼면 끝이라 tube. ZWM (Aw et al. 2026): 문맥까지 가린 대칭 마스킹이 나빴다 → 보이는 블록을 남긴다
+# ⚠️ 가정 (미검증): 인공 구멍으로 배운 "먼 블록 보기" 가 진짜 가림 (VOBench late) 으로 옮겨 간다. 공격적으로 걸어 안 되면 접는다.
+#    미리 적어 둔 판정 (tgtvideo 대비) — 됨: VOBench late ↑ · 앞쪽 블록 attention ↑ · visible / IntPhys1 유지 /
+#    attention 만 ↑: 먼 블록은 보지만 가림으로 안 옮겨 감 / 둘 다 그대로: 접는다
+# 비용: tgtvideo 와 거의 같다 (문맥 토큰이 줄어 encoder 가 조금 싸진다). tgtvideo 는 encoder ×1.8–2.4 → 학습 약 13–16 h (미측정)
+# =============================================================================
+extends: natural_ar_vw_state_ctxt_video_tgtvideo
+
+loss:
+  ctx_hole:
+    p: 0.75
+    k_max: 4
+    num_blocks: 2
+    spatial_scale: 0.7
+    aspect: [0.75, 1.5]
+    recon_weight: 1.0
