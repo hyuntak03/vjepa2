@@ -1,0 +1,27 @@
+# =============================================================================
+# natural_ar_vw_state + VOBench 학습 split (2026-10-15, 사용자 결정) — 처음부터 (scratch)
+#
+#   GPUS=8 bash z_training/tmux_train.sh natural_ar_vw_state_vob
+#
+# 바뀐 것 하나: step 의 10 % (별도 난수 seed-fixed-step) 를 VOBench 학습 split 의 **고정 창** 으로 채운다.
+#   * 데이터: VOBench 본판 · gravity 를 (물체 모양, 배경) 조합으로 나눈 학습 쪽 **가능 arm 만** (본판 pos_a · pos_b 832 + gravity pos 144 = 976 clip)
+#     held-out = primitive v11 {cone, torus} · assets {cube, capsule} / realistic v11 {car, tennis_ball} · assets {bus, apple}
+#     (z_research/scripts/data/build_vobench_heldout.py → data_csv/vobench_v1{,_gravity}_heldout/)
+#   * 창 = 평가와 같은 프레임: 원본 30 fps PNG 에서 0, 3, …, 93 (32 장 = 영상 전체). **문맥 길이 C 는 step 마다 무작위 4–12 블록**
+#     (8–24 장, 사용자 결정 10-15) — 가림이 경계 앞뒤 여러 위치에 걸린다. 평가 조건 (C 8 블록, 경계 원본 48) 은 그 중 하나
+#   * 나머지 90 % step 은 natural_ar_vw_state 와 같은 계획 · 같은 데이터 (같은 seed) — 그 step 들끼리는 batch 가 같다
+# 평가는 held-out block 만 (cvpr 레지스트리 vobench_v1_heldout · vobench_v1_gravity_heldout)
+# ⚠️ 시간 척도: VOBench 고정 창은 stride 3 @ 30 fps (블록 0.2 s), 자연 영상은 fps 4 (블록 0.5 s) — 평가와 맞추려고 그대로 둔다
+# ⚠️ 976 clip 을 약 2,058 step × 232 = 약 48 만 번 본다 (clip 당 약 490 회) — 외우기 쉽다. held-out 조합 결과로만 읽는다
+# =============================================================================
+extends: natural_ar_vw_state
+
+data:
+  var_window:
+    fixed:
+      p: 0.10
+      sources:
+        - {name: vob, list: "${DATA_CSV}/vobench_v1_heldout/train_pos.csv", frames_root: /workspace/dataset/benchmarks/VOBench_v1,
+           start: 0, stride: 3, n_frames: 32, context_frames: [8, 10, 12, 14, 16, 18, 20, 22, 24]}
+        - {name: vobgrav, list: "${DATA_CSV}/vobench_v1_gravity_heldout/train_pos.csv", frames_root: /workspace/dataset/benchmarks/VOBench_v1/gravity,
+           start: 0, stride: 3, n_frames: 32, context_frames: [8, 10, 12, 14, 16, 18, 20, 22, 24]}

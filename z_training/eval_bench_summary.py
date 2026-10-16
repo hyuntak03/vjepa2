@@ -34,7 +34,7 @@ if best:
 cols = {}
 for d in sorted(glob.glob(os.path.join(E, f"intphys2_main_{stem}_w*"))):
     f = os.path.join(d, "summary.json")
-    w = d.rsplit("_", 1)[-1]
+    w = re.search(r"_(w\d+)(?:_vb\d+)?$", d).group(1) + ("" if "_vb" not in os.path.basename(d) else " (" + d.rsplit("_", 1)[-1] + ")")
     if not os.path.isfile(f):
         print(f"IntPhys2 {w}: summary 없음"); continue
     s = json.load(open(f))

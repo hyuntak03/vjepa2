@@ -21,12 +21,14 @@ RUN=${1:?"사용법: eval_bench.sh <run> [ckpt]"}; CKPT=${2:-latest.pt}
 RUN=$(cd "$RUN" && pwd); CK="$RUN/$CKPT"; STEM=${CKPT%.pt}
 [[ -f "$CK" ]] || { echo "ERROR: $CK 가 없다"; exit 1; }
 GPUS=${GPUS:-8}
-WINDOWS_I1=${WINDOWS_I1:-"32 16"}
-WINDOWS_I2=${WINDOWS_I2:-"16 32 48"}
+WINDOWS_I1=${WINDOWS_I1-"32 16"}          # 빈 문자열이면 IntPhys1 건너뜀
+WINDOWS_I2=${WINDOWS_I2-"16 32 48"}
+VIDEO_BATCH=${VIDEO_BATCH:-1}     # IntPhys 2 영상 묶음. >1 이면 빠르지만 fp16 순서가 바뀌어 정확도가 ±0.5pt 흔들린다 (보고 기준은 1)
+WIN_BATCH_SCALE=${WIN_BATCH_SCALE:-1}
 KIND_SET=$("$PY" - "$RUN/config.yaml" <<'PY'
 import yaml, sys
 pc = (yaml.safe_load(open(sys.argv[1])).get("model") or {}).get("predictor") or {}
-print(" ".join(f"model.predictor.{k}={pc[k]}" for k in ("kind", "n_registers", "ar_feedback") if k in pc))
+print(" ".join(f"model.predictor.{k}={pc[k]}" for k in ("kind", "n_registers", "ar_feedback", "ctx_target") if k in pc))   # ctx_target: 2026-10-16 (빠져서 ctx_state 를 창 타깃으로 잘못 채점했다)
 PY
 )
 LOGD="$RUN/eval/logs"; mkdir -p "$LOGD"
@@ -48,17 +50,18 @@ done
 I2SET=()
 for kv in $KIND_SET; do I2SET+=(--set "$kv"); done
 for w in $WINDOWS_I2; do
-  tag="intphys2_main_${STEM}_w$w"
+  tag="intphys2_main_${STEM}_w$w"; [[ $VIDEO_BATCH != 1 ]] && tag="${tag}_vb$VIDEO_BATCH"
   [[ -f "$RUN/eval/$tag/summary.json" ]] && { say "IntPhys2 w$w 이미 있음"; continue; }
   C=$("$PY" -c "print([int($w*f) for f in (0.25,0.375,0.5,0.625,0.75,0.875)])")
   case $w in 16) b=32 ;; 32) b=24 ;; *) b=16 ;; esac
+  b=$(( b * WIN_BATCH_SCALE ))
   say "IntPhys2 w$w 시작 (C=$C)"
   PYTHONPATH=$VJEPA2_ROOT "$(dirname "$PY")/torchrun" --nproc-per-node=$GPUS --master_port=$((24000 + RANDOM % 10000)) \
     -m analysis.intphys2.eval --config analysis/intphys2/configs/bench_intphys2_main_vith.yaml \
       --set tag=$tag --set folder="$RUN/eval" \
       --set model.predictor_checkpoint="$CK" "${I2SET[@]}" \
       --set surprise.window_size=$w --set "surprise.context_length_sweep=$C" \
-      --set surprise.context_length=$((w/2)) --set surprise.max_window_batch=$b --set surprise.video_batch=1 \
+      --set surprise.context_length=$((w/2)) --set surprise.max_window_batch=$b --set surprise.video_batch=$VIDEO_BATCH \
     > "$LOGD/intphys2_${STEM}_w$w.log" 2>&1 \
     && say "  완료" || say "  !! 실패 — $LOGD/intphys2_${STEM}_w$w.log"
 done

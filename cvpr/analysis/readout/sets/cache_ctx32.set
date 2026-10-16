@@ -1,0 +1,6 @@
+# z = context encoder 가 32 frames 전부를 본 특징 (isolated_ctx_0_32.npy) — 옛 재현의 SET="$CX". TAG 는 config.yaml 이 <cache_tag>_ctx32_<model> 로 준다.
+probing.fit_groups_sweep=[null]
+probing.optims.attn_30.num_epochs=1
+probing.targets.color=null
+probing.targets.env=null
+probing.runs=[{"train":{"model":"context","input":"window","frames":[1,32]},"eval":["self"]}]

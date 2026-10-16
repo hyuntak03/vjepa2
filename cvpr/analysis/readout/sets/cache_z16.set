@@ -1,0 +1,6 @@
+# z16 = context encoder 문맥 16 frames (ctx_masked.npy, LN) — 옛 재현 §4-4 의 z16 캐시. TAG 는 <cache_tag>_z16_<model>.
+probing.fit_groups_sweep=[null]
+probing.optims.attn_30.num_epochs=1
+probing.targets.color=null
+probing.targets.env=null
+probing.runs=[{"train":{"model":"context","input":"full","frames":[1,16]},"eval":["self"]}]

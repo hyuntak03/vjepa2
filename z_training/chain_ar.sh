@@ -12,7 +12,7 @@
 set -uo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../z_research/scripts/harness" && pwd)/env.sh"
 cd "$VJEPA2_ROOT"
-A=${A:-natural_ar_vw_hint}; B=${B:-natural_ar_vw}
+A=${A:-natural_ar_vw_hint}; B=${B-natural_ar_vw}
 LOG=z_training/logs/chain_ar.log; mkdir -p z_training/logs
 say() { echo "[$(TZ=Asia/Seoul date '+%F %T KST')] $*" | tee -a "$LOG"; }
 
@@ -28,6 +28,7 @@ say "1/4 대기: $A 학습"
 wait_done "$A" || { say "$A 가 done 없이 끝났다 — 멈춤"; exit 1; }
 say "2/4 채점: $A (IntPhys1 A.8 + IntPhys 2)"
 bash z_training/eval_bench.sh "$A" latest.pt 2>&1 | tee -a "$LOG"
+[[ -z "$B" ]] && { say "B 없음 — 끝"; exit 0; }       # 2026-10-13: A 만 기다려 채점하는 용도 (B= 로 비움)
 say "3/4 올림: $B"
 GPUS=8 bash z_training/tmux_train.sh "$B" 2>&1 | tee -a "$LOG"
 sleep 120

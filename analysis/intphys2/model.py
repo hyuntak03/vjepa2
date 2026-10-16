@@ -160,18 +160,52 @@ class _ArBlockEncoder(nn.Module):
     (app/vjepa_frozen/ar.py:encode_blocks 와 같다, LN 은 채점기·predictor 래퍼가 건다). masks=[idx] 면 그 토큰만 고른다.
     블록 b 토큰은 블록 b 프레임만 본다 — kind=ar 학습의 입력·타깃 정의."""
 
-    def __init__(self, enc: nn.Module, tubelet: int):
+    def __init__(self, enc: nn.Module, tubelet: int, cache_blocks: int = 4096):
         super().__init__()
         self.enc, self.tubelet = enc, int(tubelet)
         self.embed_dim = enc.embed_dim
+        # 블록 캐시 (2026-10-15): sliding 채점은 이웃 창끼리 블록이 겹치고, 같은 창을 문맥 · 타깃용으로 두 번 부른다.
+        # 블록 픽셀의 지문 (고정 무작위 사영 2 개) 으로 이미 인코딩한 블록을 다시 쓰지 않는다. 0 이면 끈다 (WMA_AR_BLOCK_CACHE=0)
+        import os as _os
+        from collections import OrderedDict
+        self.cache_max = int(_os.environ.get("WMA_AR_BLOCK_CACHE", cache_blocks))
+        self._cache, self._proj = OrderedDict(), None
+        self.hits = self.misses = 0
+
+    def _keys(self, flat):
+        if self._proj is None or self._proj.size(0) != flat.size(1) or self._proj.device != flat.device:
+            g = torch.Generator(device="cpu").manual_seed(1234)
+            self._proj = torch.randn(flat.size(1), 2, generator=g, dtype=torch.float64).to(flat.device)
+        fp = (flat.double() @ self._proj).cpu().numpy()                  # (n, 2) — 같은 픽셀이면 정확히 같은 값
+        return [(float(a), float(b)) for a, b in fp]
+
+    def _encode(self, blocks):
+        h = self.enc(blocks)
+        return h[-1] if isinstance(h, list) else h
 
     def forward(self, x, masks=None):
         B, Cc, T, H, W = x.shape
         nb = T // self.tubelet
         xb = x[:, :, : nb * self.tubelet].reshape(B, Cc, nb, self.tubelet, H, W).permute(0, 2, 1, 3, 4, 5)
-        h = self.enc(xb.reshape(B * nb, Cc, self.tubelet, H, W))
-        if isinstance(h, list):
-            h = h[-1]
+        blocks = xb.reshape(B * nb, Cc, self.tubelet, H, W)
+        if self.cache_max <= 0:
+            h = self._encode(blocks)
+        else:
+            keys = self._keys(blocks.reshape(B * nb, -1))
+            need, first = [], {}
+            for i, k in enumerate(keys):
+                if k not in self._cache and k not in first:
+                    first[k] = len(need); need.append(i)
+            if need:
+                hn = self._encode(blocks[need])
+                for k, j in first.items():
+                    self._cache[k] = hn[j]
+            self.misses += len(need); self.hits += len(keys) - len(need)
+            h = torch.stack([self._cache[k] for k in keys])
+            for k in dict.fromkeys(keys):
+                self._cache.move_to_end(k)
+            while len(self._cache) > self.cache_max:
+                self._cache.popitem(last=False)
         h = h.reshape(B, nb * h.size(1), h.size(-1))
         if masks is not None:
             m = masks[0] if isinstance(masks, list) else masks
@@ -184,9 +218,10 @@ class _ArScorer(nn.Module):
     z = 문맥 블록별 encoder 토큰 → affine-free LN (학습 입력과 같다) → 힌트 없이 K 블록 KV rollout (출력 LN).
     ci 는 0..C·S-1, ti 는 그 바로 뒤 연속 K 블록이어야 한다."""
 
-    def __init__(self, core: nn.Module):
+    def __init__(self, core: nn.Module, copy: bool = False):
         super().__init__()
         self.core = core
+        self.copy = bool(copy)     # 2026-10-13: True 면 복사 기준선 — 마지막 문맥 블록 LN(h) 를 K 블록에 그대로 (predictor 안 씀)
 
     def forward(self, z, masks_x, masks_y, mask_index=0, **_):
         S = self.core.tokens_per_block
@@ -198,6 +233,8 @@ class _ArScorer(nn.Module):
                 and bool((ti[0] == torch.arange(C * S, (C + K) * S, device=ti.device)).all())):
             raise ValueError("ar 채점: 문맥은 앞 C 블록, 타깃은 그 바로 뒤 K 블록이어야 한다")
         z = torch.nn.functional.layer_norm(z, (z.size(-1),))
+        if self.copy:
+            return z[:, -S:].repeat(1, K, 1)
         return self.core.rollout_kv(z, ci, K)
 
 
@@ -406,7 +443,7 @@ def build_from_config(cfg: dict, device: torch.device) -> VJEPA2Bundle:
             raise KeyError(f"{pc_path}: 'predictor' 키가 없다 (keys={list(pstate)[:8]})")
         psd = _clean_backbone_key(pstate["predictor"])
         # 힌트 cross-attn (2026-10-11) 은 학습 전용 — 채점은 힌트 없이 하므로 그 가중치는 버린다 (모델에도 안 만든다)
-        hint_keys = [k for k in psd if k.startswith("hint_attn.")]
+        hint_keys = [k for k in psd if k.startswith("hint_attn.") or k.startswith("dyn_head.")]   # 2026-10-14: 움직임 헤드도 학습 전용
         if hint_keys:
             for k in hint_keys:
                 psd.pop(k)
@@ -433,13 +470,20 @@ def build_from_config(cfg: dict, device: torch.device) -> VJEPA2Bundle:
         p.requires_grad_(False)
     if kind == "ctx_state":
         predictor = _CtxStateScorer(predictor).eval()
+        # 2026-10-16: ctx_target=block 으로 학습한 run 은 타깃도 블록별 target_encoder (문맥은 그대로 창 단위 context encoder)
+        ctx_target = str(predictor_cfg.get("ctx_target", "window"))
+        if ctx_target not in ("window", "block"):
+            raise ValueError(f"model.predictor.ctx_target 는 window | block: {ctx_target!r}")
+        if ctx_target == "block":
+            target_encoder = _ArBlockEncoder(target_encoder, tubelet_size).eval()
+        logger.info(f"predictor kind=ctx_state: 문맥 = 창 단위 context encoder, 타깃 = {ctx_target}")
     if kind == "ar":
         # 2026-10-11: kind=ar 은 문맥 = **target encoder** 를 블록별로 (학습과 같다, context_encoder_key 무시).
         #   ar_target: block (기본, 학습 타깃과 같다) = 타깃도 블록별 / window = 타깃은 창 전체 target_encoder (릴리즈 채점 정의)
         ar_target = str(predictor_cfg.get("ar_target", "block"))
         if ar_target not in ("block", "window"):
             raise ValueError(f"model.predictor.ar_target 는 block | window: {ar_target!r}")
-        predictor = _ArScorer(predictor).eval()
+        predictor = _ArScorer(predictor, copy=bool(predictor_cfg.get("ar_copy", False))).eval()
         context_encoder = _ArBlockEncoder(target_encoder, tubelet_size).eval()
         if ar_target == "block":
             target_encoder = context_encoder        # 같은 객체 — IntPhys2 하네스는 이때 문맥을 타깃 forward 에서 잘라 쓴다

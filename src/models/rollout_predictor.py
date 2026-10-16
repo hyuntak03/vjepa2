@@ -205,6 +205,8 @@ class VisionTransformerPredictorPrefix(nn.Module):
             for i in range(depth)])
         self.predictor_norm = norm_layer(predictor_embed_dim)
         self.predictor_proj = nn.Linear(predictor_embed_dim, out_embed_dim or embed_dim, bias=True)
+        # 움직임 크기 헤드 (2026-10-14, mask_mode=ar 전용): 이웃 상태 차 |s_{t+1}-s_t| → 토큰별 스칼라. 꺼져 있으면 안 만든다
+        self.dyn_head = nn.Linear(predictor_embed_dim, 1) if bool(kwargs.get("dyn_head", False)) else None
         # 힌트 cross-attn (2026-10-11, mask_mode=ar 전용). 0 이면 만들지 않는다 (state_dict 그대로)
         self.hint_cross_dim = int(kwargs.get("hint_cross_dim", 0) or 0)
         if self.hint_cross_dim:
@@ -285,6 +287,17 @@ class VisionTransformerPredictorPrefix(nn.Module):
                 raise ValueError(f"ar= 분기는 mask_mode='ar' 전용 (지금 {self.mask_mode})")
             S = self.tokens_per_block
             idx, C, R = ar["idx"], int(ar["n_ctx_blocks"]), int(ar["rollout_steps"])
+            if ar.get("starts") is not None:                     # 2026-10-14: 여러 시작점 rollout (multistart)
+                p_tf = self.forward_seq(x[:, :-S], idx[:, :-S], hint=ar.get("hint"))
+                return p_tf, self.rollout_kv_multi(x, idx, ar["starts"], ar["rollouts"])
+            if ar.get("dyn"):                                    # 2026-10-14: 움직임 크기 손실용 — 이웃 상태 차의 스칼라 예측도 낸다
+                if self.dyn_head is None:
+                    raise ValueError("ar.dyn 인데 dyn_head 가 없다 (predictor.dyn_head: true)")
+                p_tf, s_tf = self.forward_seq(x[:, :-S], idx[:, :-S], hint=ar.get("hint"), return_states=True)
+                p_ar, s_ar = self.rollout_kv(x[:, : C * S], idx[:, : C * S], R, return_states=True)
+                def dyn(st):                                     # (B, n*S, D) → (B, (n-1)*S) 이웃 블록 쌍
+                    return self.dyn_head((st[:, S:] - st[:, :-S]).abs()).squeeze(-1)
+                return p_tf, p_ar, dyn(s_tf), (dyn(s_ar) if R > 1 else None)
             p_tf = self.forward_seq(x[:, :-S], idx[:, :-S], hint=ar.get("hint"))   # 힌트는 TF 에만. rollout 은 힌트 없음
             if getattr(self, "ar_kv_rollout", True):          # 2026-10-11: KV 캐시판 (값·grad 동일, 긴 K 에서 빠르다)
                 p_ar = self.rollout_kv(x[:, : C * S], idx[:, : C * S], R)
@@ -377,7 +390,7 @@ class VisionTransformerPredictorPrefix(nn.Module):
                 h = blk(h, mask=idx, attn_mask=attn_mask, T=None, H=self.grid_height, W=self.grid_width, action_tokens=0)
         return h
 
-    def forward_seq(self, x, idx, hint=None):
+    def forward_seq(self, x, idx, hint=None, return_states=False):
         """팔 C. x (B, N, embed_dim) = 블록 0..nb-1 의 **LN 된** encoder 토큰 (블록 정렬·연속), idx (B, N) 절대 인덱스.
         블록 인과 attention (블록 b 의 query 는 블록 <= b 의 key). return (B, N, out): 위치 b 의 출력 = 블록 b+1 예측,
         출력에도 affine-free LN (AC `normalize_reps`) — 되먹임 입력과 타깃이 같은 공간에 있게 한다."""
@@ -396,8 +409,10 @@ class VisionTransformerPredictorPrefix(nn.Module):
             h = self._run_blocks_hint(h, idx, spec, hx, hint["idx"], float(hint.get("gate", 1.0)))
         else:
             h = self._run_blocks(h, idx, spec)                      # 힌트 0 개 → cross-attn 을 부르지 않는다
-        h = self.predictor_proj(self.predictor_norm(h))
-        return torch.nn.functional.layer_norm(h, (h.size(-1),))
+        st = self.predictor_norm(h)
+        h = self.predictor_proj(st)
+        out = torch.nn.functional.layer_norm(h, (h.size(-1),))
+        return (out, st) if return_states else out
 
     def rollout(self, x_ctx, idx_ctx, n_steps, first=None):
         """팔 C. 문맥 C 블록의 LN(h) 에서 `n_steps` 블록을 자기회귀로 채운다 (KV 캐시 없음, 매 스텝 전체 재계산).
@@ -545,7 +560,7 @@ class VisionTransformerPredictorPrefix(nn.Module):
         h = self.predictor_proj(st)
         return torch.nn.functional.layer_norm(h, (h.size(-1),)), new, st
 
-    def rollout_kv(self, x_ctx, idx_ctx, n_steps):
+    def rollout_kv(self, x_ctx, idx_ctx, n_steps, return_states=False):
         """`rollout` (ar) 의 **KV 캐시판**. ar 은 문맥까지 block-causal 이라 이미 계산한 블록의 층별 (k, v) 가
         뒤에 블록을 붙여도 안 변한다 → 문맥을 블록 하나씩 채우고 (C 번), 걸음마다 새 블록 S 토큰만 계산한다.
         값·grad 는 `rollout` 과 같다 (검증: z_training/RESULTS 참고). return (B, n_steps*S, out) LN."""
@@ -554,7 +569,7 @@ class VisionTransformerPredictorPrefix(nn.Module):
         caches, p, st = None, None, None
         for b in range(C):                                   # 문맥: 블록 b 는 블록 <= b 만 본다
             p, caches, st = self._ar_step_kv(x_ctx[:, b * S:(b + 1) * S], idx_ctx[:, b * S:(b + 1) * S], caches)
-        preds = [p]                                          # 위치 C-1 출력 = 블록 C 예측
+        preds, states = [p], [st]                            # 위치 C-1 출력 = 블록 C 예측
         pos = idx_ctx[:, -S:]
         state = self.ar_feedback == "state"
         for _ in range(1, int(n_steps)):
@@ -563,8 +578,42 @@ class VisionTransformerPredictorPrefix(nn.Module):
                 p, caches, st = self._ar_step_kv(st + self.type_embed[1], pos, caches, embedded=True)
             else:       # 자기 예측 (LN) 을 다음 입력으로 (AC 와 같다)
                 p, caches, st = self._ar_step_kv(p, pos, caches)
-            preds.append(p)
+            preds.append(p); states.append(st)
+        if return_states:
+            return torch.cat(preds, dim=1), torch.cat(states, dim=1)
         return torch.cat(preds, dim=1)
+
+
+def _rollout_kv_multi(self, x, idx, starts, rollouts):
+    """여러 시작점 rollout (2026-10-14, kind=ar). x (B, nb*S, D) 블록별 LN(h), idx (B, nb*S).
+    블록을 앞에서부터 한 번만 채우며 (KV 캐시), 시작점 c (= 관측 c 블록 뒤) 에 닿을 때마다 그 캐시에서 rollouts[i] 블록을 굴린다.
+    캐시는 cat 으로 새 텐서가 되므로 시작점끼리 문맥 계산·그래프를 공유한다. return [ (B, R_i*S, out) ] 시작점 순.
+    시작점 c 의 첫 예측 = 위치 c-1 의 출력 (= rollout_kv(x[:, :c*S], ..) 의 첫 블록과 같다)."""
+    S = self.tokens_per_block
+    order = sorted(range(len(starts)), key=lambda i: starts[i])
+    caches, p, st = None, None, None
+    out = [None] * len(starts)
+    state = self.ar_feedback == "state"
+    b = 0
+    for i in order:
+        c, R = int(starts[i]), int(rollouts[i])
+        while b < c:                                             # 문맥 채우기: 블록 b 는 블록 <= b 만 본다
+            p, caches, st = self._ar_step_kv(x[:, b * S:(b + 1) * S], idx[:, b * S:(b + 1) * S], caches)
+            b += 1
+        preds, pp, cc, ss = [p], p, caches, st
+        pos = idx[:, (c - 1) * S: c * S]
+        for _ in range(1, R):
+            pos = pos + S
+            if state:
+                pp, cc, ss = self._ar_step_kv(ss + self.type_embed[1], pos, cc, embedded=True)
+            else:
+                pp, cc, ss = self._ar_step_kv(pp, pos, cc)
+            preds.append(pp)
+        out[i] = torch.cat(preds, dim=1)
+    return out
+
+
+VisionTransformerPredictorPrefix.rollout_kv_multi = _rollout_kv_multi
 
 
 def vit_prefix_predictor(**kwargs) -> VisionTransformerPredictorPrefix:

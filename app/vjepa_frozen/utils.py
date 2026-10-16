@@ -97,6 +97,8 @@ def build_predictor(m: dict, encoder_embed_dim: int, state: Optional[dict], devi
     # ar (2026-09-26, 팔 C): mask token 없이 LN(h) 전 블록을 넣는 자기회귀 판. 학습 손실·val 은 app/vjepa_frozen/ar.py
     if str(pc.get("ar_feedback", "output")) != "output":      # ar 상태 되먹임 (2026-10-12, kind=ar 전용)
         extra["ar_feedback"] = str(pc["ar_feedback"])
+    if pc.get("dyn_head"):                                    # 움직임 크기 헤드 (2026-10-14, kind=ar 전용)
+        extra["dyn_head"] = True
     if int(pc.get("hint_cross_dim", 0) or 0):                 # 힌트 cross-attn (2026-10-11, kind=ar 전용)
         extra["hint_cross_dim"] = int(pc["hint_cross_dim"])
         extra["hint_cross_heads"] = int(pc.get("hint_cross_heads", 4))

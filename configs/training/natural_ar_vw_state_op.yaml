@@ -1,0 +1,31 @@
+# =============================================================================
+# natural_ar_vw_state + object_permanence_320 학습셋 (2026-10-16, 사용자 결정) — 처음부터 (scratch)
+#
+#   GPUS=8 bash z_training/tmux_train.sh natural_ar_vw_state_op
+#
+# 바뀐 것 하나: step 의 10 % (별도 난수 seed-bnd-step) 를 object_permanence_320 의 **경계 정렬 창** 으로 채운다.
+#   * 데이터: /workspace/dataset/training_data/object_permanence_320/train (150 task × 1,450 = 217,500 mp4, 24 fps, 320×568)
+#     입력 · 타깃을 이어 붙인 영상이고 manifest 의 boundary_frame 이 둘의 경계 (대부분 60 장째, 일부 40/39/36/33/26)
+#     held-out (heldout_manifest.tsv, 15,000) 은 학습에 넣지 않는다
+#   * 시간: 기존 AR 과 같은 fps 4 (24 fps 에서 6 장 간격). **예측 첫 장 = 경계**, 문맥은 경계에서 거꾸로 C 장 —
+#     rollout 이 항상 경계에서 시작한다. C ∈ {2,4,6,8,10} 장 step 마다 무작위 (경계 앞에 모자라면 그 clip 은 후보에서 빠진다),
+#     예측 K = 10 장 (2.5 s, 5 블록)
+#   * 공간: 화면비를 최대한 지킨다 (사용자 결정) — 높이 전체 × 폭 = 높이·r (r ~ log-uniform [1.0, 1.333]) 를 가로 무작위로 자르고
+#     256² 로 리사이즈. 왜곡 ≤ 1.33 (기본 aug 의 ratio 상한 1.35 안), 폭은 원본의 56–75 %. 좌우 반전 0.5
+#   * 나머지 90 % step 은 natural_ar_vw_state 와 같은 계획 · 같은 데이터 (같은 seed)
+# 바탕을 natural_ar_vw_state (VOBench 없음) 로 둔 이유: VOBench 전체가 이 run 에는 학습 밖 (out-of-domain) 평가가 된다.
+# ⚠️ 약 2,058 step × B (950 // W = 47–79) × 8 rank ≈ 100 만 clip → clip 당 평균 약 4.6 회
+# =============================================================================
+extends: natural_ar_vw_state
+
+data:
+  var_window:
+    boundary:
+      name: op320
+      p: 0.10
+      manifest: "${DATA_CSV}/object_permanence_320/train_manifest.tsv"
+      stride: 6
+      context_frames: [2, 4, 6, 8, 10]
+      predict_frames: 10
+      crop_ratio: [1.0, 1.3333]
+      hflip_p: 0.5

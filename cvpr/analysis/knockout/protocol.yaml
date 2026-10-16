@@ -1,0 +1,19 @@
+# =============================================================================
+# PROTOCOL — predictor attention knockout (간선을 끊고 확립된 채점이 얼마나 떨어지나)
+#
+#   N=8 bash cvpr/analysis/knockout/run.sh v11_full vith        [옛 bash analysis/attention/knockout/run_sharded.sh]
+#
+# 프레임 배치 · dtype · 채점 규칙은 testbed (옛 surprise_c16t32) 와 **같다**. run.py 는 clean forward 를 그 config 로 돌리고
+# 명세(간선 x 층)마다 predictor 만 다시 돈다 (analysis/attention/knockout/README.md §2). 옛 run_sharded.sh 는
+# `surprise_c16t32` 위에 `--set data.type_column=condition` 을 얹었다 — 그 둘을 여기 적는다.
+#
+# 엔진은 evals.main 이 아니라 analysis.attention.knockout.run (프로세스 하나 = GPU 하나, --shard i/N) 이라
+# cvpr/harness/launch.sh 의 엔진 분기를 타지 않는다. run.sh 가 cvpr/harness/resolve.py 로 이 yaml 을 풀어
+# <output_dir>/_resolved.yaml 을 만들고 그 **경로**를 run.py --protocol 로 넘긴다 (run.py 안의 옛 resolver 는 yaml 경로를 받는다).
+# 둘이 같은 config 인지는 check.py 가 검사한다 (GPU 불필요).
+# =============================================================================
+extends: ../../eval/testbed/protocol.yaml   # engine: wma · window: c16t32 · dtype float32 + autocast float16 · pairing matched 를 물려받는다
+legacy_name: knockout                       # RESULTS_ROOT=legacy -> <datasets.legacy_results_root>/knockout__<데이터셋>_<모델>
+
+data:
+  type_column: condition                    # 표본 (--blocks-per-cond) · breakdown 이 조건 = block_type 단위. 옛 run_sharded.sh 의 --set 과 같다

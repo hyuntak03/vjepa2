@@ -1,0 +1,7 @@
+# p + h 토큰 캐시만 뽑는 attn_probe 변형 — 옛 재현 (POSITION_READOUT_2026-09-12.md ## 재현) 의 SET="$PH".
+# probe head 는 버린다: pooled head 하나 ([null]) · 1 epoch · target 은 shape 만. 한 줄 = launch.sh --set 하나 (값에 공백 금지).
+probing.fit_groups_sweep=[null]
+probing.optims.attn_30.num_epochs=1
+probing.targets.color=null
+probing.targets.env=null
+probing.runs=[{"train":{"model":"target","input":"full","frames":[17,32]},"eval":["self"]},{"train":{"model":"predictor"},"eval":["self"]}]

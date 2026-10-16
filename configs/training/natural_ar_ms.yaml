@@ -1,0 +1,30 @@
+# =============================================================================
+# kind=ar 상태 되먹임 + **여러 시작점 rollout (multistart)** (2026-10-14, 사용자 결정)
+#
+#   GPUS=8 bash z_training/tmux_train.sh natural_ar_ms
+#
+# natural_ar_vw_state 와 같은 predictor · 손실 · step · lr (WSD) · fps 4. 바뀐 것은 샘플링과 rollout 시작점:
+#   * (C, K) 조합 대신 **데이터셋을 먼저** 고른다 — 가중치 = V-JEPA 2 공식 비율 (K710 0.335 / SSv2 0.100 / HowTo 0.565).
+#     step 마다 토큰 수 (B × W ≈ token_budget) 가 같으므로 이 가중치가 곧 본 프레임 비율이다
+#   * 창 W 는 그 데이터셋의 후보에서 균등: SSv2 {12, 16} · K710 {32, 40} · HowTo {32, 48, 64} 장 (패딩 없이 채울 수 있는 영상만)
+#     K710 · HowTo 의 16 장은 뺐다 (B 안, 10-14): 시작점 문맥 중앙 7 → 10 블록, 16 걸음 rollout 비중 5.6 → 10.3 %, 본 clip 6.0 → 4.5 M
+#   * teacher forcing = 창 전체 (기존과 같다)
+#   * rollout = 시작점 4 개 (층화: [2, nb-1] 을 4 등분해 구간마다 하나, step 마다 새로, batch 공유), 각자 창 끝까지 · 최대 16 블록.
+#     문맥은 한 번만 채우고 시작점끼리 KV 캐시를 공유한다 (rollout_kv_multi). 손실 = TF + 시작점별 rollout L1 평균
+#   * 왜: 문맥의 모든 위치가 "여기서부터 굴려도 맞아야 한다" 는 압력을 받게 — 마지막 블록만 쓰는 문제 (attention 진단, 10-13)
+# token_budget 은 시작점 4 개의 rollout 메모리를 실측한 뒤 정한다 (지금 값은 자리표시)
+# =============================================================================
+extends: natural_ar_vw_state
+
+data:
+  var_window:
+    mode: multistart
+    datasets:
+      - {name: k710, table: "${DATA_CSV}/k710_320/fps4_table.tsv",    weight: 0.335, windows: [32, 40]}
+      - {name: ssv2, table: "${DATA_CSV}/ssv2/fps4_table.tsv",        weight: 0.100, windows: [12, 16]}
+      - {name: how,  table: "${DATA_CSV}/ht100m_1pct/fps4_table.tsv", weight: 0.565, windows: [32, 48, 64]}
+    starts: {n: 4, min_ctx_blocks: 2, max_rollout: 16}
+    token_budget: 950
+    b_min: 8
+    b_max: 256
+    min_eligible: 1000

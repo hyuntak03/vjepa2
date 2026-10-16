@@ -1,0 +1,22 @@
+# =============================================================================
+# ctxt_video + **타깃도 영상** (2026-10-16, 사용자 결정) — 처음부터 (scratch)
+#
+#   GPUS=8 bash z_training/tmux_train.sh natural_ar_vw_state_ctxt_video_tgtvideo
+#
+# natural_ar_vw_state_ctxt_video 와 **타깃 하나만** 다르다 (샘플링 · 구조 · TF · rollout 은 같다):
+#   * 문맥 입력  = `encoder` 로 문맥 창을 한 번에 (영상)                         — 같음
+#   * TF 입력    = 예측 구간 블록마다 따로 target_encoder → LN(h)                  — 같음 (영상으로 넣으면 블록 b 가 b+1 을 본다 = 누수)
+#   * **타깃 (TF · rollout 의 답) = 문맥 + 미래 창 전체를 target_encoder 한 번 → LN(h) 의 미래 부분** (`ctx_target: window`, 릴리즈 사전학습 · 채점과 같은 정의)
+#     답은 손실에만 쓰므로 미래를 본 표현이어도 누수가 아니다
+# 왜: ctxt_video (문맥 영상 → 타깃 블록) 는 IntPhys1 76.1 · VOBench 전체 57.1 / 62.1 로 블록 복사 기준선 (77.8 / 81.1) 보다 낮았다.
+#     "문맥 (영상) 과 답 (블록) 의 종류가 다르다" 는 가설 (미검증, 2026-10-16) 을 한 변수로 시험한다 — 문맥과 답을 같은 종류 (영상) 로 맞춘다
+# ⚠️ 가설은 사후 해석이다 — 성공 판 (릴리즈: 영상→영상, AR: 블록→블록) 과 실패 판 (ctxt_video: 영상→블록, 10-01 ctx_state: TF 없음) 은
+#    데이터 · 창 · step 수가 서로 다르다. 이 run 은 ctxt_video 와 타깃만 다르므로 그 둘끼리만 깨끗하게 비교된다
+# 비용: 창 전체 forward 한 번이 더해진다. encoder 만 ×1.8–2.4 (2026-10-16 측정, C8K8 → C32K32) → 학습 시간 약 ×1.4–1.8 (미측정, 9 h → 13–16 h)
+# 채점: kind=ctx_state + ctx_target=window → analysis/intphys2/model.py 가 타깃을 창 단위 target_encoder 로 (릴리즈와 같은 채점 정의)
+# =============================================================================
+extends: natural_ar_vw_state_ctxt_video
+
+model:
+  predictor:
+    ctx_target: window

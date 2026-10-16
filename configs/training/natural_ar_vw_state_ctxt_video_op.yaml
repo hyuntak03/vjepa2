@@ -1,0 +1,24 @@
+# =============================================================================
+# ctxt_video + object_permanence_320 (2026-10-16, 사용자 결정) — 처음부터 (scratch)
+#
+#   GPUS=8 bash z_training/tmux_train.sh natural_ar_vw_state_ctxt_video_op
+#
+# natural_ar_vw_state_ctxt_video 에 natural_ar_vw_state_op 와 같은 경계 정렬 소스를 더한다 (step 의 10 %, 별도 난수 seed-bnd-step).
+#   * 시간: fps 4 (24 fps 에서 6 장 간격), 예측 첫 장 = 경계, 예측 K = 10 장 (5 블록)
+#   * 문맥 C ∈ {4, 6, 8, 10} 장 — ctxt_video 의 문맥 최소 2 블록 (4 장) 에 맞춰 op 판의 2 장 (1 블록) 은 뺐다
+#   * 공간: 높이 전체 × 폭 = 높이·r (r ~ log-uniform [1.0, 1.333]) 가로 무작위 crop → 256², 좌우 반전 0.5
+# 대조: ctxt_video (op 없음) · natural_ar_vw_state_op (블록 문맥 + op)
+# =============================================================================
+extends: natural_ar_vw_state_ctxt_video
+
+data:
+  var_window:
+    boundary:
+      name: op320
+      p: 0.10
+      manifest: "${DATA_CSV}/object_permanence_320/train_manifest.tsv"
+      stride: 6
+      context_frames: [4, 6, 8, 10]
+      predict_frames: 10
+      crop_ratio: [1.0, 1.3333]
+      hflip_p: 0.5

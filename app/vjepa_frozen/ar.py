@@ -53,6 +53,11 @@ def hint_scale(progress: float, cfg: Dict) -> float:
     """힌트 일정 (2026-10-11, 사용자 결정) — 확률이 아니라 **정해진 값**. progress = step / 전체 step ∈ [0, 1].
     start 이전·end 이후 0, 그 사이 Hann 종 모양 (정점 = (start+end)/2 에서 1). 모든 rank 가 같은 값."""
     a, b = float(cfg.get("start", 0.05)), float(cfg.get("end", 0.90))
+    shape = str(cfg.get("shape", "sin2"))
+    if shape == "const":            # 2026-10-13: [start, end) 동안 ratio_max 고정, 그 밖 0
+        return 1.0 if a <= progress < b else 0.0
+    if shape != "sin2":
+        raise ValueError(f"hint.shape 는 sin2 | const: {shape!r}")
     if progress <= a or progress >= b:
         return 0.0
     import math
@@ -84,13 +89,81 @@ def encode_hints(enc, clips: torch.Tensor, tubelet: int, S: int, n_hint: int, ge
     return hx, hidx, keep.reshape(B, m * S)
 
 
-def ar_losses(predictor, h: torch.Tensor, S: int, C: int, K: int, loss_exp: float, rollout_steps: int, hint=None):
+def delta_l1(p: torch.Tensor, h: torch.Tensor, S: int, loss_exp: float):
+    """차이 L1 (2026-10-13, 사용자 결정): 이웃한 두 블록 예측의 변화 (p_T − p_{T−1}) 와 실제 변화 (h_T − h_{T−1}) 의 L1.
+    p, h (B, n*S, D) 같은 블록 범위 (p 의 블록 i 가 h 의 블록 i 를 예측). 블록이 2 개 미만이면 None."""
+    if p.size(1) < 2 * S:
+        return None
+    dp = p[:, S:].float() - p[:, :-S].float()
+    dh = h[:, S:].float() - h[:, :-S].float()
+    return (dp - dh).abs().pow(loss_exp).mean() / loss_exp
+
+
+@torch.no_grad()
+def patch_embed_blocks(enc, clips: torch.Tensor, tubelet: int) -> torch.Tensor:
+    """블록마다 encoder 의 patch embedding 직후 (픽셀 2 장 → 토큰, 섞이지 않은 국소 특징). return (B, nb*S, D)."""
+    B, Cc, T, H, W = clips.shape
+    nb = T // tubelet
+    x = clips[:, :, : nb * tubelet].reshape(B, Cc, nb, tubelet, H, W).permute(0, 2, 1, 3, 4, 5).reshape(B * nb, Cc, tubelet, H, W)
+    pe = enc.patch_embed(x)                                          # (B*nb, S, D)
+    return pe.reshape(B, nb * pe.size(1), pe.size(-1))
+
+
+def motion_target(pe: torch.Tensor, S: int) -> torch.Tensor:
+    """b = ‖PE(x_{t+1}) − PE(x_t)‖₂ (토큰별) / batch 평균. (B, nb*S, D) → (B, (nb-1)*S). gradient 없음."""
+    b = (pe[:, S:].float() - pe[:, :-S].float()).norm(dim=-1)
+    return b / b.mean().clamp_min(1e-6)
+
+
+def ar_losses_dyn(predictor, h: torch.Tensor, pe: torch.Tensor, S: int, C: int, K: int, loss_exp: float, rollout_steps: int,
+                  dyn_weight: float, aux: dict = None):
+    """기존 ar_losses (TF + rollout L1) + 움직임 크기 손실 (2026-10-14, 사용자 결정).
+    a = Linear(|s_{t+1} − s_t|) (predictor 상태, 이웃 블록) vs b = ‖ΔPE‖ / 평균 — teacher forcing 의 이웃 위치 쌍 + rollout 의 이웃 걸음 쌍,
+    모든 쌍의 평균 L1. TF 위치 b 의 상태 = 블록 b+1 예측이므로 TF 쌍 (b, b+1) ↔ 블록 (b+1, b+2), rollout 쌍 (r, r+1) ↔ 블록 (C+r, C+r+1)."""
+    B, N = h.shape[:2]
+    nb = N // S
+    R = max(1, min(int(K), int(rollout_steps)))
+    idx = block_indices(B, nb, S, h.device)
+    p_tf, p_ar, a_tf, a_ar = predictor(h, ar={"idx": idx, "n_ctx_blocks": C, "rollout_steps": R, "dyn": True})
+    jloss = l1(p_tf, h[:, S:], loss_exp)
+    sloss = l1(p_ar, h[:, C * S: (C + R) * S], loss_exp)
+    b = motion_target(pe, S)                                         # (B, (nb-1)*S): 쌍 (블록 t, t+1), t = 0..nb-2
+    terms = [(a_tf.float() - b[:, S:]).abs()]                        # TF 쌍 ↔ 블록 (1,2) .. (nb-2, nb-1) = b 의 t = 1..nb-2
+    if a_ar is not None:
+        terms.append((a_ar.float() - b[:, C * S: (C + R - 1) * S]).abs())   # rollout 쌍 ↔ 블록 (C, C+1) .. (C+R-2, C+R-1)
+    dloss = torch.cat([t.flatten() for t in terms]).mean()
+    if aux is not None:
+        aux["dyn"] = float(dloss.detach())
+    return jloss + sloss + float(dyn_weight) * dloss, jloss, sloss, R
+
+
+def ar_losses_multistart(predictor, h: torch.Tensor, S: int, starts, rollouts, loss_exp: float):
+    """여러 시작점 (2026-10-14). jloss = teacher forcing 전 위치 (기존과 같다), sloss = 시작점별 rollout L1 의 평균.
+    return (loss, jloss, sloss, R 최대)."""
+    B, N = h.shape[:2]
+    nb = N // S
+    idx = block_indices(B, nb, S, h.device)
+    p_tf, p_list = predictor(h, ar={"idx": idx, "starts": list(starts), "rollouts": list(rollouts)})
+    jloss = l1(p_tf, h[:, S:], loss_exp)
+    sl = [l1(p, h[:, c * S: (c + R) * S], loss_exp) for p, c, R in zip(p_list, starts, rollouts)]
+    sloss = sum(sl) / len(sl)
+    return jloss + sloss, jloss, sloss, max(rollouts)
+
+
+def ar_losses(predictor, h: torch.Tensor, S: int, C: int, K: int, loss_exp: float, rollout_steps: int, hint=None,
+              delta_weight: float = 0.0, aux: dict = None, tf_span: str = "all"):
     """h (B, nb*S, D) LN 된 블록 토큰. return (loss, jloss, sloss, R). predictor 는 DDP 래퍼여도 된다 (forward 한 번).
-    hint = encode_hints 의 (hx, hidx, keep) 또는 None. 주면 TF 에만 힌트를 넣고 jloss 에서 힌트 자리를 뺀다 (rollout 은 힌트 없음)."""
+    hint = encode_hints 의 (hx, hidx, keep) 또는 None. 주면 TF 에만 힌트를 넣고 jloss 에서 힌트 자리를 뺀다 (rollout 은 힌트 없음).
+    tf_span (2026-10-15, 사용자 결정): "all" = TF 손실을 위치 0..nb-2 전부 (기존), "predict" = 예측 구간만 —
+      위치 C-1..nb-2 (블록 C..nb-1 예측). 문맥 안쪽 블록을 짧은 과거로 맞히는 자리를 손실에서 뺀다. forward 는 같다 (키로는 다 쓴다)."""
     B, N = h.shape[:2]
     nb = N // S
     if nb != C + K or nb < 2:
         raise ValueError(f"ar_losses: nb={nb} 가 C+K={C + K} 와 다르거나 2 미만")
+    if tf_span not in ("all", "predict"):
+        raise ValueError(f"tf_span 은 all | predict: {tf_span!r}")
+    if tf_span == "predict" and (hint is not None or delta_weight):
+        raise ValueError("tf_span=predict 는 hint · delta_weight 와 아직 같이 쓰지 않는다")
     R = max(1, min(int(K), int(rollout_steps)))
     idx = block_indices(B, nb, S, h.device)
     arg = {"idx": idx, "n_ctx_blocks": C, "rollout_steps": R}
@@ -101,10 +174,22 @@ def ar_losses(predictor, h: torch.Tensor, S: int, C: int, K: int, loss_exp: floa
     if hint is not None:
         d = (p_tf.float() - h[:, S:].float()).abs().pow(loss_exp).mean(dim=-1) / loss_exp   # (B, (nb-1)*S)
         jloss = (d * keep).sum() / keep.sum()
+    elif tf_span == "predict":
+        jloss = l1(p_tf[:, (C - 1) * S:], h[:, C * S:], loss_exp)          # p_tf 위치 b → 블록 b+1
     else:
         jloss = l1(p_tf, h[:, S:], loss_exp)
     sloss = l1(p_ar, h[:, C * S: (C + R) * S], loss_exp)
-    return jloss + sloss, jloss, sloss, R
+    loss = jloss + sloss
+    if delta_weight:
+        # teacher forcing: p_tf 블록 1..nb-1 의 이웃 예측끼리 / rollout: p_ar 블록 C..C+R-1 의 이웃 걸음끼리
+        terms = [d for d in (delta_l1(p_tf, h[:, S:], S, loss_exp),
+                             delta_l1(p_ar, h[:, C * S: (C + R) * S], S, loss_exp)) if d is not None]
+        if terms:
+            dloss = sum(terms)
+            loss = loss + float(delta_weight) * dloss
+            if aux is not None:
+                aux["dloss"] = float(dloss.detach())
+    return loss, jloss, sloss, R
 
 
 @torch.no_grad()
@@ -260,8 +345,10 @@ def ctx_state_losses(predictor, z_ctx, h_obs, tgt, S: int, C: int, K: int, loss_
 
 @torch.no_grad()
 def run_val_ctx_state(vs: ValSet, ctx_enc, tgt_enc, pred_mod, device, autocast_dtype, rank: int, ws: int,
-                      tubelet: int, spatial: int, context_length: int, batch_size: int, loss_exp: float) -> Dict:
-    """ctx_state 판 in-loop val. 문맥 z → 상태 rollout K 블록 (주지표) / TF (보조). 타깃 = 창 전체 LN(h) 의 미래 블록."""
+                      tubelet: int, spatial: int, context_length: int, batch_size: int, loss_exp: float,
+                      ctx_target: str = "window") -> Dict:
+    """ctx_state 판 in-loop val. 문맥 z → 상태 rollout K 블록 (주지표) / TF (보조).
+    타깃 = 창 전체 LN(h) 의 미래 블록 (ctx_target=window, 기본) 또는 블록별 LN(h) (block, 2026-10-16 — TF 관측과 같은 공간)."""
     pred_mod.eval()
     n_frames = vs.ds.n_frames
     S = spatial
@@ -283,7 +370,7 @@ def run_val_ctx_state(vs: ValSet, ctx_enc, tgt_enc, pred_mod, device, autocast_d
             idx = block_indices(n, nb, S, device)
             z = ctx_enc(xe, masks=[idx[:, : C * S]])
             h_obs = encode_blocks(tgt_enc, xe[:, :, C * tubelet:], tubelet)
-            tgt = F.layer_norm(tgt_enc(xe), (z.size(-1),))[:, C * S:]
+            tgt = h_obs if ctx_target == "block" else F.layer_norm(tgt_enc(xe), (z.size(-1),))[:, C * S:]
             h_tf = pred_mod.forward_state(z, pred_mod.embed_obs(h_obs[:, :-S]), idx[:, : (nb - 1) * S], C)
             p_tf = pred_mod.render(h_tf)
             p_ar = pred_mod.render(pred_mod.rollout_state_kv(z, idx[:, : C * S], K))

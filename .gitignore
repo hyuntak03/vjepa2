@@ -90,3 +90,6 @@ z_research/*/exp_results/
 z_exp/
 
 configs/_archive
+# 2026-10-16: 실행 산출물 · 로그 (커밋하지 않는다)
+cvpr/results/
+z_training/logs/

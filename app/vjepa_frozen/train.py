@@ -83,12 +83,29 @@ def main(args, resume_preempt=False):
     target_ln = bool(L.get("target_layer_norm", True))
     rollout_steps = int(L.get("rollout_steps", 8))                        # 팔 C: R = min(K, rollout_steps)
     tf_weight = float(L.get("tf_weight", 1.0))                           # ctx_state: 0 이면 TF(블록별 관측 인코딩 + TF 패스) 생략
+    delta_weight = float(L.get("delta_weight", 0.0))                    # 차이 L1 (2026-10-13, kind=ar 전용)
+    dyn_weight = float(L.get("dyn_weight", 0.0))                        # 움직임 크기 손실 (2026-10-14, kind=ar 전용, predictor.dyn_head 필요)
+    tf_span = str(L.get("tf_span", "all"))                              # TF 손실 범위 (2026-10-15): all | predict (kind=ar 전용)
     HINT = cfg.get("hint")                                               # 힌트 일정 (2026-10-11, kind=ar + hint_cross_dim 전용). 없으면 꺼짐
     kind = str((MD.get("predictor") or {}).get("kind", "oneshot"))
     is_ar = kind == "ar"            # 팔 C (app/vjepa_frozen/ar.py): 문맥·미래 모두 블록별 인코딩 (AC 판)
     is_ctx_ar = kind == "ctx_ar"    # 팔 C' (2026-09-27): 문맥은 창 단위 z, 미래 GT 만 블록별 LN(h)
     is_ctx_state = kind == "ctx_state"  # 2026-09-30: ctx_ar + 상태 되먹임 (predictor 공간), 타깃 = 창 LN(h)
     is_seq = is_ar or is_ctx_ar or is_ctx_state   # tf + rollout 손실을 쓰는 팔들
+    # ctx_state 타깃 (2026-10-16): window (기본, 창 전체 LN(h)) | block (블록별 LN(h) = TF 관측과 같은 공간, 창 전체 forward 생략)
+    ctx_target = str((MD.get("predictor") or {}).get("ctx_target", "window"))
+    if ctx_target not in ("window", "block"):
+        raise ValueError(f"model.predictor.ctx_target 는 window | block: {ctx_target!r}")
+    if ctx_target != "window" and not is_ctx_state:
+        raise ValueError("model.predictor.ctx_target 는 kind=ctx_state 전용")
+    if dyn_weight and not (is_ar and (MD.get("predictor") or {}).get("dyn_head")):
+        raise ValueError("loss.dyn_weight 는 kind=ar + model.predictor.dyn_head: true 에서만 쓴다")
+    if delta_weight and not is_ar:
+        raise ValueError("loss.delta_weight 는 kind=ar 전용")
+    if tf_span not in ("all", "predict"):
+        raise ValueError(f"loss.tf_span 은 all | predict: {tf_span!r}")
+    if tf_span != "all" and not (is_ar and not dyn_weight and not delta_weight and not HINT):
+        raise ValueError("loss.tf_span=predict 는 kind=ar 기본 경로 전용 (hint · delta_weight · dyn_weight 와 같이 쓰지 않는다)")
     if HINT and not (is_ar and int((MD.get("predictor") or {}).get("hint_cross_dim", 0) or 0)):
         raise ValueError("hint: 는 kind=ar + model.predictor.hint_cross_dim > 0 에서만 쓴다")
     if is_seq and not target_ln:
@@ -256,7 +273,8 @@ def main(args, resume_preempt=False):
                                     int(V.get("context_length", 16)), int(V.get("batch_size", 8)), loss_exp)
             elif is_ctx_state:
                 res = AR.run_val_ctx_state(valset, ctx_enc, tgt_enc, pred_mod, device, ac_dtype, rank, world_size, tubelet,
-                                           spatial, int(V.get("context_length", 16)), int(V.get("batch_size", 8)), loss_exp)
+                                           spatial, int(V.get("context_length", 16)), int(V.get("batch_size", 8)), loss_exp,
+                                           ctx_target=ctx_target)
             else:
                 res = AR.run_val_ctx_ar(valset, ctx_enc, tgt_enc, pred_mod, device, ac_dtype, rank, world_size, tubelet,
                                         spatial, int(V.get("context_length", 16)), int(V.get("batch_size", 8)), loss_exp)
@@ -304,7 +322,8 @@ def main(args, resume_preempt=False):
             t_it = time.time()
             if VW:                               # 가변 창: 로더가 (C, K, 데이터셋, B) 를 정해 W 장 정확히 준다 (자르지 않는다)
                 clips, info = next(loader_it)
-                m_enc, m_pred = sampler_masks.prefix_window(clips.size(0), info["context_blocks"], info["predict_blocks"])
+                if info.get("starts") is None:   # multistart 는 마스크를 안 쓴다
+                    m_enc, m_pred = sampler_masks.prefix_window(clips.size(0), info["context_blocks"], info["predict_blocks"])
             else:
                 try:
                     clips, m_enc, m_pred, info = next(loader_it)
@@ -350,8 +369,51 @@ def main(args, resume_preempt=False):
                 wd_now = wd_scheduler.step()
                 if int(info.get("gap_blocks", 0)):
                     raise ValueError("kind=ar/ctx_ar 는 gap_blocks 를 아직 지원하지 않는다 (예측이 문맥 바로 뒤에서 시작한다고 가정)")
+                if info.get("starts") is not None:              # 2026-10-14: multistart (C·K 없음, 시작점 여러 개)
+                    if HINT or delta_weight or tf_span != "all":
+                        raise ValueError("multistart 는 hint · delta_weight · tf_span 과 아직 같이 쓰지 않는다")
+                    with torch.no_grad(), _ac():
+                        h = AR.encode_blocks(tgt_enc, clips.to(enc_dtype), tubelet)
+                    with _ac():
+                        loss, jl, sl, R = AR.ar_losses_multistart(predictor, h, spatial, info["starts"], info["rollouts"], loss_exp)
+                    if scaler is not None:
+                        scaler.scale(loss).backward(); scaler.unscale_(optimizer)
+                    else:
+                        loss.backward()
+                    if clip_grad:
+                        torch.nn.utils.clip_grad_norm_(pred_mod.parameters(), float(clip_grad))
+                    if scaler is not None:
+                        scaler.step(optimizer); scaler.update()
+                    else:
+                        optimizer.step()
+                    optimizer.zero_grad(set_to_none=True)
+                    aux.update(jloss=float(jl.detach()), sloss=float(sl.detach()), R=R)
+                    return float(loss.detach()), lr_now, wd_now
                 if "context_blocks" not in info:
                     raise ValueError("kind=ar 는 mask.type=prefix_window 만 지원한다 (C·K 블록 수가 필요)")
+                if dyn_weight:                                  # 2026-10-14: 움직임 크기 손실 (TF + rollout 이웃 쌍)
+                    if HINT or delta_weight:
+                        raise ValueError("dyn_weight 는 hint · delta_weight 와 아직 같이 쓰지 않는다")
+                    with torch.no_grad(), _ac():
+                        xe = clips.to(enc_dtype)
+                        h = AR.encode_blocks(tgt_enc, xe, tubelet)
+                        pe = AR.patch_embed_blocks(tgt_enc, xe, tubelet)
+                    with _ac():
+                        loss, jl, sl, R = AR.ar_losses_dyn(predictor, h, pe, spatial, int(info["context_blocks"]),
+                                                           int(info["predict_blocks"]), loss_exp, rollout_steps, dyn_weight, aux=aux)
+                    if scaler is not None:
+                        scaler.scale(loss).backward(); scaler.unscale_(optimizer)
+                    else:
+                        loss.backward()
+                    if clip_grad:
+                        torch.nn.utils.clip_grad_norm_(pred_mod.parameters(), float(clip_grad))
+                    if scaler is not None:
+                        scaler.step(optimizer); scaler.update()
+                    else:
+                        optimizer.step()
+                    optimizer.zero_grad(set_to_none=True)
+                    aux.update(jloss=float(jl.detach()), sloss=float(sl.detach()), R=R)
+                    return float(loss.detach()), lr_now, wd_now
                 hint, n_hint = None, 0
                 with torch.no_grad(), _ac():
                     h = AR.encode_blocks(tgt_enc, clips.to(enc_dtype), tubelet)                # (B, nb*S, D) LN
@@ -363,7 +425,8 @@ def main(args, resume_preempt=False):
                             hint = AR.encode_hints(tgt_enc, clips.to(enc_dtype), tubelet, spatial, n_hint, gen=g)
                 with _ac():
                     loss, jl, sl, R = AR.ar_losses(predictor, h, spatial, int(info["context_blocks"]),
-                                                   int(info["predict_blocks"]), loss_exp, rollout_steps, hint=hint)
+                                                   int(info["predict_blocks"]), loss_exp, rollout_steps, hint=hint,
+                                                   delta_weight=delta_weight, aux=aux, tf_span=tf_span)
                 if scaler is not None:
                     scaler.scale(loss).backward()
                     scaler.unscale_(optimizer)
@@ -422,9 +485,13 @@ def main(args, resume_preempt=False):
                 with torch.no_grad(), _ac():
                     xe = clips.to(enc_dtype)
                     z = ctx_enc(xe, masks=[m_enc])                                              # (B, C*S, D) 문맥 z
-                    h_obs = (AR.encode_blocks(tgt_enc, xe[:, :, C_ * tubelet:], tubelet)         # (B, K*S, D) 블록별 LN (TF 관측)
-                             if tf_weight > 0 else None)
-                    tgt = torch.nn.functional.layer_norm(tgt_enc(xe), (z.size(-1),))[:, C_ * spatial:]           # (B, K*S, D) 창 LN (타깃)
+                    if ctx_target == "block":                                                    # 2026-10-16: 타깃 = TF 관측과 같은 블록별 LN
+                        tgt = AR.encode_blocks(tgt_enc, xe[:, :, C_ * tubelet:], tubelet)        # (B, K*S, D)
+                        h_obs = tgt if tf_weight > 0 else None
+                    else:
+                        h_obs = (AR.encode_blocks(tgt_enc, xe[:, :, C_ * tubelet:], tubelet)     # (B, K*S, D) 블록별 LN (TF 관측)
+                                 if tf_weight > 0 else None)
+                        tgt = torch.nn.functional.layer_norm(tgt_enc(xe), (z.size(-1),))[:, C_ * spatial:]       # (B, K*S, D) 창 LN (타깃)
                 with _ac():
                     loss, jl, sl, R = AR.ctx_state_losses(predictor, z, h_obs, tgt, spatial, C_, K_, loss_exp, rollout_steps,
                                                           tf_weight)
@@ -513,6 +580,10 @@ def main(args, resume_preempt=False):
                 ar_s = (" [tf %.4f ar %.4f R=%d]" % (aux["jloss"], aux["sloss"], aux["R"])) if is_seq else ""
                 if HINT:
                     ar_s += " hint %d" % aux.get("n_hint", 0)
+                if delta_weight:
+                    ar_s += " dl %.4f" % aux.get("dloss", 0.0)
+                if dyn_weight:
+                    ar_s += " dyn %.4f" % aux.get("dyn", 0.0)
                 logger.info("[%d, %5d] loss %.4f (avg %.4f)%s | mask %s C=%s | lr %.2e wd %.2e | mem %.1fG | iter %.0f ms gpu %.0f ms data %.0f ms"
                             % (epoch + 1, itr, loss, loss_meter.avg, ar_s, info["type"], info["context_frames"], lr_now, wd_now,
                                torch.cuda.max_memory_allocated() / 1024**3, it_meter.avg, gpu_meter.avg, data_meter.avg))

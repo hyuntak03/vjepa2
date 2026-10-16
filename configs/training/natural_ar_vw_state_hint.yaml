@@ -3,7 +3,8 @@
 #
 #   GPUS=8 bash z_training/tmux_train.sh natural_ar_vw_state_hint
 #
-# 힌트는 teacher forcing pass 에만 들어간다 (rollout · val · 채점은 힌트 없음). 일정·모듈 설명은 natural_ar_vw_hint.yaml
+# 힌트는 teacher forcing pass 에만 들어간다 (rollout · val · 채점은 힌트 없음). 모듈 설명은 natural_ar_vw_hint.yaml
+# 일정은 natural_ar_vw_hint (sin² 종 모양) 과 다르다 — 고정 10 % 후 차단
 # =============================================================================
 extends: natural_ar_vw_state
 
@@ -12,7 +13,8 @@ model:
     hint_cross_dim: 96
     hint_cross_heads: 4
 
-hint:
+hint:                           # 2026-10-13 (사용자 결정): epoch 1–63 블록당 26 개 (10 %) 고정, epoch 64–70 (lr 감소) 0 개
+  shape: const
   ratio_max: 0.10
-  start: 0.05
+  start: 0.0
   end: 0.90
