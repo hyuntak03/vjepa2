@@ -10,7 +10,7 @@
 set -uo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../z_research/scripts/harness" && pwd)/env.sh"
 cd "$VJEPA2_ROOT"
-A=${A:-natural_ar_vw_state_op}; B=${B:-natural_ar_vw_state_ctxt_video_tgtvideo_hole}   # 2026-10-16: 구멍은 encoding 전, 문맥 · 타깃 영상
+A=${A:-natural_ar_vw_state_op}; B=${B-natural_ar_vw_state_ctxt_video_tgtvideo_hole}   # 2026-10-16: 구멍은 encoding 전, 문맥 · 타깃 영상
 LOG=z_training/logs/chain_hole.log; mkdir -p z_training/logs
 say() { echo "[$(TZ=Asia/Seoul date '+%F %T KST')] $*" | tee -a "$LOG"; }
 gpu_free() { until ! nvidia-smi --query-compute-apps=pid --format=csv,noheader | grep -q .; do sleep 20; done; }
@@ -28,6 +28,7 @@ if wait_done "$A"; then
 else
   say "$A 가 done 없이 끝났다 — 채점 건너뜀"; gpu_free
 fi
+[[ -z "$B" ]] && { say "B 없음 — op 채점까지만 하고 끝"; exit 0; }   # 2026-10-16: B= 로 비우면 학습 안 올림
 say "2 학습 올림: $B"
 GPUS=8 bash z_training/tmux_train.sh "$B" 2>&1 | tee -a "$LOG"
 sleep 120

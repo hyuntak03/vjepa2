@@ -94,6 +94,16 @@ if seen:
     mdl = re.findall(r" dl ([\d.]+)(?: dyn [\d.]+)? \| mask var", tail)
     mdy = re.findall(r" dyn ([\d.]+) \| mask var", tail)
     dl_s = (f" + dl {float(mdl[-1]):.4f} (차이 L1)" if mdl else "") + (f" + dyn {float(mdy[-1]):.4f} (움직임 크기, ×λ 전)" if mdy else "")
+    mrc = re.findall(r" hole ([\d.]+) rec ([\d.]+) \| mask var", tail)       # 2026-10-17: 문맥 구멍 — 복원 손실은 걸 때만 (가중치 > 0) 손실 식에 넣는다
+    if mrc:
+        rw = 0.0
+        try:
+            rw = float((c["loss"].get("ctx_hole") or {}).get("recon_weight", 1.0))
+        except Exception:
+            pass
+        if rw > 0:
+            dl_s += f" + 복원 {rw:g}×{float(mrc[-1][1]):.4f}"
+        dl_s += f"   [문맥 구멍 비율 {float(mrc[-1][0]):.2f}]"
     print(f" {B}loss{N}  {float(l):.4f}  = tf {float(tf):.4f} + ar {float(ar):.4f}{dl_s}   (지금 C{C}K{K} {ds} B{Bb}, R={R}){h}")
     if hint_cfg and total:
         a, b = float(hint_cfg.get("start", 0.05)), float(hint_cfg.get("end", 0.9))

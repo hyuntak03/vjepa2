@@ -324,6 +324,30 @@ def run_val_ctx_ar(vs: ValSet, ctx_enc, tgt_enc, pred_mod, device, autocast_dtyp
 # 입력과 타깃을 나눈다 — 되먹임이 출력 공간을 안 쓰므로 가능하다:
 #   TF 관측 입력 : target encoder **블록별** LN(h)   (encoder 는 양방향이라 미래 구간을 한 번에 넣으면 블록 t 가 t 뒤를 본다 = 누수)
 #   손실 타깃    : target encoder **창(C+K) 전체** LN(h) 의 미래 블록  (릴리즈 사전학습 · surprise 채점 · in-loop val 과 같은 타깃)
+def _hole_ratio(B, C, S, g, k, n_tok, cfg, gen):
+    """문맥 끝 k 블록에 같은 자리 (tube) 로 정확히 n_tok 토큰을 가린다 (clip 마다 다른 모양, batch 안 길이 같음).
+    직사각형 (면적 비율 rect_scale, 가로세로 aspect) 을 n_tok 이상 덮을 때까지 쌓고, 넘친 토큰은 무작위로 다시 보이게 한다."""
+    lo, hi = cfg.get("aspect", [0.75, 1.5]); sl, sh = cfg.get("rect_scale", [0.15, 0.4])
+    hole = torch.zeros(B, C, S, dtype=torch.bool)
+    for i in range(B):
+        sp = torch.zeros(g, g, dtype=torch.bool)
+        while int(sp.sum()) < n_tok:
+            ar_ = float(torch.empty(1).uniform_(float(lo), float(hi), generator=gen))
+            area = float(torch.empty(1).uniform_(float(sl), float(sh), generator=gen)) * g * g
+            hh = max(1, min(g, int(round((area / ar_) ** 0.5)))); ww = max(1, min(g, int(round((area * ar_) ** 0.5))))
+            t = int(torch.randint(0, g - hh + 1, (1,), generator=gen)); l_ = int(torch.randint(0, g - ww + 1, (1,), generator=gen))
+            sp[t:t + hh, l_:l_ + ww] = True
+        f = sp.view(S)
+        extra = int(f.sum()) - n_tok
+        if extra > 0:
+            on = f.nonzero().flatten()
+            f[on[torch.randperm(on.numel(), generator=gen)[:extra]]] = False
+        hole[i, C - k:] = f.view(1, S)
+    hole = hole.view(B, C * S)
+    keep = torch.stack([(~hole[i]).nonzero().flatten() for i in range(B)])
+    return hole, keep
+
+
 def make_ctx_hole(B: int, C: int, S: int, cfg: dict, gen: torch.Generator, gen_shape: torch.Generator = None):
     """문맥 구멍 (2026-10-16, 사용자 결정 — "문맥에 구멍을 내서 채우게", encoding **전에** 낸다 = V-JEPA 2 사전학습과 같다).
     return (hole (B, C*S) bool, keep (B, n_keep) long) 또는 (None, None). keep = context encoder 가 볼 토큰 (오름차순).
@@ -338,8 +362,14 @@ def make_ctx_hole(B: int, C: int, S: int, cfg: dict, gen: torch.Generator, gen_s
     if kmax < 1 or float(torch.rand(1, generator=gen)) >= float(cfg.get("p", 0.75)):
         return None, None
     k = int(torch.randint(1, kmax + 1, (1,), generator=gen))
-    gen = gen if gen_shape is None else gen_shape            # 적용 여부 · k 는 gen (rank 공통), 직사각형 · 길이 맞춤은 gen_shape (rank 별)
+    ratio = cfg.get("ratio")                                  # 2026-10-17: [lo, hi] 이면 step 마다 r ~ U(lo, hi), 구멍 블록당 정확히 round(r·S) 토큰
+    r_tok = None
+    if ratio is not None:
+        r_tok = int(round(float(torch.empty(1).uniform_(float(ratio[0]), float(ratio[1]), generator=gen)) * S))
+    gen = gen if gen_shape is None else gen_shape            # 적용 여부 · k · 비율은 gen (rank 공통), 직사각형 · 길이 맞춤은 gen_shape (rank 별)
     g = int(round(S ** 0.5))
+    if r_tok is not None:
+        return _hole_ratio(B, C, S, g, k, r_tok, cfg, gen)
     nblk, sc = int(cfg.get("num_blocks", 2)), float(cfg.get("spatial_scale", 0.7))
     lo, hi = cfg.get("aspect", [0.75, 1.5])
     hole = torch.zeros(B, C, S, dtype=torch.bool)

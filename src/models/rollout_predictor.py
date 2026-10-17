@@ -207,6 +207,9 @@ class VisionTransformerPredictorPrefix(nn.Module):
         self.predictor_proj = nn.Linear(predictor_embed_dim, out_embed_dim or embed_dim, bias=True)
         # 움직임 크기 헤드 (2026-10-14, mask_mode=ar 전용): 이웃 상태 차 |s_{t+1}-s_t| → 토큰별 스칼라. 꺼져 있으면 안 만든다
         self.dyn_head = nn.Linear(predictor_embed_dim, 1) if bool(kwargs.get("dyn_head", False)) else None
+        # 문맥 복원 전용 머리 (2026-10-16, ctx_state + ctx_hole): 마지막 문맥 자리 상태는 "다음 블록 예측" 을 맡으므로
+        #   가린 문맥 토큰 복원은 같은 상태를 **다른 선형 사상**으로 읽는다 (두 정답 충돌 방지). 학습 전용 — 채점 · EK100 은 버린다
+        self.recon_proj = nn.Linear(predictor_embed_dim, out_embed_dim or embed_dim, bias=True) if bool(kwargs.get("recon_head", False)) else None
         # 힌트 cross-attn (2026-10-11, mask_mode=ar 전용). 0 이면 만들지 않는다 (state_dict 그대로)
         self.hint_cross_dim = int(kwargs.get("hint_cross_dim", 0) or 0)
         if self.hint_cross_dim:
@@ -277,7 +280,12 @@ class VisionTransformerPredictorPrefix(nn.Module):
                                          hole=hole, return_ctx=recon)
                 h_tf, h_ctx = out if recon else (out, None)
                 p_tf = self.render(h_tf)                                               # 블록 C..C+K-1 예측 (K 블록)
-                p_ctx = None if h_ctx is None else self.render(h_ctx)
+                if h_ctx is None:
+                    p_ctx = None
+                elif self.recon_proj is not None:   # 2026-10-17: 복원 전용 머리 (render 와 같은 LN, 다른 사상)
+                    p_ctx = torch.nn.functional.layer_norm(self.recon_proj(h_ctx), (self.recon_proj.out_features,))
+                else:
+                    p_ctx = self.render(h_ctx)
             elif recon:
                 raise ValueError("ctx_recon 은 TF (h_obs) 가 있어야 한다")
             p_ar = self.render(self.rollout_state_kv(x, idx[:, : C * S], R, hole=hole))

@@ -1,0 +1,27 @@
+# =============================================================================
+# ctxt_video c4b (문맥 = encoder 영상 · 타깃 = 블록별 LN(h) · 문맥 최소 4 블록) + **마지막 문맥 블록 구멍** (2026-10-17, 사용자 결정) — scratch
+#
+#   GPUS=8 bash z_training/tmux_train.sh natural_ar_vw_state_ctxt_video_c4b_lasthole
+#
+# 바뀐 것 (natural_ar_vw_state_ctxt_video_c4b 대비):
+#   * loss.ctx_hole — step 의 75 % 에서 **마지막 문맥 블록 하나만** (k_max 1) 가린다. 가리는 비율 r ~ U(0.60, 0.85) (step 마다, batch 공통),
+#     모양은 clip 마다 다른 직사각형 합집합 (면적 15–40 %, 가로세로 0.75–1.5) 을 r 만큼 쌓은 것
+#   * **encoding 전에** 가린다 — context encoder 는 보이는 문맥 토큰만 본다 (가린 자리 정보가 다른 토큰으로 새지 않는다)
+#   * 가린 자리 입력 = mask_tokens[0]. **손실은 기존 TF + rollout 만 — 복원 손실 없음** (2026-10-17 사용자 결정):
+#     마지막 문맥 자리의 출력 (상태) 은 미래 (다음 블록) 예측이다. 거기에 자기 블록 복원을 걸면 별도 머리로 읽어도 상태 수준에서 상충한다.
+#     가린 마지막 블록은 미래 예측 손실을 통해서만 (간접적으로) 앞 블록에서 채워진다
+#   ⚠️ 정정 — 처음 올린 판 (10-17 오전, 683 step 에서 중단 · 삭제) 은 복원 손실 (recon_weight 1.0, 복원 머리) 이 있었다
+# 왜 (사용자): ctxt_video 는 마지막 문맥 블록에 기대고 앞쪽 문맥을 덜 쓴다 (ctx_swap_test --keep_last 1: late 에서 앞쪽을 바꿔도 오차 +0.006–0.012,
+#   AR 은 +0.03–0.04). 영상 문맥이라 마지막 블록 z 에 앞 정보가 이미 섞여서일 수 있다 [추측]. 마지막 블록을 가려 앞에서 채우게 한다
+# 판정 (c4b 대비): VOBench late ↑ · ctx_swap_test --keep_last 1 의 오차 증가 ↑ (앞쪽 문맥을 더 씀) · visible / IntPhys1 유지
+# =============================================================================
+extends: natural_ar_vw_state_ctxt_video_c4b
+
+loss:
+  ctx_hole:
+    p: 0.75
+    k_max: 1
+    ratio: [0.60, 0.85]
+    rect_scale: [0.15, 0.40]
+    aspect: [0.75, 1.5]
+    recon_weight: 0.0          # 복원 손실 없음 (위 설명)

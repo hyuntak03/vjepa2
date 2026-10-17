@@ -443,7 +443,7 @@ def build_from_config(cfg: dict, device: torch.device) -> VJEPA2Bundle:
             raise KeyError(f"{pc_path}: 'predictor' 키가 없다 (keys={list(pstate)[:8]})")
         psd = _clean_backbone_key(pstate["predictor"])
         # 힌트 cross-attn (2026-10-11) 은 학습 전용 — 채점은 힌트 없이 하므로 그 가중치는 버린다 (모델에도 안 만든다)
-        hint_keys = [k for k in psd if k.startswith("hint_attn.") or k.startswith("dyn_head.")]   # 2026-10-14: 움직임 헤드도 학습 전용
+        hint_keys = [k for k in psd if k.startswith(("hint_attn.", "dyn_head.", "recon_proj."))]   # 2026-10-17: 복원 머리도 학습 전용   # 2026-10-14: 움직임 헤드도 학습 전용
         if hint_keys:
             for k in hint_keys:
                 psd.pop(k)

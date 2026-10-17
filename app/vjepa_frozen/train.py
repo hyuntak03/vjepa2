@@ -99,9 +99,9 @@ def main(args, resume_preempt=False):
         raise ValueError(f"model.predictor.ctx_target 는 window | block: {ctx_target!r}")
     if ctx_target != "window" and not is_ctx_state:
         raise ValueError("model.predictor.ctx_target 는 kind=ctx_state 전용")
-    if CTX_HOLE and not (is_ctx_state and ctx_target == "window" and tf_weight > 0):
+    if CTX_HOLE and not (is_ctx_state and tf_weight > 0):   # 2026-10-17: 블록 타깃도 허용 (복원 정답 = 가린 문맥 블록의 블록별 LN(h))
         # kind=ar (블록 단위 인코딩) 에 encoding 뒤 구멍을 내면 같은 블록의 보이는 토큰이 가린 자리를 이미 본 뒤라 누수다 → 안 받는다
-        raise ValueError("loss.ctx_hole 은 kind=ctx_state + ctx_target=window + tf_weight>0 전용 (구멍은 context encoder 입력 전에 낸다)")
+        raise ValueError("loss.ctx_hole 은 kind=ctx_state + tf_weight>0 전용 (구멍은 context encoder 입력 전에 낸다)")
     if dyn_weight and not (is_ar and (MD.get("predictor") or {}).get("dyn_head")):
         raise ValueError("loss.dyn_weight 는 kind=ar + model.predictor.dyn_head: true 에서만 쓴다")
     if delta_weight and not is_ar:
@@ -504,6 +504,10 @@ def main(args, resume_preempt=False):
                     if ctx_target == "block":                                                    # 2026-10-16: 타깃 = TF 관측과 같은 블록별 LN
                         tgt = AR.encode_blocks(tgt_enc, xe[:, :, C_ * tubelet:], tubelet)        # (B, K*S, D)
                         h_obs = tgt if tf_weight > 0 else None
+                        if hole is not None and float((CTX_HOLE or {}).get("recon_weight", 1.0)) > 0:   # 2026-10-17: 복원 정답 = 가린 문맥 블록들만 블록별 LN(target_encoder). 복원 손실이 없으면 안 만든다
+                            kb = int(hole.view(hole.size(0), C_, spatial)[0].any(-1).sum())        # 구멍 블록 수 (step 공통, 문맥 끝)
+                            tgt_ctx = z.new_zeros(z.size(0), C_ * spatial, tgt.size(-1))
+                            tgt_ctx[:, (C_ - kb) * spatial:] = AR.encode_blocks(tgt_enc, xe[:, :, (C_ - kb) * tubelet: C_ * tubelet], tubelet)
                     else:
                         h_obs = (AR.encode_blocks(tgt_enc, xe[:, :, C_ * tubelet:], tubelet)     # (B, K*S, D) 블록별 LN (TF 관측)
                                  if tf_weight > 0 else None)

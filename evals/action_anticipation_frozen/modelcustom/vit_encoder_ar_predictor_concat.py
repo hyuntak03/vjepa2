@@ -56,7 +56,7 @@ def init_module(frames_per_clip: int, frames_per_second: int, resolution, checkp
         num_heads=int(pk.get("num_heads", 12)), num_mask_tokens=int(pk.get("num_mask_tokens", 10)),
         mask_mode="ar", ar_feedback=str(pk.get("ar_feedback", "output")))
     psd = _clean(torch.load(pk["checkpoint"], map_location="cpu", weights_only=False)["predictor"])
-    psd = {k: v for k, v in psd.items() if not k.startswith(("hint_attn.", "dyn_head."))}
+    psd = {k: v for k, v in psd.items() if not k.startswith(("hint_attn.", "dyn_head.", "recon_proj."))}
     msg = pred.load_state_dict(psd, strict=True)
     logger.info(f"[ar] predictor <- {pk['checkpoint']} (ar_feedback={pred.ar_feedback}): {msg}")
 

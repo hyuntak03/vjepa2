@@ -1,0 +1,23 @@
+# =============================================================================
+# ctxt_video (문맥 = encoder 영상, 타깃 = 블록별 LN(h)) + **문맥 최소 4 블록** (2026-10-17, 사용자 결정) — 처음부터 (scratch)
+#
+#   GPUS=8 bash z_training/tmux_train.sh natural_ar_vw_state_ctxt_video_c4b
+#
+# natural_ar_vw_state_ctxt_video 와 다른 것:
+#   1. 문맥 C ∈ {8, 16, 32} 장 = 4 · 8 · 16 블록 (2 · 4 · 8 s). ctxt_video 는 {4, 8, 16, 32} 장 (최소 2 블록 = 1 s)
+#      예측 K ∈ {4, 8, 16, 32} 장 그대로 → 12 조합 균등
+#   2. 데이터 가중치 k710 0.70 : ssv2 1.10 : how 1.00 — 문맥이 길어져 SSv2 가 들어가는 창이 3 개 (C8K4 · C8K8 · C16K4 장) 로 줄어,
+#      0.65 : 0.60 그대로면 SSv2 6.8 % 가 된다. 릴리즈 비율 (0.335 / 0.1 / 0.565) 로 역산 → 본 프레임 33.7 / 10.0 / 56.3 %
+# 계획 (20,580 step, token_budget 950): 약 571 만 clip (ctxt_video 708 만 — 창이 길어져 clip 수만 준다)
+# 왜 (사용자): ctxt_video 에서 VOBench gravity 가 AR 보다 높았다 (33.3 / 20.4 vs 20.4 / 8.3). 문맥을 더 길게 보장해 운동 정보를 읽을 시간을 준다.
+# ⚠️ ctxt_video 와 문맥 범위 + 가중치 둘이 다르다 (SSv2 비율 10 % 는 같게 맞췄다)
+# =============================================================================
+extends: natural_ar_vw_state_ctxt_video
+
+data:
+  var_window:
+    datasets:
+      - {name: k710, table: "${DATA_CSV}/k710_320/fps4_table.tsv",    weight: 0.70}
+      - {name: ssv2, table: "${DATA_CSV}/ssv2/fps4_table.tsv",        weight: 1.10, min_eligible: 20000}
+      - {name: how,  table: "${DATA_CSV}/ht100m_1pct/fps4_table.tsv", weight: 1.00}
+    context_frames: [8, 16, 32]

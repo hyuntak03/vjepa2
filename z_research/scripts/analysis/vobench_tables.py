@@ -48,6 +48,9 @@ MODELS = {   # 이름 → (라벨, 채점 실행, 복사 실행)
     "vast_ar_vw_state_ctxt_video": ("Vast ctxt_video (video context + block TF + state rollout, 20,580 step)",
                                     OUT / "surprise_c16t32__vobench_v1_vast_ar_vw_state_ctxt_video",
                                     OUT / "surprise_c16t32__vobench_v1_vast_ar_blockcopy"),
+    "vast_ar_vw_state_op": ("Vast AR-state + object_permanence 10% (boundary-aligned windows, 20,580 step)",
+                            OUT / "surprise_c16t32__vobench_v1_vast_ar_vw_state_op",
+                            OUT / "surprise_c16t32__vobench_v1_vast_ar_blockcopy"),
     "vast_tube_cd64": ("Vast tube baseline (release recipe, cooldown64)", OUT / "surprise_c16t32__vobench_v1_vast_tube_cd64", None),
     # VideoMAEv2: 창 16 고정 → c8t16_s6 (stride 6, 문맥 8 · 미래 8). 타깃 = 정규화 픽셀. 복사 경로 없음
     "videomae_v2": ("VideoMAEv2-g (window c8t16_s6)", OUT / "surprise_c16t32__vobench_v1_videomae2g_wc8t16_s6", None),
@@ -280,7 +283,7 @@ def main():
         "ariel_ar_state_ep40": ["GPUS=4 DECODE_WORKERS=8 BATCH_SIZE=16 bash z_research/scripts/run.sh surprise_c16t32 vobench_v1 vith_ariel_ar_state_ep40",
                                 "# 복사 = ariel_ar_ep40 의 copy__ 실행 (copy_blk, predictor 무관)"],
         "videomae_v2": ["GPUS=4 WINDOW=c8t16_s6 RESULTS_ROOT=legacy bash cvpr/eval/testbed/run.sh vobench_v1 videomae2g"]}
-    for _m in ("vast_ar_vw_state_hint", "vast_ar_vw_state", "vast_ar_vw_hint", "vast_ar_vw_state_delta", "vast_tube_cd64", "vast_ar_vw_state_ctxt_video"):   # vast 브랜치 (2026-10-13, Vast 8 GPU)
+    for _m in ("vast_ar_vw_state_hint", "vast_ar_vw_state", "vast_ar_vw_hint", "vast_ar_vw_state_delta", "vast_tube_cd64", "vast_ar_vw_state_ctxt_video", "vast_ar_vw_state_op"):   # vast 브랜치 (2026-10-13, Vast 8 GPU)
         RECIPE[_m] = [f"RESULTS_ROOT=legacy GPUS=8 bash cvpr/eval/testbed/run.sh vobench_v1 {_m}",
                       "RESULTS_ROOT=legacy GPUS=8 bash cvpr/eval/testbed/run.sh vobench_v1 vast_ar_blockcopy   # 복사 (블록 공간)"]
     md += ["## 재현", "", "```bash"] + RECIPE[a.model] + [
