@@ -16,7 +16,7 @@ PY=/venv/vjepa/bin/python
 [[ -x "$PY" ]] || PY=python3
 
 # 기본 monitor.sh 의 '설정' 줄은 고정 batch·창을 가정해 가변 창 run 에서 틀린 값을 낸다 → 빼고 아래에서 다시 쓴다
-bash "$ROOT/z_training/monitor.sh" "$RUN" 2>/dev/null | grep -v '^ ETA ' | grep -v '^ 설정 ' | grep -v '^ val ' | grep -v '^ C 별 '
+TZ=Asia/Seoul bash "$ROOT/z_training/monitor.sh" "$RUN" 2>/dev/null | grep -v '^ ETA ' | grep -v '^ 설정 ' | grep -v '^ val ' | grep -v '^ C 별 '
 
 "$PY" - "$D" "$ROOT" "$RUN" <<'EOF'
 import csv, json, os, re, statistics as st, sys, subprocess
@@ -38,7 +38,9 @@ try:
     wts = " : ".join(f"{d['name']} {d.get('weight', 1.0)}" for d in vw["datasets"])
     pc = c["model"].get("predictor") or {}
     arm = (f"kind={pc.get('kind')}" + (f" 되먹임={pc['ar_feedback']}" if pc.get("ar_feedback") else "")
+           + (f" 문맥={pc.get('ctx_encoder') or c['model'].get('context_encoder_key', 'encoder')}×{pc.get('ctx_input', 'video')}" if pc.get("kind") == "ctx_state" else "")
            + (f" 타깃={pc['ctx_target']}" if pc.get("ctx_target") else "")
+           + (" gating=on" if pc.get("gating_residual") else "")
            + (f" tf_span={c['loss']['tf_span']}" if c["loss"].get("tf_span") else "")
            + (f" tf_weight={c['loss']['tf_weight']}" if "tf_weight" in c["loss"] and pc.get("kind") == "ctx_state" else ""))
     print(f" {B}설정{N}  {arm} · 가변 창 (fps 4, 패딩 없음) · 문맥 C {vw['context_frames']} 장 × 예측 K {vw['predict_frames']} 장 · "
@@ -71,7 +73,7 @@ else:
     print(" (아직 step 로그 없음)")
 
 tl = os.path.join(D, "train.log")
-pat = re.compile(r"\] loss ([\d.]+) \(avg [\d.]+\) \[tf ([\d.]+) ar ([\d.]+) R=(\d+)\](?: hint (\d+))?(?: dl [\d.]+)?(?: dyn [\d.]+)?(?: hole [\d.]+ rec [\d.]+)? \| mask var C(\d+)K(\d+) (\w+) B(\d+)")
+pat = re.compile(r"\] loss ([\d.]+) \(avg [\d.]+\) \[tf ([\d.]+) ar ([\d.]+) R=(\d+)\](?: hint (\d+))?(?: dl [\d.]+)?(?: dyn [\d.]+)?(?: gate [\d.]+ mov [\d.]+ sta [\d.]+ k1 [\d.]+ kR [\d.]+ >\.95 [\d.]+)?(?: hole [\d.]+ rec [\d.]+)? \| mask var C(\d+)K(\d+) (\w+) B(\d+)")
 pat_ms = re.compile(r"\] loss ([\d.]+) \(avg [\d.]+\) \[tf ([\d.]+) ar ([\d.]+) R=(\d+)\] \| mask ms W(\d+) (\w+) B(\d+) s([\d-]+)")   # multistart (10-14)
 seen = []
 if os.path.isfile(tl):
@@ -112,6 +114,23 @@ if seen:
             print(f"       힌트 일정: step {int(a * total):,}~{int(b * total) - 1:,} 동안 {n_max} 개 고정, 그 뒤 0 (cross-attn 차단)")
         else:
             print(f"       힌트 일정: t {a:.2f}~{b:.2f} sin² 종 모양, 정점 {n_max} 개 (t {(a + b) / 2:.3f})")
+    # gating_residual (2026-10-17): rollout gate. 최근 50 줄 평균 (로그는 rank 마다 같은 줄이 8 번 — 중복 제거)
+    gl = re.findall(r"\[(\d+), +(\d+)\] loss .*? gate ([\d.]+) mov ([\d.]+) sta ([\d.]+) k1 ([\d.]+) kR ([\d.]+) >\.95 ([\d.]+)", open(tl, errors="ignore").read())
+    if gl:
+        uniq = list({(a, b): g for a, b, *g in gl}.values())
+        def _m(rows, i):
+            return st.mean(float(r[i]) for r in rows)
+        rec = uniq[-50:]
+        g_, mv, sa, k1, kr, hi = (_m(rec, i) for i in range(6))
+        ok1 = "✓" if mv < sa else "✗"
+        ok2 = "✓" if kr < k1 else "✗"
+        warn = f"  {Y}⚠ 1 근처 — 복사로 무너지는 중{N}" if hi > 0.5 and len(uniq) > 100 else ""
+        print(f" {B}gate{N}  평균 {g_:.3f}  움직이는 칸 {mv:.3f} vs 정지 칸 {sa:.3f} {ok1}   첫 걸음 {k1:.3f} vs 마지막 {kr:.3f} {ok2}   >0.95 비율 {hi:.2f}{warn}")
+        if len(uniq) >= 20:      # epoch 별 평균 gate 추이 (복사 → predictor 로 넘어가는지)
+            byep = {}
+            for (e, _), gg in zip({(a, b): 0 for a, b, *_ in gl}.keys(), uniq):
+                byep.setdefault(int(e), []).append(float(gg[0]))
+            print("       epoch 별 평균 gate  " + "  ".join(f"e{e}:{st.mean(v):.2f}" for e, v in sorted(byep.items())[-10:]))
     ck = {}
     for g in seen[-400:]:
         ck.setdefault((int(g[5]), int(g[6])), []).append(float(g[2]))
@@ -138,22 +157,19 @@ if os.path.isfile(tl):      # 데이터별 step 수 (op320 · vob 같은 고정/
     if cnt:
         tot = sum(cnt.values())
         print(" 데이터별 step  " + "  ".join(f"{k} {v:,} ({100 * v / tot:.1f}%)" for k, v in cnt.most_common()))
-for ch in ("chain_hole", "chain_ctxt", "chain_ar"):        # 지금 도는 chain 이 있으면 그것만, 없으면 가장 최근 로그
-    cl = os.path.join(ROOT, f"z_training/logs/{ch}.log")
-    alive = subprocess.run(["tmux", "has-session", "-t", f"={ch}"], capture_output=True).returncode == 0
-    if not alive and ch in ("chain_hole", "chain_ctxt") and not os.path.isfile(cl):
-        continue
-    lines = open(cl).read().strip().splitlines() if os.path.isfile(cl) and os.path.getsize(cl) else ["(로그 없음)"]
-    print(f" {B}{ch}{N} {'살아 있음' if alive else '세션 없음'}")
-    for ln in [x for x in lines if x.startswith("[")][-3:]:
-        print("   " + ln[:110])
-    break
+# 2026-10-17: 살아 있는 chain 세션만 (죽은 옛 chain 은 안 보인다). 로그는 이 run 이름이 붙은 것 또는 세션 이름과 같은 것
+sess = subprocess.run(["tmux", "ls", "-F", "#{session_name}"], capture_output=True, text=True).stdout.split()
+for ch in [x for x in sess if x.startswith("chain")]:
+    cands = [os.path.join(ROOT, f"z_training/logs/chain_eval_{RUN}.log"), os.path.join(ROOT, f"z_training/logs/{ch}.log")]
+    cl = next((x for x in cands if os.path.isfile(x) and os.path.getsize(x)), None)
+    print(f" {B}{ch}{N} 살아 있음" + ("" if cl else " (로그 없음)"))
+    if cl:
+        for ln in [x for x in open(cl).read().strip().splitlines() if x.startswith("[")][-3:]:
+            print("   " + ln[:110])
 import glob as _g
-for r in sorted(os.path.basename(os.path.dirname(os.path.dirname(x))) for x in _g.glob(os.path.join(ROOT, "z_training/runs/natural_ar_vw*/eval/BENCH_latest.txt"))):
-    bf = os.path.join(ROOT, "z_training/runs", r, "eval", "BENCH_latest.txt")
-    if os.path.isfile(bf):
-        print(f" {B}채점{N} {r}:")
-        for ln in open(bf).read().strip().splitlines()[1:]:
-            print("   " + ln)
+for bf in sorted(_g.glob(os.path.join(D, "eval", "BENCH_*.txt"))):     # 2026-10-17: 이 run 의 채점만 (다른 run 결과는 안 보인다)
+    print(f" {B}채점{N} {os.path.basename(bf)[6:-4]}:")
+    for ln in open(bf).read().strip().splitlines()[1:]:
+        print("   " + ln)
 print("━" * 78)
 EOF
