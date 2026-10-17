@@ -396,9 +396,30 @@ def make_ctx_hole(B: int, C: int, S: int, cfg: dict, gen: torch.Generator, gen_s
     return hole, keep
 
 
+def predictor_core(m):
+    """DDP 로 감싼 predictor 의 안쪽 모듈."""
+    return m.module if hasattr(m, "module") else m
+
+
+@torch.no_grad()
+def gate_stats(g, anchor, tgt, S: int) -> dict:
+    """gating_residual 모니터 (rollout gate, 2026-10-17). g (B, R*S, 1), anchor (B, S, D), tgt (B, R*S, D).
+    mov = 정답이 anchor 에서 많이 변한 칸 (|tgt − A| 상위 25 %, 움직이는 물체), sta = 하위 25 % (정지 배경).
+    정상이면 mov < sta (움직이는 칸은 anchor 를 덜 쓴다), kR < k1 (뒤 걸음일수록 덜 쓴다)."""
+    B, n, _ = g.shape
+    R = n // S
+    g = g.float().view(B, R, S)
+    d = (tgt.float().view(B, R, S, -1) - anchor.float().unsqueeze(1)).abs().mean(-1)     # (B, R, S)
+    lo, hi = torch.quantile(d.flatten(1), torch.tensor([0.25, 0.75], device=d.device), dim=1)  # (B,) 씩
+    mov = g[d >= hi.view(B, 1, 1)].mean()
+    sta = g[d <= lo.view(B, 1, 1)].mean()
+    return {"gate": float(g.mean()), "gate_mov": float(mov), "gate_sta": float(sta),
+            "gate_k1": float(g[:, 0].mean()), "gate_kR": float(g[:, -1].mean()), "gate_hi": float((g > 0.95).float().mean())}
+
+
 def ctx_state_losses(predictor, z_ctx, h_obs, tgt, S: int, C: int, K: int, loss_exp: float, rollout_steps: int,
                      tf_weight: float = 1.0, hole=None, tgt_ctx=None,
-                     recon_weight: float = 0.0, aux: dict = None):
+                     recon_weight: float = 0.0, aux: dict = None, anchor=None):
     """z_ctx (B, C*S, D), h_obs (B, K*S, D) 블록별 LN(h) 또는 None (tf_weight=0), tgt (B, K*S, D) 창 LN(h) 의 미래 블록.
     loss = tf_weight * jloss + sloss. return (loss, jloss, sloss, R) — TF 를 끄면 jloss 는 0."""
     B = z_ctx.size(0)
@@ -410,12 +431,16 @@ def ctx_state_losses(predictor, z_ctx, h_obs, tgt, S: int, C: int, K: int, loss_
     idx = block_indices(B, C + K, S, z_ctx.device)
     recon = hole is not None and float(recon_weight) > 0
     arg = {"h_obs": h_obs if use_tf else None, "idx": idx, "n_ctx_blocks": C, "rollout_steps": R}
+    if anchor is not None:                                    # 2026-10-17 gating_residual: (B, S, D) LN(target_encoder(마지막 문맥 블록))
+        arg["anchor"] = anchor
     if hole is not None:                                      # 2026-10-16 문맥 구멍 (z 는 그 자리에 0, 입력은 mask token)
         arg["ctx_hole"] = hole
         arg["ctx_recon"] = recon
     out = predictor(z_ctx, ar=arg)
     p_tf, p_ar = out[0], out[1]
     sloss = l1(p_ar, tgt[:, : R * S], loss_exp)
+    if aux is not None and anchor is not None and getattr(predictor_core(predictor), "_gate_cache", None) is not None:
+        aux.update(gate_stats(predictor_core(predictor)._gate_cache.detach(), anchor, tgt[:, : R * S], S))
     if not use_tf:
         return sloss, sloss.new_zeros(()), sloss, R
     jloss = l1(p_tf, tgt, loss_exp)
@@ -434,7 +459,7 @@ def ctx_state_losses(predictor, z_ctx, h_obs, tgt, S: int, C: int, K: int, loss_
 @torch.no_grad()
 def run_val_ctx_state(vs: ValSet, ctx_enc, tgt_enc, pred_mod, device, autocast_dtype, rank: int, ws: int,
                       tubelet: int, spatial: int, context_length: int, batch_size: int, loss_exp: float,
-                      ctx_target: str = "window") -> Dict:
+                      ctx_target: str = "window", gating: bool = False, ctx_input: str = "video") -> Dict:
     """ctx_state 판 in-loop val. 문맥 z → 상태 rollout K 블록 (주지표) / TF (보조).
     타깃 = 창 전체 LN(h) 의 미래 블록 (ctx_target=window, 기본) 또는 블록별 LN(h) (block, 2026-10-16 — TF 관측과 같은 공간)."""
     pred_mod.eval()
@@ -456,12 +481,26 @@ def run_val_ctx_state(vs: ValSet, ctx_enc, tgt_enc, pred_mod, device, autocast_d
         with ac:
             xe = x.to(next(tgt_enc.parameters()).dtype)
             idx = block_indices(n, nb, S, device)
-            z = ctx_enc(xe, masks=[idx[:, : C * S]])
-            h_obs = encode_blocks(tgt_enc, xe[:, :, C * tubelet:], tubelet)
+            shared = ctx_input == "block" and ctx_enc is tgt_enc and ctx_target == "block"
+            if shared:                                       # 2026-10-17: 문맥도 블록별 LN(target_encoder) (학습과 같다)
+                hb_all = encode_blocks(tgt_enc, xe[:, :, : nb * tubelet], tubelet)
+                z = hb_all[:, : C * S]
+            elif ctx_input == "block":
+                z = encode_blocks(ctx_enc, xe[:, :, : C * tubelet], tubelet)
+            else:
+                z = ctx_enc(xe, masks=[idx[:, : C * S]])
+            if shared:
+                h_obs = hb_all[:, C * S:]
+                A = z[:, -S:] if gating else None
+            elif gating:                                     # 2026-10-17: anchor = 마지막 문맥 블록 LN(target_encoder) — 미래 블록과 한 번에
+                hb = encode_blocks(tgt_enc, xe[:, :, (C - 1) * tubelet:], tubelet)
+                A, h_obs = hb[:, :S], hb[:, S:]
+            else:
+                A, h_obs = None, encode_blocks(tgt_enc, xe[:, :, C * tubelet:], tubelet)
             tgt = h_obs if ctx_target == "block" else F.layer_norm(tgt_enc(xe), (z.size(-1),))[:, C * S:]
             h_tf = pred_mod.forward_state(z, pred_mod.embed_obs(h_obs[:, :-S]), idx[:, : (nb - 1) * S], C)
-            p_tf = pred_mod.render(h_tf)
-            p_ar = pred_mod.render(pred_mod.rollout_state_kv(z, idx[:, : C * S], K))
+            p_tf = pred_mod.render(h_tf, A)
+            p_ar = pred_mod.render(pred_mod.rollout_state_kv(z, idx[:, : C * S], K), A)
         t_ = tgt.float()
         d_ro = (p_ar.float() - t_).abs().pow(loss_exp).mean(dim=(1, 2)) / loss_exp
         d_tf = (p_tf.float() - t_).abs().pow(loss_exp).mean(dim=(1, 2)) / loss_exp

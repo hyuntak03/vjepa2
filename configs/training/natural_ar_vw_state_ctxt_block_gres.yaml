@@ -1,0 +1,30 @@
+# =============================================================================
+# ctxt_block + gating_residual — 문맥도 **블록별 target_encoder**, 출력에 gate 지름길 (2026-10-17, 사용자 결정)
+#
+#   GPUS=8 bash z_training/tmux_train.sh natural_ar_vw_state_ctxt_block_gres
+#
+# natural_ar_vw_state_ctxt_video 와 다른 점 (샘플링 · 창 · 데이터 · TF + 상태 rollout · 문맥 양방향 attention · 70 ep 는 그대로)
+#   1. model.predictor.ctx_input: block — 문맥 C 블록을 영상 한 번 (encoder) 대신 **블록마다 따로 LN(target_encoder)**.
+#      문맥 · TF 관측 · 타깃이 전부 같은 공간이 된다 (ctxt_video 는 LN(z) vs LN(h) 같은 블록끼리도 배경 L1 0.81, 2026-10-17 측정)
+#   2. model.predictor.gating_residual: true — ŷ_{k,i} = g_{k,i} · A_i + f_{k,i}
+#        A = 마지막 문맥 블록 LN(target_encoder) = 문맥 z 의 마지막 블록 (모든 미래 걸음 · TF / rollout 공유)
+#        g = σ(wᵀs + b) / σ(2) (토큰마다, 0 ~ 1.135), f = predictor_proj(s). 시작 시 w = 0 · b = 2 · proj = 0 → ŷ = A (복사) 정확히
+#      왜: 복사 LN(h) 의 배경 오차 (다음 블록과 0.37 / 0.45, visible / late) 가 학습된 ctxt (0.55) · AR (0.46) 보다 작다.
+#          배경은 복사, 움직이는 물체는 predictor 가 맡게 한다
+# kind=ar (natural_ar_vw_state) 와 다른 점: 문맥 안 attention 이 양방향 (ar 은 block-causal) · 샘플링 (문맥 최소 2 블록) · TF 범위
+# 로그: [gate 평균 · mov 움직이는 칸 (|정답 − A| 상위 25 %) · sta 정지 칸 (하위 25 %) · k1 첫 걸음 · kR 마지막 걸음 · >.95 비율] (rollout)
+#   정상이면 mov < sta, kR < k1. 전부 1 근처면 복사로 무너진 것 (AR 의 복사 지름길과 같은 실패)
+# ablation 은 SET 으로 (yaml 을 새로 안 만든다):
+#   gate 없음      SET="model.predictor.gating_residual=false"                       NAME=natural_ar_vw_state_ctxt_block
+#   online × block SET="model.predictor.ctx_encoder=encoder"                         (anchor 는 그대로 블록별 target_encoder)
+#   EMA × video    SET="model.predictor.ctx_input=video"                             (영상 문맥 + 타깃 공간 anchor)
+#   = ctxt_video   SET="model.predictor.ctx_encoder=encoder model.predictor.ctx_input=video model.predictor.gating_residual=false"
+# 채점: analysis/intphys2/model.py — ctx_input=block 이면 문맥 = 블록별 target_encoder, anchor = 문맥 z 마지막 블록
+# =============================================================================
+extends: natural_ar_vw_state_ctxt_video
+
+model:
+  predictor:
+    ctx_encoder: target_encoder     # 문맥 encoder 축: encoder (online) | target_encoder (EMA) — context_encoder_key 를 덮는다
+    ctx_input: block                # 문맥 인코딩 축: video (창 한 번) | block (블록마다 따로)
+    gating_residual: true

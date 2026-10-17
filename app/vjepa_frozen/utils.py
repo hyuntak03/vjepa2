@@ -101,6 +101,8 @@ def build_predictor(m: dict, encoder_embed_dim: int, state: Optional[dict], devi
         extra["dyn_head"] = True
     if pc.get("recon_head"):                                  # 문맥 복원 전용 머리 (2026-10-17, ctx_state + ctx_hole)
         extra["recon_head"] = True
+    if pc.get("gating_residual"):                             # gate 지름길 ŷ = g·A + proj(s) (2026-10-17, ctx_state + ctx_target block)
+        extra["gating_residual"] = True
     if int(pc.get("hint_cross_dim", 0) or 0):                 # 힌트 cross-attn (2026-10-11, kind=ar 전용)
         extra["hint_cross_dim"] = int(pc["hint_cross_dim"])
         extra["hint_cross_heads"] = int(pc.get("hint_cross_heads", 4))

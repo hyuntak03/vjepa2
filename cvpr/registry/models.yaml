@@ -302,3 +302,16 @@ vast_ar_vw_state_ctxt_video:      # 문맥 = 창 단위 encoder, 예측 구간 �
   predictor_checkpoint: ${CVPR_REPO}/z_training/runs/natural_ar_vw_state_ctxt_video/latest.pt
   predictor.kind: ctx_state
   predictor.ctx_target: block
+vast_ar_vw_state_ctxt_video_op:   # ctxt_video + op320 경계 10 % (문맥 = 경계 앞 영상, 예측 = 경계부터 블록), 2026-10-17
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/natural_ar_vw_state_ctxt_video_op/latest.pt
+  predictor.kind: ctx_state
+  predictor.ctx_target: block
+vast_ar_vw_state_ctxt_block_gres: # 문맥도 블록별 target_encoder + gate 지름길 (anchor = 마지막 문맥 블록), 2026-10-17
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/natural_ar_vw_state_ctxt_block_gres/latest.pt
+  predictor.kind: ctx_state
+  predictor.ctx_target: block
+  predictor.ctx_encoder: target_encoder
+  predictor.ctx_input: block
+  predictor.gating_residual: true

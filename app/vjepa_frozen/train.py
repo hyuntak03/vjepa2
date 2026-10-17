@@ -102,6 +102,32 @@ def main(args, resume_preempt=False):
     if CTX_HOLE and not (is_ctx_state and tf_weight > 0):   # 2026-10-17: 블록 타깃도 허용 (복원 정답 = 가린 문맥 블록의 블록별 LN(h))
         # kind=ar (블록 단위 인코딩) 에 encoding 뒤 구멍을 내면 같은 블록의 보이는 토큰이 가린 자리를 이미 본 뒤라 누수다 → 안 받는다
         raise ValueError("loss.ctx_hole 은 kind=ctx_state + tf_weight>0 전용 (구멍은 context encoder 입력 전에 낸다)")
+    # gating_residual (2026-10-17): ŷ = g·A + proj(s), A = 마지막 문맥 블록 LN(target_encoder). 블록 타깃 공간이어야 A 가 의미 있다
+    GATING = bool((MD.get("predictor") or {}).get("gating_residual", False))
+    if GATING and not (is_ctx_state and ctx_target == "block"):
+        raise ValueError("model.predictor.gating_residual 는 kind=ctx_state + ctx_target: block 전용 (anchor = 블록별 LN(target_encoder))")
+    # ctx_input (2026-10-17, 사용자 결정): video (기본) = 문맥 창을 문맥 encoder 로 한 번 (z 는 LN 없이) / block = 문맥도 **블록마다 따로 LN(문맥 encoder)**.
+    #   문맥 encoder 는 ctx_encoder (아래) 가 정한다. 샘플링 · 문맥 양방향 attention · TF + 상태 rollout 은 그대로.
+    #   ctx_encoder: target_encoder + ctx_input: block 이면 문맥 · TF 관측 · 타깃이 같은 공간이고 gating anchor = 문맥 z 의 마지막 블록
+    ctx_input = str((MD.get("predictor") or {}).get("ctx_input", "video"))
+    if ctx_input not in ("video", "block"):
+        raise ValueError(f"model.predictor.ctx_input 는 video | block: {ctx_input!r}")
+    CTX_BLOCK = ctx_input == "block"
+    # ctx_encoder (2026-10-17, 사용자: ablation 두 축 = 어느 encoder × 어떻게 뽑나): encoder (online) | target_encoder (EMA).
+    #   주면 model.context_encoder_key 를 덮는다 (predictor 블록 안에 둬야 채점기 · 레지스트리까지 같이 간다 — 평가 프로토콜은 context_encoder_key 를 고정한다)
+    ctx_encoder = (MD.get("predictor") or {}).get("ctx_encoder")
+    if ctx_encoder is not None:
+        if ctx_encoder not in ("encoder", "target_encoder"):
+            raise ValueError(f"model.predictor.ctx_encoder 는 encoder | target_encoder: {ctx_encoder!r}")
+        if not is_ctx_state:
+            raise ValueError("model.predictor.ctx_encoder 는 kind=ctx_state 전용 (ar 은 늘 target_encoder)")
+        MD["context_encoder_key"] = ctx_encoder
+    if CTX_BLOCK and not is_ctx_state:
+        raise ValueError("model.predictor.ctx_input: block 은 kind=ctx_state 전용")
+    if CTX_BLOCK and CTX_HOLE:
+        raise ValueError("model.predictor.ctx_input: block 과 loss.ctx_hole 은 같이 쓰지 않는다")
+    if GATING and CTX_HOLE:
+        raise ValueError("model.predictor.gating_residual 와 loss.ctx_hole 은 같이 쓰지 않는다 (anchor 블록이 가려질 수 있다)")
     if dyn_weight and not (is_ar and (MD.get("predictor") or {}).get("dyn_head")):
         raise ValueError("loss.dyn_weight 는 kind=ar + model.predictor.dyn_head: true 에서만 쓴다")
     if delta_weight and not is_ar:
@@ -278,7 +304,7 @@ def main(args, resume_preempt=False):
             elif is_ctx_state:
                 res = AR.run_val_ctx_state(valset, ctx_enc, tgt_enc, pred_mod, device, ac_dtype, rank, world_size, tubelet,
                                            spatial, int(V.get("context_length", 16)), int(V.get("batch_size", 8)), loss_exp,
-                                           ctx_target=ctx_target)
+                                           ctx_target=ctx_target, gating=GATING, ctx_input=ctx_input)   # 문맥 encoder 는 ctx_enc (ctx_encoder 반영)
             else:
                 res = AR.run_val_ctx_ar(valset, ctx_enc, tgt_enc, pred_mod, device, ac_dtype, rank, world_size, tubelet,
                                         spatial, int(V.get("context_length", 16)), int(V.get("batch_size", 8)), loss_exp)
@@ -493,15 +519,29 @@ def main(args, resume_preempt=False):
                     hole, keep = AR.make_ctx_hole(clips.size(0), C_, spatial, CTX_HOLE, gh, gs)
                 with torch.no_grad(), _ac():
                     xe = clips.to(enc_dtype)
-                    if hole is None:
+                    SHARED = CTX_BLOCK and ctx_enc is tgt_enc and ctx_target == "block"
+                    if SHARED:         # 2026-10-17: 문맥 · 타깃 모두 블록별 LN(target_encoder) — 한 번에 (블록마다 따로라 값이 같다)
+                        hb = AR.encode_blocks(tgt_enc, xe[:, :, : (C_ + K_) * tubelet], tubelet)   # (B, (C+K)*S, D)
+                        z = hb[:, : C_ * spatial]
+                    elif CTX_BLOCK:    # 문맥만 블록별 LN(ctx_enc) (예: online encoder 를 블록 단위로)
+                        z = AR.encode_blocks(ctx_enc, xe[:, :, : C_ * tubelet], tubelet)
+                    elif hole is None:
                         z = ctx_enc(xe, masks=[m_enc])                                          # (B, C*S, D) 문맥 z
                     else:      # 2026-10-16: encoder 는 보이는 토큰만 본다 (V-JEPA 2 사전학습과 같다). 가린 자리 z = 0 (predictor 가 mask token 으로 바꾼다)
                         hole, keep = hole.to(xe.device), keep.to(xe.device)
                         zk = ctx_enc(xe, masks=[keep])                                          # (B, n_keep, D)
                         z = zk.new_zeros(zk.size(0), C_ * spatial, zk.size(-1))
                         z.scatter_(1, keep.unsqueeze(-1).expand(-1, -1, zk.size(-1)), zk)
-                    tgt_ctx = None
-                    if ctx_target == "block":                                                    # 2026-10-16: 타깃 = TF 관측과 같은 블록별 LN
+                    tgt_ctx = anchor = None
+                    if SHARED:
+                        tgt = hb[:, C_ * spatial:]
+                        h_obs = tgt if tf_weight > 0 else None
+                        anchor = z[:, -spatial:] if GATING else None
+                    elif ctx_target == "block" and GATING:                                         # 2026-10-17: anchor (마지막 문맥 블록) 를 미래 블록과 한 번에 (블록마다 따로 인코딩이라 값이 같다)
+                        hb = AR.encode_blocks(tgt_enc, xe[:, :, (C_ - 1) * tubelet:], tubelet)   # (B, (1+K)*S, D)
+                        anchor, tgt = hb[:, :spatial], hb[:, spatial:]
+                        h_obs = tgt if tf_weight > 0 else None
+                    elif ctx_target == "block":                                                  # 2026-10-16: 타깃 = TF 관측과 같은 블록별 LN
                         tgt = AR.encode_blocks(tgt_enc, xe[:, :, C_ * tubelet:], tubelet)        # (B, K*S, D)
                         h_obs = tgt if tf_weight > 0 else None
                         if hole is not None and float((CTX_HOLE or {}).get("recon_weight", 1.0)) > 0:   # 2026-10-17: 복원 정답 = 가린 문맥 블록들만 블록별 LN(target_encoder). 복원 손실이 없으면 안 만든다
@@ -516,7 +556,8 @@ def main(args, resume_preempt=False):
                 with _ac():
                     loss, jl, sl, R = AR.ctx_state_losses(predictor, z, h_obs, tgt, spatial, C_, K_, loss_exp, rollout_steps,
                                                           tf_weight, hole=hole, tgt_ctx=tgt_ctx,
-                                                          recon_weight=float((CTX_HOLE or {}).get("recon_weight", 1.0)), aux=aux)
+                                                          recon_weight=float((CTX_HOLE or {}).get("recon_weight", 1.0)), aux=aux,
+                                                          anchor=anchor)
                 if scaler is not None:
                     scaler.scale(loss).backward()
                     scaler.unscale_(optimizer)
@@ -606,6 +647,9 @@ def main(args, resume_preempt=False):
                     ar_s += " dl %.4f" % aux.get("dloss", 0.0)
                 if dyn_weight:
                     ar_s += " dyn %.4f" % aux.get("dyn", 0.0)
+                if GATING:     # 2026-10-17: rollout gate — 평균 · 움직이는 칸 (|정답−A| 상위 25 %) · 정지 칸 (하위 25 %) · 첫/마지막 걸음 · >0.95 비율
+                    ar_s += " gate %.3f mov %.3f sta %.3f k1 %.3f kR %.3f >.95 %.2f" % tuple(
+                        aux.get(k, float("nan")) for k in ("gate", "gate_mov", "gate_sta", "gate_k1", "gate_kR", "gate_hi"))
                 if CTX_HOLE:   # 2026-10-16: 이 step 의 구멍 비율 (문맥 토큰 중) · 가려진 문맥 토큰 복원 손실 (구멍 없는 step 은 0)
                     ar_s += " hole %.2f rec %.4f" % (aux.pop("hole_frac", 0.0), aux.pop("rloss", 0.0))
                 logger.info("[%d, %5d] loss %.4f (avg %.4f)%s | mask %s C=%s | lr %.2e wd %.2e | mem %.1fG | iter %.0f ms gpu %.0f ms data %.0f ms"

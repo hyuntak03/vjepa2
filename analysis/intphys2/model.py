@@ -139,9 +139,12 @@ class _CtxStateScorer(nn.Module):
     ci 는 0..C·S-1, ti 는 그 바로 뒤 연속 블록이어야 한다 (_context_target_indices 가 그렇게 만든다).
     """
 
-    def __init__(self, core: nn.Module):
+    def __init__(self, core: nn.Module, anchor_src=None, ctx_block: bool = False):
         super().__init__()
         self.core = core
+        self.anchor_from_z = True
+        self.ctx_block = bool(ctx_block)   # ctx_input: block — z 는 _ArBlockEncoder(target_encoder) 출력 (LN 전), 여기서 LN (학습 encode_blocks 와 같다)
+        self.anchor_src = anchor_src     # gating_residual: _AnchorCtxEncoder (방금 부른 문맥의 마지막 블록 LN(target_encoder) 를 들고 있다)
 
     def forward(self, z, masks_x, masks_y, mask_index=0, **_):
         S = self.core.tokens_per_block
@@ -152,7 +155,48 @@ class _CtxStateScorer(nn.Module):
         if not (bool((ci[0] == torch.arange(C * S, device=ci.device)).all())
                 and bool((ti[0] == torch.arange(C * S, (C + K) * S, device=ti.device)).all())):
             raise ValueError("ctx_state 채점: 문맥은 앞 C 블록, 타깃은 그 바로 뒤 K 블록이어야 한다")
-        return self.core.render(self.core.rollout_state_kv(z, ci, K))
+        A = None
+        if self.ctx_block:
+            z = torch.nn.functional.layer_norm(z, (z.size(-1),))
+        if getattr(self.core, "gating_residual", False):
+            if self.ctx_block and self.anchor_from_z:
+                A = z[:, -S:]                                     # anchor = 마지막 문맥 블록 (문맥 = 블록별 target_encoder 라 이미 타깃 공간)
+            else:
+                A = self.anchor_src.take(z.size(0), C)
+        return self.core.render(self.core.rollout_state_kv(z, ci, K), A)
+
+
+class _AnchorCtxEncoder(nn.Module):
+    """gating_residual 채점용 context encoder 래퍼 (2026-10-17). 문맥 z 는 그대로 내고, 같은 입력의 **마지막 문맥 블록**을
+    블록별 target_encoder 로 인코딩해 LN 한 anchor (B, S, D) 를 들고 있는다 — 학습 (app/vjepa_frozen/train.py) 의 A 와 같은 정의.
+    채점기 세 곳 (evals/world_model_analysis/eval.py 두 곳, analysis/intphys2/surprise.py) 이 모두
+    `z = context_encoder(x, masks=[ci])` 바로 다음에 `predictor(z, ci, ti)` 를 부르므로, scorer 가 그 값을 한 번 꺼내 쓴다.
+    꺼낸 뒤에는 비운다 (순서가 어긋나면 조용히 옛 anchor 를 쓰지 않고 죽는다)."""
+
+    def __init__(self, enc: nn.Module, block_enc: nn.Module, tubelet: int, spatial: int):
+        super().__init__()
+        self.enc, self.block_enc, self.tubelet, self.spatial = enc, block_enc, int(tubelet), int(spatial)
+        self.embed_dim = enc.embed_dim
+        self._anchor = None
+
+    def forward(self, x, masks=None, **kw):
+        z = self.enc(x, masks=masks, **kw)
+        n = masks[0].size(1) if masks else z.size(1)
+        if n % self.spatial:
+            raise ValueError(f"gating anchor: 문맥 토큰 {n} 이 블록 ({self.spatial}) 정렬이 아니다")
+        C, t = n // self.spatial, self.tubelet
+        a = self.block_enc(x[:, :, (C - 1) * t: C * t])                     # (B, S, D) — 블록 하나
+        self._anchor = (torch.nn.functional.layer_norm(a.float(), (a.size(-1),)), z.size(0), C)
+        return z
+
+    def take(self, B: int, C: int):
+        if self._anchor is None:
+            raise RuntimeError("gating anchor 가 없다 — context_encoder(x, masks=[ci]) 를 predictor 직전에 불러야 한다")
+        a, b0, c0 = self._anchor
+        self._anchor = None
+        if (b0, c0) != (B, C):
+            raise RuntimeError(f"gating anchor 가 이번 predictor 호출과 안 맞는다 (anchor B={b0} C={c0}, 호출 B={B} C={C})")
+        return a
 
 
 class _ArBlockEncoder(nn.Module):
@@ -429,7 +473,8 @@ def build_from_config(cfg: dict, device: torch.device) -> VJEPA2Bundle:
             num_mask_tokens=int(predictor_cfg.get("num_mask_tokens", 10)),
             use_rope=use_rope, use_sdpa=True, mask_mode=kind,
             n_registers=int(predictor_cfg.get("n_registers", 0)),
-            ar_feedback=str(predictor_cfg.get("ar_feedback", "output")))     # 2026-10-12: kind=ar 상태 되먹임
+            ar_feedback=str(predictor_cfg.get("ar_feedback", "output")),     # 2026-10-12: kind=ar 상태 되먹임
+            gating_residual=bool(predictor_cfg.get("gating_residual", False)))   # 2026-10-17: ctx_state gate 지름길
         logger.info(f"predictor kind={kind} (src/models/rollout_predictor.py)")
     # model.predictor_checkpoint — predictor 만 다른 파일에서 읽는다 (app/vjepa_frozen 학습 run 의
     # latest.pt / e{N}.pt). encoder 는 위 `checkpoint` 그대로. 통짜 파일을 만들 필요가 없다.
@@ -476,7 +521,43 @@ def build_from_config(cfg: dict, device: torch.device) -> VJEPA2Bundle:
             raise ValueError(f"model.predictor.ctx_target 는 window | block: {ctx_target!r}")
         if ctx_target == "block":
             target_encoder = _ArBlockEncoder(target_encoder, tubelet_size).eval()
-        logger.info(f"predictor kind=ctx_state: 문맥 = 창 단위 context encoder, 타깃 = {ctx_target}")
+        ctx_input = str(predictor_cfg.get("ctx_input", "video"))
+        if ctx_input not in ("video", "block"):
+            raise ValueError(f"model.predictor.ctx_input 는 video | block: {ctx_input!r}")
+        # 2026-10-17 문맥 두 축 (학습 app/vjepa_frozen/train.py 와 같다): ctx_encoder = 어느 encoder (encoder | target_encoder,
+        #   없으면 프로토콜의 context_encoder_key) × ctx_input = 어떻게 (video 창 한 번 | block 블록마다 따로, LN 은 scorer)
+        ctx_encoder = predictor_cfg.get("ctx_encoder")
+        if ctx_encoder is not None:
+            if ctx_encoder not in ("encoder", "target_encoder"):
+                raise ValueError(f"model.predictor.ctx_encoder 는 encoder | target_encoder: {ctx_encoder!r}")
+            if ctx_encoder == target_key:
+                context_encoder = encoder                      # target_encoder_key 로 읽은 모듈 (블록 래퍼 전)
+            elif ctx_encoder == context_key and dual_encoder:
+                pass                                           # 이미 그 키로 읽었다
+            else:
+                raise ValueError(f"ctx_encoder={ctx_encoder!r} 를 쓰려면 dual_encoder: true + context_encoder_key: {ctx_encoder} 이어야 한다")
+            logger.info(f"predictor ctx_encoder={ctx_encoder} (context_encoder_key={context_key} 를 덮음)")
+        gating = bool(predictor_cfg.get("gating_residual", False))
+        if gating and ctx_target != "block":
+            raise ValueError("gating_residual 채점은 ctx_target: block 전용 (학습과 같다)")
+        spatial = (img_size // patch_size) ** 2
+        if ctx_input == "block":
+            shared = context_encoder is encoder and ctx_target == "block"
+            context_encoder = target_encoder if shared else _ArBlockEncoder(context_encoder, tubelet_size).eval()   # shared = 블록 캐시 공유
+            predictor.ctx_block = True
+            if gating and not shared:                          # anchor 는 늘 타깃 공간 (블록별 target_encoder)
+                context_encoder = _AnchorCtxEncoder(context_encoder, target_encoder, tubelet_size, spatial).eval()
+                predictor.anchor_src, predictor.anchor_from_z = context_encoder, False
+            else:
+                predictor.anchor_from_z = True
+            logger.info(f"predictor ctx_input=block: 문맥 = 블록별 {'target_encoder (타깃과 공유)' if shared else 'context encoder'} (LN 은 scorer)")
+        elif gating:
+            if ctx_target != "block":
+                raise ValueError("gating_residual 채점은 ctx_target: block 전용 (학습과 같다)")
+            context_encoder = _AnchorCtxEncoder(context_encoder, target_encoder, tubelet_size, spatial).eval()
+            predictor.anchor_src = context_encoder
+            logger.info("predictor gating_residual: anchor = 마지막 문맥 블록 LN(target_encoder) (_AnchorCtxEncoder)")
+        logger.info(f"predictor kind=ctx_state: 문맥 = {ctx_encoder or context_key} × {ctx_input}, 타깃 = {ctx_target}, gating = {gating}")
     if kind == "ar":
         # 2026-10-11: kind=ar 은 문맥 = **target encoder** 를 블록별로 (학습과 같다, context_encoder_key 무시).
         #   ar_target: block (기본, 학습 타깃과 같다) = 타깃도 블록별 / window = 타깃은 창 전체 target_encoder (릴리즈 채점 정의)

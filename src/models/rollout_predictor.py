@@ -210,6 +210,19 @@ class VisionTransformerPredictorPrefix(nn.Module):
         # 문맥 복원 전용 머리 (2026-10-16, ctx_state + ctx_hole): 마지막 문맥 자리 상태는 "다음 블록 예측" 을 맡으므로
         #   가린 문맥 토큰 복원은 같은 상태를 **다른 선형 사상**으로 읽는다 (두 정답 충돌 방지). 학습 전용 — 채점 · EK100 은 버린다
         self.recon_proj = nn.Linear(predictor_embed_dim, out_embed_dim or embed_dim, bias=True) if bool(kwargs.get("recon_head", False)) else None
+        # gating_residual (2026-10-17, 사용자 결정, ctx_state 전용 — ariel 7417f68 과 같은 파라미터 이름 · 초기화):
+        #   ŷ_{k,i} = g_{k,i} · A_i + f_{k,i},  g = σ(wᵀs + b) / σ(2),  f = predictor_proj(s),  s = predictor_norm 출력
+        #   A = **타깃 공간** anchor: LN(target_encoder(마지막 문맥 블록)) (B, S, D) — 호출하는 쪽이 넘긴다 (ar["anchor"] / render(s, anchor)).
+        #       문맥 encoder z 는 쓰지 않는다: LN(z) 와 LN(h) 는 같은 블록끼리도 배경 L1 0.81 (복사 LN(h) 는 다음 블록과 0.37–0.45, 2026-10-17 측정)
+        #   출력 뒤 LN 은 뺀다 (LN(g·A) = A 라 g 가 지워진다). 시작 시 w = 0, b = 2, predictor_proj = 0 → ŷ = A 정확히.
+        #   끄면 (기본) 만들지 않는다 → 파라미터 · 연산이 기존과 같다
+        self.gating_residual = bool(kwargs.get("gating_residual", False))
+        if self.gating_residual:
+            if mask_mode != "ctx_state":
+                raise ValueError("gating_residual 는 mask_mode='ctx_state' 전용")
+            self.keep_gate = nn.Linear(predictor_embed_dim, 1, bias=True)
+            self.register_buffer("sig_b0", torch.sigmoid(torch.tensor(2.0)), persistent=False)
+        self._gate_cache = None
         # 힌트 cross-attn (2026-10-11, mask_mode=ar 전용). 0 이면 만들지 않는다 (state_dict 그대로)
         self.hint_cross_dim = int(kwargs.get("hint_cross_dim", 0) or 0)
         if self.hint_cross_dim:
@@ -236,6 +249,9 @@ class VisionTransformerPredictorPrefix(nn.Module):
         if self.hint_cross_dim:
             for m in self.hint_attn:
                 m.zero_init()
+        if self.gating_residual:                                   # _init_weights 뒤에 덮는다 → 시작 시 ŷ = A
+            nn.init.zeros_(self.keep_gate.weight); nn.init.constant_(self.keep_gate.bias, 2.0)
+            nn.init.zeros_(self.predictor_proj.weight); nn.init.zeros_(self.predictor_proj.bias)
 
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
@@ -274,12 +290,15 @@ class VisionTransformerPredictorPrefix(nn.Module):
             # 2026-10-16 문맥 구멍: ar["ctx_hole"] (B, C*S) bool — 그 자리 z 는 encoder 가 보지 않았다 (mask token 으로 채운다).
             #   ar["ctx_recon"] 이면 문맥 자리 출력 render(상태) 도 돌려준다 (가려진 문맥 토큰 복원 손실용, V-JEPA 2 목적)
             hole, recon = ar.get("ctx_hole"), bool(ar.get("ctx_recon", False))
+            A = ar.get("anchor")                                  # gating_residual: (B, S, D) LN(target_encoder(마지막 문맥 블록))
+            if self.gating_residual and (hole is not None or recon):
+                raise ValueError("gating_residual 와 문맥 구멍 (ctx_hole) 은 같이 쓰지 않는다 (anchor 블록이 가려질 수 있다)")
             p_tf, p_ctx = None, None
             if ar.get("h_obs") is not None:
                 out = self.forward_state(x, self.embed_obs(ar["h_obs"][:, :-S]), idx[:, : idx.size(1) - S], C,
                                          hole=hole, return_ctx=recon)
                 h_tf, h_ctx = out if recon else (out, None)
-                p_tf = self.render(h_tf)                                               # 블록 C..C+K-1 예측 (K 블록)
+                p_tf = self.render(h_tf, A)                                            # 블록 C..C+K-1 예측 (K 블록)
                 if h_ctx is None:
                     p_ctx = None
                 elif self.recon_proj is not None:   # 2026-10-17: 복원 전용 머리 (render 와 같은 LN, 다른 사상)
@@ -288,7 +307,7 @@ class VisionTransformerPredictorPrefix(nn.Module):
                     p_ctx = self.render(h_ctx)
             elif recon:
                 raise ValueError("ctx_recon 은 TF (h_obs) 가 있어야 한다")
-            p_ar = self.render(self.rollout_state_kv(x, idx[:, : C * S], R, hole=hole))
+            p_ar = self.render(self.rollout_state_kv(x, idx[:, : C * S], R, hole=hole), A)
             return (p_tf, p_ar, p_ctx) if recon else (p_tf, p_ar)
         if ar is not None and self.mask_mode == "ctx_ar":
             # ar={"h_fut": (B, K*S, D) 블록별 LN(h) 미래 GT, "idx": (B, (C+K)*S), "n_ctx_blocks": C, "rollout_steps": R}
@@ -494,9 +513,22 @@ class VisionTransformerPredictorPrefix(nn.Module):
         """블록별 LN(h) (B, F*S, embed_dim) -> 관측 토큰 (B, F*S, predictor_dim)."""
         return self.predictor_embed(h_obs) + self.type_embed[1]
 
-    def render(self, s):
-        """상태 (B, n, predictor_dim, predictor_norm 뒤) -> encoder 공간 LN (B, n, out). 손실·채점은 여기서."""
-        return torch.nn.functional.layer_norm(self.predictor_proj(s), (self.predictor_proj.out_features,))
+    def render(self, s, anchor=None):
+        """상태 (B, n, predictor_dim, predictor_norm 뒤) -> 타깃 공간 (B, n, out). 손실·채점은 여기서.
+        기본: LN(proj(s)) (anchor 는 무시).  gating_residual: g · A + proj(s) (LN 없음), anchor (B, S, out) = 모든 걸음에 공유.
+        마지막 호출의 gate (B, n, 1) 는 self._gate_cache 에 남는다 (모니터용, grad 있음 — 읽을 때 detach)."""
+        if not self.gating_residual:
+            return torch.nn.functional.layer_norm(self.predictor_proj(s), (self.predictor_proj.out_features,))
+        if anchor is None:
+            raise ValueError("gating_residual predictor 의 render 는 anchor (LN(target_encoder(마지막 문맥 블록))) 가 필요하다")
+        B, n, _ = s.shape
+        S = anchor.size(1)
+        if n % S or anchor.size(0) != B:
+            raise ValueError(f"render: 상태 {tuple(s.shape)} 와 anchor {tuple(anchor.shape)} 가 안 맞는다")
+        g = torch.sigmoid(self.keep_gate(s).float()) / self.sig_b0                  # (B, n, 1), 0 ~ 1.135
+        self._gate_cache = g
+        y = (g.view(B, n // S, S, 1) * anchor.float().unsqueeze(1)).view(B, n, -1)
+        return y + self.predictor_proj(s).float()
 
     def _embed_ctx(self, z_ctx, hole=None):
         """문맥 z -> predictor 공간 + type[0]. hole (B, C*S) bool 자리는 mask_tokens[0] (2026-10-16 문맥 구멍 — z 가 없는 자리).
