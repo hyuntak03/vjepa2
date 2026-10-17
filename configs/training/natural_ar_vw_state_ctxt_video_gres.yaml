@@ -1,0 +1,27 @@
+# =============================================================================
+# ctxt_video + gating_residual — 사영 사이 gate 지름길 (2026-10-17, 사용자 결정)
+#
+#   GPUS=8 bash z_training/tmux_train.sh natural_ar_vw_state_ctxt_video_gres
+#
+# natural_ar_vw_state_ctxt_video 와 다른 점 (그 밖은 전부 같다)
+#   1. model.predictor.gating_residual: true (src/models/rollout_predictor.py render)
+#      ŷ_{k,i} = g_{k,i} · A_i + f_{k,i}
+#        A   = LN(문맥 encoder z 의 마지막 문맥 블록) (affine 없음), 모든 미래 걸음 k · TF / rollout 에 공유
+#        g   = σ(wᵀs + b) / σ(2)  (s = predictor_norm 출력 384, 0 ~ 1.135),  w = 0 · b = 2 로 시작
+#        f   = predictor_proj(s), 0 으로 시작 → 학습 시작 시 ŷ = A 정확히. 추가 파라미터 385 개
+#      출력 뒤 LN 은 뺀다 (LN(g·A) = A 라 g 가 지워진다). predictor_norm (384) 은 그대로
+#   2. 빠른 확인용 10K step: 34 ep × 294 = 9,996 step, WSD anneal 3 ep (70 ep 판의 7 ep 와 비율 ~10 %)
+#      대조군은 같은 10K 로 줄인 gate 없는 판 (z_training/chain_ctxt_video.sh 가 SET 으로 같이 돌린다)
+# 로그: [gate 평균 mov 움직이는 칸 (|tgt − A| 상위 25 %) sta 정적 칸 (하위 25 %) k1 첫 걸음 kR 마지막 걸음 >.95 1 근처 비율] (rollout)
+#   정상이면 mov < sta, kR < k1. 전부 1 근처면 gate 가 안 쓰이는 것
+# ⚠️ 정식 채점기 (eval.sh / intphys2) 는 아직 gating_residual 을 모른다. in-loop val 만 반영했다
+# =============================================================================
+extends: natural_ar_vw_state_ctxt_video
+
+model:
+  predictor:
+    gating_residual: true
+
+optimization:
+  epochs: 34
+  anneal_epochs: 3

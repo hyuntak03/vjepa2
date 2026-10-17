@@ -103,13 +103,20 @@ if os.path.isfile(p):
         ctx = ",".join(str(v) for m in y.get("mask", []) for v in (m.get("context_frames") or [m.get("type")])); ds = [d.get("csv") or d.get("root") or d.get("name") for d in y["data"]["datasets"]]
         nf = y["data"].get("n_frames")
         acc = int(y["optimization"].get("grad_accum", 1) or 1)
+        vw = y["data"].get("var_window")                          # 가변 창 (2026-10-17): batch 는 token_budget // 창, ipe 는 config 고정
+        ipe_cfg = int(y["optimization"]["ipe"]) if vw and y["optimization"].get("ipe") else None
+        if vw:
+            bs = None; ds = [d.get("name") for d in vw.get("datasets", [])]
+            nf = f"{vw.get('context_frames')}+{vw.get('predict_frames')}"; ctx = f"var (budget {vw.get('token_budget')})"
     except Exception:
         nf = None
 try: acc
 except NameError: acc = 1
+try: ipe_cfg
+except NameError: ipe_cfg = None
 ngpu = len(glob.glob(os.path.join(rd, "log_r*.csv"))) or None
 if ep_total:
-    print(f" 설정  epochs {ep_total} · batch {bs}/rank × {ngpu} GPU" + (f" × accum {acc}" if acc > 1 else "") +
+    print(f" 설정  epochs {ep_total} · batch {bs or '가변'}/rank × {ngpu} GPU" + (f" × accum {acc}" if acc > 1 else "") +
           f" = {bs * ngpu * acc if bs and ngpu else '-'} · 창 {nf} 장 · C {ctx} · lr {lr_cfg}")
     for d in ds or []: print(c(f"       data {os.path.relpath(d, PROJ) if d and d.startswith(PROJ) else d}", DIM))
 
@@ -144,6 +151,7 @@ else:
         if mm: ipe = int(mm[-1])
     except Exception:
         pass
+    if ipe is None and ipe_cfg: ipe = ipe_cfg
     if ipe is None: ipe = (by_ep_max[done_eps[-1]] + 1) // acc if done_eps else max(it + 1, 1)
     # grad_accum (2026-10-10): csv 한 줄 = micro-batch. ipe 는 optimizer step / epoch → micro / epoch = ipe × acc
     micro = sum(by_ep_max[e] + 1 for e in done_eps) + it + 1
@@ -158,6 +166,14 @@ else:
     if bs and ngpu:                                                   # 본 clip 수 (2026-10-15): optimizer step × global batch
         gb = bs * ngpu * acc
         print(f" clip  {c(f'{step * gb / 1e6:.2f} M', B)} / {total * gb / 1e6:.2f} M 본 clip  (global batch {gb})")
+    elif ipe_cfg and ngpu:                                            # 가변 창: rank 0 로그 줄의 B 평균 × GPU 수 × micro 로 추정
+        try:
+            bb = [int(x) for x in re.findall(r"\] loss .*? B(\d+) C=", open(os.path.join(rd, "train.log"), errors="ignore").read())]
+            if bb:
+                mb = sum(bb) / len(bb) * ngpu
+                print(f" clip  ≈ {c(f'{micro * mb / 1e6:.2f} M', B)} / {total_micro * mb / 1e6:.2f} M 본 clip  (가변 창 — micro 당 평균 {mb:.0f} clip, 로그 줄 B 로 추정)")
+        except Exception:
+            pass
     print(c("─" * W, DIM))
     l10 = [x[2] for x in rows[-10:]]; first = by_ep[min(by_ep)]
     print(f" loss  지금 {c(f'{loss:.4f}', B)} (C={C})   최근 10 평균 {c(f'{sum(l10) / len(l10):.4f}', B)}   첫 epoch 평균 {sum(first) / len(first):.4f}   lr {lr:.2e}")
@@ -171,6 +187,10 @@ else:
                 kd = [x for x in k if x[3]]; g = lambda j: sum(float(x[j]) for x in kd) / len(kd)
                 msg += f"   | dyn TF {g(3):.4f}  dyn rollout {g(4):.4f}  (×{kd[-1][5]})"
             print(msg + c(f"   (최근 {len(k)} 로그 줄 평균)", DIM))
+        mg = re.findall(r"\[gate ([\d.]+) mov ([\d.]+) sta ([\d.]+) k1 ([\d.]+) kR ([\d.]+) >\.95 ([\d.]+)\]", tl)
+        if mg:                                                        # gating_residual (2026-10-17): mov < sta, kR < k1 이면 gate 가 쓰인다
+            k = mg[-40:]; f = lambda j: sum(float(x[j]) for x in k) / len(k)
+            print(f" gate  평균 {f(0):.3f}   움직임 {f(1):.3f} vs 정적 {f(2):.3f}   걸음1 {f(3):.3f} → 마지막 {f(4):.3f}   >0.95 {f(5):.2f}" + c("   (rollout, 최근 로그 줄)", DIM))
     except Exception:
         pass
     em = [sum(v) / len(v) for e, v in sorted(by_ep.items()) if e < ep]

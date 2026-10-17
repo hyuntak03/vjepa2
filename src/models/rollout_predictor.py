@@ -45,7 +45,9 @@ from src.utils.tensors import trunc_normal_
 
 logger = logging.getLogger(__name__)
 
-MASK_MODES = ("prefix", "prefix_full", "causal", "full", "ar", "ctx_ar", "ar_state")
+MASK_MODES = ("prefix", "prefix_full", "causal", "full", "ar", "ctx_ar", "ar_state", "ctx_state")
+# ctx_state (2026-10-17, vast 브랜치 2026-09-30 판을 옮김): 문맥 = context encoder 가 C 블록 창을 **영상 하나로** (양방향) 인코딩한 z,
+#   미래 = 블록 단위. rollout 은 predictor 상태 (384) 되먹임, TF 관측 입력은 블록별 LN(h). 타깃은 학습 루프가 정한다 (창 | 블록).
 # ar_state (2026-10-10, 사용자 결정): ar 에서 **rollout 되먹임 공간 하나만** 바꾼다. TF 는 ar 와 같다 (블록별 LN(h) 관측 토큰, 블록 인과).
 #   rollout 은 render (LN(proj(norm(.))), 1280) 대신 **그리기 전 상태** (predictor_norm 출력, 384) 를 다음 걸음 입력으로 넣는다.
 #   관측/상태 토큰은 type embedding 2 개로 구분 ([0] 관측 = predictor_embed(LN h), [1] 상태). 손실은 render(상태) 에 건다.
@@ -130,6 +132,9 @@ class VisionTransformerPredictorPrefix(nn.Module):
             # ctx_ar: [0] = 문맥 z 토큰, [1] = 미래 토큰.  ar_state: [0] = 관측 토큰 (LN h), [1] = 상태 토큰 (자기 은닉).
             # 다른 모드는 state_dict 를 그대로 두기 위해 안 만든다
             self.type_embed = nn.Parameter(torch.zeros(2, 1, 1, predictor_embed_dim))
+        elif mask_mode == "ctx_state":
+            # [0] = 문맥 z 토큰, [1] = 관측 토큰 (TF: 블록별 LN(h) 를 predictor_embed), [2] = 상태 토큰 (rollout: 자기 은닉) — vast 와 같다
+            self.type_embed = nn.Parameter(torch.zeros(3, 1, 1, predictor_embed_dim))
         # ── action 조건 (2026-10-09, Push-T 팔): 블록마다 action 토큰 1 개를 패치 토큰 **앞**에 끼운다 (AC 와 같은 배치
         #    [a_t ; z_t(256)]). ACRoPEAttention 이 action 토큰에는 시간 RoPE 만 건다 (action_tokens=1 경로). a_t 는 블록 t 와
         #    t+1 사이의 action (DINO-WM/AC 규약). action_dim=0 이면 파라미터·연산이 **기존과 비트 단위로 같다** (자연 영상 ckpt 호환).
@@ -155,6 +160,18 @@ class VisionTransformerPredictorPrefix(nn.Module):
         self.dyn_dim = int(kwargs.get("dyn_dim", 0))
         if self.dyn_dim > 0:
             self.dyn_head = nn.Linear(predictor_embed_dim, self.dyn_dim, bias=True)
+        # ── gating_residual (2026-10-17, 사용자 결정, ctx_state 전용): encoder→predictor→encoder 사영 사이 지름길.
+        #    ŷ_{k,i} = g_{k,i} · A_i + f_{k,i},  g = σ(wᵀs + b) / σ(2),  f = predictor_proj(s),  s = predictor_norm 출력 (384)
+        #    A = LN(문맥 encoder z 의 마지막 문맥 블록) (affine 없음 = 타깃 LN(h) 와 같은 스케일), 모든 미래 걸음 k 에 공유.
+        #    출력 뒤 LN 은 뺀다 (LN(g·A) = A 라 g 가 지워진다). 시작 시 w = 0, b = 2, predictor_proj = 0 → ŷ = A 정확히.
+        #    gating_residual = False 면 만들지 않는다 → 파라미터·연산이 기존과 같다
+        self.gating_residual = bool(kwargs.get("gating_residual", False))
+        if self.gating_residual:
+            if mask_mode != "ctx_state":
+                raise ValueError("gating_residual 는 mask_mode='ctx_state' 전용")
+            self.keep_gate = nn.Linear(predictor_embed_dim, 1, bias=True)
+            self.register_buffer("sig_b0", torch.sigmoid(torch.tensor(2.0)), persistent=False)
+            self._gate_last = None
 
         # prefix 구현: split(기본, 마스크 없는 블록별 dense SDPA) | flex(DDP 에서 컴파일 실패 사례 있음) | dense
         self.prefix_impl = str(kwargs.get("prefix_impl", "split"))
@@ -168,8 +185,11 @@ class VisionTransformerPredictorPrefix(nn.Module):
                 trunc_normal_(mt, std=init_std)
         if self.n_registers:
             trunc_normal_(self.registers, std=init_std)
-        if mask_mode in ("ctx_ar", "ar_state"):
+        if mask_mode in ("ctx_ar", "ar_state", "ctx_state"):
             trunc_normal_(self.type_embed, std=init_std)
+        if self.gating_residual:                                   # _init_weights 뒤에 덮는다
+            nn.init.zeros_(self.keep_gate.weight); nn.init.constant_(self.keep_gate.bias, 2.0)
+            nn.init.zeros_(self.predictor_proj.weight); nn.init.zeros_(self.predictor_proj.bias)
 
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
@@ -200,6 +220,19 @@ class VisionTransformerPredictorPrefix(nn.Module):
             p_ar (B, R*S, out): 문맥 C 블록에서 R 블록 자기회귀 (첫 스텝은 p_tf 의 위치 C-1 재사용 = AC 와 같다)
             DDP 가 forward 만 감싸므로 두 손실을 **한 forward 안**에서 낸다 (grad 동기화 때문).
         """
+        if ar is not None and self.mask_mode == "ctx_state":
+            # ar={"h_obs": (B, K*S, D) 블록별 LN(h) (TF 관측 입력) 또는 None (TF 끔), "idx": (B, (C+K)*S), "n_ctx_blocks": C, "rollout_steps": R}
+            S = self.tokens_per_block
+            idx, C, R = ar["idx"], int(ar["n_ctx_blocks"]), int(ar["rollout_steps"])
+            p_tf = None
+            A = self.anchor(x, C) if self.gating_residual else None
+            if ar.get("h_obs") is not None:
+                h_tf = self.forward_state(x, self.embed_obs(ar["h_obs"][:, :-S]), idx[:, : idx.size(1) - S], C)
+                p_tf = self.render(h_tf, A)                                            # 블록 C..C+K-1 예측 (K 블록)
+            p_ar = self.render(self.rollout_state_kv(x, idx[:, : C * S], R), A)
+            if self.gating_residual:                                                       # 모니터용 (rollout gate · anchor), grad 없음
+                self._gate_last = {"g_ar": self._gate_cache.detach(), "A": A.detach()}
+            return p_tf, p_ar
         if ar is not None and self.mask_mode == "ctx_ar":
             # ar={"h_fut": (B, K*S, D) 블록별 LN(h) 미래 GT, "idx": (B, (C+K)*S), "n_ctx_blocks": C, "rollout_steps": R}
             S = self.tokens_per_block
@@ -229,7 +262,7 @@ class VisionTransformerPredictorPrefix(nn.Module):
                 first = p_tf[:, (C - 1) * S: C * S]
                 p_ar = self.rollout(x[:, : C * S], idx[:, : C * S], R, first=first, actions=acts)
             return p_tf, p_ar
-        if self.mask_mode in ("ar", "ctx_ar", "ar_state"):
+        if self.mask_mode in ("ar", "ctx_ar", "ar_state", "ctx_state"):
             raise RuntimeError(f"mask_mode='{self.mask_mode}' predictor 는 mask token 규약 forward(x, masks_x, masks_y) 를 지원하지 않는다 — "
                                "forward_seq(LN(h) 전 블록) / rollout(LN(h) 문맥, R) 을 쓸 것 (app/vjepa_frozen/ar.py)")
         if isinstance(masks_x, list):
@@ -461,6 +494,89 @@ class VisionTransformerPredictorPrefix(nn.Module):
                 fut = torch.cat([fut, p], dim=1)
                 idx = torch.cat([idx, idx[:, -S:] + S], dim=1)
         return torch.cat(preds, dim=1)
+
+    # ---------------------------------------------------------------- ctx_state (vast 2026-09-30 판, ariel 이식 2026-10-17)
+    #   문맥   : z (context encoder, 문맥 창 한 번, 양방향) + type[0]. 걸음 내내 고정
+    #   TF     : 미래 자리 = predictor_embed(블록별 LN(h)) + type[1] (관측 토큰, 한 forward 로 병렬)
+    #   rollout: 미래 자리 = 이전 걸음의 상태 + type[2] (상태 토큰). 문맥 z 만 주고 시작
+    #   attention = prefix (문맥 양방향, 미래 block-causal). 손실은 render(상태) = LN(proj(norm(.))) 에 건다
+    def embed_obs(self, h_obs):
+        """블록별 LN(h) (B, F*S, embed_dim) -> 관측 토큰 (B, F*S, predictor_dim)."""
+        return self.predictor_embed(h_obs) + self.type_embed[1]
+
+
+    def anchor(self, z_ctx, n_ctx_blocks):
+        """anchor gate 의 A: 문맥 z (B, C*S, embed_dim) 의 마지막 블록을 affine 없는 LN -> (B, S, embed_dim)."""
+        S, C = self.tokens_per_block, int(n_ctx_blocks)
+        a = z_ctx[:, (C - 1) * S: C * S]
+        return torch.nn.functional.layer_norm(a, (a.size(-1),))
+
+
+    def render(self, s, anchor=None):
+        """상태 (B, n, predictor_dim, predictor_norm 뒤) -> encoder 공간 (B, n, out). 손실·채점은 여기서.
+        기본: LN(proj(s)).  gating_residual: g · A + proj(s) (LN 없음), anchor = self.anchor(z_ctx, C) (B, S, out)."""
+        if not self.gating_residual:
+            return torch.nn.functional.layer_norm(self.predictor_proj(s), (self.predictor_proj.out_features,))
+        if anchor is None:
+            raise ValueError("gating_residual predictor 의 render 는 anchor (마지막 문맥 블록 LN(z)) 가 필요하다")
+        B, n, _ = s.shape
+        S = anchor.size(1)
+        g = torch.sigmoid(self.keep_gate(s).float()) / self.sig_b0                  # (B, n, 1), 0 ~ 1.135
+        self._gate_cache = g
+        f = self.predictor_proj(s)
+        y = (g.view(B, n // S, S, 1) * anchor.float().unsqueeze(1)).view(B, n, -1)
+        return y + f
+
+
+    def forward_state(self, z_ctx, fut_tok, idx, n_ctx_blocks):
+        """z_ctx (B, C*S, embed_dim), fut_tok (B, F*S, predictor_dim) 이미 임베딩된 미래 토큰 (F >= 0), idx (B, (C+F)*S).
+        return 상태 (B, (F+1)*S, predictor_dim): [위치 C-1 = 블록 C 의 상태 ; 미래 위치 C..C+F-1 = 블록 C+1..C+F 의 상태]."""
+        S, C = self.tokens_per_block, int(n_ctx_blocks)
+        F_ = fut_tok.size(1) // S
+        x = self.predictor_embed(z_ctx) + self.type_embed[0]
+        if F_ > 0:
+            x = torch.cat([x, fut_tok], dim=1)
+        spec = PrefixSpec(C, F_, S, future_causal=True)
+        h = self._run_blocks(x, idx, spec)
+        return self.predictor_norm(h[:, (C - 1) * S:])
+
+
+    def rollout_ctx_state(self, z_ctx, idx_ctx, n_steps):
+        """전체 재계산판 (rollout_state_kv 검증 기준). return 상태 (B, n_steps*S, predictor_dim)."""
+        S = self.tokens_per_block
+        C = idx_ctx.size(1) // S
+        fut = z_ctx.new_zeros(z_ctx.size(0), 0, self.predictor_embed.out_features)
+        idx, states = idx_ctx, []
+        for r in range(int(n_steps)):
+            st = self.forward_state(z_ctx, fut, idx, C)[:, -S:]
+            states.append(st)
+            if r + 1 < n_steps:
+                fut = torch.cat([fut, st + self.type_embed[2]], dim=1)
+                idx = torch.cat([idx, idx[:, -S:] + S], dim=1)
+        return torch.cat(states, dim=1)
+
+
+    def rollout_state_kv(self, z_ctx, idx_ctx, n_steps):
+        """KV 캐시판: 문맥 prefill (문맥끼리 양방향) 뒤 걸음마다 새 블록 S 토큰만 계산. 값·grad 가 전체 재계산판과 같다.
+        return 상태 (B, n_steps*S, predictor_dim)."""
+        S, Hg, Wg = self.tokens_per_block, self.grid_height, self.grid_width
+        if z_ctx.size(0) > 1 and bool((idx_ctx == idx_ctx[:1]).all()):
+            idx_ctx = idx_ctx[:1]                                           # 위치가 배치 공통이면 RoPE 각을 broadcast (비트 단위 동일)
+        h = self.predictor_embed(z_ctx) + self.type_embed[0]
+        caches = []
+        for blk in self.predictor_blocks:                                   # prefill: 문맥끼리만 (spec 없음 = 양방향)
+            h, kv = blk.forward_kv(h, idx_ctx, Hg, Wg, None)
+            caches.append(kv)
+        st = self.predictor_norm(h[:, -S:])                                 # 위치 C-1 -> 블록 C 의 상태
+        states, pos = [st], idx_ctx[:, -S:]
+        for _ in range(1, int(n_steps)):
+            pos = pos + S                                                   # 상태 s_{C+r-1} 은 블록 C+r-1 자리
+            h = st + self.type_embed[2]
+            for i, blk in enumerate(self.predictor_blocks):
+                h, caches[i] = blk.forward_kv(h, pos, Hg, Wg, caches[i])
+            st = self.predictor_norm(h)
+            states.append(st)
+        return torch.cat(states, dim=1)
 
 
 def vit_prefix_predictor(**kwargs) -> VisionTransformerPredictorPrefix:

@@ -20,7 +20,7 @@ from analysis.intphys2.model import (
     _load_checkpoint,
     _load_state_dict,
 )
-from src.utils.schedulers import CosineWDSchedule, WarmupCosineSchedule
+from src.utils.schedulers import CosineWDSchedule, LinearDecaySchedule, WarmupCosineSchedule, WSDSchedule
 
 logger = logging.getLogger(__name__)
 
@@ -91,12 +91,14 @@ def build_predictor(m: dict, encoder_embed_dim: int, state: Optional[dict], devi
         extra["kv_rollout"] = bool(pc["kv_rollout"])          # ar 모드 rollout KV 캐시 (2026-10-10)
     if pc.get("dyn_head"):
         extra["dyn_dim"] = int(encoder_embed_dim)             # 시간 변화량 보조 손실 head 384 → encoder 공간 (2026-10-15)
+    if pc.get("gating_residual"):
+        extra["gating_residual"] = True                           # ctx_state: ŷ = g·LN(z 마지막 문맥 블록) + proj(s) (2026-10-17)
     # ── kind: oneshot(기본, 릴리즈 위상 = 팔 A) | prefix(prefix 마스크 = 팔 B) | causal ──
     #    prefix 판은 파라미터 이름·모양이 릴리즈와 **완전히 같아서** strict 로드가 그대로 되고,
     #    mask_mode=full 로 두면 릴리즈와 **비트 단위로 같은 출력**을 낸다 (2026-09-22 실측).
     #    그래서 A/B 가 attention 마스크 하나 차이로 갈린다 (src/models/rollout_predictor.py).
     kind = str(pc.get("kind", "oneshot"))
-    if kind not in ("oneshot", "prefix", "prefix_full", "causal", "ar", "ctx_ar", "ar_state"):
+    if kind not in ("oneshot", "prefix", "prefix_full", "causal", "ar", "ctx_ar", "ar_state", "ctx_state"):
         raise ValueError(f"model.predictor.kind 는 oneshot | prefix | prefix_full | causal | ar | ctx_ar: {kind!r}")
     # ar (2026-09-26, 팔 C): mask token 없이 LN(h) 전 블록을 넣는 자기회귀 판. 학습 손실·val 은 app/vjepa_frozen/ar.py
     if kind != "oneshot":
@@ -160,16 +162,26 @@ def load_base_checkpoint(path: str) -> dict:
 
 def init_opt(predictor: nn.Module, iterations_per_epoch: int, start_lr: float, ref_lr: float,
              final_lr: float, warmup_epochs: float, num_epochs: int, wd: float, final_wd: float,
-             ipe_scale: float = 1.0, betas=(0.9, 0.999), eps: float = 1e-8, use_scaler: bool = False):
-    """app/vjepa/utils.init_opt 의 predictor-only 판. bias / 1-D 파라미터는 weight decay 제외."""
+             ipe_scale: float = 1.0, betas=(0.9, 0.999), eps: float = 1e-8, use_scaler: bool = False,
+             is_anneal: bool = False, anneal_epochs: float = 0.0):
+    """app/vjepa/utils.init_opt 의 predictor-only 판. bias / 1-D 파라미터는 weight decay 제외.
+    is_anneal (2026-10-01): 릴리즈 cooldown 과 같다 — WarmupCosine 대신 LinearDecaySchedule (ref_lr → final_lr 선형)."""
     decay = [p for n, p in predictor.named_parameters() if p.requires_grad and ("bias" not in n) and (len(p.shape) != 1)]
     no_decay = [p for n, p in predictor.named_parameters() if p.requires_grad and (("bias" in n) or (len(p.shape) == 1))]
     param_groups = [{"params": decay},
                     {"params": no_decay, "WD_exclude": True, "weight_decay": 0}]
     optimizer = torch.optim.AdamW(param_groups, betas=tuple(betas), eps=eps)
     T_max = int(ipe_scale * num_epochs * iterations_per_epoch)
-    scheduler = WarmupCosineSchedule(optimizer, warmup_steps=int(warmup_epochs * iterations_per_epoch),
-                                     start_lr=start_lr, ref_lr=ref_lr, final_lr=final_lr, T_max=T_max)
+    if is_anneal:
+        scheduler = LinearDecaySchedule(optimizer, ref_lr=ref_lr, final_lr=final_lr, T_max=T_max)
+    elif anneal_epochs > 0:
+        # 2026-10-02 (vast): WSD (warmup → 상수 → 마지막 anneal_epochs 선형 감소) 를 run 하나에서. 공식 src/utils/schedulers.WSDSchedule.
+        scheduler = WSDSchedule(optimizer, warmup_steps=int(warmup_epochs * iterations_per_epoch),
+                                anneal_steps=int(anneal_epochs * iterations_per_epoch), T_max=T_max,
+                                start_lr=start_lr, ref_lr=ref_lr, final_lr=final_lr)
+    else:
+        scheduler = WarmupCosineSchedule(optimizer, warmup_steps=int(warmup_epochs * iterations_per_epoch),
+                                         start_lr=start_lr, ref_lr=ref_lr, final_lr=final_lr, T_max=T_max)
     wd_scheduler = CosineWDSchedule(optimizer, ref_wd=wd, final_wd=final_wd, T_max=T_max)
     scaler = torch.cuda.amp.GradScaler() if use_scaler else None
     return optimizer, scaler, scheduler, wd_scheduler

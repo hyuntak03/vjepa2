@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import time
 from collections import OrderedDict
-from typing import Dict
+from typing import Dict, Optional
 
 import torch
 import torch.distributed as dist
@@ -274,3 +274,97 @@ def format_val_pusht(res: Dict) -> str:
     steps = " ".join(f"{x:.3f}" for x in res["ar_by_step"])
     return (f"val[pusht C{res['C']}K{res['K']} n={res['n_windows']}] tf {res['tf']:.4f} ar {res['ar']:.4f} | "
             f"copy {res['copy']:.4f} copy_last {res['copy_last']:.4f} zero {res['zero']:.4f} | ar by step {steps} | {res['elapsed_s']}s")
+
+
+# ----------------------------------------------------------------------------- ctx_state (vast 2026-09-30 판, ariel 이식 2026-10-17)
+# 문맥 = context encoder 가 C 블록 창을 영상 하나로 (양방향) 인코딩한 z. 미래 = 블록 단위, rollout 은 predictor 상태 되먹임.
+#   TF 관측 입력 : target encoder **블록별** LN(h)   (encoder 는 양방향이라 미래 구간을 한 번에 넣으면 블록 t 가 t 뒤를 본다 = 누수)
+#   손실 타깃    : loss.ctx_state_target — "window" (vast 기본: 창(C+K) 전체 LN(target_encoder) 의 미래 블록) | "block" (블록별 LN(h))
+def ctx_state_losses(predictor, z_ctx, h_obs, tgt, S: int, C: int, K: int, loss_exp: float, rollout_steps: int,
+                     tf_weight: float = 1.0, extra: Optional[dict] = None):
+    """z_ctx (B, C*S, D), h_obs (B, K*S, D) 블록별 LN(h) 또는 None (tf_weight=0), tgt (B, K*S, D) 미래 블록 타깃.
+    loss = tf_weight * jloss + sloss. return (loss, jloss, sloss, R) — TF 를 끄면 jloss 는 0."""
+    B = z_ctx.size(0)
+    use_tf = float(tf_weight) > 0
+    if z_ctx.size(1) != C * S or tgt.size(1) != K * S or K < 1 or (use_tf and (h_obs is None or h_obs.size(1) != K * S)):
+        raise ValueError(f"ctx_state_losses: z {tuple(z_ctx.shape)} h_obs {None if h_obs is None else tuple(h_obs.shape)} "
+                         f"tgt {tuple(tgt.shape)} C={C} K={K} tf_weight={tf_weight}")
+    R = max(1, min(int(K), int(rollout_steps)))
+    idx = block_indices(B, C + K, S, z_ctx.device)
+    p_tf, p_ar = predictor(z_ctx, ar={"h_obs": h_obs if use_tf else None, "idx": idx, "n_ctx_blocks": C, "rollout_steps": R})
+    mod = predictor.module if hasattr(predictor, "module") else predictor
+    if extra is not None and getattr(mod, "gating_residual", False) and mod._gate_last is not None:
+        extra.update(gate_stats(mod._gate_last["g_ar"], mod._gate_last["A"], tgt[:, : R * S], S))
+    sloss = l1(p_ar, tgt[:, : R * S], loss_exp)
+    if not use_tf:
+        return sloss, sloss.new_zeros(()), sloss, R
+    jloss = l1(p_tf, tgt, loss_exp)
+    return float(tf_weight) * jloss + sloss, jloss, sloss, R
+
+
+@torch.no_grad()
+def gate_stats(g, A, tgt, S: int) -> dict:
+    """gating_residual 모니터 (rollout). g (B, R*S, 1), A (B, S, D), tgt (B, R*S, D).
+    움직임 = |tgt − A| 칸 평균. 배치 안 상위 25 % 칸 (mov) / 하위 25 % 칸 (sta) 의 g 평균, 걸음 1 / 마지막 걸음 g, g > 0.95 비율."""
+    B, n, _ = tgt.shape
+    R = n // S
+    g = g.float().view(B, R, S)
+    d = (tgt.float().view(B, R, S, -1) - A.float().unsqueeze(1)).abs().mean(-1)          # (B, R, S)
+    lo, hi = torch.quantile(d.flatten(), torch.tensor([0.25, 0.75], device=d.device))
+    return {"g_mean": float(g.mean()), "g_mov": float(g[d >= hi].mean()), "g_sta": float(g[d <= lo].mean()),
+            "g_k1": float(g[:, 0].mean()), "g_kR": float(g[:, -1].mean()), "g_hi": float((g > 0.95).float().mean())}
+
+
+@torch.no_grad()
+def run_val_ctx_state(vs: ValSet, ctx_enc, tgt_enc, pred_mod, device, autocast_dtype, rank: int, ws: int,
+                      tubelet: int, spatial: int, context_length: int, batch_size: int, loss_exp: float,
+                      target: str = "window") -> Dict:
+    """ctx_state 판 in-loop val. 문맥 z → 상태 rollout K 블록 (주지표) / TF (보조). 타깃은 학습과 같은 규약 (window | block)."""
+    pred_mod.eval()
+    n_frames = vs.ds.n_frames
+    S = spatial
+    C = context_length // tubelet
+    nb = n_frames // tubelet
+    K = nb - C
+    if K < 1:
+        raise ValueError(f"val: context_length {context_length} 가 n_frames {n_frames} 이상")
+    idx_all = list(range(rank, len(vs), ws))
+    out_ro, out_tf = {}, {}
+    t0 = time.time()
+    ac = torch.autocast("cuda", dtype=autocast_dtype) if autocast_dtype else torch.autocast("cuda", enabled=False)
+    for s in range(0, len(idx_all), batch_size):
+        chunk = idx_all[s: s + batch_size]
+        x = torch.stack([vs.ds.transform(vs.ds.read_uint8(i)) for i in chunk]).to(device, non_blocking=True)
+        n = len(chunk)
+        with ac:
+            xe = x.to(next(tgt_enc.parameters()).dtype)
+            idx = block_indices(n, nb, S, device)
+            z = ctx_enc(xe, masks=[idx[:, : C * S]])
+            h_obs = encode_blocks(tgt_enc, xe[:, :, C * tubelet:], tubelet)
+            tgt = F.layer_norm(tgt_enc(xe), (z.size(-1),))[:, C * S:] if target == "window" else h_obs
+            A = pred_mod.anchor(z, C) if getattr(pred_mod, "gating_residual", False) else None
+            h_tf = pred_mod.forward_state(z, pred_mod.embed_obs(h_obs[:, :-S]), idx[:, : (nb - 1) * S], C)
+            p_tf = pred_mod.render(h_tf, A)
+            p_ar = pred_mod.render(pred_mod.rollout_state_kv(z, idx[:, : C * S], K), A)
+        t_ = tgt.float()
+        d_ro = (p_ar.float() - t_).abs().pow(loss_exp).mean(dim=(1, 2)) / loss_exp
+        d_tf = (p_tf.float() - t_).abs().pow(loss_exp).mean(dim=(1, 2)) / loss_exp
+        for k, i in enumerate(chunk):
+            vid = vs.ds.rows[i]["video_id"]
+            out_ro[vid], out_tf[vid] = float(d_ro[k]), float(d_tf[k])
+    if dist.is_available() and dist.is_initialized() and ws > 1:
+        g = [None] * ws
+        dist.all_gather_object(g, (out_ro, out_tf))
+        ro, tf = {}, {}
+        for a, b in g:
+            ro.update(a); tf.update(b)
+    else:
+        ro, tf = out_ro, out_tf
+    pred_mod.train()
+    if rank != 0:
+        return {}
+    el = time.time() - t0
+    res = _score(vs, ro, el)
+    r_tf = _score(vs, tf, el)
+    res["tf"] = {k: r_tf[k] for k in ("acc", "n_ties", "surprise_pos", "surprise_neg", "margin", "by_type")}
+    return res

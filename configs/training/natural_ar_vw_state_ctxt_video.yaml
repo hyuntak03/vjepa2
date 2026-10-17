@@ -1,0 +1,50 @@
+# =============================================================================
+# ctxt_video — **문맥은 영상 한 번, 예측 구간은 블록별 TF + 상태 rollout** (2026-10-16, 사용자 결정 "A 안")
+#   (2026-10-15 natural_ar_vw_state_span → 같은 날 문맥 최소 2 블록 · 가중치 재역산 → 이 판에서 문맥 인코딩을 영상으로)
+#
+#   GPUS=8 bash z_training/tmux_train.sh natural_ar_vw_state_ctxt_video
+#
+# 구조 (kind=ctx_state, src/models/rollout_predictor.py mask_mode=ctx_state · app/vjepa_frozen/ar.py ctx_state_losses):
+#   * 문맥 C 블록 = context encoder (`encoder`, 릴리즈 채점과 같은 역할) 로 **문맥 창 전체를 한 번에** → z (시간 맥락이 섞인 토큰)
+#   * 예측 구간 K 블록 = target_encoder 를 **블록마다 따로** → LN(h). TF 입력 (관측) 이자 타깃 (`ctx_target: block`)
+#     — encoder 가 시간 양방향이라 예측 구간을 영상으로 넣으면 블록 b 토큰이 b+1 을 본다 (TF 누수). 그래서 미래만 블록별
+#   * TF: z + 관측 블록 0..K-2 → 블록 0..K-1 예측 (예측 구간만, 한 forward). rollout: z 에서 상태 되먹임 R = min(K, 16) 블록 (KV 캐시)
+#     TF 의 첫 자리 (문맥만 보고 블록 0) 는 rollout 첫 걸음과 같은 계산 — 블록 0 손실이 두 번 들어간다 (그대로 둔다)
+#   * type embedding 3 개 (문맥 / 관측 / 상태) 로 세 종류의 입력을 구분한다
+# 왜: natural_ar_vw_state 는 late 가림에서 가려진 마지막 블록에 attention 을 몬다 (0.25 vs 보이던 블록 0.056).
+#     문맥을 영상으로 넣으면 마지막 블록 토큰에도 앞 블록 정보가 섞여 있다. z 는 문맥 끝 속도를 담는다 (CLAUDE.md §5-5)
+# 걱정: (1) TF + 영상 문맥은 처음이다 — 10-01 natural_ctx_state (TF 없이 rollout 만, 창 LN 타깃) 는 우연 수준이었다
+#       (2) 예측 구간 TF 의 복사 지름길은 남는다 (3) 문맥 (영상 공간) 과 미래 (블록 공간) 의 표현 종류가 다르다
+#
+# 데이터 · 창 (2026-10-16 사용자 결정, 계획 20,580 step 실측):
+#   * 문맥 C ∈ {2, 4, 8, 16} 블록 (4 / 8 / 16 / 32 장), 예측 K ∈ {2, 4, 8, 16} 블록. 16 조합 균등
+#     문맥 1 블록만 뺐다 (최소 2 블록 = 채점 격자 창 16 의 C 4 장 칸까지 학습 범위). K 1 블록은 TF 자리가 하나뿐이라 뺐다
+#   * 가중치 k710 0.65 : ssv2 0.60 : how 1.00 → 본 프레임 33.2 / 9.9 / 56.9 % (릴리즈 0.335 / 0.1 / 0.565). SSv2 는 적격 2 만 편 이상 창만
+#   * 20,580 step, token_budget 950 → 약 708 만 clip (natural_ar_vw_state 1,045 만 — clip 이 길어져 clip 수만 준다)
+#   * 나머지 (lr WSD, 70 ep × 294, fps 4, 패딩 없음, aug) 는 natural_ar_vw_state 와 같다
+# ⚠️ natural_ar_vw_state 와 한 변수 대조가 아니다 — 문맥 인코딩 · 문맥 범위 · 데이터 비율 · TF 범위가 같이 바뀐다
+# 채점: analysis/intphys2/model.py 가 kind=ctx_state + ctx_target=block 이면 문맥 = 창 단위 encoder, 타깃 = 블록별 target_encoder
+# =============================================================================
+# ⚠️ ariel 이식 (2026-10-17): vast 브랜치 061d07c 의 같은 이름 파일을 **그대로** 가져왔다. 바꾼 것은 이 기계에 없는 데이터뿐 —
+#   K710 → K400 (로컬 320p 서브클립, data_csv/k400_320). 나머지 키·값은 vast 와 같다.
+extends: natural_ctx_state_vw
+
+model:
+  context_encoder_key: encoder
+  predictor:
+    kind: ctx_state
+    ctx_target: block
+    use_activation_checkpointing: false   # 2026-10-16: ctx_state 에서 물려받은 true 를 끈다 (AR run 들과 같다). 켜면 VRAM 31–52 GB · step ~3 배 느림
+
+data:
+  var_window:
+    datasets:
+      - {name: k400, table: "${DATA_CSV}/k400_320/fps4_table.tsv",    weight: 0.65}   # ariel: K710 → K400 (vast 의 k710 가중치 그대로)
+      - {name: ssv2, table: "${DATA_CSV}/ssv2/fps4_table.tsv",        weight: 0.60, min_eligible: 20000}
+      - {name: how,  table: "${DATA_CSV}/ht100m_1pct/fps4_table.tsv", weight: 1.00}
+    context_frames: [4, 8, 16, 32]
+    predict_frames: [4, 8, 16, 32]
+
+loss:
+  rollout_steps: 16
+  tf_weight: 1.0
