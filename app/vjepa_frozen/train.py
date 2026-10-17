@@ -104,8 +104,8 @@ def main(args, resume_preempt=False):
         raise ValueError("loss.ctx_hole 은 kind=ctx_state + tf_weight>0 전용 (구멍은 context encoder 입력 전에 낸다)")
     # gating_residual (2026-10-17): ŷ = g·A + proj(s), A = 마지막 문맥 블록 LN(target_encoder). 블록 타깃 공간이어야 A 가 의미 있다
     GATING = bool((MD.get("predictor") or {}).get("gating_residual", False))
-    if GATING and not (is_ctx_state and ctx_target == "block"):
-        raise ValueError("model.predictor.gating_residual 는 kind=ctx_state + ctx_target: block 전용 (anchor = 블록별 LN(target_encoder))")
+    if GATING and not ((is_ctx_state and ctx_target == "block") or is_ar):
+        raise ValueError("model.predictor.gating_residual 는 kind=ar 또는 kind=ctx_state + ctx_target: block 전용 (anchor = 블록별 LN(target_encoder))")
     # ctx_input (2026-10-17, 사용자 결정): video (기본) = 문맥 창을 문맥 encoder 로 한 번 (z 는 LN 없이) / block = 문맥도 **블록마다 따로 LN(문맥 encoder)**.
     #   문맥 encoder 는 ctx_encoder (아래) 가 정한다. 샘플링 · 문맥 양방향 attention · TF + 상태 rollout 은 그대로.
     #   ctx_encoder: target_encoder + ctx_input: block 이면 문맥 · TF 관측 · 타깃이 같은 공간이고 gating anchor = 문맥 z 의 마지막 블록

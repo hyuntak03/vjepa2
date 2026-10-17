@@ -315,3 +315,9 @@ vast_ar_vw_state_ctxt_block_gres: # 문맥도 블록별 target_encoder + gate �
   predictor.ctx_encoder: target_encoder
   predictor.ctx_input: block
   predictor.gating_residual: true
+vast_ar_vw_state_gres:            # AR (블록 · block-causal · 상태 되먹임) + gate 지름길 (anchor = 마지막 관측 블록), 2026-10-17
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/natural_ar_vw_state_gres/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+  predictor.gating_residual: true

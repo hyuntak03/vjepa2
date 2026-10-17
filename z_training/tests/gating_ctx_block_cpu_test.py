@@ -103,3 +103,52 @@ except RuntimeError:
     pass
 print("5 OK  다른 문맥 encoder + 타깃 anchor 래퍼 = 기대값 (max |Δ|", float((got - want).abs().max()), "), 두 번 꺼내면 죽는다")
 print("전부 통과")
+
+# ---------------------------------------------------------------- kind=ar + gating (2026-10-17)
+from analysis.intphys2.model import _ArScorer
+kwa = dict(kw, mask_mode="ar", ar_feedback="state")
+def build_ar(**extra):
+    torch.manual_seed(0)
+    return vit_prefix_predictor(**kwa, **extra).eval()
+nb = C + K
+idx_all = AR.block_indices(B, nb, S, "cpu")
+arg_ar = {"idx": idx_all, "n_ctx_blocks": C, "rollout_steps": K}
+# 6 끔 = 기존
+a0, a1 = build_ar(), build_ar(gating_residual=False)
+with torch.no_grad():
+    o0, o1 = a0(hb, ar=dict(arg_ar)), a1(hb, ar=dict(arg_ar))
+assert torch.equal(o0[0], o1[0]) and torch.equal(o0[1], o1[1])
+print("6 OK  ar gating 끔 = 기존과 같다")
+# 7 초기화 직후: TF 위치 b = 입력 블록 b, rollout 전 걸음 = 마지막 문맥 블록
+ag = build_ar(gating_residual=True)
+with torch.no_grad():
+    t, r = ag(hb, ar=dict(arg_ar))
+assert torch.allclose(t, hb[:, :-S], atol=1e-6), float((t - hb[:, :-S]).abs().max())
+Alast = hb[:, (C - 1) * S: C * S].unsqueeze(1).expand(B, K, S, D).reshape(B, K * S, D)
+assert torch.allclose(r, Alast, atol=1e-6), float((r - Alast).abs().max())
+print("7 OK  ar 초기화 직후 TF = 입력 블록, rollout = 마지막 문맥 블록")
+# 8 학습 한 step: gradient · gate 로그
+ag.train(); aux = {}
+loss, jl, sl, R = AR.ar_losses(ag, hb, S, C, K, 1.0, K, aux=aux)
+loss.backward()
+assert ag.keep_gate.weight.grad is not None and float(ag.predictor_proj.weight.grad.abs().sum()) > 0
+assert {"gate", "gate_mov", "gate_sta", "gate_k1", "gate_kR"} <= set(aux), aux
+print("8 OK  ar loss %.4f, gate 로그" % float(loss), {k: round(v, 3) for k, v in aux.items()})
+# 9 흔든 뒤: TF 첫 예측 자리 (위치 C-1) = rollout 첫 걸음 (둘 다 anchor = 블록 C-1), 채점 래퍼 = rollout_kv
+with torch.no_grad():
+    ag.keep_gate.weight.normal_(0, 0.5); ag.predictor_proj.weight.normal_(0, 0.05)
+ag.eval()
+with torch.no_grad():
+    t, r = ag(hb, ar=dict(arg_ar))
+    assert torch.allclose(t[:, (C - 1) * S: C * S], r[:, :S], atol=1e-5), float((t[:, (C - 1) * S: C * S] - r[:, :S]).abs().max())
+    sc = _ArScorer(ag)
+    raw = hb[:, : C * S] * 2.0 + 0.3          # 채점기 블록 encoder 출력 (LN 전) — scorer 가 LN
+    got = sc(raw, idx_all[:, : C * S], idx_all[:, C * S:])
+    want = ag.rollout_kv(hb[:, : C * S], idx_all[:, : C * S], K)
+assert torch.allclose(got, want, atol=1e-4), float((got - want).abs().max())
+print("9 OK  TF 위치 C-1 = rollout 첫 걸음, 채점 래퍼 = rollout_kv (max |Δ|", float((got - want).abs().max()), ")")
+try:
+    ag(hb, ar=dict(arg_ar, dyn=True)); raise AssertionError("dyn 과 같이 통과했다")
+except ValueError:
+    print("   OK  multistart · dyn 과 같이 쓰면 죽는다")
+print("ar 전부 통과")

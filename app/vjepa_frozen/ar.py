@@ -171,6 +171,10 @@ def ar_losses(predictor, h: torch.Tensor, S: int, C: int, K: int, loss_exp: floa
         hx, hidx, keep = hint
         arg["hint"] = {"x": hx, "idx": hidx}
     p_tf, p_ar = predictor(h, ar=arg)
+    core = predictor_core(predictor)
+    if aux is not None and getattr(core, "gating_residual", False) and core._gate_roll is not None:   # 2026-10-17 ar gating 모니터
+        g, A = core._gate_roll
+        aux.update(gate_stats(g, A, h[:, C * S: (C + R) * S], S))
     if hint is not None:
         d = (p_tf.float() - h[:, S:].float()).abs().pow(loss_exp).mean(dim=-1) / loss_exp   # (B, (nb-1)*S)
         jloss = (d * keep).sum() / keep.sum()

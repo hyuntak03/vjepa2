@@ -218,11 +218,12 @@ class VisionTransformerPredictorPrefix(nn.Module):
         #   끄면 (기본) 만들지 않는다 → 파라미터 · 연산이 기존과 같다
         self.gating_residual = bool(kwargs.get("gating_residual", False))
         if self.gating_residual:
-            if mask_mode != "ctx_state":
-                raise ValueError("gating_residual 는 mask_mode='ctx_state' 전용")
+            if mask_mode not in ("ctx_state", "ar"):
+                raise ValueError("gating_residual 는 mask_mode='ctx_state' | 'ar' 전용")
             self.keep_gate = nn.Linear(predictor_embed_dim, 1, bias=True)
             self.register_buffer("sig_b0", torch.sigmoid(torch.tensor(2.0)), persistent=False)
         self._gate_cache = None
+        self._gate_roll = None     # ar: rollout 걸음들의 gate (B, R*S, 1) 와 anchor (B, S, D) — 모니터용
         # 힌트 cross-attn (2026-10-11, mask_mode=ar 전용). 0 이면 만들지 않는다 (state_dict 그대로)
         self.hint_cross_dim = int(kwargs.get("hint_cross_dim", 0) or 0)
         if self.hint_cross_dim:
@@ -322,6 +323,8 @@ class VisionTransformerPredictorPrefix(nn.Module):
                 raise ValueError(f"ar= 분기는 mask_mode='ar' 전용 (지금 {self.mask_mode})")
             S = self.tokens_per_block
             idx, C, R = ar["idx"], int(ar["n_ctx_blocks"]), int(ar["rollout_steps"])
+            if self.gating_residual and (ar.get("starts") is not None or ar.get("dyn")):
+                raise ValueError("ar gating_residual 은 multistart · dyn 과 아직 같이 쓰지 않는다")
             if ar.get("starts") is not None:                     # 2026-10-14: 여러 시작점 rollout (multistart)
                 p_tf = self.forward_seq(x[:, :-S], idx[:, :-S], hint=ar.get("hint"))
                 return p_tf, self.rollout_kv_multi(x, idx, ar["starts"], ar["rollouts"])
@@ -445,9 +448,20 @@ class VisionTransformerPredictorPrefix(nn.Module):
         else:
             h = self._run_blocks(h, idx, spec)                      # 힌트 0 개 → cross-attn 을 부르지 않는다
         st = self.predictor_norm(h)
-        h = self.predictor_proj(st)
-        out = torch.nn.functional.layer_norm(h, (h.size(-1),))
+        out = self._ar_out(st, x)                                   # gating 이면 위치 b 의 anchor = 입력 블록 b (마지막 관측)
         return (out, st) if return_states else out
+
+    def _ar_out(self, st, anchor=None):
+        """ar 출력: 기본 LN(proj(st)). gating_residual (2026-10-17): g · A + proj(st) (LN 없음), g = σ(wᵀst + b) / σ(2).
+        A = 그 자리에서 **마지막으로 관측한 실제 블록** LN(h) (TF 위치 b = 입력 블록 b, rollout = 마지막 문맥 블록). st 와 같은 토큰 수."""
+        if not self.gating_residual:
+            h = self.predictor_proj(st)
+            return torch.nn.functional.layer_norm(h, (h.size(-1),))
+        if anchor is None or anchor.shape[:2] != st.shape[:2]:
+            raise ValueError(f"ar gating: anchor {None if anchor is None else tuple(anchor.shape)} 가 상태 {tuple(st.shape)} 와 안 맞는다")
+        g = torch.sigmoid(self.keep_gate(st).float()) / self.sig_b0
+        self._gate_cache = g
+        return g * anchor.float() + self.predictor_proj(st).float()
 
     def rollout(self, x_ctx, idx_ctx, n_steps, first=None):
         """팔 C. 문맥 C 블록의 LN(h) 에서 `n_steps` 블록을 자기회귀로 채운다 (KV 캐시 없음, 매 스텝 전체 재계산).
@@ -455,6 +469,8 @@ class VisionTransformerPredictorPrefix(nn.Module):
         return (B, n_steps*S, out). 되먹임은 grad 를 끊지 않는다 (AC 와 같다)."""
         if self.ar_feedback == "state":
             raise NotImplementedError("ar_feedback=state 는 KV 판 rollout_kv 만 지원한다 (ar_kv_rollout=True)")
+        if self.gating_residual:   # forward_seq 가 되먹인 예측을 anchor 로 쓰게 된다 — KV 판만 (anchor = 마지막 문맥 블록 고정)
+            raise NotImplementedError("ar gating_residual 은 KV 판 rollout_kv 만 지원한다")
         S = self.tokens_per_block
         seq, idx, preds = x_ctx, idx_ctx, []
         for r in range(int(n_steps)):
@@ -605,7 +621,7 @@ class VisionTransformerPredictorPrefix(nn.Module):
         h = self.predictor_embed(x)
         return h + self.type_embed[0] if self.ar_feedback == "state" else h
 
-    def _ar_step_kv(self, x_blk, idx_blk, caches, embedded=False):
+    def _ar_step_kv(self, x_blk, idx_blk, caches, embedded=False, anchor=None):
         """ar: 블록 하나 (B, S, embed_dim, LN 된 encoder 공간) 를 넣고 다음 블록 예측 (LN) 을 낸다. caches 는 층별 (k, v) 또는 None.
         embedded=True 면 x_blk 가 이미 predictor 공간 토큰이다 (state 되먹임). return (예측 LN, caches, 상태 = predictor_norm 출력)."""
         Hg, Wg = self.grid_height, self.grid_width
@@ -615,8 +631,11 @@ class VisionTransformerPredictorPrefix(nn.Module):
             h, kv = blk.forward_kv(h, idx_blk, Hg, Wg, None if caches is None else caches[i])
             new.append(kv)
         st = self.predictor_norm(h)
-        h = self.predictor_proj(st)
-        return torch.nn.functional.layer_norm(h, (h.size(-1),)), new, st
+        if self.gating_residual and anchor is None:
+            if embedded:
+                raise ValueError("ar gating: 상태 되먹임 걸음은 anchor (마지막 문맥 블록) 를 밖에서 줘야 한다")
+            anchor = x_blk                                    # 관측 블록을 넣는 걸음 = 그 블록이 마지막 관측
+        return self._ar_out(st, anchor), new, st
 
     def rollout_kv(self, x_ctx, idx_ctx, n_steps, return_states=False):
         """`rollout` (ar) 의 **KV 캐시판**. ar 은 문맥까지 block-causal 이라 이미 계산한 블록의 층별 (k, v) 가
@@ -628,15 +647,21 @@ class VisionTransformerPredictorPrefix(nn.Module):
         for b in range(C):                                   # 문맥: 블록 b 는 블록 <= b 만 본다
             p, caches, st = self._ar_step_kv(x_ctx[:, b * S:(b + 1) * S], idx_ctx[:, b * S:(b + 1) * S], caches)
         preds, states = [p], [st]                            # 위치 C-1 출력 = 블록 C 예측
+        A = x_ctx[:, -S:] if self.gating_residual else None   # gating: rollout 내내 anchor = 마지막 문맥 블록 (관측)
+        gates = [self._gate_cache] if self.gating_residual else None
         pos = idx_ctx[:, -S:]
         state = self.ar_feedback == "state"
         for _ in range(1, int(n_steps)):
             pos = pos + S
             if state:   # 2026-10-12: 그리기 전 상태 (predictor_norm 출력, 384) + type[1] 을 블록 자리에 그대로 되먹인다 (grad 유지)
-                p, caches, st = self._ar_step_kv(st + self.type_embed[1], pos, caches, embedded=True)
+                p, caches, st = self._ar_step_kv(st + self.type_embed[1], pos, caches, embedded=True, anchor=A)
             else:       # 자기 예측 (LN) 을 다음 입력으로 (AC 와 같다)
-                p, caches, st = self._ar_step_kv(p, pos, caches)
+                p, caches, st = self._ar_step_kv(p, pos, caches, anchor=A)
             preds.append(p); states.append(st)
+            if gates is not None:
+                gates.append(self._gate_cache)
+        if gates is not None:
+            self._gate_roll = (torch.cat(gates, dim=1).detach(), A.detach())
         if return_states:
             return torch.cat(preds, dim=1), torch.cat(states, dim=1)
         return torch.cat(preds, dim=1)
@@ -647,6 +672,8 @@ def _rollout_kv_multi(self, x, idx, starts, rollouts):
     블록을 앞에서부터 한 번만 채우며 (KV 캐시), 시작점 c (= 관측 c 블록 뒤) 에 닿을 때마다 그 캐시에서 rollouts[i] 블록을 굴린다.
     캐시는 cat 으로 새 텐서가 되므로 시작점끼리 문맥 계산·그래프를 공유한다. return [ (B, R_i*S, out) ] 시작점 순.
     시작점 c 의 첫 예측 = 위치 c-1 의 출력 (= rollout_kv(x[:, :c*S], ..) 의 첫 블록과 같다)."""
+    if self.gating_residual:
+        raise NotImplementedError("ar gating_residual 은 multistart 를 아직 지원하지 않는다")
     S = self.tokens_per_block
     order = sorted(range(len(starts)), key=lambda i: starts[i])
     caches, p, st = None, None, None

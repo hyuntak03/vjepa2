@@ -1,0 +1,36 @@
+# =============================================================================
+# AR (natural_ar_vw_state) + gating_residual — 블록 단위 AR 위에 gate 지름길만 얹는다 (2026-10-17, 사용자 결정)
+#
+#   GPUS=8 bash z_training/tmux_train.sh natural_ar_vw_state_gres
+#
+# natural_ar_vw_state 와 **한 가지만** 다르다 (문맥 · 미래 모두 블록별 LN(target_encoder), 전부 block-causal,
+# TF 전 위치 + 상태 되먹임 rollout 16, 데이터 · 창 (C · K ∈ {2..32} 장) · 70 ep · lr 그대로):
+#   출력 ŷ = g · A + proj(s)    (기본은 LN(proj(s)))
+#     A = 그 자리의 **마지막 관측 블록** LN(h): TF 위치 b (블록 b+1 예측) = 입력 블록 b / rollout 모든 걸음 = 마지막 문맥 블록
+#     g = σ(wᵀs + b) / σ(2) (토큰마다, 0 ~ 1.135). 시작 시 w = 0 · b = 2 · proj = 0 → ŷ = A (복사) 정확히
+#   되먹임 (상태 s) 은 그대로 — gate 는 출력에만 걸린다
+# 왜: 블록 복사 LN(h) 의 배경 오차 (다음 블록과 0.37 / 0.45) 가 AR 예측 (0.46 / 0.47) 보다 작다 → 배경은 복사, 움직임은 predictor.
+#     ctxt_block_gres (문맥 양방향 + TF 예측 구간만) 은 AR 과 네 가지가 같이 달라 원인을 못 갈랐다 → AR 에 gate 만 (2026-10-17)
+# 로그: [gate 평균 · mov (|정답 − A| 상위 25 %) · sta (하위 25 %) · k1 첫 걸음 · kR 마지막 걸음 · >.95] (rollout)
+#   정상이면 mov < sta, kR < k1. 전부 1 근처면 복사로 무너진 것
+# ── 조립 표 (yaml 을 새로 만들지 않고 SET 한 줄로 ablation, 2026-10-17) ─────────────────────────────
+#   model.predictor.kind              ar (문맥 · 미래 블록별 LN(target_encoder), 전부 block-causal) | ctx_state (문맥 prefix 양방향)
+#   model.predictor.gating_residual   true | false                         출력 = g·A + proj(s) | LN(proj(s))
+#   model.predictor.ar_feedback       state | output                       (ar) rollout 되먹임
+#   model.predictor.ctx_encoder       encoder | target_encoder             (ctx_state) 문맥 encoder
+#   model.predictor.ctx_input         video | block                        (ctx_state) 문맥 인코딩
+#   model.predictor.ctx_target        window | block                       (ctx_state) 타깃
+#   loss.tf_span                      all | predict                        (ar) TF 손실 범위
+#   loss.rollout_steps                정수                                  rollout 걸음 수
+#   예) gate 없는 AR       SET="model.predictor.gating_residual=false"   (= natural_ar_vw_state)
+#       TF 예측 구간만     SET="loss.tf_span=predict"
+#       출력 되먹임        SET="model.predictor.ar_feedback=output"
+#       ctx_state 블록 판  SET="model.predictor.kind=ctx_state model.predictor.ctx_encoder=target_encoder model.predictor.ctx_input=block model.predictor.ctx_target=block"
+#   채점기 (eval_bench / chain_bench / 레지스트리) 는 run config 의 이 키들을 그대로 넘긴다
+# 비교 기준: natural_ar_vw_state (IntPhys1 A.8 90.0, VOBench late 74.1 / 77.8, gravity 20.4 / 8.3 — block 정의)
+# =============================================================================
+extends: natural_ar_vw_state
+
+model:
+  predictor:
+    gating_residual: true
