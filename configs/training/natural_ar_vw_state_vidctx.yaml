@@ -1,0 +1,36 @@
+# =============================================================================
+# AR · 영상 문맥 (target_encoder) · 영상 정답 · TF 는 문맥 자리만 (2026-10-18, 사용자 결정)
+#
+#   GPUS=8 bash z_training/tmux_train.sh natural_ar_vw_state_vidctx
+#
+# 구조 (kind=ar, src/models/rollout_predictor.py · app/vjepa_frozen/ar.py ar_losses_video):
+#   * 입력 zc = LN(target_encoder(문맥 프레임만, 영상 한 번))       — 문맥 pass. 미래 프레임은 encoder 에 안 들어간다
+#   * 정답 zf = LN(target_encoder(클립 전체, 영상 한 번))           — 전체 pass (창 정답, 릴리즈 V-JEPA 2 와 같은 정의)
+#   * encoder 는 둘 다 target_encoder (EMA). online encoder 는 안 쓴다
+#   * predictor 는 AR 그대로 (block-causal, 상태 되먹임 KV rollout)
+#   * 손실 = TF (문맥 자리만: 위치 b → zf 블록 b+1, b = 0..C-2) + rollout (예측 구간 R = min(K, 16) 걸음 → zf 블록 C..)
+#       zc[b] 는 문맥 끝까지 본 영상 토큰이라 문맥 TF 에 약간의 미래 누수가 있다 — 의도된 것 (사용자)
+#       예측 구간에는 TF 가 없다 (rollout 만)
+#   * gating 없음: 영상 공간의 복사 anchor 는 다음 블록과 배경 L1 0.81–0.87 (블록 공간 0.37–0.60) — video_space_copy_gap.py
+# 샘플링: 문맥 C ∈ {4, 8, 16, 32} 장 (문맥 TF 에 2 블록 이상 필요) · 예측 K ∈ {4, 8, 16, 32} 장 · 데이터 비율 = ctxt_video 와 같다
+#   그 밖 (lr WSD, 70 ep × 294, fps 4, rollout 16, 상태 되먹임) 은 natural_ar_vw_state 와 같다
+# ⚠️ natural_ar_vw_state 와 한 변수 대조가 아니다 — 입력 · 정답 인코딩 (블록 → 영상), TF 범위 (전 위치 → 문맥만), 샘플링이 같이 바뀐다
+# 과거 비슷한 판: natural_ctx_state (10-01, 영상 문맥 online encoder + 창 정답 + rollout 만, TF 없음, prefix 양방향) — 우연 수준
+# 채점: analysis/intphys2/model.py — kind=ar · ar_input=video · ar_target=window → 문맥 = _CtxPassEncoder(target_encoder) 문맥 pass,
+#   타깃 = 창 전체 target_encoder (IntPhys2 하네스가 문맥을 전체 pass 에서 잘라 쓰지 않게 래퍼로 감쌌다)
+# =============================================================================
+extends: natural_ar_vw_state
+
+model:
+  predictor:
+    ar_input: video
+    ar_target: window
+
+data:
+  var_window:
+    datasets:
+      - {name: k710, table: "${DATA_CSV}/k710_320/fps4_table.tsv",    weight: 0.65}
+      - {name: ssv2, table: "${DATA_CSV}/ssv2/fps4_table.tsv",        weight: 0.60, min_eligible: 20000}
+      - {name: how,  table: "${DATA_CSV}/ht100m_1pct/fps4_table.tsv", weight: 1.00}
+    context_frames: [4, 8, 16, 32]
+    predict_frames: [4, 8, 16, 32]

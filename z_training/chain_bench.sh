@@ -19,7 +19,7 @@ fi
 until ! nvidia-smi --query-compute-apps=pid --format=csv,noheader | grep -q .; do sleep 20; done
 for run in $RUNS; do
   R=z_training/runs/$run; CK=$PWD/$R/latest.pt
-  KS=$("$VJEPA2_PY" -c "import yaml;pc=yaml.safe_load(open('$R/config.yaml'))['model']['predictor'];print(' '.join(f'model.predictor.{k}={pc[k]}' for k in ('kind','n_registers','ar_feedback','ctx_target','ctx_input','ctx_encoder','gating_residual','gating_anchor','gating_out_ln') if k in pc))")   # ctx_target: 2026-10-17 (eval_bench 와 같은 버그)
+  KS=$("$VJEPA2_PY" -c "import yaml;pc=yaml.safe_load(open('$R/config.yaml'))['model']['predictor'];print(' '.join(f'model.predictor.{k}={pc[k]}' for k in ('kind','n_registers','ar_feedback','ctx_target','ctx_input','ctx_encoder','gating_residual','gating_anchor','gating_out_ln','ar_input','ar_target') if k in pc))")   # ctx_target: 2026-10-17 (eval_bench 와 같은 버그)
   for b in $BENCHES; do for w in 16 32; do
     OUT=$R/eval/intphys1_sliding__${b}_latest_w$w
     [[ -f $OUT/summary.json ]] && { say "있음: $run $b w$w"; continue; }

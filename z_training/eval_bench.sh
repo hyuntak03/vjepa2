@@ -28,7 +28,7 @@ WIN_BATCH_SCALE=${WIN_BATCH_SCALE:-1}
 KIND_SET=$("$PY" - "$RUN/config.yaml" <<'PY'
 import yaml, sys
 pc = (yaml.safe_load(open(sys.argv[1])).get("model") or {}).get("predictor") or {}
-print(" ".join(f"model.predictor.{k}={pc[k]}" for k in ("kind", "n_registers", "ar_feedback", "ctx_target", "ctx_input", "ctx_encoder", "gating_residual", "gating_anchor", "gating_out_ln") if k in pc))   # ctx_target: 2026-10-16 (빠져서 ctx_state 를 창 타깃으로 잘못 채점했다)
+print(" ".join(f"model.predictor.{k}={pc[k]}" for k in ("kind", "n_registers", "ar_feedback", "ctx_target", "ctx_input", "ctx_encoder", "gating_residual", "gating_anchor", "gating_out_ln", "ar_input", "ar_target") if k in pc))   # ctx_target: 2026-10-16 (빠져서 ctx_state 를 창 타깃으로 잘못 채점했다)
 PY
 )
 LOGD="$RUN/eval/logs"; mkdir -p "$LOGD"

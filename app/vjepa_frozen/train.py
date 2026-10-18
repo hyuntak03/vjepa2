@@ -104,6 +104,18 @@ def main(args, resume_preempt=False):
         raise ValueError("loss.ctx_hole 은 kind=ctx_state + tf_weight>0 전용 (구멍은 context encoder 입력 전에 낸다)")
     # gating_residual (2026-10-17): ŷ = g·A + proj(s), A = 마지막 문맥 블록 LN(target_encoder). 블록 타깃 공간이어야 A 가 의미 있다
     GATING = bool((MD.get("predictor") or {}).get("gating_residual", False))
+    # ar_input (2026-10-18, 사용자 결정, kind=ar): block (기본, 블록별 LN(target_encoder)) | video = 입력 = target_encoder 문맥 pass
+    #   (영상), 정답 = 같은 encoder 전체 pass (창, ar_target: window). TF 는 문맥 자리만, 예측 구간은 rollout 만 (ar_losses_video)
+    ar_input = str((MD.get("predictor") or {}).get("ar_input", "block"))
+    ar_target = str((MD.get("predictor") or {}).get("ar_target", "block"))
+    if ar_input not in ("block", "video") or ar_target not in ("block", "window"):
+        raise ValueError(f"model.predictor.ar_input 는 block | video, ar_target 은 block | window: {ar_input!r} {ar_target!r}")
+    AR_VIDEO = is_ar and ar_input == "video"
+    if is_ar and (ar_input == "video") != (ar_target == "window"):
+        raise ValueError("kind=ar 학습은 (ar_input, ar_target) = (block, block) | (video, window) 만 받는다")
+    if AR_VIDEO and (GATING or HINT or dyn_weight or delta_weight or tf_span != "all"):
+        raise ValueError("ar_input=video 는 gating · hint · dyn · delta · tf_span 과 같이 쓰지 않는다 "
+                         "(영상 공간 복사 anchor 는 0.81 — z_research/scripts/analysis/video_space_copy_gap.py)")
     if GATING and not ((is_ctx_state and ctx_target == "block") or is_ar):
         raise ValueError("model.predictor.gating_residual 는 kind=ar 또는 kind=ctx_state + ctx_target: block 전용 (anchor = 블록별 LN(target_encoder))")
     # ctx_input (2026-10-17, 사용자 결정): video (기본) = 문맥 창을 문맥 encoder 로 한 번 (z 는 LN 없이) / block = 문맥도 **블록마다 따로 LN(문맥 encoder)**.
@@ -300,7 +312,8 @@ def main(args, resume_preempt=False):
         if is_seq:
             if is_ar:
                 res = AR.run_val_ar(valset, tgt_enc, pred_mod, device, ac_dtype, rank, world_size, tubelet, spatial,
-                                    int(V.get("context_length", 16)), int(V.get("batch_size", 8)), loss_exp)
+                                    int(V.get("context_length", 16)), int(V.get("batch_size", 8)), loss_exp,
+                                    ar_input=ar_input)
             elif is_ctx_state:
                 res = AR.run_val_ctx_state(valset, ctx_enc, tgt_enc, pred_mod, device, ac_dtype, rank, world_size, tubelet,
                                            spatial, int(V.get("context_length", 16)), int(V.get("batch_size", 8)), loss_exp,
@@ -445,6 +458,26 @@ def main(args, resume_preempt=False):
                     aux.update(jloss=float(jl.detach()), sloss=float(sl.detach()), R=R)
                     return float(loss.detach()), lr_now, wd_now
                 hint, n_hint = None, 0
+                if AR_VIDEO:   # 2026-10-18: 문맥 pass · 전체 pass (target_encoder 두 번), TF 문맥 자리만 + rollout
+                    C_, K_ = int(info["context_blocks"]), int(info["predict_blocks"])
+                    with torch.no_grad(), _ac():
+                        zc, zf = AR.encode_video_ctx_full(tgt_enc, clips.to(enc_dtype)[:, :, : (C_ + K_) * tubelet], C_, spatial)
+                    with _ac():
+                        loss, jl, sl, R = AR.ar_losses_video(predictor, zc, zf, spatial, C_, K_, loss_exp, rollout_steps, aux=aux)
+                    if scaler is not None:
+                        scaler.scale(loss).backward()
+                        scaler.unscale_(optimizer)
+                    else:
+                        loss.backward()
+                    if clip_grad:
+                        torch.nn.utils.clip_grad_norm_(pred_mod.parameters(), float(clip_grad))
+                    if scaler is not None:
+                        scaler.step(optimizer); scaler.update()
+                    else:
+                        optimizer.step()
+                    optimizer.zero_grad(set_to_none=True)
+                    aux.update(jloss=float(jl.detach()), sloss=float(sl.detach()), R=R, n_hint=0)
+                    return float(loss.detach()), lr_now, wd_now
                 with torch.no_grad(), _ac():
                     h = AR.encode_blocks(tgt_enc, clips.to(enc_dtype), tubelet)                # (B, nb*S, D) LN
                     if HINT:                                                                   # 정해진 일정, 0 개면 cross-attn 생략

@@ -191,3 +191,29 @@ try:
 except ValueError:
     print("   OK  ctx_state 에 prev 는 죽는다")
 print("prev 전부 통과")
+
+# ---------------------------------------------------------------- ar_input=video · ar_target=window (2026-10-18)
+av = build_ar()
+torch.manual_seed(3)
+zf_ = torch.nn.functional.layer_norm(torch.randn(B, (C + K) * S, D), (D,))     # 전체 pass (창 정답) 흉내
+zc_ = torch.nn.functional.layer_norm(torch.randn(B, C * S, D), (D,))           # 문맥 pass 흉내 (전체 pass 와 다르다)
+av.train()
+loss, jl, sl, R = AR.ar_losses_video(av, zc_, zf_, S, C, K, 1.0, K)
+loss.backward()
+assert float(av.predictor_proj.weight.grad.abs().sum()) > 0 and R == K
+with torch.no_grad():
+    av.eval()
+    p_tf, p_ar = av(zc_, ar={"idx": AR.block_indices(B, C, S, "cpu"), "n_ctx_blocks": C, "rollout_steps": K})
+    j2 = (p_tf - zf_[:, S: C * S]).abs().mean(); s2 = (p_ar - zf_[:, C * S:]).abs().mean()
+assert p_tf.shape[1] == (C - 1) * S and p_ar.shape[1] == K * S
+print("14 OK  ar video: TF 문맥 자리 %d 블록 + rollout %d 블록, loss %.4f (tf %.4f ar %.4f)" % (C - 1, K, float(loss), float(jl), float(sl)))
+with torch.no_grad():
+    got = _ArScorer(av)(zc_ * 2.0 + 0.3, idx_all[:, : C * S], idx_all[:, C * S:])
+    want = av.rollout_kv(zc_, idx_all[:, : C * S], K)
+assert torch.allclose(got, want, atol=1e-4), float((got - want).abs().max())
+print("15 OK  ar video 채점 래퍼 = rollout_kv(LN(문맥 pass))")
+try:
+    AR.ar_losses_video(av, zc_[:, :S], zf_[:, : (1 + K) * S], S, 1, K, 1.0, K); raise AssertionError("C=1 이 통과했다")
+except ValueError:
+    print("   OK  문맥 1 블록이면 죽는다 (TF 자리 없음)")
+print("ar video 전부 통과")

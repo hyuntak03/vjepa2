@@ -166,6 +166,20 @@ class _CtxStateScorer(nn.Module):
         return self.core.render(self.core.rollout_state_kv(z, ci, K), A)
 
 
+class _CtxPassEncoder(nn.Module):
+    """ar_input=video 채점용 (2026-10-18). 같은 encoder 를 **다른 객체**로 감싸 문맥 pass 를 따로 돌게 한다.
+    IntPhys2 하네스 (analysis/intphys2/surprise.py) 는 context_encoder is target_encoder 면 문맥 토큰을 전체 pass 에서 잘라 쓰는데,
+    영상 인코딩에서는 그 토큰이 미래 프레임을 본 값이라 누수다. 이 래퍼면 늘 context_encoder(x, masks=[ci]) = 문맥 토큰만 넣은 pass."""
+
+    def __init__(self, enc: nn.Module):
+        super().__init__()
+        self.enc = enc
+        self.embed_dim = enc.embed_dim
+
+    def forward(self, x, masks=None, **kw):
+        return self.enc(x, masks=masks, **kw)
+
+
 class _AnchorCtxEncoder(nn.Module):
     """gating_residual 채점용 context encoder 래퍼 (2026-10-17). 문맥 z 는 그대로 내고, 같은 입력의 **마지막 문맥 블록**을
     블록별 target_encoder 로 인코딩해 LN 한 anchor (B, S, D) 를 들고 있는다 — 학습 (app/vjepa_frozen/train.py) 의 A 와 같은 정의.
@@ -567,11 +581,20 @@ def build_from_config(cfg: dict, device: torch.device) -> VJEPA2Bundle:
         if ar_target not in ("block", "window"):
             raise ValueError(f"model.predictor.ar_target 는 block | window: {ar_target!r}")
         predictor = _ArScorer(predictor, copy=bool(predictor_cfg.get("ar_copy", False))).eval()
-        context_encoder = _ArBlockEncoder(target_encoder, tubelet_size).eval()
+        ar_input = str(predictor_cfg.get("ar_input", "block"))       # 2026-10-18: video = 문맥 pass 영상 (같은 target_encoder)
+        if ar_input not in ("block", "video"):
+            raise ValueError(f"model.predictor.ar_input 는 block | video: {ar_input!r}")
+        if ar_input == "video":
+            if ar_target != "window":
+                raise ValueError("ar_input=video 채점은 ar_target: window (학습과 같다)")
+            context_encoder = _CtxPassEncoder(target_encoder).eval()     # target_encoder = 창 전체 pass (그대로)
+        else:
+            context_encoder = _ArBlockEncoder(target_encoder, tubelet_size).eval()
         if ar_target == "block":
             target_encoder = context_encoder        # 같은 객체 — IntPhys2 하네스는 이때 문맥을 타깃 forward 에서 잘라 쓴다
             encoder = target_encoder
-        logger.info(f"predictor kind=ar: 문맥 = 블록별 target_encoder, 타깃 = {ar_target} (힌트 없음, KV rollout)")
+        logger.info(f"predictor kind=ar: 문맥 = {'target_encoder 문맥 pass (영상)' if ar_input == 'video' else '블록별 target_encoder'}, "
+                    f"타깃 = {ar_target} (힌트 없음, KV rollout)")
 
     del state  # release the fp32 checkpoint copy on CPU
 

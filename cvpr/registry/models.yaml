@@ -328,3 +328,10 @@ vast_ar_vw_state_gres_prev:       # AR + gate 지름길, rollout anchor = 직전
   predictor.ar_feedback: state
   predictor.gating_residual: true
   predictor.gating_anchor: prev
+vast_ar_vw_state_vidctx:          # AR · 문맥 = target_encoder 문맥 pass (영상) · 정답 = 창 전체 pass · TF 문맥 자리만, 2026-10-18
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/natural_ar_vw_state_vidctx/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+  predictor.ar_input: video
+  predictor.ar_target: window

@@ -150,6 +150,33 @@ def ar_losses_multistart(predictor, h: torch.Tensor, S: int, starts, rollouts, l
     return jloss + sloss, jloss, sloss, max(rollouts)
 
 
+def encode_video_ctx_full(enc, clips: torch.Tensor, C: int, S: int):
+    """ar_input=video (2026-10-18, 사용자 결정). 같은 encoder 로 **두 번**: 문맥 pass (문맥 토큰만 넣는다 = 미래를 안 본다) ·
+    전체 pass (클립 전체 = 창 정답). 둘 다 affine 없는 LN. return zc (B, C*S, D), zf (B, nb*S, D)."""
+    B = clips.size(0)
+    zc = enc(clips, masks=[block_indices(B, C, S, clips.device)])
+    zf = enc(clips)
+    return F.layer_norm(zc, (zc.size(-1),)), F.layer_norm(zf, (zf.size(-1),))
+
+
+def ar_losses_video(predictor, zc: torch.Tensor, zf: torch.Tensor, S: int, C: int, K: int, loss_exp: float,
+                    rollout_steps: int, aux: dict = None):
+    """ar_input=video · ar_target=window (2026-10-18). 입력 = 문맥 pass 영상 토큰 zc, 정답 = 전체 pass 영상 토큰 zf.
+    TF 는 **문맥 자리만**: 위치 b (b = 0..C-2, block-causal) → zf 의 블록 b+1. zc[b] 는 문맥 끝까지 본 영상 토큰이라
+      약간의 미래 누수가 있다 — 의도된 것 (사용자). 예측 구간은 TF 없이 상태 rollout R 걸음 → zf 의 블록 C..C+R-1.
+    return (loss, jloss, sloss, R)."""
+    B = zc.size(0)
+    if C < 2:
+        raise ValueError("ar_input=video 는 문맥 2 블록 이상 (TF 자리가 하나라도 있어야 한다)")
+    if zc.size(1) != C * S or zf.size(1) != (C + K) * S:
+        raise ValueError(f"ar_losses_video: zc {tuple(zc.shape)} zf {tuple(zf.shape)} C={C} K={K}")
+    R = max(1, min(int(K), int(rollout_steps)))
+    p_tf, p_ar = predictor(zc, ar={"idx": block_indices(B, C, S, zc.device), "n_ctx_blocks": C, "rollout_steps": R})
+    jloss = l1(p_tf, zf[:, S: C * S], loss_exp)
+    sloss = l1(p_ar, zf[:, C * S: (C + R) * S], loss_exp)
+    return jloss + sloss, jloss, sloss, R
+
+
 def ar_losses(predictor, h: torch.Tensor, S: int, C: int, K: int, loss_exp: float, rollout_steps: int, hint=None,
               delta_weight: float = 0.0, aux: dict = None, tf_span: str = "all"):
     """h (B, nb*S, D) LN 된 블록 토큰. return (loss, jloss, sloss, R). predictor 는 DDP 래퍼여도 된다 (forward 한 번).
@@ -198,7 +225,8 @@ def ar_losses(predictor, h: torch.Tensor, S: int, C: int, K: int, loss_exp: floa
 
 @torch.no_grad()
 def run_val_ar(vs: ValSet, tgt_enc, pred_mod, device, autocast_dtype, rank: int, ws: int,
-               tubelet: int, spatial: int, context_length: int, batch_size: int, loss_exp: float) -> Dict:
+               tubelet: int, spatial: int, context_length: int, batch_size: int, loss_exp: float,
+               ar_input: str = "block") -> Dict:
     """val.run_val 의 팔 C 판. 주지표 = rollout surprise, 보조 = tf surprise (res['tf'])."""
     pred_mod.eval()
     n_frames = vs.ds.n_frames
@@ -217,13 +245,21 @@ def run_val_ar(vs: ValSet, tgt_enc, pred_mod, device, autocast_dtype, rank: int,
         x = torch.stack([vs.ds.transform(vs.ds.read_uint8(i)) for i in chunk]).to(device, non_blocking=True)
         n = len(chunk)
         with ac:
-            h = encode_blocks(tgt_enc, x.to(next(tgt_enc.parameters()).dtype), tubelet)     # (n, nb*S, D)
             idx = block_indices(n, nb, S, device)
-            p_ar = pred_mod.rollout_kv(h[:, : C * S], idx[:, : C * S], K)                    # (n, K*S, D) KV 캐시판 (값 동일)
-            p_tf = pred_mod.forward_seq(h[:, :-S], idx[:, :-S])[:, (C - 1) * S:]               # 블록 C..nb-1 예측
+            if ar_input == "video":                          # 2026-10-18: 입력 = 문맥 pass, 정답 = 전체 pass (창). 보조 tf = 문맥 자리 TF
+                zc, h = encode_video_ctx_full(tgt_enc, x.to(next(tgt_enc.parameters()).dtype), C, S)
+                p_ar = pred_mod.rollout_kv(zc, idx[:, : C * S], K)
+                p_tf = pred_mod.forward_seq(zc[:, :-S], idx[:, : (C - 1) * S])
+                tgt_tf = h[:, S: C * S].float()
+            else:
+                h = encode_blocks(tgt_enc, x.to(next(tgt_enc.parameters()).dtype), tubelet)     # (n, nb*S, D)
+                p_ar = pred_mod.rollout_kv(h[:, : C * S], idx[:, : C * S], K)                    # (n, K*S, D) KV 캐시판 (값 동일)
+                p_tf = pred_mod.forward_seq(h[:, :-S], idx[:, :-S])[:, (C - 1) * S:]               # 블록 C..nb-1 예측
+                tgt_tf = None
         tgt = h[:, C * S:].float()
+        tgt_tf = tgt if tgt_tf is None else tgt_tf
         d_ro = (p_ar.float() - tgt).abs().pow(loss_exp).mean(dim=(1, 2)) / loss_exp
-        d_tf = (p_tf.float() - tgt).abs().pow(loss_exp).mean(dim=(1, 2)) / loss_exp
+        d_tf = (p_tf.float() - tgt_tf).abs().pow(loss_exp).mean(dim=(1, 2)) / loss_exp
         for k, i in enumerate(chunk):
             vid = vs.ds.rows[i]["video_id"]
             out_ro[vid], out_tf[vid] = float(d_ro[k]), float(d_tf[k])
