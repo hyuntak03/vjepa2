@@ -6,7 +6,7 @@
 #   GPUS=8 WINDOWS_I1="32 16" WINDOWS_I2="16 32 48" bash z_training/eval_bench.sh natural_ar_vw_hint
 #
 # 1. IntPhys1 dev — Garrido A.8 sliding (`intphys1_sliding`, frame_skips [2,5,10], 창별 실행, 보고 = 격자 최고)
-#    RESULTS_2026-10-01.md 의 기준선 채점과 같은 명령 (z_research/scripts/run.sh)
+#    z_training/docs/RESULTS_2026-10-01.md 의 기준선 채점과 같은 명령 (z_research/scripts/run.sh)
 # 2. IntPhys 2 Main — Bordes D.3 격자 (analysis/intphys2/run_grid.sh 와 같은 --set, 보고 = 열별 최고)
 # predictor 구조 (kind, n_registers) 는 run config 에서 읽는다. kind=ar 은 analysis/intphys2/model.py 의
 #   _ArScorer (문맥·타깃 블록별 target_encoder, **힌트 없음**, KV rollout). 힌트 가중치 (hint_attn.*) 는 로드 때 버린다.

@@ -1,6 +1,6 @@
 """gating 출력 크기 진단 (2026-10-18). AR vs AR+gating (natural_ar_vw_state_gres) 의 rollout 출력 토큰별 D 방향 표준편차 · L1, 복사 기준선.
   CUDA_VISIBLE_DEVICES=7 /venv/vjepa/bin/python z_research/scripts/analysis/gating_out_scale.py
-결과: z_training/RESULTS_GATING_2026-10-18.md §5"""
+결과: z_training/docs/RESULTS_GATING_2026-10-18.md §5"""
 import sys, os, csv, numpy as np, torch
 REPO = "/workspace/world_model/vjepa2"; sys.path.insert(0, REPO)
 sys.argv = [sys.argv[0], "--occ", "late"]

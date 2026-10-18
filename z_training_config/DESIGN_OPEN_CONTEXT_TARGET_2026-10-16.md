@@ -1,7 +1,7 @@
 # 설계 고민 정리 — 문맥을 영상으로 줄 것인가, 정답 (타깃) 을 어떻게 만들 것인가 (2026-10-16)
 
 > 다른 에이전트에게 넘기려고 쓴 자기완결 문서. 측정한 것과 추측을 나눠 적었다 (추측은 **[추측]**).
-> 레포: `/workspace/world_model/vjepa2` (branch `vast`). 기존 기록: `z_training/RESULTS_2026-10-12/15/16.md`, `z_training_config/*.md`, 레포 `CLAUDE.md`.
+> 레포: `/workspace/world_model/vjepa2` (branch `vast`). 기존 기록: `z_training/docs/RESULTS_2026-10-12/15/16.md`, `z_training_config/*.md`, 레포 `CLAUDE.md`.
 
 ## 0. 한 문장
 

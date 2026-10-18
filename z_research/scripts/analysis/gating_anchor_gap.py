@@ -1,6 +1,6 @@
 """gating anchor 후보와 실제 다음 블록 LN(target_encoder) 의 L1 (2026-10-17). VOBench visible · late 각 60 clip, 배경 / 물체 3×3.
   CUDA_VISIBLE_DEVICES=7 /venv/vjepa/bin/python z_research/scripts/analysis/gating_anchor_gap.py
-후보: LN(문맥 encoder z 마지막 블록) vs LN(h) 마지막 문맥 블록 (타깃 공간 복사). 결과: z_training/RESULTS_GATING_2026-10-18.md §2"""
+후보: LN(문맥 encoder z 마지막 블록) vs LN(h) 마지막 문맥 블록 (타깃 공간 복사). 결과: z_training/docs/RESULTS_GATING_2026-10-18.md §2"""
 import sys, os, csv, collections, numpy as np, torch, torch.nn.functional as F
 REPO = "/workspace/world_model/vjepa2"; sys.path.insert(0, REPO)
 sys.argv = [sys.argv[0], "--occ", "late"]

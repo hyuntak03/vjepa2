@@ -128,7 +128,7 @@ VOBench visible 이동 60 clip (888 전이), Δh = mean_n LN(h_{t+1}) − mean_n
 - 데이터 비율 (1:1:1 → 공식), 샘플링 (C/K → 데이터셋 우선), 창, rollout 시작점이 **한꺼번에** 바뀐다. 상태 run 과의 차이를 어느 하나로 돌릴 수 없다
 - 가려짐 자체가 자연 영상 학습 데이터에 드문 것은 그대로다 — late 정체 문제에는 간접적인 처방
 - fps 4 학습 vs 평가의 더 촘촘한 블록 간격 (§1)
-- V-JEPA 2 대비 규모: 본 clip 약 1 % 대 (V-JEPA 2 ≈ 774M clip 은 외부 정리의 252K step 가정), 데이터 0.84M 편 vs ≈ 22M 샘플 (`z_training/RESULTS_2026-10-12.md` 이후 대화 기록)
+- V-JEPA 2 대비 규모: 본 clip 약 1 % 대 (V-JEPA 2 ≈ 774M clip 은 외부 정리의 252K step 가정), 데이터 0.84M 편 vs ≈ 22M 샘플 (`z_training/docs/RESULTS_2026-10-12.md` 이후 대화 기록)
 
 ## 재현
 

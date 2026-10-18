@@ -5,7 +5,7 @@
 > 그리고 **어디로 가야 하는지**를 정리한다. **[측정]** = 산출물에서 다시 계산한 값, **[해석]** = 추측.
 >
 > 근거 문서: `z_research/VOBench_v1/Archive/DIAG_CTXT_VIDEO_VS_AR_2026-10-17.md` (진단 100 샘플) ·
-> `z_training/RESULTS_GATING_2026-10-18.md` (gating) · `z_training/RESULTS_2026-10-16.md` · 시트 (Overall / Intuitive Physics).
+> `z_training/docs/RESULTS_GATING_2026-10-18.md` (gating) · `z_training/docs/RESULTS_2026-10-16.md` · 시트 (Overall / Intuitive Physics).
 
 ---
 
@@ -68,7 +68,9 @@ state evolution 의 네 하위 능력 (CLAUDE.md 2026-09-19 정의: 읽기 · �
 - **[측정]** 영상 문맥의 비용은 공간 불일치다 — LN(encoder z) 와 LN(target h) 는 같은 블록끼리도 배경 L1 0.81, 예측의 절반 (R² 0.51) 이 블록 공간 밖 성분, 배경 오차 +0.09 가 첫 걸음부터.
 - **[해석]** 블록 문맥의 마지막 블록 토큰은 자기 2 장만 알아서 시간 통합을 전부 predictor 가 해야 하는데, predictor 는 그걸 "평균" 으로 해결한다 (P1).
   영상 문맥은 encoder 가 시간을 이미 섞어 줘서 움직임을 더 잘 잇지만, 출력 공간과 어긋난다. **두 장점을 동시에 가진 모델이 없다.**
-- ⚠️ 교란: ctxt 는 "영상 vs 블록" 과 "encoder vs target_encoder" 가 동시에 다르다. `target_encoder × 영상` 칸은 아직 안 쟀다.
+- ⚠️ 교란이었던 것 — ctxt 는 "영상 vs 블록" 과 "encoder vs target_encoder" 가 동시에 다르다.
+  **[측정, 10-18 추가]** target_encoder 로 영상 인코딩해도 같은 블록끼리 배경 L1 0.815 (encoder 0.818) — **공간 차이는 영상 인코딩 자체에서 온다** (`gating_anchor_gap.py`).
+  영상 공간 안에서도 바로 다음 블록 토큰까지 0.80 이라 복사는 출발점이 못 된다 (`video_space_copy_gap.py`).
 
 ### P3. 움직이는 물체의 영속이 어디에도 없다
 - **[측정]** late 물체 자리, 움직이는 물체: 모든 모델이 우연 근처. op 데이터도 못 고쳤다.
@@ -106,7 +108,8 @@ state evolution 의 네 하위 능력 (CLAUDE.md 2026-09-19 정의: 읽기 · �
 
 ### D2. 평균으로 무너지는 문제를 목적함수에서 직접 겨냥한다 (P1, 가장 중요)
 - **(a) 시간 변화량 항** `|(p_{t+1} − p_t) − (h_{t+1} − h_t)|`. 복사 (Δp = 0) 를 그대로 벌한다. 모듈 추가 없음, 실제 영상 그대로.
-  ⚠️ `natural_ar_vw_state_delta` (IntPhys1 90.56) 가 비슷한 항을 이미 썼다 — **전이 지표 (D1-3) 로 먼저 재 보고** 효과가 없으면 형태를 바꾼다. 이것도 L1 이라 변화량의 중앙값으로 간다 (완화이지 해결이 아님).
+  ⚠️ **이미 해 봤다 [측정]:** `natural_ar_vw_state_delta` (|Δp − Δh|, 가중 1.0) — IntPhys1 90.56 (짝 90.0), VOBench late −1.8 / −1.9 (`docs/RESULTS_2026-10-15.md` §3).
+  벤치마크로는 효과가 없었다. 전이 지표 (위치 오차 · 속도 배율) 는 **아직 안 쟀다** — 그걸 먼저 재고, 그래도 없으면 이 형태는 접는다. 이것도 L1 이라 변화량의 중앙값으로 간다.
 - **(b) 여러 미래를 낼 수 있게** — 확률적 / 다중 가설 predictor (잠재 변수 · 승자 독식 손실). 평균 대신 "그럴듯한 하나" 를 내는 직접적인 길.
   사용자 원칙 (단순함) 과 긴장이 있다 — CE · codebook 은 이미 너무 복잡하다고 기각됐다. 가장 단순한 형태 (예: 잡음 입력 + 최소 손실) 부터.
 - **(c) 변화량으로 토큰 가중** — 정답이 크게 변하는 토큰 (움직이는 물체) 의 손실 비중을 키운다 (P4). 라벨 없이 "물체" 를 겨냥.
@@ -114,7 +117,8 @@ state evolution 의 네 하위 능력 (CLAUDE.md 2026-09-19 정의: 읽기 · �
 
 ### D3. 같은 공간에서 움직임을 옮기게 한다 (P2)
 - 블록 문맥의 정밀도를 지키면서 영상 문맥의 전이를 얻는 것이 목표.
-- **`target_encoder × 영상` 칸 측정** — P2 의 교란 (영상 효과 vs encoder 효과) 을 먼저 가른다. 코드 준비됨 (`ctx_encoder: target_encoder`, `ctx_input: video`).
+- ~~`target_encoder × 영상` 칸 측정~~ **[10-18 완료, 학습 없이]** encoder 효과가 아니라 영상 인코딩 효과다 (위 P2).
+  대신 사용자 결정으로 **영상 문맥 · 영상 정답 · TF 문맥만** AR (`natural_ar_vw_state_vidctx`) 을 학습 중 — 문맥 · 정답을 같은 영상 공간에 둔다.
 - 더 긴 rollout 손실 · 여러 시작점 rollout — 한 걸음 TF 는 복사로 거의 풀리므로 (블록 간 0.23 s), 먼 미래를 맞혀야 하는 압력을 키운다.
 - ⚠️ gating 결과의 교훈: 복사를 쉽게 만드는 장치는 판별을 나쁘게 했다. 전이는 "복사에서 벗어나는 힘" 이 필요하다.
 
@@ -129,7 +133,7 @@ state evolution 의 네 하위 능력 (CLAUDE.md 2026-09-19 정의: 읽기 · �
 |---|---|---|---|
 | 1 | D1 세 지표를 기존 체크포인트 전부에 (AR · ctxt · op · gating · delta) | 수십 분 | 지금 모델들의 전이 · 영속을 같은 자로 |
 | 2 | `natural_ar_vw_state_delta` 의 전이 지표 확인 | 수 분 | 변화량 항이 위축을 줄였나 |
-| 3 | `target_encoder × 영상` 학습 (ctx_state) | 학습 1 회 | P2 가 영상 효과인가 encoder 효과인가 |
+| 3 | ~~`target_encoder × 영상`~~ → `natural_ar_vw_state_vidctx` (학습 중) | 학습 1 회 | 영상 공간에서 문맥 · 정답을 맞추면 전이와 정밀도가 같이 서나 |
 | 4 | D2-(c) 변화량 가중 또는 D2-(b) 다중 가설 최소형 | 학습 1 회씩 | 평균 붕괴를 목적함수로 풀 수 있나 |
 | 5 | D4 데이터 사건 빈도 측정 → 고르기 | 측정 수 분, 학습 1 회 | 데이터 희소가 원인인가 |
 
@@ -146,7 +150,7 @@ state evolution 의 네 하위 능력 (CLAUDE.md 2026-09-19 정의: 읽기 · �
 
 ```bash
 cd /workspace/world_model/vjepa2
-# 벤치마크 (run 별): z_training/eval_bench.sh · cvpr/eval/testbed/run.sh · z_training/chain_bench.sh — z_training/RESULTS_GATING_2026-10-18.md 재현 절
+# 벤치마크 (run 별): z_training/eval_bench.sh · cvpr/eval/testbed/run.sh · z_training/chain_bench.sh — z_training/docs/RESULTS_GATING_2026-10-18.md 재현 절
 # 진단 (100 샘플): z_research/VOBench_v1/Archive/DIAG_CTXT_VIDEO_VS_AR_2026-10-17.md 재현 절
 CUDA_VISIBLE_DEVICES=7 /venv/vjepa/bin/python z_research/scripts/analysis/brief_motion.py --device cuda          # 속도 probe · 미래 위치
 CUDA_VISIBLE_DEVICES=7 /venv/vjepa/bin/python z_research/scripts/analysis/obj_region_surprise.py --occ late --device cuda   # 물체 자리 / 먼 배경

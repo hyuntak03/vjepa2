@@ -4,7 +4,7 @@
 - `configs/training/natural_ar_vw_state_ctxt_video_tgtvideo.yaml` — 문맥 영상 + 타깃 영상 (다른 서버에서 학습)
 - `configs/training/natural_ar_vw_state_ctxt_video_tgtvideo_hole.yaml` — 위 + 문맥 구멍 (이 서버 `chain_hole` 의 2 번째)
 
-둘 다 `natural_ar_vw_state_ctxt_video` 를 물려받는다. 앞 run 의 결과 · 정정은 `../z_training/RESULTS_2026-10-16.md` §3.
+둘 다 `natural_ar_vw_state_ctxt_video` 를 물려받는다. 앞 run 의 결과 · 정정은 `../z_training/docs/RESULTS_2026-10-16.md` §3.
 아래 수치는 학습 계획 20,580 step 을 로더 규칙 (`app/vjepa_frozen/var_window.py` `plan`) 과 구멍 생성기 (`app/vjepa_frozen/ar.py` `make_ctx_hole`) 를 그대로 돌려 센 것이다 (학습 전 계산).
 
 ## 1. 무엇을 하는가
