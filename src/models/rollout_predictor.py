@@ -226,6 +226,11 @@ class VisionTransformerPredictorPrefix(nn.Module):
         #   last_obs (기본) = 마지막 문맥 블록 고정 / prev = **직전 블록** — 첫 걸음은 마지막 문맥 블록, 그 뒤는 LN(직전 걸음 예측).
         #   TF 는 두 경우 모두 직전 블록 (입력 블록 b) 이라 prev 면 TF 와 rollout 의 anchor 규칙이 같아진다. 파라미터는 같다
         self.gating_anchor = str(kwargs.get("gating_anchor", "last_obs"))
+        # gating_out_ln (2026-10-18, ar 전용): true = 출력 LN(g·A + proj(s)) — 기존 AR 과 같은 출력 공간. g 는 A : f 섞는 비율로 남고
+        #   (LN(g·A + f) = LN(A + f/g)), proj = 0 시작이면 LN(A) = A 라 복사 시작도 그대로. false (기본) = LN 없음 (기존 gating)
+        self.gating_out_ln = bool(kwargs.get("gating_out_ln", False))
+        if self.gating_out_ln and not (self.gating_residual and mask_mode == "ar"):
+            raise ValueError("gating_out_ln 은 mask_mode='ar' + gating_residual 전용")
         if self.gating_anchor not in ("last_obs", "prev"):
             raise ValueError(f"gating_anchor 는 last_obs | prev: {self.gating_anchor!r}")
         if self.gating_anchor != "last_obs" and not (self.gating_residual and mask_mode == "ar"):
@@ -469,7 +474,8 @@ class VisionTransformerPredictorPrefix(nn.Module):
             raise ValueError(f"ar gating: anchor {None if anchor is None else tuple(anchor.shape)} 가 상태 {tuple(st.shape)} 와 안 맞는다")
         g = torch.sigmoid(self.keep_gate(st).float()) / self.sig_b0
         self._gate_cache = g
-        return g * anchor.float() + self.predictor_proj(st).float()
+        y = g * anchor.float() + self.predictor_proj(st).float()
+        return torch.nn.functional.layer_norm(y, (y.size(-1),)) if self.gating_out_ln else y
 
     def rollout(self, x_ctx, idx_ctx, n_steps, first=None):
         """팔 C. 문맥 C 블록의 LN(h) 에서 `n_steps` 블록을 자기회귀로 채운다 (KV 캐시 없음, 매 스텝 전체 재계산).
