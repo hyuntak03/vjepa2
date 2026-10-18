@@ -1,0 +1,20 @@
+# =============================================================================
+# AR + gating, rollout anchor = **직전 블록** (2026-10-18, 사용자 결정)
+#
+#   GPUS=8 bash z_training/tmux_train.sh natural_ar_vw_state_gres_prev
+#
+# natural_ar_vw_state_gres 와 **한 가지만** 다르다 — rollout 걸음의 anchor:
+#   gres      : 모든 걸음 = 마지막 문맥 블록 (고정)
+#   gres_prev : 첫 걸음 = 마지막 문맥 블록, 그 뒤 = LN(직전 걸음 예측)  → ŷ_t = g · LN(ŷ_{t−1}) + f  (grad 유지)
+#   TF 는 둘 다 위치 b 의 anchor = 입력 블록 b (직전 실제 블록) — prev 면 TF 와 rollout 의 anchor 규칙이 같아진다
+# 왜: gres 는 손실 대부분 (TF 전 위치) 에서 "직전 블록 복사" 로 gate 를 배우고, rollout 에서는 걸음마다 낡아지는
+#     고정 anchor 에 그 gate 를 쓴다 (gate k1 0.28 > kR 0.18). gres 최종: IntPhys1 87.2 · VOBench late 58.3 / 60.6 ·
+#     gravity 18.5 / 5.6 — 셋 다 gating 없는 AR (90.0 · 74.1 / 77.8 · 20.4 / 8.3) 보다 낮다
+# 걱정: 흐린 자기 예측을 걸음마다 복사 → 오차 누적 (출력 되먹임 AR 과 같은 종류)
+# 조립 표는 natural_ar_vw_state_gres.yaml 맨 위
+# =============================================================================
+extends: natural_ar_vw_state_gres
+
+model:
+  predictor:
+    gating_anchor: prev

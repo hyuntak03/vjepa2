@@ -474,7 +474,8 @@ def build_from_config(cfg: dict, device: torch.device) -> VJEPA2Bundle:
             use_rope=use_rope, use_sdpa=True, mask_mode=kind,
             n_registers=int(predictor_cfg.get("n_registers", 0)),
             ar_feedback=str(predictor_cfg.get("ar_feedback", "output")),     # 2026-10-12: kind=ar 상태 되먹임
-            gating_residual=bool(predictor_cfg.get("gating_residual", False)))   # 2026-10-17: ctx_state gate 지름길
+            gating_residual=bool(predictor_cfg.get("gating_residual", False)),   # 2026-10-17: gate 지름길
+            gating_anchor=str(predictor_cfg.get("gating_anchor", "last_obs")))    # 2026-10-18: rollout anchor 규칙
         logger.info(f"predictor kind={kind} (src/models/rollout_predictor.py)")
     # model.predictor_checkpoint — predictor 만 다른 파일에서 읽는다 (app/vjepa_frozen 학습 run 의
     # latest.pt / e{N}.pt). encoder 는 위 `checkpoint` 그대로. 통짜 파일을 만들 필요가 없다.

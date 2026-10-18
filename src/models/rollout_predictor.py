@@ -222,6 +222,14 @@ class VisionTransformerPredictorPrefix(nn.Module):
                 raise ValueError("gating_residual 는 mask_mode='ctx_state' | 'ar' 전용")
             self.keep_gate = nn.Linear(predictor_embed_dim, 1, bias=True)
             self.register_buffer("sig_b0", torch.sigmoid(torch.tensor(2.0)), persistent=False)
+        # gating_anchor (2026-10-18, 사용자 결정, ar 전용): rollout 걸음의 anchor
+        #   last_obs (기본) = 마지막 문맥 블록 고정 / prev = **직전 블록** — 첫 걸음은 마지막 문맥 블록, 그 뒤는 LN(직전 걸음 예측).
+        #   TF 는 두 경우 모두 직전 블록 (입력 블록 b) 이라 prev 면 TF 와 rollout 의 anchor 규칙이 같아진다. 파라미터는 같다
+        self.gating_anchor = str(kwargs.get("gating_anchor", "last_obs"))
+        if self.gating_anchor not in ("last_obs", "prev"):
+            raise ValueError(f"gating_anchor 는 last_obs | prev: {self.gating_anchor!r}")
+        if self.gating_anchor != "last_obs" and not (self.gating_residual and mask_mode == "ar"):
+            raise ValueError("gating_anchor=prev 는 mask_mode='ar' + gating_residual 전용")
         self._gate_cache = None
         self._gate_roll = None     # ar: rollout 걸음들의 gate (B, R*S, 1) 와 anchor (B, S, D) — 모니터용
         # 힌트 cross-attn (2026-10-11, mask_mode=ar 전용). 0 이면 만들지 않는다 (state_dict 그대로)
@@ -653,6 +661,8 @@ class VisionTransformerPredictorPrefix(nn.Module):
         state = self.ar_feedback == "state"
         for _ in range(1, int(n_steps)):
             pos = pos + S
+            if A is not None and self.gating_anchor == "prev":     # 2026-10-18: anchor = 직전 걸음 예측 (LN, grad 유지)
+                A = torch.nn.functional.layer_norm(p.float(), (p.size(-1),)).to(p.dtype)
             if state:   # 2026-10-12: 그리기 전 상태 (predictor_norm 출력, 384) + type[1] 을 블록 자리에 그대로 되먹인다 (grad 유지)
                 p, caches, st = self._ar_step_kv(st + self.type_embed[1], pos, caches, embedded=True, anchor=A)
             else:       # 자기 예측 (LN) 을 다음 입력으로 (AC 와 같다)
@@ -660,8 +670,8 @@ class VisionTransformerPredictorPrefix(nn.Module):
             preds.append(p); states.append(st)
             if gates is not None:
                 gates.append(self._gate_cache)
-        if gates is not None:
-            self._gate_roll = (torch.cat(gates, dim=1).detach(), A.detach())
+        if gates is not None:   # 모니터의 mov / sta 칸 구분은 늘 마지막 문맥 블록 기준 (anchor 규칙과 무관하게 비교 가능)
+            self._gate_roll = (torch.cat(gates, dim=1).detach(), x_ctx[:, -S:].detach())
         if return_states:
             return torch.cat(preds, dim=1), torch.cat(states, dim=1)
         return torch.cat(preds, dim=1)

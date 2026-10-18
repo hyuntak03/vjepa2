@@ -152,3 +152,42 @@ try:
 except ValueError:
     print("   OK  multistart · dyn 과 같이 쓰면 죽는다")
 print("ar 전부 통과")
+
+# ---------------------------------------------------------------- ar gating_anchor=prev (2026-10-18)
+# 10 기본 (last_obs) 명시 = 생략과 같다
+ap0, ap1 = build_ar(gating_residual=True), build_ar(gating_residual=True, gating_anchor="last_obs")
+with torch.no_grad():
+    for m in (ap0, ap1):
+        m.keep_gate.weight.normal_(0, 0.5, generator=torch.Generator().manual_seed(7)); m.predictor_proj.weight.normal_(0, 0.05, generator=torch.Generator().manual_seed(8))
+    assert torch.equal(ap0(hb, ar=dict(arg_ar))[1], ap1(hb, ar=dict(arg_ar))[1])
+print("10 OK  gating_anchor=last_obs = 기본")
+# 11 prev: 초기화 직후 전 걸음 = 마지막 문맥 블록 (LN(A) = A), TF 는 last_obs 와 같다
+pp = build_ar(gating_residual=True, gating_anchor="prev")
+with torch.no_grad():
+    t, r = pp(hb, ar=dict(arg_ar))
+assert torch.allclose(r, Alast, atol=1e-5) and torch.allclose(t, hb[:, :-S], atol=1e-6)
+print("11 OK  prev 초기화 직후 rollout = 마지막 문맥 블록, TF = 입력 블록")
+# 12 흔든 뒤: 걸음 1 은 last_obs 와 같고, 걸음 2.. 는 다르며, 걸음 r = g·LN(ŷ_{r-1}) + proj(s) 를 직접 재구성해 맞춘다
+with torch.no_grad():
+    pp.load_state_dict(ap0.state_dict())
+    t2, r2 = pp(hb, ar=dict(arg_ar)); _, r0 = ap0(hb, ar=dict(arg_ar))
+assert torch.allclose(r2[:, :S], r0[:, :S], atol=1e-6) and not torch.allclose(r2[:, S:], r0[:, S:], atol=1e-4)
+assert torch.allclose(t2, ap0(hb, ar=dict(arg_ar))[0], atol=1e-6)
+_, st = pp.rollout_kv(hb[:, : C * S], idx_all[:, : C * S], K, return_states=True)
+with torch.no_grad():
+    for k in range(1, K):
+        s_k = st[:, k * S:(k + 1) * S]
+        g = torch.sigmoid(pp.keep_gate(s_k).float()) / pp.sig_b0
+        prevA = torch.nn.functional.layer_norm(r2[:, (k - 1) * S: k * S], (D,))
+        want = g * prevA + pp.predictor_proj(s_k).float()
+        assert torch.allclose(r2[:, k * S:(k + 1) * S], want, atol=1e-5), (k, float((r2[:, k * S:(k + 1) * S] - want).abs().max()))
+print("12 OK  prev: 걸음 1 = last_obs, 걸음 r = g·LN(ŷ_{r-1}) + proj(s) (직접 재구성 일치), TF 는 그대로")
+with torch.no_grad():
+    got = _ArScorer(pp)(hb[:, : C * S] * 2.0 + 0.3, idx_all[:, : C * S], idx_all[:, C * S:])
+assert torch.allclose(got, r2, atol=1e-4), float((got - r2).abs().max())
+print("13 OK  prev 채점 래퍼 = 학습 경로 rollout")
+try:
+    build(gating_residual=True, gating_anchor="prev"); raise AssertionError("ctx_state 에 prev 가 통과했다")
+except ValueError:
+    print("   OK  ctx_state 에 prev 는 죽는다")
+print("prev 전부 통과")
