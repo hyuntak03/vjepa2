@@ -49,6 +49,7 @@ CUDA_VISIBLE_DEVICES= /venv/vjepa/bin/python z_training/tests/gating_ctx_block_c
 | [`VARIANTS.md`](VARIANTS.md) | **모든 학습 variant** — 철학 · 구조 그림 · run 표 · 카드 · 채점 정의 · 조립 키 |
 | [`docs/PROBLEMS_AND_DIRECTION_2026-10-18.md`](docs/PROBLEMS_AND_DIRECTION_2026-10-18.md) | 능력별 (읽기 · 전이 · 지속 · 영속) 무엇이 안 되나, 문제 6 개, 방향 5 개 |
 | [`docs/RESULTS_GATING_2026-10-18.md`](docs/RESULTS_GATING_2026-10-18.md) | residual gating 구조 · 학습 · 결과 · 진단 |
+| [`docs/PHYS2D_DATASET_2026-10-18.md`](docs/PHYS2D_DATASET_2026-10-18.md) | 2D 중력 · 영속 · 고체성 학습셋 (v2: 29,918 편, 사건 행 9.5 만 — 충돌 · 가림 · 이탈 50 · 34 · 16 %) · 편향 점검 |
 | [`docs/RESULTS_2026-10-16.md`](docs/RESULTS_2026-10-16.md) | 릴리즈 GRASP · op 데이터 · ctxt_video (영상 문맥) |
 | [`docs/RESULTS_2026-10-15.md`](docs/RESULTS_2026-10-15.md) | AR 후속 — 힌트 · 차이 L1 · VOBench 학습 · GRASP · InfLevel · EK100 |
 | [`docs/RESULTS_2026-10-12.md`](docs/RESULTS_2026-10-12.md) | kind=ar 가변 창 · 힌트 · 상태 되먹임 (AR 처음으로 IntPhys1 90) |
