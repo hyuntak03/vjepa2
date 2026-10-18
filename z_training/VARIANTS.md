@@ -221,7 +221,7 @@ predictor : AR 그대로 (block-causal, 상태 되먹임)
 | VOBench late P / R | late 가림만, 쌍 정확도 (primitive / realistic) | `cvpr/eval/testbed/run.sh vobench_v1_late` |
 | VOBench gravity P / R | **block 정의** — 가능 미래가 그 block 의 모든 불가능 미래보다 낮아야 정답 (우연 37) | per_video_surprise + `data_csv/vobench_v1_gravity/index.csv` |
 | GRASP · InfLevel | Garrido 공식 규칙 (`garrido_rescore`): property 별 최고 축약 → macro, 두 창을 한 탐색 공간으로 | `chain_bench.sh` |
-| val | IntPhys1 dev 60 쌍, epoch 마다. **epoch 0 = 학습 전** | `metrics.jsonl` |
+| val | **2026-10-18 부터 VOBench late 432 쌍** (정식 채점과 같은 정의 — AR 최종으로 76.4 vs 정식 76.0 확인), epoch 마다. 그 전 run 은 IntPhys1 dev 60 쌍. **epoch 0 = 학습 전** | `metrics.jsonl` |
 
 ⚠️ gravity 를 `per_block.json` 의 `acc` 로 읽으면 arc 가 85 처럼 부풀려진다 (쌍 정확도). 반드시 block 정의로.
 

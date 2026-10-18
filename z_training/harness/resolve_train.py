@@ -169,6 +169,13 @@ def main():
 
     # ── val.dataset -> protocols/datasets.md ─────────────────────────────────────
     V = cfg.get("val")
+    # 2026-10-18: val.dataset 이 정해지면 데이터 정체 (경로 · 인덱스 · 컬럼 · 시작 프레임) 는 늘 그 레지스트리 항목에서 온다.
+    #   예전에는 val.data 가 이미 있으면 (상위 config 가 다른 데이터셋으로 채웠어도) 그대로 써서, dataset 이름만 바꾸면
+    #   옛 데이터셋을 계속 쓰는 함정이 있었다. config 의 val.data 로는 frames_stride 만 덮어쓸 수 있다
+    if V and V.get("dataset") and V.get("data"):
+        stride = (V.get("data") or {}).get("frames_stride")
+        V["data"] = None
+        V["_stride_override"] = stride
     if V and V.get("dataset") and not V.get("data"):
         PD = parse_registry(f"{ROOT}/configs/protocols/datasets.md", "root")
         if V["dataset"] not in PD:
@@ -179,6 +186,9 @@ def main():
         keep = ("root", "index_csv", "frames_root", "frames_pattern", "frames_start", "frames_stride",
                 "block_column", "pair_column", "plausible_column", "type_column", "variant_column", "raw_frames")
         V["data"] = {k: p[k] for k in keep if k in p}
+        so = V.pop("_stride_override", None)
+        if so is not None:
+            V["data"]["frames_stride"] = so
         if "frames_root" not in V["data"]:
             die(f"val.dataset='{V['dataset']}' 은 frames_root 가 없다 (PNG 직독만 지원)")
     if V is not None and not V.get("data"):

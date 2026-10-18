@@ -38,6 +38,7 @@ try:
     wts = " : ".join(f"{d['name']} {d.get('weight', 1.0)}" for d in vw["datasets"])
     pc = c["model"].get("predictor") or {}
     arm = (f"kind={pc.get('kind')}" + (f" 되먹임={pc['ar_feedback']}" if pc.get("ar_feedback") else "")
+           + (" 입력=영상(target_encoder 문맥 pass) 정답=창(전체 pass) TF=문맥만" if pc.get("ar_input") == "video" else "")
            + (f" 문맥={pc.get('ctx_encoder') or c['model'].get('context_encoder_key', 'encoder')}×{pc.get('ctx_input', 'video')}" if pc.get("kind") == "ctx_state" else "")
            + (f" 타깃={pc['ctx_target']}" if pc.get("ctx_target") else "")
            + (" gating=on" if pc.get("gating_residual") else "")
@@ -147,9 +148,17 @@ if os.path.isfile(mp):
             continue
         v = r.get("val") or {}
         if "acc" in v:
-            vals.append((r["epoch"], 100 * v["acc"]))
-if vals:
-    print(f" {B}val{N} IntPhys1 dev 60 쌍 (rollout, 힌트 없음, 참고용)  " + "  ".join(f"e{e}:{a:.1f}" for e, a in vals[-8:]))
+            vals.append((r["epoch"], 100 * v["acc"], v.get("margin"), v.get("n_pair"), v.get("by_type") or {}))
+if vals:   # 2026-10-18: margin 도 · val 데이터셋 이름은 config 에서 (기본 VOBench late 432 쌍 — 정식 채점과 같은 정의)
+    vname = ((c.get("val") or {}).get("dataset") if isinstance(c, dict) else None) or "val"
+    print(f" {B}val{N} {vname} {vals[-1][3]} 쌍 (rollout, epoch 0 = 학습 전)  acc / margin")
+    print("       " + "  ".join(f"e{e}:{a_:.1f}/{m_:+.4f}" if m_ is not None else f"e{e}:{a_:.1f}" for e, a_, m_, _, _ in vals[-8:]))
+    bt = vals[-1][4]
+    if any("/late" in k for k in bt):     # VOBench late: 위반별 primitive / realistic
+        g = lambda o, vi: bt.get(f"{o}/{vi}/late", {}).get("acc")
+        print("       위반별 (P / R)  " + "  ".join(
+            f"{lab} {100 * g('primitive', vi):.1f} / {100 * g('realistic', vi):.1f}" for vi, lab in (("permanence", "영속"), ("shape", "모양"), ("color", "색"))
+            if g("primitive", vi) is not None and g("realistic", vi) is not None))
 
 if os.path.isfile(tl):      # 데이터별 step 수 (op320 · vob 같은 고정/경계 소스가 계획대로 섞이는지)
     from collections import Counter
@@ -157,6 +166,29 @@ if os.path.isfile(tl):      # 데이터별 step 수 (op320 · vob 같은 고정/
     if cnt:
         tot = sum(cnt.values())
         print(" 데이터별 step  " + "  ".join(f"{k} {v:,} ({100 * v / tot:.1f}%)" for k, v in cnt.most_common()))
+# 2026-10-18: 측정판 (z_training/tools/panel.py → <run>/panel.jsonl). 점수가 가리는 것 — 운반 · 위치 · 물체 자리
+pj = os.path.join(D, "panel.jsonl")
+if pc.get("ar_input") == "video" if isinstance(pc, dict) else False:
+    print(f" {B}측정판{N} 지원 안 함 — 정답이 영상 (창) 공간이라 블록 공간 측정판 (운반 · 위치 · 물체 자리) 을 댈 수 없다")
+elif not os.path.isfile(pj):
+    print(f" {B}측정판{N} 아직 없음 — tmux new-session -d -s panel_{RUN} \"bash z_training/tools/panel_watch.sh {RUN} 10 7\"")
+if os.path.isfile(pj):
+    recs = []
+    for ln in open(pj):
+        try:
+            recs.append(json.loads(ln))
+        except Exception:
+            pass
+    if recs:
+        t = recs[-1]; tt = t["transport_true"]; tr = t["transport"]
+        print(f" {B}측정판{N} ({t['ckpt']}, epoch {t['epoch']}) — 운반 걸음0 원래칸 {tr['s0']['src']:+.2f} (진짜 {tt['s0']['src']:+.2f}) "
+              f"같은칸 {tr['s0']['same']:+.2f} ({tt['s0']['same']:+.2f}) 집중 {tr['s0']['conc']:.2f} ({tt['s0']['conc']:.2f}) · 걸음3 원래칸 {tr['s3']['src']:+.2f}")
+        pe, pc_ = t["poserr"], t["poserr_copy"]
+        print(f"       위치 오차 걸음 1·3·7 " + " ".join(f"{v:.2f}" for v in pe.values()) + "  (복사 " + " ".join(f"{v:.2f}" for v in pc_.values()) + ")"
+              f"   late 물체 자리 {t['late']['obj']:.1f} (복사 {t['late_copy']['obj']:.1f}) · 화면 전체 {t['late']['full']:.1f} (복사 {t['late_copy']['full']:.1f})")
+        if len(recs) > 1:
+            print("       추이 (epoch: 원래칸/집중/위치7/late물체) " + "  ".join(
+                f"e{r_['epoch']}:{r_['transport']['s0']['src']:+.2f}/{r_['transport']['s0']['conc']:.2f}/{list(r_['poserr'].values())[-1]:.1f}/{r_['late']['obj']:.0f}" for r_ in recs[-6:]))
 # 2026-10-17: 살아 있는 chain 세션만 (죽은 옛 chain 은 안 보인다). 로그는 이 run 이름이 붙은 것 또는 세션 이름과 같은 것
 sess = subprocess.run(["tmux", "ls", "-F", "#{session_name}"], capture_output=True, text=True).stdout.split()
 for ch in [x for x in sess if x.startswith("chain")]:

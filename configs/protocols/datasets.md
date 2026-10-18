@@ -759,3 +759,24 @@ pair_column: pair_id
 variant_column: variant
 plausible_column: plausible
 type_column: condition
+
+## vobench_v1_late
+
+VOBench (UE 5.4 TestBed) 의 occlusion=late 만 — 216 block × 4 arm = 864 clip, 432 matched pair (2026-10-18, 학습 in-loop val 용으로 등록).
+96 프레임 30 fps PNG, 채점과 같게 0 부터 3 장 간격 32 장 (문맥 16 장 = 8 블록 → 예측 8 블록).
+`type_column` = condition (<objset>/<violation>/late, 6 값 × 36 block). 정식 채점은 `cvpr/eval/testbed/run.sh vobench_v1_late` (같은 정의).
+
+raw_frames: 96
+cache_tag: vobench_v1_late
+root: ${DATA_CSV}/vobench_v1_late
+index_csv: index.csv
+frames_root: ${BENCH_ROOT}/VOBench_v1
+frames_pattern: "{file_name}/{frame:06d}.png"
+frames_start: 0
+frames_stride: 3
+block_column: block_id
+pair_column: pair_id
+variant_column: variant
+plausible_column: plausible
+type_column: condition
+

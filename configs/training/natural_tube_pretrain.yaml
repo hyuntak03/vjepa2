@@ -82,8 +82,8 @@ optimization:
   final_weight_decay: 0.04
 
 val:                          # in-loop 감시 (IntPhys1 dev 60 쌍). 정식 수치는 z_training/eval.sh
-  dataset: intphys1_dev
-  n_blocks_per_type: 10
+  dataset: vobench_v1_late    # 2026-10-18 (사용자): VOBench late 432 쌍. 아래 data 의 IntPhys1 경로는 무시되고 frames_stride 만 쓰인다
+  n_blocks_per_type: 36
   context_length: 8           # 16 장 창: 앞 8 장 보고 뒤 8 장
   batch_size: 8
   every_epochs: 1

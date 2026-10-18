@@ -87,8 +87,8 @@ optimization:
   warmup: 1
 
 val:                          # in-loop 수렴 감시. 정식 수치는 z_training/eval.sh 로 낸다
-  dataset: intphys1_dev
-  n_blocks_per_type: 10
+  dataset: vobench_v1_late    # 2026-10-18 (사용자): VOBench late 432 쌍. 아래 data 의 IntPhys1 경로는 무시되고 frames_stride 만 쓰인다
+  n_blocks_per_type: 36
   context_length: 32          # 프레임. 16 블록 보고 8 블록(16프레임) 예측 = 최악 조합과 같은 과제
   batch_size: 4
   every_epochs: 1

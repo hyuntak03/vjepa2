@@ -84,8 +84,8 @@ optimization:
   clip_grad: null            # 예) 1.0
 
 val:                         # in-loop 수렴 감시. 정식 수치는 z_training/eval.sh 로 낸다
-  dataset: intphys1_dev      # configs/protocols/datasets.md 이름 (v11 도 된다 — 단 v11 은 본 채점 세트다)
-  n_blocks_per_type: 10      # type_column 값마다 block 수 (intphys1_dev: O1/O2/O3 -> 30 block, 60 쌍)
+  dataset: vobench_v1_late   # 2026-10-18 (사용자): VOBench late 216 block 전부 = 432 쌍 (정식 채점과 같은 정의). 예전 기본 intphys1_dev (60 쌍)
+  n_blocks_per_type: 36      # type_column (objset/violation/late) 6 값 × 36 block = 전부
   context_length: 16
   batch_size: 8
   every_epochs: 1
