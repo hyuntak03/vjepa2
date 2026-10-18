@@ -22,6 +22,129 @@ intphys1_dev:
   - 2
   - 5
   - 10
+intphys1_late:                    # 2026-10-17. IntPhys 1 dev 의 가림 샘플만 (moving/occluded 60 + static/occluded 30 쌍, O1·O2·O3 각 30), 쌍마다 창을 맞춘다:
+                                  #   문맥 끝 = 위반 시점 d − 1 (pos·imp 가 같은 마지막 프레임), skip 2 로 문맥 16 + 미래 16. 32 장을 미리 골라 링크로 둔다
+                                  #   (cvpr/eval/intphys1_late/build.py · README). 문맥 픽셀 일치 90/90 (data_csv/intphys1_late/context_integrity.json), clamp 16 쌍
+  raw_frames: 32
+  cache_tag: intphys1_late
+  root: ${CVPR_DATA_CSV}/intphys1_late
+  index_csv: index.csv
+  frames_root: ${CVPR_LOCAL}/world/world_analysis/IntPhys1_late
+  frames_pattern: '{video_id}/{frame:06d}.png'
+  frames_start: 0
+  frames_stride: 1
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: block_type
+  engine: wma
+intphys1_late_hid:                # 2026-10-17. intphys1_late 와 같은 창 규칙인데 문맥 끝 e 를 쌍마다 '마지막 문맥 튜블릿에 물체가 안 보이는' 지점으로 (build.py --hidden-end).
+                                  #   54 쌍 (이동 29 · 정지 25; 물체를 문맥에서 본 적 없는 20 쌍 · 조건 못 맞춘 16 쌍 제외), e − d ∈ {−1, 0, +1}. d 뒤 문맥 장은 가능 영상 프레임 (원래 차이 ≤ 11 px)
+  raw_frames: 32
+  cache_tag: intphys1_late_hid
+  root: ${CVPR_DATA_CSV}/intphys1_late_hid
+  index_csv: index.csv
+  frames_root: ${CVPR_LOCAL}/world/world_analysis/IntPhys1_late_hid
+  frames_pattern: '{video_id}/{frame:06d}.png'
+  frames_start: 0
+  frames_stride: 1
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: block_type
+  engine: wma
+intphys1_late_rev:                # 2026-10-18. 문맥 끝 = 결과가 드러나기 직전의 가려진 지점 (build.py --reveal-end). 54 쌍, 미래 첫 1–2 장에 결과가 드러남. clamp 25 쌍 (정지 쌍은 e 가 d 보다 최대 69 장 뒤)
+  raw_frames: 32
+  cache_tag: intphys1_late_rev
+  root: ${CVPR_DATA_CSV}/intphys1_late_rev
+  index_csv: index.csv
+  frames_root: ${CVPR_LOCAL}/world/world_analysis/IntPhys1_late_rev
+  frames_pattern: '{video_id}/{frame:06d}.png'
+  frames_start: 0
+  frames_stride: 1
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: block_type
+  engine: wma
+intphys1_late_rev_dn1:            # 2026-10-18. intphys1_late_rev + 불가능 미래의 ±1 렌더 잡음 제거 (--denoise 1: 가능 영상과 |Δ| ≤ 1 픽셀을 가능 값으로)
+  raw_frames: 32
+  cache_tag: intphys1_late_rev_dn1
+  root: ${CVPR_DATA_CSV}/intphys1_late_rev_dn1
+  index_csv: index.csv
+  frames_root: ${CVPR_LOCAL}/world/world_analysis/IntPhys1_late_rev_dn1
+  frames_pattern: '{video_id}/{frame:06d}.png'
+  frames_start: 0
+  frames_stride: 1
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: block_type
+  engine: wma
+intphys1_late_auto2-6:            # 2026-10-18. 쌍마다 stride s ∈ {2..6}: 결과가 미래 앞쪽 8 장 안에 드러나는 가장 작은 s (build.py --auto-skip 2,3,4,5,6). 50 쌍 (이동 34 · 정지 16), 잡음 그대로
+  raw_frames: 32
+  cache_tag: intphys1_late_auto2-6
+  root: ${CVPR_DATA_CSV}/intphys1_late_auto2-6
+  index_csv: index.csv
+  frames_root: ${CVPR_LOCAL}/world/world_analysis/IntPhys1_late_auto2-6
+  frames_pattern: '{video_id}/{frame:06d}.png'
+  frames_start: 0
+  frames_stride: 1
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: block_type
+  engine: wma
+intphys1_late_auto2r16:           # 2026-10-18. stride 2 고정 (7.5 fps, VOBench 10 fps 와 초 단위로 가장 가까움), 결과가 미래 16 장 안에 드러나는 쌍만 (--auto-skip 2 --reveal-within 16). 37 쌍 (이동 29 · 정지 8)
+  raw_frames: 32
+  cache_tag: intphys1_late_auto2r16
+  root: ${CVPR_DATA_CSV}/intphys1_late_auto2r16
+  index_csv: index.csv
+  frames_root: ${CVPR_LOCAL}/world/world_analysis/IntPhys1_late_auto2r16
+  frames_pattern: '{video_id}/{frame:06d}.png'
+  frames_start: 0
+  frames_stride: 1
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: block_type
+  engine: wma
+intphys1_late_s3_auto3r16:        # 2026-10-18. stride 3 고정 (VOBench 와 같은 프레임 stride, IntPhys 1 15 fps 라 5 fps), 결과가 미래 16 장 안 (--skip 3 --auto-skip 3 --reveal-within 16). 22 쌍 (이동 6 · 정지 16)
+  raw_frames: 32
+  cache_tag: intphys1_late_s3_auto3r16
+  root: ${CVPR_DATA_CSV}/intphys1_late_s3_auto3r16
+  index_csv: index.csv
+  frames_root: ${CVPR_LOCAL}/world/world_analysis/IntPhys1_late_s3_auto3r16
+  frames_pattern: '{video_id}/{frame:06d}.png'
+  frames_start: 0
+  frames_stride: 1
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: block_type
+  engine: wma
+intphys1_late_auto2-6r12fit:      # 2026-10-18. ★ 쌍마다 stride 2–6 · 문맥 끝 e 를 같이 고른다 (build.py --auto-skip 2,3,4,5,6 --reveal-within 12 --fit): 문맥 안에 물체 보임 · 마지막 튜블릿 가림 · 결과가 미래 12 장 안. 59 쌍 (이동 34 · 정지 25), 잡음 그대로, clamp 30 쌍
+  raw_frames: 32
+  cache_tag: intphys1_late_auto2-6r12fit
+  root: ${CVPR_DATA_CSV}/intphys1_late_auto2-6r12fit
+  index_csv: index.csv
+  frames_root: ${CVPR_LOCAL}/world/world_analysis/IntPhys1_late_auto2-6r12fit
+  frames_pattern: '{video_id}/{frame:06d}.png'
+  frames_start: 0
+  frames_stride: 1
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: block_type
+  engine: wma
 grasp_level2:
   raw_frames: 501
   cache_tag: grasp_level2
@@ -513,6 +636,38 @@ vobench_v1:                       # 2026-10-10. UE 5.4 TestBed, 720 block × 4 a
   variant_column: variant
   plausible_column: plausible
   type_column: condition            # <objset>/<violation>/<occlusion>
+  engine: wma
+  legacy_results_root: ${CVPR_REPO}/z_research/VOBench_v1/exp_results
+vobench_v1_split_test:            # 2026-10-12. block 단위 test 절반 360 block × 4 변이 (z_training/data/build_vobench_split_index.py). post-FT 채점 전용
+  raw_frames: 96
+  cache_tag: vobench_v1_split_test
+  root: ${CVPR_DATA_CSV}/vobench_v1_split
+  index_csv: index_test.csv
+  frames_root: ${CVPR_DATA2}/local_datasets/world/Benchmark/VOBench_v1
+  frames_pattern: '{file_name}/{frame:06d}.png'
+  frames_start: 0
+  frames_stride: 3
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: condition
+  engine: wma
+  legacy_results_root: ${CVPR_REPO}/z_research/VOBench_v1/exp_results
+vobench_v1_split2_test:           # 2026-10-14. 장면 묶음 단위 test 절반 (split v2, train 과 공유 설정 0). v1 (split_test) 은 누수 52 영상
+  raw_frames: 96
+  cache_tag: vobench_v1_split2_test
+  root: ${CVPR_DATA_CSV}/vobench_v1_split_v2
+  index_csv: index_test.csv
+  frames_root: ${CVPR_DATA2}/local_datasets/world/Benchmark/VOBench_v1
+  frames_pattern: '{file_name}/{frame:06d}.png'
+  frames_start: 0
+  frames_stride: 3
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: condition
   engine: wma
   legacy_results_root: ${CVPR_REPO}/z_research/VOBench_v1/exp_results
 vobench_v1_asymmetry:             # 2026-10-10. late 만 864 arm, 창을 k 샘플 (원본 3k) 밀어 가림이 문맥 끝에서 끝난다. 불가능 arm 문맥 = 가능 arm 프레임 링크. 창 c16t28 로 쓴다

@@ -22,6 +22,7 @@ encoder 공간에 정렬된다" 는 기대의 근거가 된다. (p 가 문맥 �
   P=/data/hyuntak/anaconda3/envs/vjepa2/bin/python
   $P z_research/scripts/analysis/vobench_tubelet_probe.py extract --gpus 4      # → cache/vobench_v1_vith_tubeprobe/{h,p}.npy (fp16, ~23 GB)
   $P z_research/scripts/analysis/vobench_tubelet_probe.py probe                 # → z_research/VOBench_v1/vjepa2/probing/results/<tag>/
+  TUBEPROBE_LAYER=16 $P ... extract --gpus 4 · TUBEPROBE_LAYER=16 $P ... probe --tag L16_e35_s0   # h = target encoder 16 번째 block (32 중 절반)
 """
 from __future__ import annotations
 import argparse, json, os, sys, time
@@ -36,7 +37,11 @@ import yaml
 REPO = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO))
 CFG = REPO / "z_research/VOBench_v1/exp_results/surprise_c16t32__vobench_v1_vith/_resolved.yaml"
-CACHE = Path("/local_datasets/world/world_analysis/cache/vobench_v1_vith_tubeprobe")
+BASE_CACHE = Path("/local_datasets/world/world_analysis/cache/vobench_v1_vith_tubeprobe")
+# TUBEPROBE_LAYER = L (1–32): h 를 target encoder 의 L 번째 block 출력 (out_layers, encoder norm + affine-free LN) 으로 (2026-10-13, 중간층 비교).
+#   비우면 마지막 층 (기존). mp.spawn 워커가 모듈을 다시 import 하므로 환경변수로 싣는다. p 는 기존 캐시를 링크한다 (층과 무관).
+LAYER = int(os.environ.get("TUBEPROBE_LAYER", "0") or 0)
+CACHE = BASE_CACHE if not LAYER else BASE_CACHE.with_name(BASE_CACHE.name + f"_L{LAYER}")
 OUT = REPO / "z_research/VOBench_v1/vjepa2/probing/results"
 NT, NF, S = 16, 8, 256                     # 튜블릿 (전체 · 미래), 공간 토큰
 OPT = dict(epochs=35, batch_size=16, lr=1e-4, weight_decay=0.05)   # configs/protocols/attn_probe.yaml attn_30
@@ -68,8 +73,12 @@ def _worker(rank, world, cfg, idx):
     N = len(idx)
     lo, hi = N * rank // world, N * (rank + 1) // world
     H = np.load(CACHE / "h.npy", mmap_mode="r+")
-    Pm = np.load(CACHE / "p.npy", mmap_mode="r+")
+    Pm = np.load(CACHE / "p.npy", mmap_mode="r" if LAYER else "r+")
     model = build_from_config(cfg["model"], dev)
+    if LAYER:
+        vit = [m for m in model.target_encoder.modules() if hasattr(m, "out_layers") and hasattr(m, "blocks")]
+        assert len(vit) == 1 and LAYER <= len(vit[0].blocks), (len(vit), LAYER)
+        vit[0].out_layers = [LAYER - 1]
     bs = 4
     ci, ti = _context_target_indices(ctx_frames=16, tgt_frames=16, tubelet_size=2, spatial_tokens=S, batch_size=bs, device=dev)
     loader = torch.utils.data.DataLoader(_ClipDS(cfg, idx[lo:hi]), batch_size=bs, shuffle=False, num_workers=6, pin_memory=True)
@@ -80,14 +89,16 @@ def _worker(rank, world, cfg, idx):
             b = x.size(0)
             x = x.to(dev, model.dtype, non_blocking=True)
             with _autocast(ac):
-                z = model.context_encoder(x, masks=[ci[:b]])
-                z = z[-1] if isinstance(z, list) else z
-                p = model.predictor(z, ci[:b], ti[:b], mask_index=0)               # (b, 8·S, D)
+                if not LAYER:
+                    z = model.context_encoder(x, masks=[ci[:b]])
+                    z = z[-1] if isinstance(z, list) else z
+                    p = model.predictor(z, ci[:b], ti[:b], mask_index=0)               # (b, 8·S, D)
                 h = model.target_encoder(x)
                 h = h[-1] if isinstance(h, list) else h                             # (b, 16·S, D)
                 h = nn.functional.layer_norm(h, (h.size(-1),))
             H[w:w + b] = h.float().cpu().numpy().reshape(b, NT, S, -1).astype(np.float16)
-            Pm[w:w + b] = p.float().cpu().numpy().reshape(b, NF, S, -1).astype(np.float16)
+            if not LAYER:
+                Pm[w:w + b] = p.float().cpu().numpy().reshape(b, NF, S, -1).astype(np.float16)
             w += b
             if rank == 0 and (w - lo) % 40 < bs:
                 print(f"[r0] {w - lo}/{hi - lo} clip ({time.time() - t0:.0f}s)", flush=True)
@@ -101,7 +112,11 @@ def extract(gpus):
     CACHE.mkdir(parents=True, exist_ok=True)
     D = 1280
     np.lib.format.open_memmap(CACHE / "h.npy", "w+", np.float16, (len(idx), NT, S, D)).flush()
-    np.lib.format.open_memmap(CACHE / "p.npy", "w+", np.float16, (len(idx), NF, S, D)).flush()
+    if LAYER:
+        if not (CACHE / "p.npy").exists():
+            os.symlink(BASE_CACHE / "p.npy", CACHE / "p.npy")     # p 는 층과 무관 — 기존 캐시
+    else:
+        np.lib.format.open_memmap(CACHE / "p.npy", "w+", np.float16, (len(idx), NF, S, D)).flush()
     meta = [dict(video_id=ds.records[i].video_id, **{k: ds.records[i].raw[k] for k in
              ("block_id", "variant", "objset", "violation", "occlusion", "k", "motion", "obj_a", "obj_b", "samples")}) for i in idx]
     json.dump(dict(cfg=cfg, n=len(idx), meta=meta), open(CACHE / "meta.json", "w"))

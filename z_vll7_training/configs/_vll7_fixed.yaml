@@ -1,0 +1,43 @@
+# =============================================================================
+# vll7 **고정 창** 공통 — 직접 돌리지 않는다. vast 의 natural_ctx_state (2026-09-30) 샘플링을 이 노드 데이터로.
+#
+# 가변 창 (_vll7_vw.yaml) 과 무엇이 다른가
+#   * 창 길이가 **늘 같다** (32 장 = 16 블록) -> batch 가 고정이라 메모리 · 속도가 일정하다
+#   * 프레임은 VideoDataset 이 **linspace** 로 뽑는다 (가변 창의 fps 4 정수 간격과 달리 간격이 흔들릴 수 있다)
+#   * (C, K) 는 mask.prefix_window 목록에서 step 마다 하나. **창은 자르고** 남는 블록은 안 쓴다
+#   * 데이터 비율이 **명목 가중치 그대로** 나온다 (창이 하나라 적격 집합이 안 바뀐다) — 가변 창과 여기서 갈린다
+#
+# ⚠️ **SSv2 만 시간 척도가 다르다** (vast natural_ctx_state 와 같은 선택):
+#     K400 `fps: 4`  -> 블록 0.5 초, 창 8.0 초 (221,361 편 적격)
+#     SSv2 `frame_step: 1` (= 12 fps) -> 블록 0.17 초, 창 2.7 초 (126,001 편 적격)
+#     fps 4 로는 SSv2 가 32 장을 **7 편**밖에 못 채운다 (2026-10-16 실측) — 그래서 SSv2 만 원본 간격으로 둔다.
+#     같은 "K 블록 뒤" 가 K400 은 2~4 초, SSv2 는 0.7~1.3 초다. **RoPE 는 블록 번호만 안다.**
+#     섞기 싫으면: SET="data.datasets=[vll7_k400_320_fps4_min16,vll7_ssv2_fps4_min16] data.n_frames=16" (둘 다 fps 4, 대신 SSv2 편수 절반)
+# =============================================================================
+extends: _vll7_base
+
+data:
+  n_frames: 32               # 16 블록
+  batch_size: 43             # rank 당. 6 x 43 x grad_accum 2 = **516** (vast global 512 와 맞춤)
+                             # ⚠️ 미실측 — vast 는 8 x 64 = 512 에서 84 GB/rank 였다 (ctx_state, 재계산 켬).
+                             #    첫 스모크에서 피크를 재고 조정할 것
+  datasets:
+    - {name: vll7_k400_320_fps4_min32, weight: 1.0}   # fps 4, 블록 0.5 s
+    - {name: vll7_ssv2_fs1_min32,      weight: 1.0}   # frame_step 1 (12 fps), 블록 0.17 s
+
+mask:
+  - type: prefix_window
+    context_blocks: [2, 4, 8]         # 문맥 1 / 2 / 4 초 (K400 기준)
+    predict_blocks: [4, 6, 8]         # 예측 2 / 3 / 4 초. C+K <= 16 전부 유효 (9 조합)
+    weight: 1.0
+
+optimization:
+  epochs: 40
+  ipe: 294                   # 40 x 294 = 11,760 optimizer step x 516 = 607 만 clip (vast natural_ctx_state 602 만)
+  grad_accum: 2              # micro-batch 43 x 2. 6 GPU 로 global 512 를 맞추는 유일한 깔끔한 조합
+  lr: 5.2e-4                 # vast 와 같다 (= 3e-4 x sqrt(512/168))
+  start_lr: 1.0e-5
+  final_lr: 1.0e-6
+  warmup: 1
+  weight_decay: 0.04
+  final_weight_decay: 0.04

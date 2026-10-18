@@ -205,6 +205,17 @@ checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--faceb
 predictor_checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_training/ariel/ar_state_future_1e_5/latest.pt
 predictor.kind: ar_state
 
+## vith_vast_ar_state_ep70
+
+**ar_state — vast 브랜치 학습판, epoch 70 / 70** (2026-10-13 등록, step 20,580, loss 1.0783 — 체크포인트에서 읽음). `z_training/vast/ar_state/latest.pt`. **이후 ar_state 비교는 이 체크포인트로 한다** (ariel ep40 판 `vith_ariel_ar_state_ep40` 은 기록으로 남긴다).
+arch 는 `kind: ar` + `ar_feedback: state` 로 적혀 있다 — 로더 (`analysis/predictors.kind_from_arch`) 가 ar_state 로 읽는다. 같은 체크포인트를 vast 코드와 main 코드로 rollout 해 출력이 같음을 확인했다 (상대 8e-7, 2026-10-13).
+학습: K710 + SSv2 + HowTo100M 1 % (fps 4) 가변 창 (문맥 · 예측 2–32 프레임, token budget 950), TF + rollout 16 (⚠️ config 의 `tf_weight: 0` 은 vast 코드에서 `ctx_state` 경로에만 쓰인다 — `kind: ar` 경로 `ar_losses` 는 jloss + sloss 그대로, 2026-10-13 vast `app/vjepa_frozen/{train,ar}.py` 확인), 70 epoch × 294 step, lr 5.2e-4 (anneal 7). ariel ep40 판과 데이터 · 창 · rollout 길이가 다르다.
+
+arch_name: vit_huge
+checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vith-fpc64-256/snapshots/b5eac8703e3efdc1547fbb6ddfbeb133dc0bdee5/original/model.pth
+predictor_checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_training/vast/ar_state/latest.pt
+predictor.kind: ar_state
+
 ## vith_ariel_ctx_ar_ep18
 
 **팔 C' — ctx_ar (문맥은 창 단위 z, 미래만 블록별 되먹임), epoch 18 / 40** (2026-09-29 21:37 수령 `context_full_ar_1e_5/latest.pt`, step 16128, loss 1.0635 = tf + rollout; **학습 중**).

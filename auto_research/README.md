@@ -1,5 +1,9 @@
 # auto_research — world model 은 intuitive physics 를 따르는 미래를 예측하지 못한다: predictor 분석 결과 로그
 
+> **🆕 2026-10-13 (저녁) design choice → [`paper/DESIGN_CHOICES_2026-10-13.md`](paper/DESIGN_CHOICES_2026-10-13.md).** '운동 · 외형 얽힘' 은 기각 (외형은 진행을 안 바꾼다). 있는 것은 **'무엇' 은 역사로 이어 가고 '어디' 는 마지막 관측의 보이는 내용에서만 온다** — 마지막 문맥 블록만 픽셀 조작하면 미래가 그 블록을 따른다 (따름 0.63–0.88), 바로 앞 블록은 거의 무영향. 표적 토큰이 비국소적 (물체 자리 몫 5 %) 이고 SSv2 에서 역사의 값이 1–3 % → 설계 = ① 공간 대조 항 ② 문맥 끝 dropout ③ (필요하면) '어디' 상태 분리. 토큰 warp 는 뺀다. 아래 10-13 병목 진단의 '속도를 위치로 적분하지 않는다' 는 이것으로 좁혀졌다.
+>
+> **2026-10-13 predictor 병목 진단 → [`Archive/PREDICTOR_BOTTLENECK_2026-10-13.md`](Archive/PREDICTOR_BOTTLENECK_2026-10-13.md).** 한 걸음 국소 대응은 하지만 시간으로 합성 · 적분하지 못한다: 속도는 은닉에 있고 (R² 0.9) 자리는 '가까운 최근 내용 가져오기' 로 정해진다. 설계 방향 = 운동 · 외형 분리 + 옮기기 render + 변화에 신호 주는 목표 (§3). 상태 되먹임 (AR-state) 만으로는 안 된다.
+>
 > **🆕 2026-10-08 논문 스토리 교체 (사용자). 정본 → [`paper/PAPER_STORY_2026-10-08.md`](paper/PAPER_STORY_2026-10-08.md).**
 > P1 사람은 관측만으로 intuitive physics (사라지지 않음 · 중력) 를 갖추고 plausible future 를 상상한다 →
 > P2 world model 은 빠르게 발전하지만 intuitive physics 를 따르는 미래는 예측 못 한다 (되는 것처럼 보이는 VoE 점수는 복사로 풀린다; Figure 1 hook) →
@@ -120,6 +124,8 @@
 | reach 법칙 (합성) · epoch · attention | [`Archive/SC1_REACH_NOT_HORIZON_2026-09-25.md`](Archive/SC1_REACH_NOT_HORIZON_2026-09-25.md) |
 | 실영상 reach 와 flow 판독 보정 | [`Archive/SC2V2_FLOW_REACH_SSV2_2026-09-25.md`](Archive/SC2V2_FLOW_REACH_SSV2_2026-09-25.md) |
 | EK100 predictor 치환 | [`Archive/SC3_EK100_PREDICTOR_SUBSTITUTION_2026-09-25.md`](Archive/SC3_EK100_PREDICTOR_SUBSTITUTION_2026-09-25.md) |
+| **predictor 병목 진단 (10-13)** ⚠️ '속도는 남는데 안 쓰인다' 는 철회 (걸음별 재적합 인공물; 고정 디코더로는 속도 코드도 같이 줄어든다): release · AR · AR-state 모두 은닉에서 속도가 8 걸음 내내 읽히는데 (R² 0.88–0.97) 물체 진행은 4–5 블록 뒤 0 — 속도를 위치로 적분하지 않는다. AR 계열 이동은 최근 입력 블록에서 다시 읽혀 자기 출력에서 감쇠 (진짜 블록 하나면 회복), 상태 되먹임 · 조향도 누적 안 됨, late 정체는 은닉에 퍼져 있으나 제자리에 없음, 목표 신호의 73–87 % 가 정적 토큰 → **운동 · 외형 분리 (x ← x + v 로 자리 계산, 외형은 옮겨 놓기) + 변화에 신호 주는 목표** | [`Archive/PREDICTOR_BOTTLENECK_2026-10-13.md`](Archive/PREDICTOR_BOTTLENECK_2026-10-13.md) |
+| **design choice (10-13 저녁)**: encoder 에 정보 있음 · 외형은 진행을 안 바꿈 (얽힘 기각) · 미래 '어디' 는 마지막 블록 내용을 따름 (anchor 이식, 블록 6 무영향) · '무엇' 은 역사로 (late 역사 가치 0.46–0.53, 영속 99) · 표적 비국소 (물체 자리 5 %) · SSv2 역사 값 1–3 % · 붙이기 oracle +2.8 → ① 공간 대조 ② 문맥 끝 dropout ③ 어디 상태, 토큰 warp 뺌 | [`paper/DESIGN_CHOICES_2026-10-13.md`](paper/DESIGN_CHOICES_2026-10-13.md) |
 | **복사가 높은 이유 = metric 이 위치를 못 본다**: 위치만 다른 쌍 (RollOut_v2 ledge 낙하/부유 · wall 정지/통과, ViT-H) 에서 VoE 가 p 0 % · 17.6 %, 복사 7.9 · 2.3 % — 외형 위반은 복사로 풀리고 위치 위반은 둘 다 못 푼다 (p 는 틀린 쪽) | [`Archive/COPY_VS_POSITION_2026-10-07.md`](Archive/COPY_VS_POSITION_2026-10-07.md) |
 | DINO-Foresight × IntPhysGen v11 (`surprise_c16t32`): 77.1 (ViT-H 73.4) 인데 **복사 76.4** — 상승은 프레임 DINOv2 타깃 공간 (비가림 shape/color 천장, 복사도 100), **가림 세 조건은 chance + vanish A/B 0/100** 로 ViT-H 와 같은 실패 | [`Archive/DINOF_V11_2026-10-07.md`](Archive/DINOF_V11_2026-10-07.md) |
 | DINO-Foresight (frozen DINOv2 + Cityscapes 학습 frame predictor) × IntPhys 1 Garrido: predictor 84.4 (ViT-H 88.9) 인데 **같은 공간 복사 기준선이 88.9–92.2** — 긴 창 IntPhys 1 은 변화량 검출로 풀리고 predictor 몫은 음수; M=1 에서만 predictor 81 vs 복사 54. 공개값 87.8 (DINO-world 논문 baseline) 은 property 별 최고 규칙으로 86.1–86.7 재현, 차이는 O1 뿐; stretch 448×896 도 같음 | [`Archive/DINOF_INTPHYS1_2026-10-02.md`](Archive/DINOF_INTPHYS1_2026-10-02.md) |

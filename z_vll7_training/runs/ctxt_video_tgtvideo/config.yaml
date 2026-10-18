@@ -1,0 +1,135 @@
+app: vjepa_frozen
+nodes: 1
+tasks_per_node: 6
+meta:
+  seed: 0
+  dtype: bfloat16
+  encoder_dtype: bfloat16
+  use_sdpa: true
+  log_freq: 10
+  save_every_freq: 5
+  auto_resume: true
+  compile_encoders: true
+  sync_masks: true
+model:
+  base: vith
+  img_size: 256
+  patch_size: 16
+  tubelet_size: 2
+  use_rope: true
+  uniform_power: false
+  context_encoder_key: encoder
+  target_encoder_key: target_encoder
+  load_predictor: false
+  mask_index: 0
+  predictor:
+    embed_dim: 384
+    depth: 12
+    num_heads: 12
+    num_mask_tokens: 10
+    use_activation_checkpointing: false
+    zero_init_mask_tokens: true
+    kind: ctx_state
+    ctx_target: window
+  arch_name: vit_huge
+  checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vith-fpc64-256/snapshots/b5eac8703e3efdc1547fbb6ddfbeb133dc0bdee5/original/model.pth
+data:
+  n_frames: 64
+  resolution: 256
+  batch_size: 8
+  num_workers: 12
+  pin_mem: true
+  persistent_workers: true
+  datasets: []
+  aug:
+    hflip_p: 0.5
+    random_resized_crop:
+      scale:
+      - 0.3
+      - 1.0
+      ratio:
+      - 0.75
+      - 1.35
+    square_crop: center
+  prefetch_factor: 2
+  transfer_uint8: true
+  loader_timeout_s: 600
+  var_window:
+    datasets:
+    - name: k400
+      table: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/vll7_k400_320/fps4_table.tsv
+      weight: 1.0
+    - name: ssv2
+      table: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/vll7_ssv2/fps4_table.tsv
+      weight: 1.0
+      min_eligible: 20000
+    context_frames:
+    - 4
+    - 8
+    - 16
+    - 32
+    predict_frames:
+    - 4
+    - 8
+    - 16
+    - 32
+    token_budget: 950
+    b_min: 8
+    b_max: 256
+    min_eligible: 1000
+mask:
+- type: prefix_window
+  context_blocks:
+  - 2
+  - 4
+  - 8
+  - 16
+  predict_blocks:
+  - 2
+  - 4
+  - 8
+  - 16
+  weight: 1.0
+loss:
+  loss_exp: 1.0
+  target_layer_norm: true
+  rollout_steps: 16
+  tf_weight: 1.0
+optimization:
+  epochs: 70
+  ipe: 294
+  ipe_scale: 1.0
+  lr: 0.00052
+  start_lr: 1.0e-05
+  final_lr: 1.0e-06
+  warmup: 1
+  weight_decay: 0.04
+  final_weight_decay: 0.04
+  betas:
+  - 0.9
+  - 0.999
+  eps: 1.0e-08
+  clip_grad: null
+  anneal_epochs: 7
+val:
+  dataset: intphys1_dev
+  n_blocks_per_type: 10
+  context_length: 16
+  batch_size: 4
+  every_epochs: 1
+  at_start: true
+  seed: 0
+  n_frames: 32
+  data:
+    root: /local_datasets/world/world_analysis/IntPhys1_dev_videos
+    index_csv: index.csv
+    frames_root: /local_datasets/world/world_analysis/IntPhys1_dev_frame_png
+    frames_pattern: '{block}/{quadruplet}/{run}/scene/scene_{frame:03d}.png'
+    frames_start: 1
+    frames_stride: 3
+    block_column: block_id
+    pair_column: pair_id
+    plausible_column: plausible
+    type_column: block_type
+    variant_column: variant
+folder: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_vll7_training/runs/ctxt_video_tgtvideo

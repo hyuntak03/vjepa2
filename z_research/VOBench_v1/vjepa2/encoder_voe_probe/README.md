@@ -14,6 +14,7 @@ group = VOBench / IntPhys 1 block · IntPhys 2 장면. 주지표 = **쌍 정확�
 영상 단위 정확도: VOBench 97.4 / 97.7 · IntPhys 1 73.1 / 69.2 · IntPhys 2 60.6 / 61.8 (context / target). 대괄호 = group 부트스트랩 95 %.
 
 - **VOBench · IntPhys 1 은 천장이다.** VOBench 는 objset · 위반 · 가림 시점 24 칸이 전부 96–100 — **late 도 100** (VoE 는 late 에서 57.9 / 65.7). 정보는 encoder 에 있고 VoE 가 late 에서 무너지는 곳은 그 뒤 (predictor · 채점) 이다 (정본 P3 "encoder 에는 정보가 있다" 와 같은 방향).
+- **VOBench late 만 (432 쌍)**: context 100.0 · target 99.8 (permanence 100 / 100 · shape 100 / 99.3 · colour 100 / 100), 라벨 섞기 49–52. 재실행의 전체 쌍 정확도 99.7 / 99.8 은 위 표 (99.7 / 99.9) 와 같다 (fold 난수 차).
 - **IntPhys 2 는 encoder 에서도 절반만 남는다** (74). condition 별 context / target: continuity 74.2 / 74.2 · immutability 84.2 / 79.2 · permanence 77.5 / 83.3 · **solidity 63.0 / 56.8**; camera Fixed 78.4 / 77.9 · Moving 71.1 / 68.8.
   VoE (52–54) 보다는 20 pt 높지만 VOBench · IntPhys 1 처럼 천장이 아니다 — IntPhys 2 에서 predictor 가 못 오르는 것을 predictor 탓으로만 돌릴 수 없다.
 - IntPhys 2 수치는 9 월 감사 (`auto_research/Archive/INTPHYS2_ENCODER_LINEAR_PROBE_2026-09-30.md`, context 73.7) 와 같은 특징 · 같은 probe 로 재현된다 (fold 난수만 다름).
@@ -33,6 +34,8 @@ group = VOBench / IntPhys 1 block · IntPhys 2 장면. 주지표 = **쌍 정확�
 | `results.json` | 벤치 × encoder: acc · pair_acc · pair_ci · λ · breakdown (VOBench objset / violation / occlusion / 셋 조합, IntPhys 1 block_type, IntPhys 2 condition · camera) · perm_pair_acc |
 | `figures/fig_encoder_probe_bench` | 벤치 3 × encoder 2, 쌍 정확도 [95 % CI], 회색 = 라벨 섞기 평균 |
 | `figures/fig_encoder_probe_vobench` | VOBench objset × 위반, x = 가림 시점 |
+| `figures/fig_encoder_probe_vobench_late` | VOBench late 쌍만 (전체 · 위반별, primitive + realistic), [block 부트스트랩 95 %], 회색 = 라벨 섞기. probe 는 VOBench 전체로 학습한 것 (2026-10-14) |
+| `results_vobench_pairs.json` | 위 그림의 VOBench 재실행 — 쌍별 적중 · 부분집합 (all · late · late/위반) 정확도 · CI · 라벨 섞기 |
 
 특징 캐시: `/local_datasets/world/world_analysis/cache/encoder_voe_probe/{vobench_v1,intphys1_dev}/` (vll5, 튜블릿별 공간 평균 (16, 1280) fp16) · IntPhys 2 는 `auto_research/exp_results/intphys2_probe/shard*.npz`.
 
@@ -44,4 +47,5 @@ $P z_research/scripts/analysis/encoder_voe_probe.py extract intphys1_dev --gpus 
 $P z_research/scripts/analysis/encoder_voe_probe.py extract vobench_v1 --gpus 4      # vll5, 3 분
 $P z_research/scripts/analysis/encoder_voe_probe.py probe --n-perm 5                 # CPU, 약 20 분
 $P z_research/scripts/analysis/encoder_voe_probe.py plot
+$P z_research/scripts/analysis/encoder_voe_probe.py late --n-perm 5             # VOBench 만 다시 → late 그림 (CPU, 부하에 따라 15–50 분)
 ```

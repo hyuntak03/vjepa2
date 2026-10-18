@@ -34,8 +34,15 @@ MODELS = {   # 이름 → (라벨, 채점 실행, 복사 실행)
     # ar_state: copy_blk 는 encoder 만으로 정해져 ar 의 복사 실행을 그대로 쓴다 ('own' 검사는 predictor 가 달라 copy_scores 가 뺀다)
     "ariel_ar_state_ep40": ("Ariel AR-state predictor ep40 (V-JEPA 2 ViT-H frozen)", OUT / "surprise_c16t32__vobench_v1_vith_ariel_ar_state_ep40",
                             OUT / "copy__vobench_v1_vith_ariel_ar_ep40"),
+    # vast ar_state ep70 (2026-10-14): 레지스트리 vith_vast_ar_state_ep70. 복사 = ar 의 copy_blk (encoder 만으로 정해진다, ar_state ep40 과 같은 규칙)
+    "vast_ar_state_ep70": ("vast AR-state predictor ep70 (V-JEPA 2 ViT-H frozen)", OUT / "surprise_c16t32__vobench_v1_vith_vast_ar_state_ep70",
+                           OUT / "copy__vobench_v1_vith_ariel_ar_ep40"),
     # VideoMAEv2: 창 16 고정 → c8t16_s6 (stride 6, 문맥 8 · 미래 8). 타깃 = 정규화 픽셀. 복사 경로 없음
     "videomae_v2": ("VideoMAEv2-g (window c8t16_s6)", OUT / "surprise_c16t32__vobench_v1_videomae2g_wc8t16_s6", None),
+    # 2026-10-17 vll7. cvpr/results 아래 (RESULTS_ROOT=legacy 를 안 썼다). 복사 기준선은 안 냈다 (사용자 결정)
+    "vll7_ctxt_tgtvideo": ("vll7 ctxt_video_tgtvideo (문맥 영상 → 타깃 영상, ep70)",
+                           Path("/data/hyuntak/project/2026/2027_cvpr/vjepa2/cvpr/results/eval/testbed/"
+                                "vobench_v1_vith_vll7_ctxt_tgtvideo"), None),
 }
 RUN, COPY = MODELS["vjepa2"][1], MODELS["vjepa2"][2]
 VIOL = ["permanence", "shape", "color"]
@@ -254,6 +261,7 @@ def main():
             md += l + [""]
 
     RECIPE = {
+        "vll7_ctxt_tgtvideo": ["GPUS=6 bash z_vll7_training/eval.sh ctxt_video_tgtvideo vobench   # vll7, 복사 기준선 없음"],
         "vjepa2": ["GPUS=4 RESULTS_ROOT=legacy bash cvpr/eval/testbed/run.sh vobench_v1 vith",
                    "GPUS=4 OUTDIR=z_research/VOBench_v1/exp_results/copy__vobench_v1_vith bash cvpr/eval/testbed/copy_baseline.sh vobench_v1 vith"],
         "dino_foresight": ["GPUS=4 RESULTS_ROOT=legacy bash cvpr/eval/testbed/run.sh vobench_v1 dinof_highres",
@@ -262,6 +270,8 @@ def main():
                           "GPUS=4 OUTDIR=z_research/VOBench_v1/exp_results/copy__vobench_v1_vith_ariel_ar_ep40 bash cvpr/eval/testbed/copy_baseline.sh vobench_v1 vith_ariel_ar_ep40"],
         "ariel_ar_state_ep40": ["GPUS=4 DECODE_WORKERS=8 BATCH_SIZE=16 bash z_research/scripts/run.sh surprise_c16t32 vobench_v1 vith_ariel_ar_state_ep40",
                                 "# 복사 = ariel_ar_ep40 의 copy__ 실행 (copy_blk, predictor 무관)"],
+        "vast_ar_state_ep70": ["GPUS=4 DECODE_WORKERS=8 BATCH_SIZE=16 bash z_research/scripts/run.sh surprise_c16t32 vobench_v1 vith_vast_ar_state_ep70",
+                               "# 복사 = ariel_ar_ep40 의 copy__ 실행 (copy_blk, predictor 무관)"],
         "videomae_v2": ["GPUS=4 WINDOW=c8t16_s6 RESULTS_ROOT=legacy bash cvpr/eval/testbed/run.sh vobench_v1 videomae2g"]}
     md += ["## 재현", "", "```bash"] + RECIPE[a.model] + [
            f"/data/hyuntak/anaconda3/envs/vjepa2/bin/python z_research/scripts/analysis/vobench_tables.py --model {a.model}", "```"]

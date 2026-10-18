@@ -425,13 +425,15 @@ def run_surprise_intphys1(ds, cfg, device):
     W = S.get("intphys1", {}) or {}
     bundle = build_from_config(cfg["model"], device)
     ts, spatial = bundle.tubelet_size, bundle.num_spatial_tokens
-    # rollout 계열 (ar · ar_state · ctx_ar): 시작점마다 창을 블록별로 인코딩하고 C 마다 rollout. 정의 · 노브는 ar_scoring.py
+    # rollout 계열 (ar · ar_state · ctx_ar · ctx_state): 시작점마다 창을 블록별로 인코딩하고 C 마다 rollout. 정의 · 노브는 ar_scoring.py
     ctx_mode = PV.is_ctx_ar(bundle.predictor)
+    state_mode = PV.is_ctx_state(bundle.predictor)      # 문맥 = 창 단위 (2026-10-16)
+    state_tgt = PV.ctx_target_of(bundle.predictor)      # ⚠️ **학습 때와 같은 타깃** (window | block). 체크포인트 arch 가 정한다
     ar_mode = PV.is_rollout(bundle.predictor)
     ar_base = S.get("ar_baseline")
     if ar_mode:
         ARS.check_ar_ready(bool(S.get("target_layer_norm", True)), ar_base)
-        if ctx_mode and ar_base:
+        if (ctx_mode or state_mode) and ar_base:
             raise ValueError("surprise.ar_baseline 은 kind=ar · ar_state 전용이다")
         logger.info(f"[surprise] intphys1 · predictor kind={PV.kind_of(bundle.predictor)} "
                     f"kv_rollout={getattr(bundle.predictor, 'kv_rollout', None)} ar_baseline={ar_base}")
@@ -544,16 +546,21 @@ def run_surprise_intphys1(ds, cfg, device):
                 gb = items[b0 : b0 + max_batch]
                 x = torch.stack([clips[v][:, full_of[st]] for v, st in gb])
                 with _ac():
-                    if ar_mode:
-                        if wsize % ts or any(C % ts for C in cl_list):
-                            raise ValueError(f"kind=ar: 창 {wsize} · 문맥 {cl_list} 가 tubelet {ts} 의 배수가 아니다")
+                    if ar_mode and (wsize % ts or any(C % ts for C in cl_list)):
+                        raise ValueError(f"kind={PV.kind_of(bundle.predictor)}: 창 {wsize} · 문맥 {cl_list} 가 tubelet {ts} 의 배수가 아니다")
+                    if ar_mode and not state_mode:
                         h_blk = ARS.encode_blocks(bundle.target_encoder, x, ts)   # 블록별, 이미 LN
                     else:
+                        # ctx_state 는 타깃이 **창 전체** LN(h) 라 비-ar 경로와 같은 h_full 을 쓴다 (시작점당 1회)
                         h_full = bundle.target_encoder(x)      # ★ window 전체(C+M) 를 시작점당 1회
                 for C in cl_list:
                     if ar_mode:
                         with _ac():
-                            if ctx_mode:
+                            if state_mode:
+                                p, h, _ = ARS.ctx_state_from_window(bundle.context_encoder, bundle.predictor, x, h_full,
+                                                                    C // ts, spatial, ctx_target=state_tgt,
+                                                                    target_encoder=bundle.target_encoder, tubelet=ts)
+                            elif ctx_mode:
                                 p, h, _ = ARS.ctx_ar_from_blocks(bundle.context_encoder, bundle.predictor, x, h_blk, C // ts, spatial)
                             else:
                                 p, h, _ = ARS.rollout_from_blocks(bundle.predictor, h_blk, C // ts, spatial, baseline=ar_base)
@@ -742,14 +749,16 @@ def run_surprise(ds, cfg, device):
     ts, spatial = bundle.tubelet_size, bundle.num_spatial_tokens
     ctx, N = int(S.get("context_length", 32)), ds.n_frames
     bs = int(S.get("batch_size", 4))
-    # rollout 계열 (ar · ar_state · ctx_ar): 블록별 LN(target_encoder) 문맥 → rollout. 정의 · 노브는 ar_scoring.py
+    # rollout 계열 (ar · ar_state · ctx_ar · ctx_state): 블록별 LN(target_encoder) 문맥 → rollout. 정의 · 노브는 ar_scoring.py
     ctx_mode = PV.is_ctx_ar(bundle.predictor)
+    state_mode = PV.is_ctx_state(bundle.predictor)      # 문맥 = 창 단위 (2026-10-16)
+    state_tgt = PV.ctx_target_of(bundle.predictor)      # ⚠️ **학습 때와 같은 타깃** (window | block). 체크포인트 arch 가 정한다
     ar_mode = PV.is_rollout(bundle.predictor)
     ar_tf = ar_mode and bool(S.get("ar_tf", False))
     ar_base = S.get("ar_baseline")
     if ar_mode:
         ARS.check_ar_ready(bool(S.get("target_layer_norm", True)), ar_base)
-        if ctx_mode and ar_base:
+        if (ctx_mode or state_mode) and ar_base:
             raise ValueError("surprise.ar_baseline 은 kind=ar · ar_state 전용이다")
         logger.info(f"[surprise] predictor kind={PV.kind_of(bundle.predictor)} — 문맥 {ctx // ts} 블록 → rollout {(N - ctx) // ts} 블록 "
                     f"(kv_rollout={getattr(bundle.predictor, 'kv_rollout', None)}, ar_baseline={ar_base}, ar_tf={ar_tf})")
@@ -793,7 +802,10 @@ def run_surprise(ds, cfg, device):
             with ac:
                 if ar_mode:
                     # 미래 토큰 배치 (블록 우선 · 공간) 가 gather(ti) 결과와 같아 아래 거리 코드를 그대로 쓴다
-                    if ctx_mode:
+                    if state_mode:
+                        p, h, p_tf = ARS.ctx_state_window(bundle.context_encoder, bundle.target_encoder, bundle.predictor,
+                                                          x, ctx, ts, spatial, with_tf=ar_tf, ctx_target=state_tgt)
+                    elif ctx_mode:
                         p, h, p_tf = ARS.ctx_ar_window(bundle.context_encoder, bundle.target_encoder, bundle.predictor, x, ctx, ts, spatial, with_tf=ar_tf)
                     else:
                         p, h, p_tf = ARS.ar_window(bundle.target_encoder, bundle.predictor, x, ctx, ts, spatial,

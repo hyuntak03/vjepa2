@@ -67,6 +67,12 @@ case "$ENGINE" in wma|intphys2) DONE="$OUT/summary.json" ;; ek100) DONE="$OUT/va
 if [[ -n $DONE && -f $DONE && -z ${FORCE:-} ]]; then
   echo "-- 이미 있음, 건너뜀: $DONE   (다시 돌리려면 FORCE=1, 다른 이름이면 SUFFIX= 나 TAG=/OUTDIR=)"; rm -rf "$TMP"; exit 0
 fi
+# 다른 노드 · 다른 job 이 같은 결과 폴더를 지금 돌리고 있으면 건너뛴다 (2026-10-15: 같은 창을 두 노드에 나눠 넣을 때 겹치지 않게).
+# 기준 = summary 없이 stdout.log 가 최근 RUNNING_MIN 분 (기본 30) 안에 갱신됐다. 죽은 실행의 폴더는 그 뒤에 다시 돈다.
+if [[ -n $DONE && ! -f $DONE && -z ${FORCE:-} && -f "$OUT/stdout.log" ]] && \
+   [[ -n $(find "$OUT/stdout.log" -mmin -"${RUNNING_MIN:-30}" 2>/dev/null) ]]; then
+  echo "-- 다른 곳에서 진행 중으로 보여 건너뜀: $OUT/stdout.log 가 ${RUNNING_MIN:-30} 분 안에 갱신됨 (무시하려면 FORCE=1)"; rm -rf "$TMP"; exit 0
+fi
 mkdir -p "$OUT"
 cp "$TMP/config.yaml" "$OUT/_resolved.yaml"; cp "$TMP/meta.json" "$OUT/_meta.json"; rm -rf "$TMP"
 CFG="$OUT/_resolved.yaml"

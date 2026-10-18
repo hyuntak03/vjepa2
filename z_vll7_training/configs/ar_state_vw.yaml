@@ -1,0 +1,28 @@
+# =============================================================================
+# context **block** 팔 — AR (블록별 인코딩) + 상태 되먹임, 가변 창 (vast natural_ar_vw_state 에 대응, 2026-10-16)
+#
+#   GPUS=6 bash z_vll7_training/tmux_train.sh ar_state_vw
+#
+# ctxt_video 와의 대비가 요점이다 — **문맥 인코딩만 다르다** (샘플링 · 손실 · 되먹임은 같은 꼴):
+#   ctxt_video : 문맥 = context encoder 가 문맥 창을 **한 번에** (영상) -> z
+#   이 config  : 문맥도 **블록 (tubelet 2 장) 마다 따로** target_encoder -> LN(h). 블록 b 토큰은 블록 b 프레임만 본다 (시간 누수 0)
+# predictor 입력 = 블록별 LN(h), **block-causal**, 위치 b 출력 = 블록 b+1 예측 (출력도 LN).
+# loss = TF (모든 위치, 한 forward) + rollout (문맥 C 에서 R = min(K,16) 블록, 되먹임 = **상태** predictor_norm 384 + type[1]).
+# encoder 하나만 쓴다 (`context_encoder_key: target_encoder`) — AC 와 같다.
+#
+# vast 수치 (데이터가 달라 직접 비교 불가, 방향만): IntPhys1 A.8 90.00 · VOBench 81.7 / 85.4 (복사 77.8 / 81.1 위)
+# ⚠️ vast natural_ar_vw_state 는 (C,K) 격자가 {2,4,8,16,32} 장이었다. 여기서는 ctxt_video 와 **같은 격자** {4,8,16,32} 로 맞췄다
+#    (두 팔을 같은 샘플링에서 비교하려고). vast AR 과 한 변수 대조가 아니다
+# =============================================================================
+extends: _vll7_vw
+
+model:
+  context_encoder_key: target_encoder   # AC 처럼 encoder 하나 (EMA). 입력 = 타깃 = LN(target_encoder(블록))
+  target_encoder_key: target_encoder
+  predictor:
+    kind: ar_state                      # = vast 의 kind: ar + ar_feedback: state (analysis/predictors.kind_from_arch 가 매핑한다)
+    kv_rollout: true
+    use_activation_checkpointing: false
+
+loss:
+  rollout_steps: 16

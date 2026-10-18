@@ -104,7 +104,7 @@ def pairwise(scores: dict, meta: dict, group_by="block_type"):
 def rescore(res: pathlib.Path):
     cfg, meta = load_index(res)
     pw = json.load(open(res / "per_window.json"))["windows"]
-    name = res.name.split("__", 1)[1]
+    name = res.name.split("__", 1)[-1]          # 옛 Benchmarks 폴더 (<프로토콜>__<ds>_…) · cvpr/results 폴더 (<ds>_…_wgarrido_w*) 둘 다 (2026-10-17)
     kind = kind_of(name)
     combos = sorted({w[0] for rec in pw.values() for w in rec})
 

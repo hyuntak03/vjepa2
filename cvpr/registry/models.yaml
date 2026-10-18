@@ -71,6 +71,60 @@ vith_ariel_ar_state_ep40:         # 2026-10-11. ar_state (상태 384 되먹임) 
   base: vith
   predictor_checkpoint: ${CVPR_REPO}/z_training/ariel/ar_state_future_1e_5/latest.pt
   predictor.kind: ar_state
+vith_vast_ar_state_ep70:          # 2026-10-13. ★ 이후 'ar_state' 는 이것. vast 학습 70 epoch · step 20,580 (z_training/vast/ar_state/latest.pt). arch = kind ar + ar_feedback state → 로더가 ar_state 로 (analysis/predictors.kind_from_arch, ariel 판과 수치 일치 rel 8e-7)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/vast/ar_state/latest.pt
+  predictor.kind: ar_state
+vith_ariel_ar_state_pixdiff_ep59:  # 2026-10-17. ariel ar_state_pix_diff_ksh_1e_5 epoch 59 · step 17,346 (latest.pt 를 13:46 에 고정 사본으로 — 학습이 아직 70 epoch 까지 덮어쓸 수 있다).
+                                  #   arch kind ar_state · kv_rollout · **dyn_head** (384→1280 보조 head, 손실 dyn_weight 1.0). 우리 로더는 dyn_head 를 모른다 → unexpected key 로 버린다
+                                  #   (dyn_head = pixel-diff 보조 손실 head, 추론 때 안 쓴다 — 사용자 확인 10-17. 채점 = render = LN(predictor_proj(상태))). 학습 데이터 K400 + SSv2 + HowTo100M 1 %, prefix_window 문맥 2/4/8 · 예측 4/6/8 블록
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/ariel_eval/ckpt/ar_state_pix_diff_ksh_ep59.pt
+  predictor.kind: ar_state
+vith_vast_ar_state_ep70_vobft:    # 2026-10-14. vast ar_state ep70 + VOBench split v2 train (가능 720 clip) post-FT 30 epoch (configs/training/vobench_vast_ar_state_postft.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/vobench_vast_ar_state_postft/latest.pt
+  predictor.kind: ar_state
+vith_release_vobft:               # 2026-10-15. 릴리즈 predictor + VOBench split v2 train (가능 clip) post-FT 30 epoch (z_training/runs/vobench_release_postft, lr 5e-5)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/vobench_release_postft/latest.pt
+vith_release_vobftg:              # 2026-10-15. 릴리즈 predictor + VOBench split v2 train + gravity train (가능 828 clip) post-FT 30 epoch (configs/training/vobench_release_postft_g.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/vobench_release_postft_g/latest.pt
+vith_vast_ar_state_ep70_vobftg:   # 2026-10-15. vast ar_state ep70 + VOBench split v2 train + gravity train (가능 828 clip) post-FT 30 epoch (configs/training/vobench_vast_ar_state_postft_g.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/vobench_vast_ar_state_postft_g/latest.pt
+  predictor.kind: ar_state
+# ── predictor_group: frozen encoder 하나 위에 predictor 여러 개 (2026-10-18, EK100 전용) ──────────────────
+#   같은 릴리즈 ViT-H (632M) 를 쓰고 predictor (22M) 만 다른 모델들을 **한 실행**으로 돌린다.
+#   encoder forward 를 batch 마다 한 번만 하므로 따로 돌릴 때보다 빠르다 (evals/.../MultiAnticipative).
+#   결과는 output_dir 의 val_metrics__<name>.jsonl 에 모델마다 따로 쌓인다. kind 는 체크포인트 arch 가 선언한다.
+vith_ek100_g4:                    # release · release+pft · ar(vast) · ar(vast)+pft 네 팔
+  base: vith
+  predictor_group:
+  - name: release                     # 릴리즈 predictor (predictor_checkpoint 없음)
+  - name: release_vobftg
+    predictor_checkpoint: ${CVPR_REPO}/z_training/runs/vobench_release_postft_g/latest.pt
+  - name: ar_vast_ep70
+    predictor_checkpoint: ${CVPR_REPO}/z_training/vast/ar_state/latest.pt
+  - name: ar_vast_vobftg
+    predictor_checkpoint: ${CVPR_REPO}/z_training/runs/vobench_vast_ar_state_postft_g/latest.pt
+vith_ek100_g5:                    # 2026-10-18. vast 변종 4종 (사용자 지정) + release 기준팔
+  base: vith
+  predictor_group:
+  - name: release                     # anchor — 같은 프로토콜에서 ek100_vith_ek100_g4 의 33.11 을 재현해야 한다
+  - name: ar_vast_op                  # object permanence.  kind ar_state
+    predictor_checkpoint: ${CVPR_REPO}/z_training/vast/ar_block_ctxt_block_target_op/latest.pt
+  - name: ar_vast_vob                 # VOBench.            kind ar_state
+    predictor_checkpoint: ${CVPR_REPO}/z_training/vast/ar_block_ctxt_block_target_vob/latest.pt
+  - name: ar_vast_gres                # residual gating.    kind ar_state + gating_residual (keep_gate 2 param)
+    predictor_checkpoint: ${CVPR_REPO}/z_training/vast/ar_block_ctxt_block_target_residual/latest.pt
+  - name: ctx_vast_video              # 문맥 = 창 전체 z.   kind ctx_state (ctx_target block) -> online encoder 를 하나 더 올린다
+    predictor_checkpoint: ${CVPR_REPO}/z_training/vast/ar_video_ctxt_block_target/latest.pt
+vith_ar_state_pixdiff:            # 2026-10-15. ariel ar_state + pixel-diff 보조 손실 (z_training/ariel/ar_state_pix_diff_ksh_1e_5, epoch 20). 채점은 dyn_head 를 뺀 latest_eval.pt
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/ariel/ar_state_pix_diff_ksh_1e_5/latest_eval.pt
+  predictor.kind: ar_state
 vith_ariel_ctx_ar_ep18:
   base: vith
   predictor_checkpoint: ${CVPR_REPO}/z_training/ariel_eval/ckpt/ctx_ar_ep18.pt
@@ -255,3 +309,12 @@ vith_pft_intphys2_e80:
 vith_pft_predv1_e15:
   base: vith
   predictor_checkpoint: ${CVPR_REPO}/z_training/runs/predictor_v1_postft/e15.pt
+
+# ── vll7 학습 (z_vll7_training) ──────────────────────────────────────────────
+vith_vll7_ctxt_tgtvideo:          # 2026-10-17. 문맥 = 영상(창 전체 encoder) · **타깃 = 영상**(창 전체 target_encoder) · 상태 되먹임 rollout.
+                                  #   z_vll7_training/configs/ctxt_video_tgtvideo.yaml, 6 GPU x 70 ep x 294 = 20,580 step, K400 + SSv2.
+                                  #   vast `ctxt_video` (타깃 블록, IntPhys1 76.11) 와 **타깃만** 다르지만 데이터 · clip 수 · GPU 도 달라 한 변수 대조가 아니다.
+                                  # ⚠️ 체크포인트 arch.ctx_target=window 가 채점 타깃을 정한다 (vast 는 이걸 안 넘겨 43.89 무효를 낸 적이 있다).
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_vll7_training/runs/ctxt_video_tgtvideo/latest.pt
+  predictor.kind: ctx_state

@@ -28,7 +28,7 @@ from torch.nn.parallel import DistributedDataParallel
 from evals.action_anticipation_frozen.dataloader import filter_annotations, init_data
 from evals.action_anticipation_frozen.losses import sigmoid_focal_loss
 from evals.action_anticipation_frozen.metrics import ClassMeanRecall
-from evals.action_anticipation_frozen.models import init_classifier, init_module
+from evals.action_anticipation_frozen.models import init_classifier, init_module, init_multi_module
 from evals.action_anticipation_frozen.utils import init_opt
 from evals.action_anticipation_frozen.exact_val import validate_exact
 from src.utils.checkpoint_loader import robust_checkpoint_loader
@@ -76,6 +76,10 @@ def main(args_eval, resume_preempt=False):
     #   최상위에 두면 조용히 무시돼 릴리즈 predictor 로 돈다 (09-30 AR EK100 세 실행이 그렇게 무효가 됐다). 여기서 넘겨 준다.
     if args_pretrain.get("predictor_checkpoint"):
         args_model = dict(args_model or {}); args_model["predictor_checkpoint"] = args_pretrain["predictor_checkpoint"]
+    # 2026-10-18: frozen encoder 하나 위에 predictor 여러 개. [{name, predictor_checkpoint}, ...]
+    #   encoder forward (ViT-H 632M) 를 batch 마다 한 번만 돌고 group 전체가 나눠 쓴다 (MultiAnticipative).
+    #   head 는 모델마다 len(opt_kwargs) 개씩 만들어지고 head i 는 모델 i // len(opt_kwargs) 를 본다.
+    predictor_group = args_pretrain.get("predictor_group") or None
 
     args_exp = args_eval.get("experiment")
 
@@ -83,6 +87,7 @@ def main(args_eval, resume_preempt=False):
     args_classifier = args_exp.get("classifier")
     num_probe_blocks = args_classifier.get("num_probe_blocks", 1)
     num_heads = args_classifier.get("num_heads")
+    probe_act_ckpt = bool(args_classifier.get("use_activation_checkpointing", True))
 
     # -- DATA
     args_data = args_exp.get("data")
@@ -107,12 +112,18 @@ def main(args_eval, resume_preempt=False):
     time_source = args_data.get("time_source", "frame")
     # -- / 배관 점검용: 비디오 개수 제한 (None 이면 전부)
     limit_videos = args_data.get("limit_videos", None)
+    # -- / 2026-10-16: encoder 특징 캐시 (cache.py). 있으면 영상 대신 캐시를 읽고 encoder 를 돌리지 않는다. 없으면 공식 경로 그대로
+    cache_dir = args_data.get("cache_dir", None)
+    cache_blocks = bool(args_data.get("cache_blocks", False))   # AR kind predictor 면 true (블록별 encoder 출력도 읽는다)
 
     # -- EVALUATION (추가 블록. 없으면 공식 validate 그대로)
     #    exact_val_pass: val 을 rank 별로 정확히 한 번 끝까지 돌고 all_reduce 한 번 (exact_val.py docstring)
     args_evaluation = args_exp.get("evaluation", None) or {}
     exact_val_pass = bool(args_evaluation.get("exact_val_pass", False))
     val_every = int(args_evaluation.get("val_every", 1))   # 2026-09-19 추가 — 기본 1 = 매 epoch (공식 동작)
+    # 2026-10-18: 체크포인트는 head 전부 + optimizer state 라 head 8 개면 7.5 GB 다. NFS (57 MB/s) 에 매 epoch
+    #   쓰면 epoch 당 2.2 분 (= 전체의 18 %) 을 거기 쓴다. N 이면 N epoch 마다 + 마지막 epoch 에만 쓴다.
+    ckpt_every = int(args_evaluation.get("ckpt_every", 1))
     val_topk = int(args_evaluation.get("topk", 5))
     # -- / anticipation details
     train_anticipation_time_sec = args_data.get("train_anticipation_time_sec")
@@ -263,7 +274,7 @@ def main(args_eval, resume_preempt=False):
         )
 
     # -- init models
-    model = init_module(
+    _mk = dict(
         module_name=module_name,
         frames_per_clip=frames_per_clip,
         frames_per_second=frames_per_second,
@@ -273,6 +284,19 @@ def main(args_eval, resume_preempt=False):
         wrapper_kwargs=args_wrapper,
         device=device,
     )
+    if predictor_group:
+        if cache_dir:
+            raise RuntimeError("predictor_group 과 cache_dir 은 같이 못 쓴다 (캐시는 모델 하나를 가정한다)")
+        model = init_multi_module(predictor_group=predictor_group, **_mk)
+        model_names = list(model.names)
+    else:
+        model = init_module(**_mk)
+        model_names = None
+    n_models = len(model_names) if model_names else 1
+    heads_per_model = len(opt_kwargs)
+    if cache_dir:
+        from evals.action_anticipation_frozen.cache import CachedModel
+        model = CachedModel(model, n_tok=model.tokens_per_tubelet * (frames_per_clip // model.tubelet_size))
     classifiers = init_classifier(
         embed_dim=model.embed_dim,
         num_heads=num_heads,
@@ -281,11 +305,17 @@ def main(args_eval, resume_preempt=False):
         action_classes=action_classes,
         num_blocks=num_probe_blocks,
         device=device,
-        num_classifiers=len(opt_kwargs),
+        num_classifiers=heads_per_model * n_models,
+        use_activation_checkpointing=probe_act_ckpt,
     )
 
     # --init data
-    train_set, train_loader, train_data_info = init_data(
+    if cache_dir:
+        from evals.action_anticipation_frozen.cache import init_cached_data
+        train_set, train_loader, train_data_info = init_cached_data(cache_dir, True, batch_size, world_size, rank, num_workers, cache_blocks)
+        _, val_loader, _ = init_cached_data(cache_dir, False, batch_size, world_size, rank, num_workers, cache_blocks)
+    else:
+      train_set, train_loader, train_data_info = init_data(
         dataset=dataset,
         training=True,
         base_path=train_data_path,
@@ -315,7 +345,8 @@ def main(args_eval, resume_preempt=False):
     )
     ipe = train_loader.num_batches
     logger.info(f"Dataloader created... iterations per epoch: {ipe}")
-    _, val_loader, _ = init_data(
+    if not cache_dir:
+      _, val_loader, _ = init_data(
         dataset=dataset,
         training=False,
         base_path=val_data_path,
@@ -342,7 +373,7 @@ def main(args_eval, resume_preempt=False):
     # -- optimizer and scheduler
     optimizer, scaler, scheduler, wd_scheduler = init_opt(
         classifiers=classifiers,
-        opt_kwargs=opt_kwargs,
+        opt_kwargs=opt_kwargs * n_models,   # head i -> 모델 i // heads_per_model, head 설정 i % heads_per_model
         iterations_per_epoch=ipe,
         num_epochs=num_epochs,
         use_bfloat16=use_bfloat16,
@@ -409,7 +440,12 @@ def main(args_eval, resume_preempt=False):
                 noun_classes=noun_classes,
                 action_classes=action_classes,
                 criterion=criterion,
+                heads_per_model=heads_per_model,
             )
+            if model_names and train_metrics.get("per_model"):
+                for _nm, _r in zip(model_names, train_metrics["per_model"]):
+                    logger.info("  [train] %-28s action R@5 %6.2f  verb %6.2f  noun %6.2f"
+                                % (_nm, _r["action"]["recall"], _r["verb"]["recall"], _r["noun"]["recall"]))
 
         # report val action anticipation (AA)
         # 2026-09-19 추가: evaluation.val_every (기본 1 = 매 epoch, 공식 동작). N 이면 N epoch 마다 + 마지막 epoch 에만 val.
@@ -432,6 +468,8 @@ def main(args_eval, resume_preempt=False):
                 action_classes=action_classes,
                 k=val_topk,
                 expected_clips=getattr(val_loader, "num_samples", None),
+                heads_per_model=heads_per_model,
+                model_names=model_names,
             )
             logger.info(
                 "[exact val] epoch %d  n_clips %d/%s  mean class recall@%d  "
@@ -467,6 +505,20 @@ def main(args_eval, resume_preempt=False):
                         )
                         + "\n"
                     )
+                # 2026-10-18 predictor_group: 모델마다 자기 줄을 자기 파일에 쓴다 (기존 분석 코드가 그대로 읽는다)
+                for _r in (val_metrics.get("per_model") or []):
+                    with open(os.path.join(folder, f"val_metrics__{_r['name']}.jsonl"), "a") as _fh2:
+                        _fh2.write(_json.dumps(dict(
+                            epoch=epoch + (0 if val_only else 1), model=_r["name"], val_only=bool(val_only),
+                            metric=f"mean_class_recall@{val_topk}", action=_r["action"], verb=_r["verb"],
+                            noun=_r["noun"], n_clips=val_metrics["n_clips"],
+                            expected_clips=val_metrics["expected_clips"], per_head=_r["per_head"],
+                            heads=[dict(lr=k["ref_lr"], wd=k["ref_wd"]) for k in opt_kwargs])) + "\n")
+                for _r in (val_metrics.get("per_model") or []):
+                    logger.info("  [ val ] %-28s action R@5 %6.2f  verb %6.2f  noun %6.2f"
+                                % (_r["name"], _r["action"]["recall"], _r["verb"]["recall"], _r["noun"]["recall"]))
+        elif predictor_group:
+            raise RuntimeError("predictor_group 은 evaluation.exact_val_pass: true 에서만 쓴다 (공식 validate 는 모델 하나를 가정한다)")
         else:
             val_metrics = validate(
                 action_is_verb_noun=action_is_verb_noun,
@@ -562,7 +614,8 @@ def main(args_eval, resume_preempt=False):
                     val_metrics["action"]["recall"],
                 )
 
-        save_checkpoint(epoch + 1)
+        if ckpt_every <= 1 or (epoch + 1) % ckpt_every == 0 or (epoch + 1) == num_epochs:
+            save_checkpoint(epoch + 1)
 
 
 def train_one_epoch(
@@ -581,7 +634,9 @@ def train_one_epoch(
     verb_classes,
     action_classes,
     criterion,
+    heads_per_model=None,          # 2026-10-18 predictor_group: head i -> 모델 i // heads_per_model
 ):
+    heads_per_model = heads_per_model or len(classifiers)
     _data_loader = iter(data_loader)
     for c in classifiers:
         c.train(mode=True)
@@ -632,6 +687,8 @@ def train_one_epoch(
             # Forward and prediction
             with torch.no_grad():
                 feats = model(clips, anticipation_times)
+            # predictor_group 이면 모델 수만큼의 리스트가 온다 (encoder forward 는 그 안에서 한 번만 돌았다)
+            feats_list = feats if isinstance(feats, (list, tuple)) else None
 
         # Compute loss & update weights
         # 2026-09-15: head 마다 forward -> loss -> backward 를 차례로 한다 (원본은 head 전부 forward 뒤 전부 backward).
@@ -640,7 +697,7 @@ def train_one_epoch(
         outputs = []
         for i, c in enumerate(classifiers):
             with torch.cuda.amp.autocast(dtype=torch.bfloat16, enabled=use_bfloat16):
-                o = c(feats)
+                o = c(feats if feats_list is None else feats_list[i // heads_per_model])
             if action_is_verb_noun:
                 L = criterion(o["verb"], verb_labels) + criterion(o["noun"], noun_labels) + criterion(o["action"], action_labels)
             else:
@@ -702,25 +759,21 @@ def train_one_epoch(
                 )
 
     del _data_loader
-    ret = dict(
-        action=dict(
-            accuracy=max([a["accuracy"] for a in action_metrics]),
-            recall=max([a["recall"] for a in action_metrics]),
-        ),
-    )
+
+    def _best(ms, lo, hi):
+        return dict(accuracy=max(m["accuracy"] for m in ms[lo:hi]), recall=max(m["recall"] for m in ms[lo:hi]))
+
+    H, M = heads_per_model, len(classifiers) // heads_per_model
+    ret = dict(action=_best(action_metrics, 0, len(classifiers)))
     if action_is_verb_noun:
-        ret.update(
-            dict(
-                verb=dict(
-                    accuracy=max([v["accuracy"] for v in verb_metrics]),
-                    recall=max([v["recall"] for v in verb_metrics]),
-                ),
-                noun=dict(
-                    accuracy=max([n["accuracy"] for n in noun_metrics]),
-                    recall=max([n["recall"] for n in noun_metrics]),
-                ),
-            )
-        )
+        ret.update(verb=_best(verb_metrics, 0, len(classifiers)), noun=_best(noun_metrics, 0, len(classifiers)))
+    if M > 1:
+        ret["per_model"] = []
+        for j in range(M):
+            row = dict(action=_best(action_metrics, j * H, (j + 1) * H))
+            if action_is_verb_noun:
+                row.update(verb=_best(verb_metrics, j * H, (j + 1) * H), noun=_best(noun_metrics, j * H, (j + 1) * H))
+            ret["per_model"].append(row)
     return ret
 
 

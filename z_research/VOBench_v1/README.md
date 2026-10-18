@@ -11,6 +11,10 @@
 > 전 표: 모델별 — 표 `<모델>/surprise/tables.{md,json}`, 그림 `<모델>/surprise/figures/` (모델 = `vjepa2` · `dino_foresight`). V-JEPA 2: [`vjepa2/surprise/tables.md`](vjepa2/surprise/tables.md) · [`vjepa2/surprise/figures/`](vjepa2/surprise/figures/) (§3-6).
 > 수치는 전부 `per_block.json` · 복사 실행 배열에서 다시 계산했고 summary.json 의 overall · 24 칸과 일치를 확인했다 (스크립트가 assert).
 
+> **v-jepa2 post-FT (2026-10-14)**: 릴리즈 predictor 를 VOBench 가능 영상 (split v2, 누수 없음) 으로 post-FT — [`vjepa2_pft/`](vjepa2_pft/README.md)
+
+> **종합 (2026-10-12)**: 이 세트의 모든 결과 (VoE · IntPhys 1 · 2 · encoder probe · AR 자 · 속도 감쇠 · post-FT · 예측 길이) 를 한 문서로 — [`Archive/RESULTS_SUMMARY_2026-10-12.md`](Archive/RESULTS_SUMMARY_2026-10-12.md)
+
 ## 폴더 (2026-10-10 개편 — 모델 → 작업)
 
 ```
@@ -21,9 +25,10 @@ z_research/VOBench_v1/
 ├── vjepa2/gravity/            gravity (ledge · arc): README.md · tables.{md,json} · figures/ (fig_gravity_choice{,_ball}_<objset> · fig_arc_choice) · _previous_20261010_g981/ (옛 판)
 ├── ariel_ar_ep40/gravity/     gravity Ariel AR 판 (§3-14): README.md · tables.{md,json} · figures/ (fig_gravity_choice{,_ball}_<objset> · fig_arc_choice)
 ├── vjepa2/gravity_horizon/    예측 길이 M 16 · 8 · 4 · 2 비교 (gravity arc): README.md · tables.{md,json} · figures/ (fig_horizon_all_<objset> 주 · fig_horizon_ball_<objset> 보조)
+├── analysis/attention_map/   AR predictor rollout attention (2026-10-13 · 10-14 정리): README.md · <모델>/{<set>.json,<set>_r*.npz,figures/} · compare/
 └── exp_results/               하네스 원시 산출물 (summary.json · per_block.json · copy 배열) — 레지스트리 results_root 라 여기 둔다
 ```
-모델 = `vjepa2` (V-JEPA 2 ViT-H 릴리즈) · `dino_foresight` · `ariel_ar_ep40` · `ariel_ar_state_ep40` · `videomae_v2`. 새 모델 · 새 작업도 같은 양식 (`<모델>/<작업>/README.md`).
+모델 = `vjepa2` (V-JEPA 2 ViT-H 릴리즈) · `dino_foresight` · `ariel_ar_ep40` · `ariel_ar_state_ep40` · `vast_ar_state_ep70` · `videomae_v2` · `vjepa2_pft` (release + VOBench post-FT). 새 모델 · 새 작업도 같은 양식 (`<모델>/<작업>/README.md`).
 
 ## 0. 결론
 

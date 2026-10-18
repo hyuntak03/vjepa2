@@ -45,7 +45,7 @@ def shard(run: Path, i: int, n: int, out: Path, copy: bool = False):
     S = cfg["surprise"]
     bundle = build_from_config(cfg["model"], dev)
     ts, sp = bundle.tubelet_size, bundle.num_spatial_tokens
-    ctx, N, bs = int(S["context_length"]), ds.n_frames, int(S.get("batch_size", 4))
+    ctx, N, bs = int(S["context_length"]), ds.n_frames, int(os.environ.get("TOKEN_BS") or S.get("batch_size", 4))   # TOKEN_BS: 다른 job 과 GPU 를 나눌 때 batch 를 줄인다 (2026-10-15)
     ci, ti = _context_target_indices(ctx_frames=ctx, tgt_frames=N - ctx, tubelet_size=ts, spatial_tokens=sp, batch_size=bs, device=dev)
     ac = {"float16": torch.float16, "bfloat16": torch.bfloat16}.get(str(cfg["model"].get("autocast", "none")).lower())
     assert S.get("distance", "l1") == "l1" and float(S.get("loss_exp", 1.0)) == 1.0, "토큰 분해는 l1 · loss_exp 1 에서만"

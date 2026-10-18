@@ -1,0 +1,56 @@
+# =============================================================================
+# vll7 공통 BASE — 직접 돌리지 않는다. 6 x RTX PRO 6000 Blackwell (sm_120), 128 CPU.
+#   자식: _vll7_vw.yaml (가변 창) · _vll7_fixed.yaml (고정 창)
+#   경로 정본 z_vll7_training/paths.env, 진입점 z_vll7_training/train.sh
+#
+# vast (8 GPU) 와 다른 것
+#   * GPU 6 장 — global clip 수가 3/4 이 된다. step 수 (ipe x epochs) 는 vast 와 맞춰 두고 clip 수 차이를 README 에 적는다
+#   * 데이터: K710 + SSv2 + HowTo 1 % -> **K400 320p + SSv2** (이 노드에 있는 것만). HowTo 가 없어 긴 창 (W >= 48) 칸이 사라진다
+#   * python: vjepa2_bw (torch 2.12.1+cu129). 기존 vjepa2 env 는 sm_120 미지원이라 안 돈다
+# =============================================================================
+extends: frozen_predictor_scratch
+
+nodes: 1
+tasks_per_node: 6
+
+meta:
+  seed: 0
+  dtype: bfloat16            # autocast (predictor 마스터 가중치는 fp32)
+  encoder_dtype: bfloat16    # 동결 encoder 가중치
+  use_sdpa: true
+  log_freq: 10
+  save_every_freq: 5         # e{N}.pt
+  auto_resume: true
+  compile_encoders: true     # 동결 ViT-H torch.compile (vast 실측 1.8x). 문제 생기면 false
+  sync_masks: true           # (C, K) 를 학습 루프가 step 당 한 번 rank 동기로 — ar/ctx 계열 필수
+
+model:
+  base: vith                 # configs/protocols/models.md
+
+data:
+  resolution: 256
+  num_workers: 12            # 128 CPU / 6 rank. 디코드가 병목이 되지 않게
+  prefetch_factor: 2
+  pin_mem: true
+  transfer_uint8: true       # uint8 로 넘겨 GPU 에서 정규화 (호스트 메모리 4 배 절약)
+  loader_timeout_s: 600      # 워커가 파손 파일에서 멈추면 10 분 뒤 **에러로** 죽인다 (침묵 정지 금지)
+  aug:                       # 릴리즈 make_transforms 기본값 + square_crop (K400 화면비가 섞여 있다)
+    hflip_p: 0.5
+    square_crop: center
+    random_resized_crop: {scale: [0.3, 1.0], ratio: [0.75, 1.35]}
+
+loss:
+  loss_exp: 1.0
+  target_layer_norm: true
+
+val:                         # in-loop 수렴 감시 (IntPhys1 dev 60 쌍). 정식 수치는 채점 하네스로
+  dataset: intphys1_dev      # configs/protocols/datasets.md — 이 노드 경로가 이미 맞다
+  n_frames: 32               # IntPhys1 은 100 장뿐 — stride 3 으로 32 장 (1 + 31x3 = 94)
+  n_blocks_per_type: 10
+  context_length: 16         # 8 블록 보고 8 블록
+  batch_size: 4
+  every_epochs: 1
+  at_start: true
+  seed: 0
+  data:
+    frames_stride: 3

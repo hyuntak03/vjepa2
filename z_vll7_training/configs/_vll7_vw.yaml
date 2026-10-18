@@ -1,0 +1,62 @@
+# =============================================================================
+# vll7 **가변 창** 공통 — 직접 돌리지 않는다 (app/vjepa_frozen/var_window.py).
+#
+# vast 의 natural_ar_vw_state / natural_ar_vw_state_ctxt_video 와 같은 샘플링 규약:
+#   * step 마다 문맥 C 장 · 예측 K 장 을 고르고 창 W = C + K 를 **fps 4 정수 간격 · 패딩 없이** 채운다
+#     (패딩 = 마지막 프레임 반복 = 예측 구간이 정지 화면 = "복사" 가 정답이 된다)
+#   * 데이터셋은 그 창을 채울 수 있는 것 중에서 가중치로 (batch 단위). rank 당 B = clamp(950 // W, 8, 256)
+#   * (C, K, 데이터셋, B) 는 (seed, step) 만으로 정해진다 -> 모든 rank 가 같은 모양 (VRAM · 부하 균형)
+#   * lr: WSD — warmup 1 ep -> 5.2e-4 상수 -> 마지막 7 ep 선형 감소 (optimization.anneal_epochs)
+#
+# ⚠️ **이 노드의 실제 데이터 비율은 명목 가중치와 다르다** (2026-10-16 전수 실측, `var_window_report.py`):
+#   fps 4 에서 창 W 를 채우는 편수 — K400 W16 99.0 % / W24 97.1 % / W32 92.1 % / W40 87.7 % / **W48 0 %**
+#                                   SSv2 W16 50.1 % / **W24 1.9 %** / W32 7 편
+#   -> 긴 창은 K400 전용이 되어, 명목 1 : 1 이 실제 프레임 **K400 76.7 : SSv2 23.3** 을 낸다.
+#      우연히 릴리즈 비율 (K710 0.335 : SSv2 0.100 = 77.0 : 23.0) 과 거의 같다 — 그래서 가중치를 역산하지 않았다.
+#   -> W >= 48 인 (C,K) 칸 3 개는 **버려진다** (vast 는 그 자리를 HowTo 100M 이 메웠다. 이 노드엔 없다).
+#   비율을 바꾸려면: python z_vll7_training/data/var_window_report.py --weight k400=0.8 ...  로 먼저 보고 정한다
+# =============================================================================
+# ⚠️ 샘플링 정정 (2026-10-17) — `ctxt_video_tgtvideo` run 과 **샘플링이 다르다**
+#   이식 당시 (vast b71df3e) `var_window.py` 가 **데이터셋별 `min_eligible` 을 조용히 무시**했다.
+#   그래서 끝난 tgtvideo run 은 전역 1000 이 적용돼 ssv2 가 적격 2,820 편뿐인 W=24 칸 (C8K16 · C16K8) 까지 들어갔고,
+#   데이터 비율이 의도 76.7 : 23.3 대신 **실측 70.0 : 30.0** 이 됐다 (train.log 2,170 step 표본).
+#   2026-10-17 에 vast 73ae468 의 데이터셋별 `min_eligible` 을 이식해 고쳤다 (사용자 결정 "vast 를 따라가도록").
+#   -> 이 run 부터는 ssv2 가 W <= 20 칸에만 들어가고 비율이 76.7 : 23.3 이다.
+#   **따라서 tgtvideo (타깃 영상) 와 이 run (타깃 블록) 은 `ctx_target` 외에 샘플링도 다르다** — 한 변수 대조가 아니다.
+#   깨끗한 대조가 필요하면 tgtvideo 를 고친 샘플링으로 다시 돌린다.
+
+extends: _vll7_base
+
+data:
+  n_frames: 64               # **최대 창** (predictor RoPE 시간 상한 = 32 블록). 실제 창은 step 마다 로더가 정한다
+  datasets: []               # var_window 가 대신한다
+  var_window:
+    datasets:                # 표는 z_training/data/build_fps4_table.py 산출 (configs/training/datasets.md 의 vll7 절)
+      - {name: k400, table: "${DATA_CSV}/vll7_k400_320/fps4_table.tsv", weight: 1.0}
+      - {name: ssv2, table: "${DATA_CSV}/vll7_ssv2/fps4_table.tsv",     weight: 1.0, min_eligible: 20000}
+    context_frames: [4, 8, 16, 32]    # vast ctxt_video 와 같은 격자 (= 2 / 4 / 8 / 16 블록)
+    predict_frames: [4, 8, 16, 32]    #   문맥 1 블록은 뺐다 (채점 격자 창 16 의 C 4 장 칸까지가 학습 범위)
+                                      #   K 1 블록도 뺐다 (TF 자리가 하나뿐)
+    token_budget: 950        # rank 당 B x W (장). vast 실측: 최대 창에서 75.4 GB / 96 GB (ctx_target=block)
+    b_min: 8
+    b_max: 256
+    min_eligible: 1000       # 데이터셋별로 덮어쓸 수 있다 (위 ssv2 는 20000)
+
+mask:                        # var_window 가 (C, K) 를 정한다. MaskSampler 생성용 자리표시 (블록 단위, T = 32)
+  - type: prefix_window
+    context_blocks: [2, 4, 8, 16]
+    predict_blocks: [2, 4, 8, 16]
+    weight: 1.0
+
+optimization:                # vast 와 같은 step 수 · lr 모양 (clip 수만 6/8 = 75 %)
+  epochs: 70
+  ipe: 294                   # 70 x 294 = 20,580 step. 6 GPU x 평균 B 48.8 = step 당 ~293 clip -> 약 603 만 clip
+                             #   (vast 8 GPU ctxt_video 는 708 만). ⚠️ clip 수가 다르다 — 비교할 때 적을 것
+  lr: 5.2e-4                 # vast 와 같은 값 (= 3e-4 x sqrt(512/168)). global 이 작아졌으니 낮출 근거도 있다
+                             #   (sqrt 규칙이면 3.96e-4) — 비교 가능성을 위해 vast 값을 쓴다. SET 으로 바꾼다
+  start_lr: 1.0e-5
+  final_lr: 1.0e-6
+  warmup: 1
+  anneal_epochs: 7           # WSD: warmup 1 ep -> 상수 -> 마지막 7 ep 선형 감소 (app/vjepa_frozen/utils.init_opt)
+  weight_decay: 0.04
+  final_weight_decay: 0.04

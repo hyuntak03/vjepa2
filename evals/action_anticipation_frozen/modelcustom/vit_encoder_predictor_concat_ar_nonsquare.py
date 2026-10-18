@@ -93,11 +93,10 @@ def init_module(
     # --
     model_kwargs: dict,
     wrapper_kwargs: dict,
+    shared: dict = None,          # 2026-10-18: 여러 모델이 **같은 frozen encoder** 를 쓸 때 건네는 캐시. MultiAnticipative 참고
     **kwargs,
 ):
     img_h, img_w = _as_hw(resolution)
-    logger.info(f"Loading pretrained model from {checkpoint} (input {img_h}x{img_w})")
-    checkpoint = torch.load(checkpoint, map_location="cpu")
 
     # ----------------------------------------------------------------------- #
     # Initialize Encoder
@@ -108,20 +107,39 @@ def init_module(
     enc_ckp_key = enc_kwargs.get("checkpoint_key")
     enc_model_name = enc_kwargs.get("model_name")
 
-    encoder = vit.__dict__[enc_model_name](img_size=(img_h, img_w), num_frames=frames_per_clip, **enc_kwargs)
-    if not getattr(encoder, "handle_nonsquare_inputs", False) and img_h != img_w:
-        raise RuntimeError("encoder was built with handle_nonsquare_inputs=False but input is non-square")
-    pretrained_dict = checkpoint[enc_ckp_key]
-    pretrained_dict = {k.replace("module.", ""): v for k, v in pretrained_dict.items()}
-    pretrained_dict = {k.replace("backbone.", ""): v for k, v in pretrained_dict.items()}
-    for k, v in encoder.state_dict().items():
-        if k not in pretrained_dict:
-            logger.info(f'key "{k}" could not be found in loaded state dict')
-        elif pretrained_dict[k].shape != v.shape:
-            logger.info(f'key "{k}" is of different shape in model and loaded state dict')
-            pretrained_dict[k] = v
-    msg = encoder.load_state_dict(pretrained_dict, strict=False)
-    logger.info(f"loaded pretrained encoder with msg: {msg}")
+    if shared is not None and "encoder" in shared:
+        # 같은 체크포인트 · 같은 arch 라는 것은 부르는 쪽 (eval.py 의 predictor_group) 이 보장한다
+        encoder, checkpoint = shared["encoder"], shared["ckpt"]
+        logger.info("encoder 재사용 (predictor_group 공유)")
+    else:
+        logger.info(f"Loading pretrained model from {checkpoint} (input {img_h}x{img_w})")
+        checkpoint = torch.load(checkpoint, map_location="cpu")
+        encoder = vit.__dict__[enc_model_name](img_size=(img_h, img_w), num_frames=frames_per_clip, **enc_kwargs)
+        if not getattr(encoder, "handle_nonsquare_inputs", False) and img_h != img_w:
+            raise RuntimeError("encoder was built with handle_nonsquare_inputs=False but input is non-square")
+        pretrained_dict = checkpoint[enc_ckp_key]
+        pretrained_dict = {k.replace("module.", ""): v for k, v in pretrained_dict.items()}
+        pretrained_dict = {k.replace("backbone.", ""): v for k, v in pretrained_dict.items()}
+        for k, v in encoder.state_dict().items():
+            if k not in pretrained_dict:
+                logger.info(f'key "{k}" could not be found in loaded state dict')
+            elif pretrained_dict[k].shape != v.shape:
+                logger.info(f'key "{k}" is of different shape in model and loaded state dict')
+                pretrained_dict[k] = v
+        msg = encoder.load_state_dict(pretrained_dict, strict=False)
+        logger.info(f"loaded pretrained encoder with msg: {msg}")
+        if shared is not None:
+            shared["encoder"], shared["ckpt"] = encoder, checkpoint
+
+    def _load_encoder(ckp_key):
+        """같은 체크포인트의 다른 encoder 키를 같은 arch 로 올린다 (ctx_state 의 문맥 encoder = online `encoder`)."""
+        enc = vit.__dict__[enc_model_name](img_size=(img_h, img_w), num_frames=frames_per_clip, **enc_kwargs)
+        pd = {k.replace("module.", "").replace("backbone.", ""): v for k, v in checkpoint[ckp_key].items()}
+        missing = [k for k in enc.state_dict() if k not in pd]
+        if missing:
+            logger.info(f"[{ckp_key}] {len(missing)} 키가 체크포인트에 없다 (init 유지): {missing[:3]}")
+        enc.load_state_dict({k: v for k, v in pd.items() if k in enc.state_dict()}, strict=False)
+        return enc
 
     # ----------------------------------------------------------------------- #
     # Initialize Predictor
@@ -139,7 +157,8 @@ def init_module(
         from analysis.intphys2 import model as _M
         from analysis import predictors as _PV
         _pst = _M._load_checkpoint(str(pred_ckpt_path)); _arch = _pst.get("arch") or {}
-        _kind = str(_arch.get("kind") or "default"); _kk = {k: _arch[k] for k in _PV.KIND_ONLY_KEYS if k in _arch}
+        _kind = _PV.kind_from_arch(_arch) or "default";   # 2026-10-16: vast 판은 kind ar + ar_feedback state → ar_state (전엔 ar 로 지어졌다)
+        _kk = {k: _arch[k] for k in _PV.KIND_ONLY_KEYS if k in _arch}
         predictor = _M._build_predictor(img_size=img_h, patch_size=encoder.patch_size, tubelet_size=encoder.tubelet_size,
                                         num_frames=int(prd_kwargs.get("num_frames", 64)), encoder_embed_dim=encoder.embed_dim,
                                         predictor_embed_dim=int(prd_kwargs.get("predictor_embed_dim", 384)), predictor_depth=int(prd_kwargs.get("depth", 12)),
@@ -148,10 +167,21 @@ def init_module(
                                         kind=_kind, kind_kwargs=_kk)
         if img_h != img_w:
             raise RuntimeError("predictor_checkpoint 경로는 정사각 입력만 (rollout predictor 의 grid 는 img_size 하나로 짓는다)")
+        # ⚠️ `_load_state_dict` 는 **모델에 없는 키를 INFO 로그만 남기고 버린다** (strict=True 여도). 그래서
+        #    gating_residual 같은 구조 옵션이 arch 에서 안 넘어오면 keep_gate 가 조용히 사라진 채 5 시간을 돈다.
+        #    여기서 먼저 죽인다 — 틀린 숫자를 그 모델 이름으로 기록하는 것보다 낫다.
+        _unexp = set(_pst["predictor"]) - set(predictor.state_dict())
+        if _unexp:
+            raise RuntimeError(
+                f"predictor 체크포인트에 모델이 모르는 키 {len(_unexp)} 개: {sorted(_unexp)[:6]} "
+                f"(kind={_kind}, arch 에서 넘긴 kind_kwargs={_kk}). 구조 옵션이 빠졌다 — "
+                f"analysis/predictors/__init__.py 의 KIND_ONLY_KEYS 와 구현을 확인할 것")
         _M._load_state_dict(predictor, _pst["predictor"], tag=f"predictor<-{pred_ckpt_path}", strict=True)
         predictor.ek_kind = _kind
         logger.info(f"predictor <- {pred_ckpt_path} (kind {_kind}, epoch {_pst.get('epoch')})")
-        checkpoint[prd_ckp_key] = predictor.state_dict()                 # 아래 로드 루프가 그대로 통과하게 (no-op)
+        # 2026-10-18: 예전엔 여기서 `checkpoint[prd_ckp_key] = predictor.state_dict()` 로 덮어써 아래 로드 루프를
+        #   no-op 으로 만들었다. predictor_group 에서는 checkpoint dict 를 여러 모델이 **공유**하므로 그 덮어쓰기가
+        #   뒤에 오는 릴리즈 predictor 를 오염시킨다 (앞 모델의 가중치를 릴리즈로 읽는다). 루프를 else 로 옮겼다.
     else:
         predictor = vit_pred.__dict__[prd_model_name](
             img_size=(img_h, img_w),
@@ -162,20 +192,34 @@ def init_module(
             **prd_kwargs,
         )
         predictor.ek_kind = "default"
-    pretrained_dict = checkpoint[prd_ckp_key]
-    pretrained_dict = {k.replace("module.", ""): v for k, v in pretrained_dict.items()}
-    pretrained_dict = {k.replace("backbone.", ""): v for k, v in pretrained_dict.items()}
-    for k, v in predictor.state_dict().items():
-        if k not in pretrained_dict:
-            logger.info(f'key "{k}" could not be found in loaded state dict')
-        elif pretrained_dict[k].shape != v.shape:
-            logger.info(
-                f'key "{k}" is of different shape in model and loaded state dict: '
-                f"{pretrained_dict[k].shape} vs {v.shape}"
-            )
-            pretrained_dict[k] = v
-    msg = predictor.load_state_dict(pretrained_dict, strict=False)
-    logger.info(f"loaded pretrained predictor with msg: {msg}")
+        pretrained_dict = checkpoint[prd_ckp_key]
+        pretrained_dict = {k.replace("module.", ""): v for k, v in pretrained_dict.items()}
+        pretrained_dict = {k.replace("backbone.", ""): v for k, v in pretrained_dict.items()}
+        for k, v in predictor.state_dict().items():
+            if k not in pretrained_dict:
+                logger.info(f'key "{k}" could not be found in loaded state dict')
+            elif pretrained_dict[k].shape != v.shape:
+                logger.info(
+                    f'key "{k}" is of different shape in model and loaded state dict: '
+                    f"{pretrained_dict[k].shape} vs {v.shape}"
+                )
+                pretrained_dict[k] = v
+        msg = predictor.load_state_dict(pretrained_dict, strict=False)
+        logger.info(f"loaded pretrained predictor with msg: {msg}")
+
+    # ctx_state (2026-10-18): 문맥이 **블록별 LN(h)** 가 아니라 **online encoder 로 창 한 번** 인코딩한 z 다.
+    #   래퍼의 self.encoder 는 target_encoder 라 그것으로 대신하면 학습 때와 다른 입력이 된다
+    #   (vast 가 ctx_target 을 안 넘겨 IntPhys1 43.89 를 낸 사고와 같은 종류). 같은 체크포인트의 `encoder` 키를 하나 더 올린다.
+    ctx_encoder = None
+    if getattr(predictor, "ek_kind", "default") == "ctx_state":
+        if shared is not None and "ctx_encoder" in shared:
+            ctx_encoder = shared["ctx_encoder"]
+            logger.info("ctx_encoder 재사용 (predictor_group 공유)")
+        else:
+            ctx_encoder = _load_encoder("encoder")
+            logger.info("ctx_encoder <- 체크포인트의 'encoder' 키 (online, ctx_state 문맥용)")
+            if shared is not None:
+                shared["ctx_encoder"] = ctx_encoder
 
     grid_h = img_h // encoder.patch_size
     grid_w = img_w // encoder.patch_size
@@ -195,6 +239,7 @@ def init_module(
     model = AnticipativeWrapper(
         encoder=encoder,
         predictor=predictor,
+        ctx_encoder=ctx_encoder,
         frames_per_second=frames_per_second,
         crop_size=(img_h, img_w),
         patch_size=encoder.patch_size,
@@ -216,6 +261,7 @@ class AnticipativeWrapper(torch.nn.Module):
         self,
         encoder,
         predictor,
+        ctx_encoder=None,
         frames_per_second=4,
         crop_size=224,
         patch_size=16,
@@ -229,7 +275,8 @@ class AnticipativeWrapper(torch.nn.Module):
         pred_replace=None,
     ):
         super().__init__()
-        self.encoder = encoder
+        self.encoder = encoder                 # = target_encoder (probe 입력 · ar 계열 블록 인코딩)
+        self.ctx_encoder = ctx_encoder         # = online encoder. ctx_state 전용, 아니면 None
         self.predictor = predictor
         img_h, img_w = _as_hw(crop_size)
         self.grid_h = img_h // patch_size
@@ -245,6 +292,9 @@ class AnticipativeWrapper(torch.nn.Module):
         # 2026-09-25 (auto_research SC3): predictor 출력을 대조 토큰으로 바꿔 끼워 probe 가 predictor 의 '미래' 를 쓰는지 본다.
         #   None (기본, 원래 동작) | "copy_last" = encoder 마지막 N_pred 토큰의 LayerNorm (예측 없이 마지막 관측 복사) | "mean" = encoder 토큰 평균의 LN
         self.pred_replace = pred_replace
+        # 2026-10-18: predictor_group 일 때 MultiAnticipative 가 넣어 주는 batch 단위 memo (dict).
+        #   None 이면 원래 동작 그대로. encoder 가 group 안에서 **같은 객체 · 같은 가중치**라 값이 같다.
+        self.share = None
 
         assert not (self.no_predictor and self.no_encoder), "Anticipative wrapper must use predictor or encoder"
         logger.info(
@@ -253,13 +303,21 @@ class AnticipativeWrapper(torch.nn.Module):
             f"num_output_frames={self.num_output_frames} num_steps={self.num_steps}"
         )
 
+    def _shared(self, key, fn):
+        """encoder 결과를 group 안에서 한 번만 계산한다. share 가 없으면 그냥 fn() (원래 동작)."""
+        if self.share is None:
+            return fn()
+        if key not in self.share:
+            self.share[key] = fn()
+        return self.share[key]
+
     def forward(self, x, anticipation_times):
         """
         :param x: (Tensor) video of shape [B, C, T, H, W]
         :param anticipation_times: (Tensor) [B] seconds into the future to predict
         """
         x_raw = x
-        x_full = self.encoder(x)
+        x_full = self._shared("x_full", lambda: self.encoder(x))
 
         if self.no_predictor:
             return x_full
@@ -290,14 +348,43 @@ class AnticipativeWrapper(torch.nn.Module):
         tgt_positions = torch.arange(N_pred, device=x.device).unsqueeze(0).repeat(B, 1)
         tgt_positions = tgt_positions + skip_positions.unsqueeze(1).repeat(1, N_pred)
 
-        if getattr(self.predictor, "ek_kind", "default") == "ar":
+        if getattr(self.predictor, "ek_kind", "default") == "ctx_state":
+            # 2026-10-18 kind=ctx_state (vast ar_video_ctxt_block_target): 문맥 = online encoder 로 **창 한 번** (양방향) 인코딩한 z,
+            #   rollout 되먹임 = predictor 상태 (384) + type[2], 출력 = render(상태) = LN(proj(.)). 학습이 ctx_target=block 이라
+            #   타깃 공간이 블록별 LN(h) 로 ar 계열과 같다. 정의는 analysis/predictors/ar_scoring.ctx_state_from_window.
+            from app.vjepa_frozen.ar import block_indices
+            m = getattr(self.predictor, "module", self.predictor)
+            n_pred_blk = int(self.num_output_frames // self.tubelet_size)
+            S = self.tokens_per_tubelet
+            nb = N // S                                                                    # 입력 창 전부가 문맥이다
+            idx = block_indices(B, nb, S, x.device)
+            def _zc():
+                with torch.autocast("cuda", dtype=torch.bfloat16):
+                    return self.ctx_encoder(x_raw, masks=[idx])                            # (B, nb*S, D)
+            z_ctx = self._shared("z_ctx", _zc)
+            steps = anticipation_steps.to(torch.int64) + n_pred_blk                        # (B,)
+            x_pred = torch.empty(B, n_pred_blk * S, z_ctx.size(-1), device=x.device, dtype=z_ctx.dtype)
+            roll = m.ctx_rollout_state_kv if getattr(m, "kv_rollout", True) else m.ctx_rollout_state
+            for k_ in torch.unique(steps).tolist():                                        # 걸음 수가 같은 샘플끼리 묶는다
+                sel = (steps == k_).nonzero(as_tuple=True)[0]
+                with torch.autocast("cuda", dtype=torch.bfloat16):
+                    pr = m.render(roll(z_ctx[sel], idx[sel], int(k_)))                     # (n, k_*S, D)
+                x_pred[sel] = pr[:, -n_pred_blk * S:].to(z_ctx.dtype)
+            x_pred = x_pred.to(x.dtype)
+            if self.pred_replace == "copy_last":
+                x_pred = torch.nn.functional.layer_norm(x[:, -N_pred:, :], (embed_dim,)).to(x_pred.dtype)
+            return torch.cat([x_accumulate, x_pred], dim=1)
+
+        if getattr(self.predictor, "ek_kind", "default") in ("ar", "ar_state"):
             # 2026-09-30 kind=ar (Ariel 팔 C): 문맥 = target encoder 를 **블록마다 따로** 돌린 LN(h) (encoder 는 wrapper 의 self.encoder = target_encoder),
             #   미래 = anticipation_steps 블록 건너뛴 뒤 num_output_frames/tubelet 블록 → rollout (skip + n_pred) 걸음의 마지막 n_pred 블록.
             #   probe 입력의 encoder 부분 (x_accumulate) 은 원래대로 (창 전체 인코딩) 두고 predictor 부분만 바꾼다. 출력 공간은 블록별 LN(h).
             from app.vjepa_frozen.ar import encode_blocks, block_indices
             n_pred_blk = int(self.num_output_frames // self.tubelet_size)
-            with torch.autocast("cuda", dtype=torch.bfloat16):
-                hb = encode_blocks(self.encoder, x_raw, self.tubelet_size)                     # (B, nb*S, D) LN
+            def _hb():
+                with torch.autocast("cuda", dtype=torch.bfloat16):
+                    return encode_blocks(self.encoder, x_raw, self.tubelet_size)               # (B, nb*S, D) LN
+            hb = self._shared("hb", _hb)
             S = self.tokens_per_tubelet; nb = hb.size(1) // S
             steps = anticipation_steps.to(torch.int64) + n_pred_blk                            # (B,)
             x_pred = torch.empty(B, n_pred_blk * S, hb.size(-1), device=x.device, dtype=hb.dtype)
@@ -332,3 +419,45 @@ class AnticipativeWrapper(torch.nn.Module):
             x_pred_input = torch.cat([x_pred_input[:, N_pred:, :], x_pred_for_input], dim=1)
 
         return x_accumulate
+
+
+class MultiAnticipative(torch.nn.Module):
+    """frozen encoder **하나** 위에 predictor 여러 개 (2026-10-18).
+
+    EK100 에서 비교하는 모델들은 같은 릴리즈 ViT-H (632M) 를 쓰고 predictor (22M) 만 다르다. 따로 돌리면
+    encoder forward 를 모델 수만큼 반복한다. 여기서는 batch 마다 `x_full` (창 전체 인코딩) 과 `hb`
+    (AR kind 의 블록별 인코딩) 를 **한 번** 계산해 group 전체가 나눠 쓴다.
+
+    forward 는 모델 수만큼의 feature 를 **리스트로** 돌려준다 (단일 모델 경로는 텐서 그대로). 값은
+    모델을 따로 돌린 것과 같다 — 공유하는 두 값은 encoder 와 입력에만 의존하고, 둘 다 group 안에서 같다.
+    """
+
+    def __init__(self, models, names):
+        super().__init__()
+        assert len(models) == len(names) and len(models) > 0
+        enc = models[0].encoder
+        for m in models[1:]:
+            if m.encoder is not enc:
+                raise RuntimeError("MultiAnticipative: group 의 encoder 객체가 다르다 (공유가 안 됐다)")
+        if len({id(m.ctx_encoder) for m in models if m.ctx_encoder is not None}) > 1:
+            raise RuntimeError("MultiAnticipative: group 의 ctx_encoder 객체가 다르다 (공유가 안 됐다)")
+        for a in ("tokens_per_tubelet", "tubelet_size", "num_output_frames", "frames_per_second", "num_steps"):
+            vals = {getattr(m, a) for m in models}
+            if len(vals) != 1:
+                raise RuntimeError(f"MultiAnticipative: group 안에서 {a} 가 다르다 ({vals}) — 비교가 성립하지 않는다")
+        self.models = torch.nn.ModuleList(models)
+        self.names = list(names)
+        self.encoder = enc
+        self.embed_dim = models[0].embed_dim
+        self.tokens_per_tubelet = models[0].tokens_per_tubelet
+        self.tubelet_size = models[0].tubelet_size
+        self._share = {}
+        for m in self.models:
+            m.share = self._share
+        logger.info("MultiAnticipative: encoder 1 개 + predictor %d 개 (%s)" % (len(models), ", ".join(self.names)))
+
+    def forward(self, x, anticipation_times):
+        self._share.clear()
+        out = [m(x, anticipation_times) for m in self.models]
+        self._share.clear()          # 다음 batch 로 안 새게. 텐서 참조도 여기서 놓는다
+        return out

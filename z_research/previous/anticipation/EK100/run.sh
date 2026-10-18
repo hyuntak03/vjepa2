@@ -11,6 +11,8 @@
 #   SET="a.b=1 c.d=2"   config 덮어쓰기 (data./optimization./classifier./evaluation. 는 experiment. 생략 가능)
 #   HEADS=sweep   논문의 probe head 20개
 #   SMOKE=1  VAL_ONLY=1  DRYRUN=1
+#   DEVICES="cuda:2 cuda:3"   쓸 GPU 를 직접 (공용 노드; 개수는 GPUS 와 맞출 것) — 2026-10-16
+#   SET="data.cache_dir=<…/ek100_feats/<이름>>"   encoder 특징 캐시 위에서 학습 (evals/action_anticipation_frozen/cache.py, AR kind 는 data.cache_blocks=true)
 #
 # evals.main 을 직접 부르지 않는다: 여기서 빈 DDP 포트를 찾고 ANT_EXPECT_WS 를 넘긴다
 # (init_distributed 는 포트 충돌을 삼키고 world_size=1 로 폴백한다, CLAUDE.md §7-1).
@@ -28,7 +30,7 @@ for kv in ${SET:-}; do ARGS+=(--set "$kv"); done
 [[ -n "${SMOKE:-}"  ]] && ARGS+=(--smoke)
 [[ -n "${VAL_ONLY:-}" ]] && ARGS+=(--val-only)
 if [[ -n "${DRYRUN:-}" ]]; then exec "$PY" "$HERE/resolve.py" ${CONFIG:-ek100_vith} "${ARGS[@]}" --dry-run; fi
-CFG=$("$PY" "$HERE/resolve.py" ${CONFIG:-ek100_vith} "${ARGS[@]}" | tee /dev/stderr | tail -1)
+CFG=$("$PY" "$HERE/resolve.py" ${CONFIG:-ek100_vith} "${ARGS[@]}" | tee >(cat >&2) | tail -1)   # tee /dev/stderr 는 SLURM 출력 파일을 O_TRUNC 로 다시 열어 그 앞 로그를 지운다 (2026-10-16 job 222856)
 
 PORT=${EVAL_DDP_PORT:-$("$PY" -c "
 import socket
@@ -43,4 +45,4 @@ export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
 LOG="$(dirname "$CFG")/stdout.log"
 echo "port $PORT  log $LOG"
-"$PY" -m evals.main --fname "$CFG" --devices $(seq -f "cuda:%g" 0 $((GPUS-1))) ${VAL_ONLY:+--val_only} 2>&1 | tee -a "$LOG"
+"$PY" -m evals.main --fname "$CFG" --devices ${DEVICES:-$(seq -f "cuda:%g" 0 $((GPUS-1)))} ${VAL_ONLY:+--val_only} 2>&1 | tee -a "$LOG"

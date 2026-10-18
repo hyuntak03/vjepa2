@@ -1,0 +1,34 @@
+# =============================================================================
+# ★ ctxt_video + **타깃도 영상** (`ctx_target: window`) — vll7 본 run (2026-10-16, 사용자 결정)
+#
+#   GPUS=6 bash z_vll7_training/tmux_train.sh ctxt_video_tgtvideo
+#
+# ctxt_video 와 **타깃 하나만** 다르다 (샘플링 · 구조 · TF · rollout 은 같다):
+#   * 문맥 입력 = `encoder` 로 문맥 창을 한 번에 (영상)                                — 같음
+#   * TF 입력   = 예측 구간 블록마다 따로 target_encoder -> LN(h)                       — 같음 (영상으로 넣으면 블록 b 가 b+1 을 본다 = 누수)
+#   * **타깃 (TF · rollout 의 답) = 문맥 + 미래 창 전체를 target_encoder 한 번 -> LN(h) 의 미래 부분**
+#     = 릴리즈 사전학습 · `surprise_c16t32` 채점과 **같은 타깃 정의**. 답은 손실에만 쓰므로 미래를 본 표현이어도 누수가 아니다
+#
+# 왜: vast ctxt_video (문맥 영상 -> 타깃 블록) 가 IntPhys1 76.1 · VOBench 57.1 / 62.1 로 **블록 복사 기준선 77.8 / 81.1 아래**였다.
+#     "문맥 (영상) 과 답 (블록) 의 종류가 다르다" 는 가설을 **한 변수로** 시험한다 — 문맥과 답을 같은 종류 (영상) 로 맞춘다.
+# ⚠️ 가설은 사후 해석이다 (vast 문서가 그렇게 적었다). 성공 판 (릴리즈: 영상->영상, AR: 블록->블록) 과 실패 판
+#    (ctxt_video: 영상->블록, 10-01 natural_ctx_state: TF 없음) 은 데이터 · 창 · step 이 서로 다르다.
+#    **이 run 은 ctxt_video 와 타깃만 다르므로 그 둘끼리만 깨끗하게 비교된다.**
+# ⚠️ **대조군 `ctxt_video` 는 vll7 에서 안 돌린다** (2026-10-16 사용자 결정 — vast 에서 이미 돌렸다).
+#    그래서 비교 상대는 vast 의 `natural_ar_vw_state_ctxt_video` (IntPhys1 76.11 · VOBench 57.1 / 62.1) 인데,
+#    **타깃만 다른 게 아니다** — 데이터 (K710 + SSv2 + HowTo 1 % -> K400 + SSv2) · 본 clip (708 만 -> 603 만) ·
+#    GPU 수 (8 -> 6) · (C,K) 격자에서 W >= 48 칸 3 개 없음 이 같이 다르다.
+#    **"타깃을 영상으로 바꿔서 올랐다/내렸다" 로 쓸 수 없다.** 한 변수 대조가 필요해지면 같은 노드에서
+#    `ctxt_video` (= 이 config 에서 ctx_target 만 block) 를 같은 budget 으로 돌린다.
+# ⚠️ vast 는 이 판을 **안 돌렸다** (config 만 있고 1 GPU 스모크까지). 비용 추정: 창 전체 forward 가 하나 더해져
+#    encoder 만 x1.8-2.4 (vast C8K8 -> C32K32 측정) -> 학습 시간 약 x1.4-1.8 (미측정). **메모리도 늘어난다 —
+#    첫 스모크에서 최대 창 (C16K16 블록) 피크를 재고 필요하면 `SET="data.var_window.token_budget=700"`.**
+#    ⚠️ budget 을 바꾸면 B 와 clip 수가 바뀌어 ctxt_video 와 한 변수 대조가 깨진다 — 바꿨으면 양쪽 다 바꿀 것
+# 채점: 체크포인트 `arch.ctx_target` 이 window 라 채점기가 릴리즈와 같은 타깃으로 잰다
+#    (⚠️ vast 는 eval_bench.sh 가 ctx_target 을 안 넘겨 block 학습판을 window 로 채점한 적이 있다 — IntPhys1 43.89 무효 -> 76.11)
+# =============================================================================
+extends: ctxt_video
+
+model:
+  predictor:
+    ctx_target: window

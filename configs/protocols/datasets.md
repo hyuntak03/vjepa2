@@ -48,6 +48,27 @@ variant_column: variant
 plausible_column: plausible
 type_column: block_type
 
+## intphys1_late
+
+2026-10-17. IntPhys 1 dev 의 **가림 샘플만** (moving/occluded 60 + static/occluded 30 쌍, O1·O2·O3 각 30, 180 영상).
+쌍마다 창을 맞춘다: 문맥 끝 = 위반 시점 d − 1 (pos·imp 가 같은 마지막 프레임), skip 2 로 문맥 16 + 미래 16 = 32 장을
+`cvpr/eval/intphys1_late/build.py` 가 미리 골라 링크로 둔다 (프레임 번호 = 창 안 순번). 문맥 픽셀 일치 90/90, 영상 범위 밖 clamp 16 쌍.
+정본 하네스 `cvpr/eval/intphys1_late/` (README). 여기 항목은 옛 resolver (복사 기준선 te_v11_score) 용 사본이다.
+
+raw_frames: 32
+cache_tag: intphys1_late
+root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/intphys1_late
+index_csv: index.csv
+frames_root: /local_datasets/world/world_analysis/IntPhys1_late
+frames_pattern: "{video_id}/{frame:06d}.png"
+frames_start: 0
+frames_stride: 1
+block_column: block_id
+pair_column: pair_id
+variant_column: variant
+plausible_column: plausible
+type_column: block_type
+
 ## grasp_level2
 
 GRASP level2 (Jassim et al. 2024). 시나리오 16 x (P/IP) x 128 = **4,096 영상**, 전부 501 프레임(실측).
@@ -877,6 +898,46 @@ cache_tag: vobench_v1
 results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/VOBench_v1/exp_results
 root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/vobench_v1
 index_csv: index.csv
+frames_root: /data2/local_datasets/world/Benchmark/VOBench_v1
+frames_pattern: "{file_name}/{frame:06d}.png"
+frames_start: 0
+frames_stride: 3
+block_column: block_id
+pair_column: pair_id
+variant_column: variant
+plausible_column: plausible
+type_column: condition
+
+## vobench_v1_split_test
+
+> ⚠️ **누수 (2026-10-14)** — test 가능 영상 720 중 52 개가 train 영상과 같은 설정 · 궤적 (렌더 노이즈만 다름). 새 채점은 `vobench_v1_split2_test` 로.
+
+**VOBench_v1 block 단위 test 절반 (2026-10-12)** — 360 block × 4 변이 = 1,440 clip (720 matched 쌍). `z_training/data/build_vobench_split_index.py` (seed 0, objset × violation × occlusion × motion 층화). 짝인 train 절반 (가능만) 은 `configs/training/datasets.md ## vobench_split_train`. post-FT 뒤 점수는 이것으로만 읽는다 (vobench_v1 전체는 train block 을 포함).
+
+raw_frames: 96
+cache_tag: vobench_v1_split_test
+results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/VOBench_v1/exp_results
+root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/vobench_v1_split
+index_csv: index_test.csv
+frames_root: /data2/local_datasets/world/Benchmark/VOBench_v1
+frames_pattern: "{file_name}/{frame:06d}.png"
+frames_start: 0
+frames_stride: 3
+block_column: block_id
+pair_column: pair_id
+variant_column: variant
+plausible_column: plausible
+type_column: condition
+
+## vobench_v1_split2_test
+
+**VOBench_v1 장면 묶음 단위 test 절반 (split v2, 2026-10-14)** — 360 block × 4 변이 = 1,440 clip (720 matched 쌍). `z_training/data/build_vobench_split_index.py` (기본 v2): 가능 arm 설정 (objset · 운동 · 배경 · 가림 · k · 물체) 을 공유하는 block 을 묶어 묶음째 배정 — train 과 공유 설정 0. 짝 train = `configs/training/datasets.md ## vobench_split2_train`. ⚠️ v1 (`vobench_v1_split_test`) 은 test 가능 영상 52 개가 train 과 같은 설정 · 궤적이라 누수가 있다.
+
+raw_frames: 96
+cache_tag: vobench_v1_split2_test
+results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/VOBench_v1/exp_results
+root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/vobench_v1_split_v2
+index_csv: index_test.csv
 frames_root: /data2/local_datasets/world/Benchmark/VOBench_v1
 frames_pattern: "{file_name}/{frame:06d}.png"
 frames_start: 0

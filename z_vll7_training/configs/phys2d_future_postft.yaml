@@ -1,0 +1,47 @@
+# =============================================================================
+# 팔 A — frozen encoder + **릴리즈 predictor post-FT**, 미래 예측 (phys2d_v1). vll7 6 GPU.
+#   GPUS=6 bash z_vll7_training/train.sh phys2d_future_postft
+#
+# 2026-10-18 사용자 지시:
+#   "release predictor 위에다가 pft … encoder frozen … 학습 방식은 미래 예측
+#    (대신 그러면 어떤 물리적 특성이 context 에 들어가면 안되고 미래 예측부분에 들어가도록
+#     — event transition 이 context 에 있으면 안돼)"
+#
+# 그 제약은 **데이터 쪽**에서 건다. 마스크는 평범한 temporal_prefix (C16 -> 16) 이고,
+# 창을 고를 때 "문맥 16 프레임 안에 사건 0 개, 예측 16 프레임 안에 사건 >= 1 개" 인 start 만
+# 인덱스에 남겼다 (configs/training/datasets.md ## phys2d_v1_future).
+# 덕분에 배치 안에서 C 가 16 고정이라 마스크가 그대로 배치되고, 토폴로지가 채점
+# (surprise_c16t32: 32 프레임 / 문맥 16 / target LN / L1) 과 같아 학습 결과를 바로 잴 수 있다.
+#
+# 짝 실험 phys2d_tubelet_postft.yaml 과 **optimizer step 을 맞췄다** (ipe 1024 x epochs 10 = 10,240,
+# global batch 96 -> 983,040 clip view). 둘의 차이가 목적함수만이 되게.
+# =============================================================================
+extends: _vll7_base
+
+model:
+  load_predictor: true                 # ★ 릴리즈 predictor 에서 출발 (부모는 scratch 다)
+
+data:
+  n_frames: 32                         # 인덱스 행의 n_frames 와 같아야 한다 (다르면 resolve 가 죽인다)
+  batch_size: 16                       # rank 당. 6 x 16 = global 96
+  datasets: [phys2d_v1_future]
+  aug:                                 # ⚠️ 부모(_vll7_base)의 K400 용 증강을 끈다
+    hflip_p: 0.5                       #   좌우 반전만 쓴다 (이 2D 물리에서 중력은 수직축이라 유효)
+    square_crop: none                  #   원본이 이미 256x256 정사각
+    random_resized_crop: null          #   물체가 작아 scale 0.3 crop 은 물체를 잘라낸다
+
+mask:
+  - type: temporal_prefix
+    context_frames: [16]
+    weight: 1.0
+
+optimization:
+  epochs: 10
+  ipe: 1024                            # 98,298 창 / global 96 = 1,024 -> epoch = 정확히 1 회 통과
+  grad_accum: 1
+  lr: 5.0e-5                           # ★ 미검증. frozen_predictor_postft 와 같은 값 (사전학습 lr 의 1/10 부근)
+  start_lr: 1.0e-6
+  final_lr: 1.0e-6
+  warmup: 1
+  weight_decay: 0.04
+  final_weight_decay: 0.04

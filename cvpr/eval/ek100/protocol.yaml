@@ -25,11 +25,34 @@ heads_presets:
   sweep: { lrs: [5.0e-3, 3.0e-3, 1.0e-3, 3.0e-4, 1.0e-4], wds: [1.0e-4, 1.0e-3, 1.0e-2, 1.0e-1] }
   grid8: { lrs: [3.0e-4, 1.0e-4],                           wds: [1.0e-4, 1.0e-3, 1.0e-2, 1.0e-1] }   # RTX 4090 24 GB 에 들어가는 크기 (2026-09-15)
   hi2:   { lrs: [1.0e-3, 3.0e-3],                           wds: [1.0e-2] }                            # grid8 최적이 lr 위쪽 끝이라 한 칸 위 (2026-09-20)
+  # ↓ vast 이식 (2026-10-17). 큰 batch 용 — VRAM 이 24/96 GB 밖에 안 쓰여 batch 를 올리고 lr 을 선형으로 맞춘 것.
+  #   ⚠️ 기준선 (grid8, global 128, action 35.34) 과 **최적화가 달라 직접 비교 불가**. 큰 batch 끼리만 비교한다
+  b512h8:  { lrs: [3.0e-3, 1.0e-3, 3.0e-4, 1.0e-4],         wds: [1.0e-2, 1.0e-4] }   # vast 2026-10-14: 전체 batch 512 (rank 64 x 8)
+  b1024h8: { lrs: [6.0e-3, 2.0e-3, 6.0e-4, 2.0e-4],         wds: [1.0e-2, 1.0e-4] }   # vast 2026-10-17: 전체 batch 1024 (rank 128 x 8) — b512h8 의 lr x2
+  # ↓ 2026-10-18. cap16metric 부분집합 (train 11,470 행 = 91 iter/epoch, full 의 1/5.9) 전용.
+  #   ⚠️ grid8 (lr <= 3e-4, warmup 0) 은 이 크기에서 **안 움직인다** — 20 epoch 이 1,820 step 뿐이라 full 의 ep3 쯤에서 끝난다.
+  #      실측: cap16metric x grid8 = ep5 action 0.90 (ek100_vith_release_vobftg) vs 같은 데이터 + 아래 head = ep5 10.25 / ep15 30.52
+  #      (ek100_rel_cap16metric_32f_e20_g2). README §7 "lr 1e-3 은 warmup 을 넣어야 한다 -> 별도 arm" 이 그 arm 이다.
+  cap16g2:
+    heads:
+    - {lr: 3.0e-4, wd: 1.0e-4}                                   # grid8 최적 arm (대조군. warmup 0 = 논문 설정)
+    - {lr: 1.0e-3, wd: 1.0e-4, start_lr: 1.0e-5, warmup: 2.0}    # warmup 2 epoch — 논문 optimizer 에서 벗어난 별도 arm
+  # ↓ 2026-10-18 (사용자 지시). global batch 96 = cap16g2 기준 (48) 의 2 배. ipe 238 -> 119 이라 20 epoch 이
+  #   4,760 -> 2,380 step 으로 준다. lr 로 메워지는지를 보는 격자다 — 검증된 3e-4 를 바닥에 깔고 위로 두 칸.
+  #   ⚠️ head 가 모델당 3 개라 '최고 head' 가 2 개짜리보다 유리하다. 팔끼리 비교는 공정하지만
+  #      30.52 (ek100_rel_cap16metric_32f_e20_g2, head 2 개) 와의 절대 비교는 그만큼 후하게 읽어야 한다.
+  cap16b96:
+    heads:
+    - {lr: 3.0e-4, wd: 1.0e-4}                                   # 검증된 값 그대로 (batch 48 에서 30.52@ep15). 안전 바닥
+    - {lr: 6.0e-4, wd: 1.0e-4, start_lr: 1.0e-5, warmup: 1.0}    # 선형 스케일링 (batch x2 -> lr x2). warmup 1 = 붕괴 방지
+    - {lr: 1.2e-3, wd: 1.0e-4, start_lr: 1.0e-5, warmup: 2.0}    # 2 x 선형. README §7 붕괴 구간이라 warmup 2
 
 experiment:
   classifier:
     num_probe_blocks: 4
     num_heads: 16
+    use_activation_checkpointing: false   # 2026-10-18: VRAM 이 96 중 19 GB 밖에 안 쓰여 재계산을 살 이유가 없다.
+                                          #   head 하나당 +1.6 GB, head 연산 -1/4. 값은 안 바뀐다 (재계산 유무의 차이일 뿐)
   data:                           # base_path · dataset_train · dataset_val · file_format 은 레지스트리 (ek100)
     dataset: EK100
     resolution: 256

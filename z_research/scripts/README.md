@@ -70,6 +70,7 @@ figures/        논문 그림. 전부 산출물에서 재계산해 summary.json 
   plot_ek100_anticipation_gif.py  EK100 anticipation 과제 GIF (CONTEXT 4s / GAP 1s / ACTION 라벨 + 모델 입력 영역) -> z_research/anticipation/EK100/figures/samples/
   plot_ctxenc_direction.py  실험 6 그림: 좌/우 방향 혼동행렬 4 개 (데이터셋 2 x 정방향·역재생) + probe 별 요약 막대 → context_encoder_analysis/figures/encoder_temporal_dynamics/ (2026-09-20)
   plot_v3_l2_error.py       RollOut_v3 p 위치 오차 16 창 × 8 법칙. --signed = 축마다 앞섬/뒤처짐 + 등속 연장·복사 기준선 → RollOutV3/figures/v3_signed_error[_hhead]/ (--head h = h 자로 p 읽기). 플래그 없는 |오차| 판은 new_archive 에서 뺐다 (2026-09-25)
+  plot_predictor_bottleneck.py  predictor 병목 진단 그림 다섯 장 (믿음 vs 행동 · 개입 · 손실 배분 · late 정체 · 조향) → VOBench_v1/bottleneck/figures/
   plot_v3_trajectory.py     RollOut_v3 마지막 관측에서 옮긴 위치·속도 (GT · p · z) → figures/v3_trajectory/
   plot_v3_decoder_gif.py    RollOut_v3 영상 위 진실 · p@h · h@h (P ≤ 16 창 12 개, 삽화) → figures/v3_gif/
   plot_v11_presence.py      v11 visible / mid / last (k≥2) × 운동: p '있다' 비율 · 위치 L2 → figures/v11_presence/ (판정은 _audit/v11_presence/)
@@ -81,9 +82,10 @@ figures/        논문 그림. 전부 산출물에서 재계산해 summary.json 
 
 analysis/       산출물·토큰 캐시 기반 분석. **전부 GPU 불필요**
   vobench_tempgen.py          VOBench_v1 temporal generalization: 시점 하나에서만 attentive head (shape · color · joint) 학습 → 미래 t8–15 전부에 (p→p · h→h · h→p · p→h · late). run <objset> <label> <gpu> <seed> / summarize (vobench_tempgen_summary.py) -> z_research/VOBench_v1/vjepa2/probing/temporal_generalization/{runs/,RESULTS.md,summary.json} (2026-10-10)
-  vobench_tubelet_probe.py    VOBench_v1 튜블릿 정체 probe: h (가림 없는 튜블릿) 로 학습한 AttentiveClassifier (depth 1 · query 1) 를 h 가림 · p 보임 · p late 에. extract (h 16 튜블릿 · p 8, /data2 캐시 23 GB) → probe (--objsets --epochs --seed --tag) -> z_research/VOBench_v1/vjepa2/probing/results/<tag>/ (2026-10-10)
+  vobench_tubelet_probe.py    VOBench_v1 튜블릿 정체 probe: h (가림 없는 튜블릿) 로 학습한 AttentiveClassifier (depth 1 · query 1) 를 h 가림 · p 보임 · p late 에. extract (h 16 튜블릿 · p 8, /data2 캐시 23 GB) → probe (--objsets --epochs --seed --tag) -> z_research/VOBench_v1/vjepa2/probing/results/<tag>/ (2026-10-10). `TUBEPROBE_LAYER=16` 이면 h = target encoder 16 번째 block (캐시 `_L16`, p 는 링크) (2026-10-13)
   vobench_asym_compare.py     VOBench_v1 asymmetry vs original (late, 창 16:12) 같은 쌍 비교 · 짝 부트스트랩 Δ -> z_research/VOBench_v1/vjepa2/surprise_asymmetry/ (2026-10-10)
   vobench_gravity_tables.py   VOBench_v1 gravity 표 (--model vjepa2|ariel_ar_ep40 → <model>/gravity/): ledge 쌍 정확도 + 복사 · arc 고른 미래 (argmin, full · post · 공 칸 · 복사) · 위치 규칙 기준선 · sliding 창별 · 멈춤 후보 D. 창마다 summary.json assert -> z_research/VOBench_v1/vjepa2/gravity/tables.{md,json} (2026-10-10)
+  vobench_gravity_pick.py     VOBench_v1 gravity 한 run 의 고른 미래 = 진짜 (argmin, 행렬 주 지표) · 쌍 정확도 (쌍 합산) 를 objset · law · cell 별로, per_block.json 만 읽는다 (2026-10-15)
   vobench_gravity_horizon.py  VOBench_v1 gravity arc 예측 길이 M 16·8·4·2 비교: 창 안 멈춤 시점 D · 튜블릿별 arc vs 정지 (전체 토큰 · 공 칸), 창마다 token_surprise.npz -> z_research/VOBench_v1/vjepa2/gravity_horizon/tables.{md,json} (2026-10-11)
   vobench_tables.py           VOBench_v1 채점표 (위반 × 가림 시점 · objset · k · 운동 · 배경 · 물체, A/B 방향, block 부트스트랩 CI). per_block.json 에서 재계산 후 summary.json 과 assert. --model vjepa2|dino_foresight (MODELS 표) -> z_research/VOBench_v1/<모델>/surprise/tables.{md,json} (2026-10-10)
   check_prefix_predictor.py   **`kind: prefix` predictor 구조 검사** (Ariel block-causal 체크포인트).
@@ -95,6 +97,7 @@ analysis/       산출물·토큰 캐시 기반 분석. **전부 GPU 불필요**
                               29 항목. **하네스/config/로더를 건드리면 이것부터 돌린다** (2026-09-21)
   garrido_rescore.py          공식 축약 규칙으로 **재실행 없이 다시 채점**. IntPhys=Filtered(min),
                               GRASP·InfLevel=property 마다 최고 C. 창 16/32 실행을 합쳐 A.8 최고를 고른다 (2026-09-21)
+  vobench_object_region_score.py  VOBench 쌍 채점을 실제 물체 상자 (×1.1) 토큰만으로 다시 (token_surprise.npz, 보조) → VOBench_v1/vjepa2/surprise_object_region/ (2026-10-13)
   vobench_track_delta.py      VOBench 토큰 Δ 를 미래 걸음별로: 정답 물체 자리 Δ · 몫 · 마지막 관측 자리 잔상 (빈 문맥 대조) — release vs AR (2026-10-12)
   encoder_voe_probe.py        context · target encoder 영상 32 장 T×N 평균 위 possible/impossible linear probe — VOBench · IntPhys 1 · IntPhys 2 (2026-10-12). → VOBench_v1/vjepa2/encoder_voe_probe/
   intphys2_breakdown.py       IntPhys 2 Main 쌍 정확도를 condition · camera · occluder · difficulty · game 으로 나눈다. 모델마다 최고 (창, C) 칸 + --cell 공통 C, 장면 부트스트랩 CI (2026-10-12)
@@ -181,6 +184,18 @@ analysis/       산출물·토큰 캐시 기반 분석. **전부 GPU 불필요**
   te_analyze_v3.py            (CPU) v3readout_curves (te_v3_readout.py) 의 RollOut_v3 운동 — 지속 (튜블릿별 '있다' · '모임' (+진실 3×3 질량) · T50, C16/P16·C16/P32) · 전이 (법칙별 부호 오차 · 이득 β · 복사/등속 연장 기준선 · 변위/위치 귀무 · law−flat_v 대비 · 이득 비 ρ · y 치우침 보정) · 도달 거리 (flat_v reach · plateau · 시간/거리 상관) · 학습 곡선, predictor 22 개. p@h 주 · p@p 보조, 두 자 견고 판정, 법칙 층화 궤적 bootstrap (짝지은 Δ, 공통 '모임' 칸) + release sanity (정본 readings · values.json · CROSS_HEAD) → TrainingEffects/v3_motion/{MOTION.md, TABLES.md, motion.json, fig_*.png} (2026-09-25)
   te_analyze_presence.py      (CPU) v11readout_curves (done 행, v11_split test 절반) 의 있음 읽기 — 영속 (late k≥2 t1..t4 present − 빈 바닥 · AUROC) · 지속 (visible 읽을 수 있는 칸 t3..) 을 predictor 별 (p@h 주 · p@p 보조 + h@h · z@z · 복사 참조) · 학습 곡선 · 위치 ('있다' ∧ mass3 > 0.035 의 L2 · 부호 x 오차) · vanish A/B (scores.json). (궤적,k) 두 단계 cluster bootstrap (칸마다 공유 가중치 = 짝지은 Δ) + release 전 block sanity (values.json) → TrainingEffects/v11_presence/{PRESENCE.md, TABLES.md, presence.json, fig_*.png} (2026-09-25)
   te_analyze_ip1.py           (CPU) te_intphys1_score.py 배열 (ip1score_final, 읽기만) 로 IntPhys1 그룹 A predictor 마다 **p vs 복사 기준선**: 하네스 per_window 재현 검증 (뒤집힌 쌍) · 칸 3 개 (skip2_w32/w16 · skip5_w16) × 표준/인과 표적의 p − copy · Δ vs release · O1/O2/O3 · 운동×가림 · 이동+가림 사건 튜블릿 pre/e0/post (H6e/H6d 정의) · 그룹 B 하네스 표 · 학습 곡선 (curves 배열 또는 하네스 점). principle 층화 scene bootstrap (cluster 집합마다 공유 resample) → TrainingEffects/ip1_copy/{IP1_COPY.md, ip1_copy.json, fig_*.png} (2026-09-25)
+  predictor_bottleneck.py     **(GPU) predictor 병목 진단 (2026-10-13)** — VOB_readout 직선 등속에서 release · AR · AR-state 의 미래 8 블록을 roll / tf / injL (마지막 입력만 참) / injO (마지막 입력만 자기 예측) 로, 걸음마다 자 읽기 · 은닉 (predictor_norm) 풀링 · 표류 · 오차 몫 → VOBench_v1/bottleneck/<name>/ ; _analyze.py (CPU) 가 걸음 이득 · 지연 · ridge probe (속도 · 모양 · 색) → analysis.json
+  predictor_signal_natural.py (GPU) SSv2 val 에서 학습 목표의 신호 배분 — 복사 오차 상위 10 % '변한 토큰' vs 나머지, 모델이 복사를 이기는 몫 → VOBench_v1/bottleneck/natural_<name>.json
+  predictor_late_identity.py  (GPU 추출 + CPU) VOBench late 가림 — 정체가 predictor 은닉에 남는가 (블록 평균) · 제자리에 놓이는가 (참 자리 3×3), block 5-fold ridge → bottleneck/late_identity/
+  v11_context_state_probe.py  (GPU) context encoder (release `encoder`) 출력에서 문맥 안 상태 (마지막 본 위치 · 속도 · 가려진 지금 자리) 를 미래 라벨 없이 회귀 — v11 late (EXPERIMENTS_WHAT_WHERE_2026-10-13 E1a)
+  predictor_anchor_test.py    **(GPU) anchor 이식 (2026-10-13)** — 문맥 마지막 블록 (또는 블록 6) 만 픽셀 조작 (지움 · 멈춤 · 되돌림 · 두 배) 해 미래 자리가 역사를 따르나 마지막 내용을 따르나 → bottleneck/anchor/ (DESIGN_CHOICES_2026-10-13 §2-2)
+  predictor_history_value.py  (GPU) 문맥 8 vs 4 · 2 · 1 블록의 미래 L1 — 역사 가치 (SSv2 · VOBench late / visible) → bottleneck/history/ (§2-6)
+  predictor_appearance_invariance.py (CPU) 모양 · 색별 예측 진행 vs 무작위 라벨 귀무 — 외형이 운동을 바꾸나 (§2-1)
+  design_headroom.py          (GPU) 학습 없는 조립 상한 — 문맥 토큰을 참 · 등속 · 2 차 외삽 자리로 옮긴 미래의 VOBench matched 쌍 · gravity 고른 미래 → VOBench_v1/headroom/ (§2-5)
+  headroom_margin_maps.py     (CPU) 위 산출물의 matched margin 이 물체 자리 안 / 밖 · 반경 · 거리별로 어디서 오나 (§2-4 · §2-5)
+  token_locality.py           (GPU) 표적 토큰 국소성 — 두 미래 (물체만 다름) 의 LN h 차가 물체 자리에 몇 % 있나 (§2-4)
+  predictor_velocity_steer.py (GPU) 상태 안의 속도 코드 (오른쪽 − 왼쪽 운동 평균) 를 걸음 2 은닉에 더해 물체 자리가 누적해 움직이는가 (무작위 방향 대조) → bottleneck/steer/
+  ar_attention_history.py     (GPU) AR predictor rollout attention (12 층 × 12 head) — key 블록별 질량 · 물체 자리 query → 과거 블록 물체 자리 (거울 대조), --ckpt 없으면 릴리즈 predictor (mask token 일괄, 10-14) · one-shot 체크포인트 (릴리즈 post-FT) 도 같은 분기, 같은 좌표 대조 om_ql · clip id vid · split_v2 train/test 요약 (10-14) → VOBench_v1/analysis/attention_map/<model>/ (층별 지도 · 기준 vs post-FT --rows release|vast (걸음 = 행, 정본) · --spotlight release|vast (가장 바뀐 층 하나) · --pair (층별) figures/plot_attention_layers.py · 그림 figures/plot_ar_attention.py → compare/ · 예시 plot_ar_attention_rows.py (걸음 = 행) → <model>/figures/ · plot_ar_attention_simple.py → _superseded/)
 
 slurm_logs/     .gitignore
 ```
@@ -209,3 +224,4 @@ slurm_logs/     .gitignore
 - `extends:` — **재는 방식 자체가 다를 때만** 새 yaml
 
 _superseded/     RollOut_v1 (프레임·캐시·결과 삭제) 과 2026-09-10 이전 RollOut_v2 pipeline (pooled p-fit · token decoder · 옛 궤적 그림) 스크립트. 실행 불가, 기록만.
+  plot_vobench_probe_layers.py  튜블릿 정체 probe 시간축 — target encoder 마지막 층 vs 16 층, 가림 조건별 (2026-10-13)

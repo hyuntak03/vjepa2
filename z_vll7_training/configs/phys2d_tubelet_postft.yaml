@@ -1,0 +1,70 @@
+# =============================================================================
+# 팔 B — frozen encoder + **릴리즈 predictor post-FT**, 릴리즈 사전학습 tubelet 마스크 (phys2d_v1). vll7 6 GPU.
+#   GPUS=6 bash z_vll7_training/train.sh phys2d_tubelet_postft
+#
+# 2026-10-18 사용자 지시: "predictor 가 원래 학습한 tublet 형식 {대신 encoder frozen} 으로 pft".
+# configs/train/vith16/pretrain-256px-16f.yaml 을 그대로 따른다:
+#   16 프레임 · fps 4 · crop 256 · tubelet 2 · 마스크 두 종
+#   (short-range 8 블록 x spatial 0.15 / long-range 2 블록 x spatial 0.7, 둘 다 시간 전체)
+# phys2d_v1 원본이 **4 fps** 라 frame_step 1 이 사전학습의 fps 4 와 같다.
+#
+# ⚠️ 원 사전학습과 다른 점 셋 (둘은 지시, 하나는 하네스 제약)
+#   1. [지시] encoder 가 동결이다 — target 은 릴리즈 EMA 고정, context 도 고정.
+#      원 사전학습은 encoder 를 같이 학습하고 target 은 그 EMA 였다. 즉 target 이 움직이지 않는다.
+#   2. [지시] predictor 를 릴리즈에서 이어 받는다 (scratch 아님).
+#   3. [하네스] 마스크 두 종을 **배치마다 하나씩** 고른다 (weight 0.5/0.5). 원 사전학습은 샘플마다
+#      둘 다 건다 (multi-mask). MaskSampler 가 스펙마다 context encoder forward 를 따로 요구해서
+#      한 배치에 둘을 같이 걸지 않는다 (app/vjepa_frozen/data.py 모듈 docstring).
+#
+# ⚠️ 팔 A 와 프레임 길이가 다르다 (여기 16, 팔 A 32). 각자 자기 기준에 충실한 쪽을 택했다 —
+#    팔 B 는 "원래 학습한 형식", 팔 A 는 채점 토폴로지. **두 팔 비교에는 이 교락이 남는다.**
+#    optimizer step 수와 global batch 는 맞춰 뒀다 (ipe 1024 x 10, global 96).
+# =============================================================================
+extends: _vll7_base
+
+model:
+  load_predictor: true
+
+data:
+  n_frames: 16                         # 릴리즈 사전학습 dataset_fpcs 와 같다 (8 블록)
+  batch_size: 16                       # rank 당. 6 x 16 = global 96 (팔 A 와 같게)
+  datasets: [phys2d_v1_clips]
+  aug:
+    hflip_p: 0.5
+    square_crop: none
+    random_resized_crop: null          # 사전학습은 scale [0.3, 1.0] 이지만 물체가 작아 끈다 (팔 A 와 맞춤)
+
+mask:                                  # 릴리즈 사전학습의 두 종. 배치마다 하나 (위 ⚠️ 3)
+  - type: block3d
+    spatial_scale: [0.15, 0.15]
+    temporal_scale: [1.0, 1.0]
+    aspect_ratio: [0.75, 1.5]
+    num_blocks: 8
+    max_temporal_keep: 1.0
+    weight: 0.5
+  - type: block3d
+    spatial_scale: [0.7, 0.7]
+    temporal_scale: [1.0, 1.0]
+    aspect_ratio: [0.75, 1.5]
+    num_blocks: 2
+    max_temporal_keep: 1.0
+    weight: 0.5
+
+optimization:
+  epochs: 10
+  ipe: 1024                            # 팔 A 와 같은 optimizer step 수. 28,900 clip 이라 epoch 당 ~3.4 회 통과
+  grad_accum: 1                        #   (매번 다른 16 프레임 창을 무작위로 뽑는다)
+  lr: 5.0e-5
+  start_lr: 1.0e-6
+  final_lr: 1.0e-6
+  warmup: 1
+  weight_decay: 0.04
+  final_weight_decay: 0.04
+
+val:                                   # ⚠️ 팔 A 와 다르다 — encoder·predictor 가 data.n_frames(16) 로 지어져서
+  n_frames: 16                         #    32 프레임 val 은 토큰 격자를 넘는다 (resolve 가 막는다).
+  context_length: 8                    #    4 블록 보고 4 블록. **팔 A 의 in-loop val 수치와 직접 비교 불가** —
+  batch_size: 4                        #    수렴 감시용이고, 정식 채점은 학습 뒤 z_training/eval.sh 로 (그때는 32 프레임 격자로 다시 짓는다)
+  data:
+    frames_stride: 6                   # ⚠️ stride 3 (raw 1~46) 로는 위반이 창 밖이라 12 쌍 중 8 쌍이 tie 였다 (실측).
+                                       #    stride 6 = raw 1~91 로 팔 A (32 장 x stride 3 = raw 1~94) 와 거의 같은 구간을 덮는다

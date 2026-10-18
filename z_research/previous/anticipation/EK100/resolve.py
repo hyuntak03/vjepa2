@@ -15,6 +15,7 @@ import csv
 import sys
 from pathlib import Path
 
+import os
 import yaml
 
 HERE = Path(__file__).resolve().parent
@@ -59,9 +60,12 @@ def main():
     ap.add_argument("--set", action="append", default=[], metavar="a.b=1")
     ap.add_argument("--tag")
     ap.add_argument("--smoke", action="store_true")
-    ap.add_argument("--heads", choices=["config", "sweep", "grid8", "hi2"], default="config",
+    ap.add_argument("--heads", choices=["config", "sweep", "grid8", "hi2", "top2", "wu3", "g6", "g4", "g2"], default="config",
                     help="sweep = 논문 20 개 (lr 5 x wd 4) / grid8 = lr {3e-4, 1e-4} x wd 4 종 (RTX 4090 24 GB 에 들어가는 크기, 2026-09-15) / "
-                         "hi2 = lr {1e-3, 3e-3} x wd 1e-2 두 개 (grid8 의 최적이 lr 위쪽 끝 3e-4 에 붙어 있어 한 칸 위를 밟는다, 2026-09-20)")
+                         "hi2 = lr {1e-3, 3e-3} x wd 1e-2 두 개 (grid8 의 최적이 lr 위쪽 끝 3e-4 에 붙어 있어 한 칸 위를 밟는다, 2026-09-20) / "
+                         "top2 = lr 3e-4 x wd {1e-4, 1e-2} — grid8 네 실행에서 늘 1–2 위 (2026-10-15, 시간 절약) / "
+                         "wu3 = wd 1e-4 에서 lr 3e-4 (warmup 0, 기준) · 1e-3 · 3e-3 (start 1e-5 에서 warmup EK_WARMUP epoch, 기본 1) — "
+                         "적은 step 예산 탐색용: warmup 없는 1e-3 · 3e-3 은 첫 epoch 에 무너졌다 (README §7) (2026-10-15)")
     ap.add_argument("--gpus", type=int, default=1)
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--val-only", action="store_true", help="val 만 돈다: train 비디오가 base_path 에 없어도 된다")
@@ -73,11 +77,28 @@ def main():
     cfg = yaml.safe_load(f.read_text())
     exp, data, opt = cfg["experiment"], cfg["experiment"]["data"], cfg["experiment"]["optimization"]
 
-    if a.heads in ("sweep", "grid8", "hi2"):
+    if a.heads == "g2":   # 2026-10-17: lr 3e-4 (warmup 0) · 1e-3 (start 1e-5 · warmup EK_WARMUP), wd 1e-4 — 1/7 실행들에서 늘 1 · 2 위
+        wu = float(os.environ.get("EK_WARMUP", "2"))
+        opt["multihead_kwargs"] = [dict(lr=3e-4, start_lr=3e-4, final_lr=0.0, weight_decay=1e-4, final_weight_decay=1e-4, warmup=0.0),
+                                   dict(lr=1e-3, start_lr=1e-5, final_lr=0.0, weight_decay=1e-4, final_weight_decay=1e-4, warmup=wu)]
+    elif a.heads == "g4":   # 2026-10-17: g6 에서 lr 3e-3 을 뺀 4 개 (wu3 세 실행에서 3e-3 은 늘 꼴찌) — head 하나가 step 당 ~0.47 s (vll3, 16 f)
+        wu = float(os.environ.get("EK_WARMUP", "2"))
+        opt["multihead_kwargs"] = [dict(lr=lr, start_lr=(lr if lr == 3e-4 else 1e-5), final_lr=0.0, weight_decay=wd, final_weight_decay=wd,
+                                        warmup=(0.0 if lr == 3e-4 else wu)) for wd in (1e-4, 1e-2) for lr in (3e-4, 1e-3)]
+    elif a.heads == "g6":   # 2026-10-16: lr {3e-4 (warmup 0), 1e-3, 3e-3 (start 1e-5 · warmup EK_WARMUP)} x wd {1e-4, 1e-2} — 긴 epoch 대리 지표용 head 탐색
+        wu = float(os.environ.get("EK_WARMUP", "2"))
+        opt["multihead_kwargs"] = [dict(lr=lr, start_lr=(lr if lr == 3e-4 else 1e-5), final_lr=0.0, weight_decay=wd, final_weight_decay=wd,
+                                        warmup=(0.0 if lr == 3e-4 else wu)) for wd in (1e-4, 1e-2) for lr in (3e-4, 1e-3, 3e-3)]
+    elif a.heads == "wu3":
+        wu = float(os.environ.get("EK_WARMUP", "1"))
+        opt["multihead_kwargs"] = [dict(lr=3e-4, start_lr=3e-4, final_lr=0.0, weight_decay=1e-4, final_weight_decay=1e-4, warmup=0.0)] + \
+            [dict(lr=lr, start_lr=1e-5, final_lr=0.0, weight_decay=1e-4, final_weight_decay=1e-4, warmup=wu) for lr in (1e-3, 3e-3)]
+    elif a.heads in ("sweep", "grid8", "hi2", "top2"):
         # lr 1e-3 은 head 1 개에서 80 iter 안에 붕괴한 적이 있다 (README §7). hi2 는 그래서 두 개를 같이 건다 (하나가 무너져도 다른 하나가 답을 낸다).
         lrs, wds = {"sweep": (PAPER_LRS, PAPER_WDS),
                     "grid8": ([3e-4, 1e-4], PAPER_WDS),
-                    "hi2": ([1e-3, 3e-3], [1e-2])}[a.heads]
+                    "hi2": ([1e-3, 3e-3], [1e-2]),
+                    "top2": ([3e-4], [1e-4, 1e-2])}[a.heads]
         opt["multihead_kwargs"] = [dict(lr=lr, start_lr=lr, final_lr=0.0, weight_decay=wd, final_weight_decay=wd, warmup=0.0)
                                    for wd in wds for lr in lrs]
     if a.smoke:

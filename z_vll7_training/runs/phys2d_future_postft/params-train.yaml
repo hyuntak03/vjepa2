@@ -1,0 +1,97 @@
+app: vjepa_frozen
+data:
+  aug:
+    hflip_p: 0.5
+    square_crop: none
+  batch_size: 16
+  datasets:
+  - csv: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/phys2d_v1/train_T32C16s1.csv
+    decord_threads: 1
+    name: phys2d_v1_future
+    type: video_window
+  loader_timeout_s: 600
+  n_frames: 32
+  num_workers: 6
+  persistent_workers: true
+  pin_mem: true
+  prefetch_factor: 2
+  resolution: 256
+  transfer_uint8: true
+folder: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_vll7_training/runs/phys2d_future_postft
+loss:
+  loss_exp: 1.0
+  target_layer_norm: true
+mask:
+- context_frames:
+  - 16
+  type: temporal_prefix
+  weight: 1.0
+meta:
+  auto_resume: true
+  compile_encoders: true
+  dtype: bfloat16
+  encoder_dtype: bfloat16
+  log_freq: 10
+  save_every_freq: 5
+  seed: 0
+  sync_masks: true
+  use_sdpa: true
+model:
+  arch_name: vit_huge
+  base: vith
+  checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vith-fpc64-256/snapshots/b5eac8703e3efdc1547fbb6ddfbeb133dc0bdee5/original/model.pth
+  context_encoder_key: encoder
+  img_size: 256
+  load_predictor: true
+  mask_index: 0
+  patch_size: 16
+  predictor:
+    depth: 12
+    embed_dim: 384
+    num_heads: 12
+    num_mask_tokens: 10
+    use_activation_checkpointing: false
+    zero_init_mask_tokens: true
+  target_encoder_key: target_encoder
+  tubelet_size: 2
+  uniform_power: false
+  use_rope: true
+nodes: 1
+optimization:
+  betas:
+  - 0.9
+  - 0.999
+  clip_grad: null
+  epochs: 10
+  eps: 1.0e-08
+  final_lr: 1.0e-06
+  final_weight_decay: 0.04
+  grad_accum: 1
+  ipe: 1024
+  ipe_scale: 1.0
+  lr: 5.0e-05
+  start_lr: 1.0e-06
+  warmup: 1
+  weight_decay: 0.04
+tasks_per_node: 6
+val:
+  at_start: true
+  batch_size: 4
+  context_length: 16
+  data:
+    block_column: block_id
+    frames_pattern: '{block}/{quadruplet}/{run}/scene/scene_{frame:03d}.png'
+    frames_root: /local_datasets/world/world_analysis/IntPhys1_dev_frame_png
+    frames_start: 1
+    frames_stride: 3
+    index_csv: index.csv
+    pair_column: pair_id
+    plausible_column: plausible
+    root: /local_datasets/world/world_analysis/IntPhys1_dev_videos
+    type_column: block_type
+    variant_column: variant
+  dataset: intphys1_dev
+  every_epochs: 1
+  n_blocks_per_type: 10
+  n_frames: 32
+  seed: 0

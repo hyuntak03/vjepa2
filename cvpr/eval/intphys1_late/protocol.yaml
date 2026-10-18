@@ -1,0 +1,5 @@
+# eval/intphys1_late — IntPhys 1 dev 가림 샘플, 위반 직전이 문맥 끝인 고정 창 (2026-10-17). 채점 규칙은 testbed 와 같다
+#   (surprise = mean |p − LN(h)[future]|, matched pair, 문맥 16 + 미래 16, dual encoder, fp32 + autocast fp16, mask_index 0).
+#   창 정렬은 데이터 쪽 (build.py 가 쌍마다 32 장을 골라 둔다) 이라 여기서는 c16t32 를 그대로 쓴다.
+extends: ../testbed/protocol.yaml
+legacy_name: intphys1_late

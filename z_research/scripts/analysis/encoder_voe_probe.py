@@ -10,6 +10,7 @@ probe: 표준화 + L2 로지스틱 (intphys2_linear_probe.logreg_cv) · group (b
   python z_research/scripts/analysis/encoder_voe_probe.py extract intphys1_dev --gpus 4
   python z_research/scripts/analysis/encoder_voe_probe.py probe          # → z_research/VOBench_v1/vjepa2/encoder_voe_probe/
   python z_research/scripts/analysis/encoder_voe_probe.py plot
+  python z_research/scripts/analysis/encoder_voe_probe.py late --n-perm 5   # VOBench 만 다시 → 쌍별 적중 저장 + late 그림 (2026-10-14)
 """
 from __future__ import annotations
 
@@ -199,9 +200,64 @@ def plot():
     print("saved figures →", OUT / "figures")
 
 
+def late(n_perm: int):
+    """VOBench 를 probe 와 같은 CV 로 다시 돌려 쌍별 적중을 남기고, late 쌍만 (전체 · 위반별, primitive + realistic) 그린다.
+    probe 는 VOBench 전체 (네 가림 시점) 로 학습 · 채점한다 — late 만으로 학습한 것이 아니다. CI = block 부트스트랩, 회색 = 라벨 섞기 (쌍 단위)."""
+    from intphys2_linear_probe import logreg_cv
+    import matplotlib; matplotlib.use("Agg"); import matplotlib.pyplot as plt
+    from matplotlib.patches import Patch
+    from matplotlib.lines import Line2D
+    sys.path.insert(0, str(REPO / "z_research/scripts/figures"))
+    from plot_v11_surprise import BLUE, ORANGE, MUTED, frame
+    rng = np.random.default_rng(0)
+    enc, tgt, y, g, strata, pair, attrs = load("vobench_v1")
+    first = {pk: np.where(pair == pk)[0][0] for pk in np.unique(pair)}
+    occ_of = {pk: attrs["occlusion"][i] for pk, i in first.items()}; vio_of = {pk: attrs["violation"][i] for pk, i in first.items()}
+    blk_of = {pk: g[i] for pk, i in first.items()}
+    subsets = {"all": lambda pk: True, "late": lambda pk: occ_of[pk] == "late",
+               **{f"late/{v}": (lambda pk, v=v: occ_of[pk] == "late" and vio_of[pk] == v) for v in ("permanence", "shape", "color")}}
+    R = {}
+    for name, X in (("context_encoder", enc.mean(1)), ("target_encoder", tgt.mean(1))):
+        p, _ = logreg_cv(X, y, g, strata)
+        hits = pair_hits(p, y, pair); R[name] = {"hits": hits, "sub": {}}
+        perm = []
+        for s_ in range(n_perm):
+            yp = y.copy()
+            for pk in np.unique(pair):
+                if rng.random() < 0.5: yp[pair == pk] = 1 - yp[pair == pk]
+            pp, _ = logreg_cv(X, yp, g, strata, lam_grid=(1e-1, 1.0), k_inner=2, seed=s_ + 1)
+            perm.append(pair_hits(pp, yp, pair))
+        for sk, f in subsets.items():
+            ks = [pk for pk in hits if f(pk)]; by_g = defaultdict(list)
+            for pk in ks: by_g[blk_of[pk]].append(hits[pk])
+            R[name]["sub"][sk] = {"pair_acc": float(np.mean([hits[pk] for pk in ks]) * 100), "ci": boot(by_g, rng), "n": len(ks),
+                                  "perm": [float(np.mean([ph[pk] for pk in ks]) * 100) for ph in perm]}
+        print(name, {k: round(v["pair_acc"], 1) for k, v in R[name]["sub"].items()}, flush=True)
+    json.dump({n: {"sub": r["sub"], "hits": r["hits"]} for n, r in R.items()}, open(OUT / "results_vobench_pairs.json", "w"), indent=1)
+    keys = ["late", "late/permanence", "late/shape", "late/color"]
+    lab = {"late": "late (all)", "late/permanence": "permanence", "late/shape": "shape", "late/color": "colour"}
+    fig, ax = plt.subplots(figsize=(4.6, 2.9)); frame(ax, (30, 112), (40, 50, 60, 70, 80, 90, 100))
+    x = np.arange(len(keys)); w = 0.34
+    for j, (enc_, col) in enumerate((("context_encoder", BLUE), ("target_encoder", ORANGE))):
+        S = R[enc_]["sub"]; v = np.array([S[k]["pair_acc"] for k in keys]); ci = np.array([S[k]["ci"] for k in keys])
+        xs = x + (j - 0.5) * w
+        ax.bar(xs, v, w * 0.92, color=col)
+        ax.errorbar(xs, v, yerr=[v - ci[:, 0], ci[:, 1] - v], fmt="none", ecolor="k", lw=0.8, capsize=2)
+        for xi, hi, vi in zip(xs, ci[:, 1], v): ax.text(xi, hi + 1.0, f"{vi:.0f}", ha="center", va="bottom", fontsize=7)
+        ax.scatter(xs, [np.mean(S[k]["perm"]) for k in keys], marker="_", s=120, color=MUTED, zorder=3)
+    ax.axhline(50, color=MUTED, lw=0.8, ls=":")
+    n0 = R["context_encoder"]["sub"]
+    ax.set_xticks(x); ax.set_xticklabels([f"{lab[k]}\n(n={n0[k]['n']})" for k in keys], fontsize=7.5)
+    ax.set_ylabel("pair accuracy (%)")
+    ax.legend(handles=[Patch(color=BLUE, label="context encoder"), Patch(color=ORANGE, label="target encoder"),
+                       Line2D([], [], color=MUTED, lw=2, label="shuffled labels")], fontsize=6.5, frameon=False, loc="lower left", ncol=3)
+    fig.tight_layout(); fig.savefig(OUT / "figures/fig_encoder_probe_vobench_late.png", dpi=200); fig.savefig(OUT / "figures/fig_encoder_probe_vobench_late.pdf"); plt.close(fig)
+    print("saved →", OUT / "figures/fig_encoder_probe_vobench_late")
+
+
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("phase", choices=["extract", "probe", "plot"])
+    ap.add_argument("phase", choices=["extract", "probe", "plot", "late"])
     ap.add_argument("bench", nargs="?")
     ap.add_argument("--gpus", type=int, default=4)
     ap.add_argument("--n-perm", type=int, default=5)
@@ -210,5 +266,7 @@ if __name__ == "__main__":
         extract(a.bench, a.gpus)
     elif a.phase == "probe":
         probe(a.n_perm)
+    elif a.phase == "late":
+        late(a.n_perm)
     else:
         plot()

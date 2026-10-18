@@ -6,6 +6,7 @@
   fig_k               x = k (0 = 가림 없음, 1–3), 선 = 가림 시점 (early · mid · late)
   fig_late_motion     late 만: x = 운동 6 종, 막대 = 정확도, 점 = A · B 방향
   fig_motion_{visible,early,mid}   같은 꼴, 가림 시점만 바꿈 (2026-10-11)
+  fig_visible_vs_late  패널 = 위반 3, x = 운동 6, 막대 = visible (연한) vs late (진한) 정확도 [CI], primitive · realistic 합침 (2026-10-14)
   fig_permanence_context  permanence 만, 가능한 미래 둘로 쪼갬: 물체 문맥 (있는데→있는, 불가능 = 사라짐) vs 빈 문맥 (없는데→없는, 불가능 = 나타남).
                       행 = objset, 열 = (가림 시점별 · late × 운동)
 
@@ -135,6 +136,37 @@ def fig_late_motion(P):
     return fig_motion(P, "late")
 
 
+def fig_visible_vs_late(P):
+    """패널 = 위반 3, x = 운동 6, 막대 둘 = visible (연한) · late (진한). primitive · realistic 합침, 방향 점 없음."""
+    fig, axes = plt.subplots(1, 3, figsize=(7.0, 2.7))
+    W = 0.38; js = {}
+    for pi, (ax, v) in enumerate(zip(axes, VIOL)):
+        frame(ax, (-3, 112), (0, 25, 50, 75, 100)); col = VCOL[v]; js[v] = {}
+        for j, (occ, f) in enumerate((("visible", 0.62), ("late", 0.0))):
+            st = [VT.stat([p for p in P if p["viol"] == v and p["occ"] == occ and p["motion"] == m]) for m in MOT]
+            js[v][occ] = dict(zip(MOT, st))
+            xs = np.arange(len(MOT)) + (j - 0.5) * W
+            ax.bar(xs, [s["acc"] for s in st], width=W * 0.92, color=tint(col, f) if f else col, edgecolor=tint(col, 0.25), lw=0.6, zorder=3)
+            ax.errorbar(xs, [s["acc"] for s in st], yerr=[[s["acc"] - s["lo"] for s in st], [s["hi"] - s["acc"] for s in st]],
+                        fmt="none", ecolor=INK2, elinewidth=0.7, capsize=1.6, capthick=0.7, zorder=4)
+            for x, s in zip(xs, st):
+                ax.annotate(f"{s['acc']:.0f}", (x, 4.0), ha="center", va="bottom", fontsize=5.6, color=INK, zorder=7)
+        ax.axhline(50, color=MUTED, lw=0.8, ls=(0, (2.5, 2.5)), zorder=2)
+        ax.set_xticks(range(len(MOT))); ax.set_xticklabels([MLAB[m] for m in MOT], fontsize=6.8, linespacing=0.95)
+        ax.set_xlim(-0.6, len(MOT) - 0.4); ax.tick_params(axis="x", length=0, pad=3)
+        ax.set_title(VLAB[v], fontsize=9.0, color=INK, pad=4)
+        if pi: ax.set_yticklabels([])
+        else: ax.set_ylabel("pairwise acc. (%)", fontsize=9.0)
+        ax.text(0.5, -0.30, PANEL[pi], transform=ax.transAxes, ha="center", va="top", fontsize=9.5, color=INK)
+    nv, nl = js[VIOL[0]]["visible"][MOT[0]]["n"], js[VIOL[0]]["late"][MOT[0]]["n"]
+    h = [Patch(facecolor=tint(INK2, 0.62), edgecolor=tint(INK2, 0.25), lw=0.6, label=f"visible ({nv} pairs / motion)"),
+         Patch(facecolor=INK2, edgecolor=tint(INK2, 0.25), lw=0.6, label=f"late occlusion ({nl} pairs / motion)")]
+    fig.legend(handles=h, loc="upper center", ncol=2, frameon=False, fontsize=7.6, bbox_to_anchor=(0.5, 1.03))
+    fig.subplots_adjust(left=0.075, right=0.995, top=0.85, bottom=0.25, wspace=0.09)
+    save(fig, "fig_visible_vs_late")
+    return js
+
+
 def fig_k(P):
     TIM = [("early", "s", 0.55), ("mid", "D", 0.28), ("late", "o", 0.00)]
     fig, axes = plt.subplots(2, 3, figsize=(7.0, 5.2), sharey=True)
@@ -251,7 +283,7 @@ def main():
     OUT = VT.ROOT / a.model / "surprise" / "figures"
     P = VT.load(VT.MODELS[a.model][1])
     js = {"timing": fig_timing(P), "k": fig_k(P), "late_motion": fig_late_motion(P), "perm_ctx": fig_permanence_context(P),
-          **{f"motion_{oc}": fig_motion(P, oc) for oc in ("visible", "early", "mid")}}
+          **{f"motion_{oc}": fig_motion(P, oc) for oc in ("visible", "early", "mid")}, "visible_vs_late": fig_visible_vs_late(P)}
     check(js, json.load(open(VT.ROOT / a.model / "surprise" / "tables.json")))
 
 
