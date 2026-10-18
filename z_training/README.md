@@ -45,6 +45,7 @@ GPUS=8 bash z_training/eval.sh frozen_predictor_scratch v11      # 채점 (= run
 | `data/build_v11_split_index.py` | v11 block 단위 train/test 분할 (§3) |
 | `data/build_intphys1_train_index.py` | IntPhys1 train 인덱스 (`data_csv/intphys1_train/index.csv`) |
 | `data/build_video_index.py` | 자연 영상 `video_csv` 인덱스 (Ariel 이식, 2026-09-27). `ssv2 --probe --min-frames 48 --write` → `data_csv/ssv2/train_min48.csv` (97,416) · `val_min48.csv` (984), `natural_prefix` / `natural_ar` 의 데이터. vll5 CPU 약 2 분 |
+| `data/gen_phys2d_sup.py` · `audit_phys2d_sup.py` · `phys2d_sup_labels.py` | 2D 물리 학습셋 + **프레임별 상태 라벨** (위치 · 속도 · 정체 · 보임) 생성 · 편향 점검 · 라벨 읽기 (2026-10-18). `phys2d_sup_v1` 19,953 clip, vll5 CPU 40 코어 22 분. 문서 `docs/PHYS2D_SUP_DATASET_2026-10-18.md` |
 | `runs/<NAME>/` | `config.yaml` `latest.pt` `e{N}.pt` `train.log` `metrics.jsonl` `log_r*.csv` `eval/` (gitignore) |
 
 학습 코드는 `app/vjepa_frozen/` (`train.py` 루프 · `data.py` 데이터/마스크 · `utils.py` 모델/옵티마이저 ·
@@ -151,3 +152,14 @@ CKPT=e10.pt GPUS=8 bash z_training/eval.sh <run> v11
 둘 다 `app/vjepa_frozen/train.py` 의 `train_step` 과 `src/models/predictor.py` 만 건드리면 된다.
 하네스 5번 — "그냥 더 학습시킨 것 아닌가" 를 막는 ablation 은 `temporal_prefix` 단독 vs `block3d` 단독 vs
 혼합이 첫 줄이다.
+
+
+## 2026-10-18 — IntPhys 2 쌍 split, encoder LoRA (`intphys2_postft_pair_lora`)
+release predictor post-FT + context encoder (online) LoRA (rank 8, qkv · proj · fc1 · fc2, 5.2 M, lr × 10), target encoder 얼림. 나머지는 `intphys2_postft_pair` (predictor 만) 와 같다 (쌍 split · 채점 창 · global 40 · 20 epoch · 1,200 step). 구현 `app/vjepa_frozen/lora.py` · `model.encoder_lora`.
+| pairwise % (C 는 그 split 에서 최고) | test 쌍 (MainPair, 253) | 학습 쌍 (MainPairTrain, 253) |
+|---|---|---|
+| release | 59.3 | 51.8 |
+| predictor 만 PFT | 59.29 (150/253, C 42) | 60.5 |
+| **+ encoder LoRA** | **60.08 (152/253, C 42)** · AUROC 0.509 | **71.54 (181/253, C 10)** |
+encoder 를 열면 학습 쌍은 60.5 → 71.5 로 더 외우지만 처음 보는 쌍은 +0.8 (2 쌍) — 일반화 없음. train loss 도 predictor 만보다 0.012 낮다. ⚠️ C 를 같은 split 에서 고른 값이라 둘 다 낙관적이다.
+채점 config `analysis/intphys2/configs/vjepa2_vith_intphys2_pair_{test,train}_postft_pair_lora.yaml`, 로그 `cvpr/logs/ip2_pair_{test,train}_lora.log`.

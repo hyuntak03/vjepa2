@@ -5,6 +5,7 @@
 (b) Predictor_v1 holdout L1 (가능 영상뿐 — 단위가 다른 열): 색 = −ΔL1 (낮아지면 좋음 쪽 색), 글자 = L1 + Δ.
 빈 칸 = 아직 안 돈 칸 (pending, 빗금). 출력: z_training/figures/fig_transfer_matrix.{png,pdf}
   python z_training/harness/matrix.py && python z_training/harness/plot_matrix.py
+  python z_training/harness/plot_matrix.py --set vobench    # 2026-10-14: 행 · 열 = VOBench · IntPhys1 · IntPhys2 → fig_transfer_matrix_vobench
 """
 from __future__ import annotations
 import json
@@ -24,8 +25,14 @@ FIG = ROOT / "z_training/figures"; FIG.mkdir(parents=True, exist_ok=True)
 ROWS = [("release", "Release (no FT)"), ("v11_postft", "IntPhysGen v11"),
         ("intphys1_postft", "IntPhys1"), ("intphys2_postft", "IntPhys2")]
 PANEL_B = False
+import sys
+SET = sys.argv[sys.argv.index("--set") + 1] if "--set" in sys.argv else "v11"
 ACC = [("v11", "v11 test\n(C16/T16, 10,752 pairs)", "v11_postft"), ("ip1", "IntPhys1 dev\n(sliding s2_w32/avg, 180)", "intphys1_postft"),
        ("ip2", "IntPhys2 test\n(growing ctx, 252 pairs)", "intphys2_postft")]
+if SET == "vobench":
+    ROWS = [("release", "Release (no FT)"), ("vobench_release_postft", "VOBench"),
+            ("intphys1_postft", "IntPhys1"), ("intphys2_postft", "IntPhys2")]
+    ACC = [("vob_late", "VOBench test · late occlusion\n(C16/T16, split v2, 216 pairs)", "vobench_release_postft"), ACC[1], ACC[2]]   # 2026-10-14: late 만
 CMAP = LinearSegmentedColormap.from_list("div", ["#eb6834", "#f7f7f7", "#2a78d6"])
 plt.rcParams.update({"font.family": "DejaVu Sans", "font.size": 8.5, "axes.spines.top": False, "axes.spines.right": False})
 
@@ -85,5 +92,5 @@ if PANEL_B:
   bx.annotate("(b) prediction L1, blue = lower", xy=(0.5, 0), xycoords="axes fraction", xytext=(0, -14),
               textcoords="offset points", ha="center", va="top", fontsize=9)
 for ext in ("png", "pdf"):
-    fig.savefig(FIG / f"fig_transfer_matrix.{ext}", dpi=200, bbox_inches="tight", pad_inches=0.08)
-print(f"-> {FIG / 'fig_transfer_matrix.png'}  (pending 칸 {int(np.isnan(D).sum())} 개)")
+    fig.savefig(FIG / f"fig_transfer_matrix{'' if SET == 'v11' else '_' + SET}.{ext}", dpi=200, bbox_inches="tight", pad_inches=0.08)
+print(f"-> {FIG / ('fig_transfer_matrix' + ('' if SET == 'v11' else '_' + SET))}.png  (pending 칸 {int(np.isnan(D).sum())} 개)")

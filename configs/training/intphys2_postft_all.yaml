@@ -1,0 +1,17 @@
+# =============================================================================
+# 릴리즈 ViT-H predictor post-FT — IntPhys 2 Main 가능 영상 **전부** (506 clip), 학습 가능 여부 확인용 (2026-10-15 사용자)
+#
+#   GPUS=4 bash z_training/train.sh intphys2_postft_all
+#   채점 = 학습한 Main 그대로 (analysis/intphys2/configs/vjepa2_vith_intphys2_main_postft_all.yaml, C 24 · 36 · 42) — held-out 이 아니라 상한.
+#
+# intphys2_postft (장면 split train 254 clip · 240 step) 가 test 에서 release 보다 낮았다 (56.7 vs 57.9).
+# 묻는 것: 학습 데이터 자체에서는 가능 / 불가능을 가르게 되나. 그래서 데이터를 Main 가능 전부로, step 을 약 4 배로 늘린다.
+# 과제 · 창 · lr 은 intphys2_postft 와 같다 (48 장 · 6 fps · temporal_prefix C 12..42 · lr 5e-5). GPU 4 장 × batch 10 = global 40.
+# =============================================================================
+extends: intphys2_postft
+
+data:
+  datasets: [intphys2_main_possible_nfs]
+
+optimization:
+  epochs: 80                 # 506 clip / global 40 ≈ 13 step/epoch → 약 1,000 step (intphys2_postft 의 240 step 의 약 4 배)

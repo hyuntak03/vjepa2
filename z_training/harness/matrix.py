@@ -6,6 +6,7 @@
   IntPhys1 dev   intphys1_sliding, **skip2_w32/avg** (CLAUDE.md 확립 88.89 와 같은 칸) — 괄호 = 6 칸 중 최고 (descriptive)
   IntPhys2 test  analysis/intphys2, Main 장면 split test 126 장면 (252 쌍), 논문 Table 2 방식 열별 최고 (C 11 × avg/max) 의 Overall
   Predictor_v1   holdout 1,000 clip 예측 L1 (낮을수록 좋음; 가능 영상뿐이라 짝 정확도 없음)
+  VOBench test   surprise_c16t32 matched pair, split v2 test 720 쌍 (2026-10-14) — per_video_surprise 에서 직접 셈 (vobench_split_compare 와 같은 규칙)
 출력: z_training/runs/_matrix/MATRIX.{md,json}
   python z_training/harness/matrix.py
 """
@@ -17,8 +18,9 @@ ROOT = Path(__file__).resolve().parents[2]
 R = ROOT / "z_training/runs"; OUT = R / "_matrix"
 ROWS = [("release", None, None, "릴리즈 (학습 안 함)"), ("v11_postft", "e10", "v11", "v11 (v11_split_train)"),
         ("predictor_v1_postft", "e15", "pv1", "Predictor_v1 (index_train)"), ("intphys1_postft", "e40", "ip1", "IntPhys1 (train 장면)"),
-        ("intphys2_postft", "e80", "ip2", "IntPhys2 (Main split train)")]
-COLS = [("v11", "v11 test"), ("pv1", "Predictor_v1 holdout L1 ↓"), ("ip1", "IntPhys1 dev"), ("ip2", "IntPhys2 test")]
+        ("intphys2_postft", "e80", "ip2", "IntPhys2 (Main split train)"),
+        ("vobench_release_postft", "e30", "vob", "VOBench (split v2 train, 가능 720 clip)")]
+COLS = [("v11", "v11 test"), ("pv1", "Predictor_v1 holdout L1 ↓"), ("ip1", "IntPhys1 dev"), ("ip2", "IntPhys2 test"), ("ip2c24", "IntPhys2 test (C24/avg 고정)"), ("vob", "VOBench test"), ("vob_late", "VOBench test · late")]
 
 
 def jl(p):
@@ -26,7 +28,27 @@ def jl(p):
     except Exception: return None
 
 
+def vob_cell(run, ep, occ=None):
+    import sys
+    sys.path.insert(0, str(ROOT / "z_research/scripts/analysis")); import vobench_split_compare as C
+    C.set_split("v2")
+    if run == "release": d = C.RUNS["release"]
+    elif run == "vobench_release_postft": d = C.RUNS["release+FT"]                   # latest == e30 (predictor 가중치 동일 확인)
+    else: d = R / run / f"eval/surprise_c16t32__vobench_v1_split2_test_{ep}"
+    if not (d / "per_block.json").exists(): return None
+    S = C.surprise(d); by = {}
+    import csv
+    for r in csv.DictReader(C.TEST.open()):
+        if occ is None or r["occlusion"] == occ: by.setdefault(r["block_id"], {})[r["variant"]] = r["video_id"]
+    h = [float(S[v[q]] > S[v[p]]) for v in by.values() for p, q in (("pos_a", "imp_ab"), ("pos_b", "imp_ba"))]
+    return (100 * sum(h) / len(h), f"{len(h)} 쌍", str(d.relative_to(ROOT)))
+
+
 def cell(run, ep, col):
+    if col == "vob":
+        return vob_cell(run, ep)
+    if col == "vob_late":                                                         # 문맥 끝 가림 (late) 쌍만 216 (2026-10-14)
+        return vob_cell(run, ep, "late")
     if col == "v11":
         if run == "release":
             j = jl(R / "release_vith/eval/v11_split_test_from_existing_runs.json"); return (100 * j["overall"], None, "release_vith/eval/v11_split_test_from_existing_runs.json") if j else None
@@ -38,6 +60,11 @@ def cell(run, ep, col):
         if not j: return None
         s = j["surprise"]; cells = {k: v["overall"]["block_pairwise"] for k, v in s.items() if isinstance(v, dict) and "overall" in v and "block_pairwise" in v["overall"]}
         b = max(cells, key=cells.get); return (100 * cells["skip2_w32/avg"], f"{100 * cells[b]:.2f} {b}", str(p.relative_to(ROOT)))
+    if col == "ip2c24":                                                           # 행마다 최고 설정을 고르지 않고 한 칸으로 고정 (2026-10-14)
+        c = cell(run, ep, "ip2")
+        if not c: return None
+        j = jl(ROOT / c[2]); per = j["columns"]["Overall"]["per"]
+        return (per["C24/avg"]["acc"], "C24/avg", c[2])
     if col == "ip2":
         if run == "release":
             p = ROOT / "z_exp/intphys2/vjepa2_vith_intphys2_main_repro/column_best_testsplit.json"
@@ -73,9 +100,11 @@ def main():
             row.append(f"**{fmt}**" if c == dom else fmt)
         L.append(f"| {lab}{'' if not ep else f' `{ep}`'} | " + " | ".join(row) + " |")
     L += ["\n## 열 protocol\n",
+          "- **VOBench test**: `surprise_c16t32`, matched pair, split v2 test 720 쌍 (장면 묶음 단위 held-out, `data_csv/vobench_v1_split_v2`). 릴리즈 값은 VOBench 전체 채점에서 test block 만. **VOBench test · late** = 그중 late (문맥 끝 가림) 216 쌍.",
           "- **v11 test**: `surprise_c16t32`, matched pair, `v11_split_test` 10,752 쌍 (학습 안 한 block 절반). 릴리즈 값은 기존 채점 per_block 에서 추출.",
           "- **Predictor_v1 holdout L1**: 가능 영상뿐 (짝 없음) → 정확도 대신 surprise_c16t32 계산의 평균 L1, holdout 1,000 clip (arm 층화, seed 0). **다른 단위의 열**.",
           "- **IntPhys1 dev**: `intphys1_sliding` (Garrido 공식) `skip2_w32/avg` — 확립 수치 88.89 와 같은 칸. 180 쌍.",
+          "- **IntPhys2 test (C24/avg 고정)**: 같은 산출물에서 C24/avg 칸 하나 — 행마다 다른 설정을 고르는 최고값의 부풀림을 뺀 판.",
           "- **IntPhys2 test**: `analysis/intphys2` growing context, M 48, 6 fps, fp32 + bf16 autocast, 논문 Table 2 방식 열별 최고 (C 11 개 × avg/max) 의 Overall. "
           "Main 장면 split test 126 장면 252 쌍 — ⚠️ 논문 Table 2 (Main 전체) 와 비교 불가.",
           "\n## 칸별 출처 · 보조 값\n", "| 행 | 열 | 값 | 보조 (IntPhys1: 6 칸 중 최고 / IntPhys2: 최고 설정) | 산출물 |", "|---|---|---:|---|---|"]
@@ -85,7 +114,7 @@ def main():
             if v: L.append(f"| {run} {ep or ''} | {n} | {v[0]:.4f} | {v[1] or ''} | `{v[2]}` |")
     L += ["\n## 단서\n",
           "- 한 번씩만 학습했다 (seed 0) — 학습 분산 모름. IntPhys1 180 쌍 · IntPhys2 252 쌍은 95 % CI 가 약 ±7 / ±6 pt.",
-          "- 체크포인트는 각 run 의 마지막 epoch. 학습 데이터 크기가 크게 다르다 (v11 10,752 / Predictor_v1 14,250 / IntPhys1 약 3,750 / IntPhys2 254 clip).",
+          "- 체크포인트는 각 run 의 마지막 epoch. 학습 데이터 크기가 크게 다르다 (v11 10,752 / Predictor_v1 14,250 / IntPhys1 약 3,750 / IntPhys2 254 / VOBench 720 clip).",
           "- IntPhys2 는 짝의 문맥이 픽셀 단위로 같지 않다 (첫 프레임부터 1.7–3.7/255) — v11 · IntPhys1 과 채점의 성격이 다르다.",
           "\n## 재현\n\n```\nCUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6 GPUS=7 bash z_training/eval_matrix.sh\n"
           "CUDA_VISIBLE_DEVICES=7 python z_research/scripts/analysis/predictor_holdout_l1.py --n 1000\npython z_training/harness/matrix.py\n```"]

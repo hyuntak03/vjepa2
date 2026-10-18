@@ -24,6 +24,9 @@ import yaml
 
 ROOT = "/data/hyuntak/project/2026/2027_cvpr/vjepa2"
 TRAIN_CFG = f"{ROOT}/configs/training"
+# 2026-10-16: 노드별 하네스가 자기 config 를 옆에 두고 `extends:` 로 공용 부모를 가져올 수 있게 탐색 경로를 연다.
+#   TRAIN_CFG_DIR=<dir>  (예: z_vll7_training/configs) 를 먼저 보고, 없으면 configs/training 으로 떨어진다.
+TRAIN_CFG_DIRS = [d for d in (os.environ.get("TRAIN_CFG_DIR"), TRAIN_CFG) if d]
 sys.path.insert(0, f"{ROOT}/z_research/scripts/harness")
 from resolve import parse_registry  # noqa: E402  (protocols 레지스트리와 같은 파서)
 
@@ -47,10 +50,15 @@ def merge(dst, src):
 
 
 def load_cfg(name_or_path, seen=()):
-    path = name_or_path if name_or_path.endswith((".yaml", ".yml")) else f"{TRAIN_CFG}/{name_or_path}.yaml"
+    if name_or_path.endswith((".yaml", ".yml")):
+        path = name_or_path
+    else:
+        cands = [f"{d}/{name_or_path}.yaml" for d in TRAIN_CFG_DIRS]
+        path = next((c for c in cands if os.path.isfile(c)), cands[0])
     if not os.path.isfile(path):
-        avail = sorted(f[:-5] for f in os.listdir(TRAIN_CFG) if f.endswith(".yaml") and not f.startswith("_"))
-        die(f"config 없음 -> {path}\n  사용 가능: {', '.join(avail)}")
+        avail = sorted({f[:-5] for d in TRAIN_CFG_DIRS if os.path.isdir(d)
+                        for f in os.listdir(d) if f.endswith(".yaml") and not f.startswith("_")})
+        die(f"config 없음 -> {path}\n  찾은 곳: {', '.join(TRAIN_CFG_DIRS)}\n  사용 가능: {', '.join(avail)}")
     c = yaml.safe_load(open(path, encoding="utf-8")) or {}
     base = c.pop("extends", None)
     if not base:
@@ -137,7 +145,19 @@ def main():
         if a.limit and spec.get("type") == "frames_index":
             spec["limit"] = int(a.limit)
         out.append(spec)
-    if not out:
+    vw = cfg["data"].get("var_window")
+    if vw:   # 가변 창 로더 (app/vjepa_frozen/var_window.py) — data.datasets 대신 var_window.datasets 의 표를 쓴다
+        if not vw.get("datasets"):
+            die("data.var_window.datasets 가 비어 있다")
+        for t in vw["datasets"]:
+            tb = os.path.expandvars(str(t.get("table", "")))
+            if not os.path.isfile(tb):
+                die(f"data.var_window.datasets 의 표가 없다: {t.get('table')!r} "
+                    "(z_training/data/build_fps4_table.py 로 만든다)")
+            t["table"] = tb
+        if not cfg.get("optimization", {}).get("ipe"):
+            die("data.var_window 는 optimization.ipe 가 필요하다 (epoch 길이를 데이터 크기로 정할 수 없다)")
+    elif not out:
         die("data.datasets 가 비어 있다 — 학습 데이터는 아직 정하지 않았다. 돌릴 때 준다:\n"
             "  SET=\"data.datasets=[<이름>]\"  또는 config 의 data.datasets 를 채운다\n"
             f"  후보 (configs/training/datasets.md): {', '.join(sorted(DS))}\n"
@@ -146,6 +166,10 @@ def main():
 
     # ── model.base -> models.md ───────────────────────────────────────────────────
     m = cfg["model"]
+    if m.get("init_predictor"):                          # post-FT 출발점 (우리 run 의 predictor-only ckpt), 2026-10-09
+        m["init_predictor"] = expand(m["init_predictor"])
+        if not os.path.isfile(m["init_predictor"]):
+            die(f"model.init_predictor 가 없다 -> {m['init_predictor']}")
     if "checkpoint" not in m:
         MD = parse_registry(f"{ROOT}/configs/protocols/models.md", "checkpoint")
         base = m.get("base", "vith")
@@ -158,7 +182,9 @@ def main():
 
     # ── val.dataset -> protocols/datasets.md ─────────────────────────────────────
     V = cfg.get("val")
-    if V and V.get("dataset") and not V.get("data"):
+    # 2026-10-16: val.data 를 **일부만** 줘도 되게 한다 (예: frames_stride 만). 레지스트리 값이 기본값으로 깔리고
+    #   config 가 준 키가 이긴다. 전에는 val.data 가 하나라도 있으면 레지스트리 채움을 통째로 건너뛰어 root 가 없었다.
+    if V and V.get("dataset"):
         PD = parse_registry(f"{ROOT}/configs/protocols/datasets.md", "root")
         if V["dataset"] not in PD:
             die(f"val.dataset='{V['dataset']}' 이 configs/protocols/datasets.md 에 없다")
@@ -167,7 +193,7 @@ def main():
             die(f"val.dataset='{V['dataset']}' 은 available: false 다")
         keep = ("root", "index_csv", "frames_root", "frames_pattern", "frames_start", "frames_stride",
                 "block_column", "pair_column", "plausible_column", "type_column", "variant_column", "raw_frames")
-        V["data"] = {k: p[k] for k in keep if k in p}
+        V["data"] = {**{k: p[k] for k in keep if k in p}, **(V.get("data") or {})}   # config 가 이긴다
         if "frames_root" not in V["data"]:
             die(f"val.dataset='{V['dataset']}' 은 frames_root 가 없다 (PNG 직독만 지원)")
     if V is not None and not V.get("data"):
@@ -198,9 +224,10 @@ def main():
     pk = str((m.get("predictor") or {}).get("kind", "oneshot"))
     # 2026-09-27: Ariel 0927 이식 — prefix_full (문맥 양방향 · 미래 전부 양방향) · ar (팔 C, app/vjepa_frozen/ar.py) 추가
     #   (app/vjepa_frozen/utils.py 의 build_predictor whitelist 와 같은 집합)
-    if pk not in ("oneshot", "prefix", "prefix_full", "causal", "ar", "mret", "ctx_ar"):
-        die(f"model.predictor.kind 는 oneshot | prefix | prefix_full | causal | ar | mret: {pk!r}")
-    if pk == "ar":
+    KINDS = ("oneshot", "prefix", "prefix_full", "causal", "ar", "ar_state", "ctx_ar", "ctx_state", "mret")  # utils.build_predictor 와 같은 집합
+    if pk not in KINDS:
+        die(f"model.predictor.kind 는 {' | '.join(KINDS)}: {pk!r}")
+    if pk in ("ar", "ar_state", "ctx_ar", "ctx_state"):
         # 2026-09-27: kind=ar 의 전제를 DRYRUN 에서 잡는다. train.py 도 같은 것을 검사하지만
         #   거기서는 ViT-H 로딩(~2 분) **뒤**에 죽는다.
         meta = cfg.get("meta") or {}
@@ -215,10 +242,13 @@ def main():
         if not bool((cfg.get("loss") or {}).get("target_layer_norm", True)):
             die("kind=ar 는 loss.target_layer_norm: true 가 전제다 (입력·타깃·출력이 모두 LN 공간)")
         ck, tk = m.get("context_encoder_key", "encoder"), m.get("target_encoder_key", "target_encoder")
-        if ck != tk:
-            die(f"kind=ar 는 context_encoder_key == target_encoder_key 여야 한다 ({ck!r} != {tk!r}). "
+        if pk in ("ar", "ar_state") and ck != tk:
+            die(f"kind={pk} 는 context_encoder_key == target_encoder_key 여야 한다 ({ck!r} != {tk!r}). "
                 "AR 은 입력·타깃 모두 LN(target_encoder(블록)) 이라 문맥 encoder 는 안 쓰인다 — "
                 "키가 다르면 안 쓰는 ViT-H 하나가 메모리만 먹는다")
+        if pk in ("ctx_ar", "ctx_state") and ck == tk:
+            die(f"kind={pk} 는 문맥을 **context encoder (online)** 로, 타깃을 target_encoder (EMA) 로 읽는다 — "
+                f"두 키가 같다 ({ck!r}). surprise_c16t32 와 같은 역할 분리를 쓸 것")
     ick = m.get("predictor_init_checkpoint")
     if ick and not os.path.isfile(ick):
         die(f"model.predictor_init_checkpoint 가 없다 -> {ick}")
@@ -230,7 +260,17 @@ def main():
     if not cfg.get("mask"):
         die("mask 리스트가 비어 있다")
 
-    def check_frames(spec, label):
+    def _xp(spec, *keys):
+        """경로 값의 ${VAR} 를 환경변수로 푼다 (2026-10-16). main 은 vast 의 expand() 를 뺐는데 config 에는
+        ${DATA_CSV} 가 남아 있어 natural_ar_state 등이 "csv 가 없다 -> ${DATA_CSV}/..." 로 죽었다.
+        ${} 가 없는 절대경로는 그대로 통과한다 (무해)."""
+        for k in keys:
+            if isinstance(spec.get(k), str):
+                spec[k] = os.path.expandvars(spec[k])
+
+    def check_frames(spec, label, n=n):
+        # n 기본값 = data.n_frames. val 은 **val.n_frames** 로 따로 줄 수 있다 (가변 창은 data.n_frames 가 최대 창이라 val 과 다르다)
+        _xp(spec, "root", "frames_root")
         for k in ("root", "frames_root"):
             if not os.path.isdir(spec[k]):
                 die(f"{label}.{k} 가 없다 -> {spec[k]}")
@@ -280,12 +320,63 @@ def main():
             for k in META_KEYS:
                 spec.pop(k, None)
         elif spec.get("type") == "video_csv":
+            _xp(spec, "csv")
             if not os.path.isfile(spec["csv"]):
                 die(f"data.datasets[{i}].csv 가 없다 -> {spec['csv']}")
+        elif spec.get("type") == "video_window":
+            # 창이 행마다 박혀 있는 인덱스 (phys2d_v1 처럼 "사건이 예측 구간에만" 인 창 세트).
+            # 모델 로드 전에 인덱스 실물 + 행의 n_frames 가 data.n_frames 와 같은지 본다.
+            _xp(spec, "csv")
+            if not os.path.isfile(spec["csv"]):
+                die(f"data.datasets[{i}].csv 가 없다 -> {spec['csv']}")
+            import csv as _csv
+            with open(spec["csv"], newline="", encoding="utf-8") as _f:
+                _rd = _csv.DictReader(_f)
+                if not _rd.fieldnames or not {"path", "start", "stride", "n_frames"} <= set(_rd.fieldnames):
+                    die(f"data.datasets[{i}].csv 에 path,start,stride,n_frames 컬럼이 있어야 한다 -> {spec['csv']}")
+                _r0 = next(_rd, None)
+            if _r0 is None:
+                die(f"data.datasets[{i}].csv 가 비었다 -> {spec['csv']}")
+            if int(_r0["n_frames"]) != n:
+                die(f"data.datasets[{i}].csv 의 n_frames={_r0['n_frames']} != data.n_frames={n} "
+                    f"— 인덱스를 그 길이로 다시 만들 것 (z_training/data/build_phys2d_window_index.py --n-frames {n})")
+            if not os.path.isfile(_r0["path"]):
+                die(f"data.datasets[{i}].csv 첫 행의 영상이 없다 -> {_r0['path']}")
+        elif spec.get("type") == "phys2d_sup":
+            # 2026-10-19: phys2d_sup 영상 + 상태 라벨 (state_head). 창 인덱스 (path,start,stride,n_frames) 또는 clip 목록 ("<mp4> 0")
+            _xp(spec, "csv")
+            if not os.path.isfile(spec["csv"]):
+                die(f"data.datasets[{i}].csv 가 없다 -> {spec['csv']}")
+            with open(spec["csv"]) as _f:
+                _h = _f.readline(); _l = _f.readline()
+            _p0 = (_l.split(",")[0] if _h.startswith("path,") else _h.split()[0]).strip()
+            if not os.path.isfile(_p0) or not os.path.isfile(_p0[:-4] + "_states.npz"):
+                die(f"data.datasets[{i}] 첫 영상 · 라벨이 없다 -> {_p0} (+ _states.npz)")
+            if _h.startswith("path,") and int(_l.split(",")[3]) != n:
+                die(f"data.datasets[{i}].csv 의 n_frames={_l.split(',')[3]} != data.n_frames={n}")
+            if (d.get("aug") or {}).get("random_resized_crop"):
+                die("phys2d_sup 는 data.aug.random_resized_crop 과 같이 못 쓴다 (라벨 좌표와 어긋난다)")
+        elif spec.get("type") == "wall":
+            spec["root"] = expand(spec["root"])
+            for sub in ("obses_u8.npy", "states.pth", "actions.pth"):
+                if not os.path.exists(os.path.join(spec["root"], sub)):
+                    die(f"data.datasets[{i}] (wall) 에 {sub} 가 없다 -> {spec['root']}")
+        elif spec.get("type") == "pusht":
+            spec["root"] = expand(spec["root"])
+            for sub in ("train/obses", "train/states.pth", "train/rel_actions.pth", "val/obses"):
+                if not os.path.exists(os.path.join(spec["root"], sub)):
+                    die(f"data.datasets[{i}] (pusht) 에 {sub} 가 없다 -> {spec['root']}")
         else:
-            die(f"data.datasets[{i}].type={spec.get('type')!r}; frames_index | video_csv")
+            die(f"data.datasets[{i}].type={spec.get('type')!r}; frames_index | video_csv | video_window | phys2d_sup | pusht | wall")
     if cfg.get("val"):
-        check_frames(cfg["val"]["data"], "val.data")
+        # ⚠️ 2026-10-18: encoder·predictor 는 **data.n_frames 로** 지어진다 (app/vjepa_frozen/utils.py
+        #    build_encoders / build_predictor 의 num_frames). val 창이 그보다 길면 토큰 인덱스가 격자를 넘어
+        #    학습을 다 끝낸 뒤 val 에서 **device-side assert** 로 죽는다 (실제로 겪었다: n_frames 16 + val 32).
+        _vn = int(cfg["val"].get("n_frames", n))
+        if _vn > n:
+            die(f"val.n_frames={_vn} > data.n_frames={n} — 모델이 data.n_frames 로 지어져 val 에서 "
+                f"인덱스가 격자를 넘는다. val.n_frames 와 val.context_length 를 줄일 것")
+        check_frames(cfg["val"]["data"], "val.data", n=_vn)
         cfg["val"]["data"].pop("raw_frames", None)
 
     os.makedirs(os.path.dirname(os.path.abspath(a.output)) or ".", exist_ok=True)

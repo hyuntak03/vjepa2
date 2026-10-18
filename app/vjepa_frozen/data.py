@@ -9,6 +9,9 @@
                  샘플마다 무작위로 고를 수 있다 (시간 jitter).
   video_csv      "<mp4 경로> <라벨>" 공백 구분 csv (src/datasets/video_dataset.VideoDataset).
                  IntPhys2 / EK100 / Kinetics 류.
+  video_window   mp4 + **행마다 고정된 창** csv (path, start, stride, n_frames, ...). 무작위 샘플링이
+                 아니라 인덱스가 지정한 프레임을 정확히 읽는다. phys2d_v1 처럼 "사건이 예측 구간에만
+                 들어가는 창" 을 미리 골라 둔 세트용 (z_training/data/build_phys2d_window_index.py).
 
 전처리는 채점(evals/world_model_analysis/data.py:clip) 과 같은 커널을 쓴다 —
 bilinear, antialias=False, ImageNet mean/std. 증강은 기본 꺼져 있고
@@ -256,6 +259,125 @@ def make_video_csv_dataset(spec: dict, n_frames: int, transform: ClipTransform):
     return VideoDataset(data_paths=[spec["csv"]], dataset_fpcs=[n_frames], **kw)
 
 
+# ----------------------------------------------------------------------------- video_window
+class VideoWindowDataset(torch.utils.data.Dataset):
+    """csv 한 행 = **창 하나** (클립 하나가 아니다). decord 로 그 프레임만 읽는다.
+
+    csv 컬럼 (헤더 필수): path, start, stride, n_frames [, 그 밖은 무시]
+      프레임 = start, start+stride, ... (n_frames 장). 행의 n_frames 는 config 의 data.n_frames 와
+      같아야 한다 (다르면 죽는다 — 인덱스와 config 가 어긋난 채로 도는 것을 막는다).
+
+    spec 키
+      csv       인덱스 경로 (필수)
+      limit     앞 N 행만 (디버그)
+      include / exclude  {column: [values]} 행 필터 (scenario / category 로 거를 때)
+      decord_threads  리더당 스레드 (기본 1 — worker 여럿이면 -1 은 과다구독)
+    """
+
+    def __init__(self, spec: dict, n_frames: int, transform: ClipTransform):
+        import decord  # noqa: F401  (import 실패를 여기서 잡는다)
+        self.spec = spec
+        self.n_frames = int(n_frames)
+        self.transform = transform
+        self.threads = int(spec.get("decord_threads", 1))
+        path = spec["csv"]
+        if not os.path.isfile(path):
+            raise FileNotFoundError(f"video_window 인덱스가 없다: {path}")
+        include, exclude = spec.get("include"), spec.get("exclude")
+        with open(path, newline="", encoding="utf-8") as f:
+            rows = [r for r in csv.DictReader(f) if _passes(r, include, exclude)]
+        if not rows:
+            raise ValueError(f"{path}: 필터(include={include}, exclude={exclude}) 뒤에 행이 0개다")
+        lim = spec.get("limit")
+        if lim:
+            rows = rows[: int(lim)]
+        bad = {int(r["n_frames"]) for r in rows} - {self.n_frames}
+        if bad:
+            raise ValueError(f"{path}: 행의 n_frames={sorted(bad)} 가 data.n_frames={self.n_frames} 와 다르다 "
+                             f"— 인덱스를 그 길이로 다시 만들 것 (build_phys2d_window_index.py --n-frames)")
+        self.rows = [(r["path"], int(r["start"]), int(r["stride"])) for r in rows]
+        p0 = self.rows[0][0]
+        if not os.path.isfile(p0):
+            raise FileNotFoundError(f"영상이 없다: {p0} (인덱스의 경로 접두사가 이 머신과 다른가)")
+        logger.info(f"[video_window] {path}: {len(self.rows)} windows, n_frames={self.n_frames}, "
+                    f"strides={sorted({s for _, _, s in self.rows})}, include={include}, exclude={exclude}")
+
+    def __len__(self):
+        return len(self.rows)
+
+    def __getitem__(self, i: int):
+        import decord
+        path, start, stride = self.rows[i]
+        idx = np.arange(start, start + self.n_frames * stride, stride, dtype=np.int64)
+        vr = decord.VideoReader(path, num_threads=self.threads)
+        if idx[-1] >= len(vr):
+            raise IndexError(f"{path}: 창 마지막 프레임 {idx[-1]} >= 영상 길이 {len(vr)} "
+                             f"(start={start}, stride={stride}, n_frames={self.n_frames})")
+        buf = torch.from_numpy(vr.get_batch(idx).asnumpy())      # (T, H, W, 3) uint8
+        return [self.transform(buf)], 0, [idx]
+
+
+# ----------------------------------------------------------------------------- phys2d_sup (상태 라벨)
+class Phys2DSupDataset(torch.utils.data.Dataset):
+    """phys2d_sup 영상 + 같은 창의 상태 라벨 (2026-10-19, app/vjepa_frozen/state_head.py 보조 손실용).
+
+    csv 두 형식 모두 읽는다
+      창 인덱스 (헤더 path,start,stride,n_frames)  — 행의 창 그대로 (build_phys2d_window_index.py)
+      clip 목록 ("<mp4> 0", 헤더 없음)             — 클립 안에서 연속 n_frames 장을 무작위 시작으로 (stride 1)
+    반환 ([clip], 0, [idx], labels) — labels = state_head.pack_labels (정체 48 칸, 튜블릿마다 마지막 장).
+    좌우 반전은 여기서 정해 영상 · 라벨에 같이 건다 (transform 의 hflip 은 끈다). random_resized_crop 은 라벨과 어긋나 금지.
+    """
+
+    def __init__(self, spec: dict, n_frames: int, transform: ClipTransform, hflip_p: float, tubelet: int = 2):
+        import decord  # noqa: F401
+        if transform.rrc or transform.window:
+            raise ValueError("phys2d_sup: random_resized_crop · window 는 라벨 좌표와 어긋난다 — 끌 것")
+        self.n_frames, self.transform, self.hflip_p, self.tubelet = int(n_frames), transform, float(hflip_p), int(tubelet)
+        self.threads = int(spec.get("decord_threads", 1))
+        path = spec["csv"]
+        with open(path, newline="", encoding="utf-8") as f:
+            head = f.readline()
+        if head.startswith("path,"):
+            with open(path, newline="", encoding="utf-8") as f:
+                rows = [r for r in csv.DictReader(f) if _passes(r, spec.get("include"), spec.get("exclude"))]
+            bad = {int(r["n_frames"]) for r in rows} - {self.n_frames}
+            if bad:
+                raise ValueError(f"{path}: 행의 n_frames={sorted(bad)} 가 data.n_frames={self.n_frames} 와 다르다")
+            self.rows = [(r["path"], int(r["start"]), int(r["stride"])) for r in rows]
+        else:
+            with open(path) as f:
+                self.rows = [(l.split()[0], -1, 1) for l in f if l.strip()]
+        if spec.get("limit"):
+            self.rows = self.rows[: int(spec["limit"])]
+        if not self.rows:
+            raise ValueError(f"{path}: 행이 0 개")
+        logger.info(f"[phys2d_sup] {path}: {len(self.rows)} 행 ({'창' if self.rows[0][1] >= 0 else 'clip, 무작위 시작'}), "
+                    f"n_frames={self.n_frames}, hflip_p={self.hflip_p}")
+
+    def __len__(self):
+        return len(self.rows)
+
+    def __getitem__(self, i: int):
+        import decord
+        from app.vjepa_frozen.state_head import pack_labels
+        from z_training.data.phys2d_sup_labels import load_clip, window_labels
+        path, start, stride = self.rows[i]
+        lab = load_clip(path)
+        T = lab["present"].shape[0]
+        if start < 0:
+            start = random.randint(0, T - self.n_frames * stride)
+        idx = np.arange(start, start + self.n_frames * stride, stride, dtype=np.int64)
+        vr = decord.VideoReader(path, num_threads=self.threads)
+        if idx[-1] >= min(len(vr), T):
+            raise IndexError(f"{path}: 창 끝 {idx[-1]} >= 영상 {len(vr)} / 라벨 {T}")
+        x = self.transform(torch.from_numpy(vr.get_batch(idx).asnumpy()))
+        flip = self.hflip_p > 0 and random.random() < self.hflip_p
+        if flip:
+            x = x.flip(-1).contiguous()
+        y = pack_labels(window_labels(lab, start, self.n_frames, stride, tubelet=self.tubelet, reduce="last"), flip=flip)
+        return [x], 0, [idx], {k: torch.from_numpy(v) for k, v in y.items()}
+
+
 # ----------------------------------------------------------------------------- 합치기
 class WeightedConcat(torch.utils.data.Dataset):
     """여러 데이터셋을 이어 붙이고 샘플 가중치를 낸다 (DistributedWeightedSampler 용)."""
@@ -304,9 +426,31 @@ def build_dataset(cfg_data: dict, n_frames: int, resolution: int) -> WeightedCon
             if grid:
                 raise ValueError("data.window_grid 는 frames_index 데이터셋에서만 된다 (video_csv 는 raw_span 을 못 읽는다)")
             dsets.append(make_video_csv_dataset(s, n_frames, tf))
+        elif t == "video_window":
+            if grid:
+                raise ValueError("data.window_grid 는 video_window 와 같이 못 쓴다 (창은 인덱스가 이미 정했다)")
+            dsets.append(VideoWindowDataset(s, n_frames, tf))
+        elif t == "phys2d_sup":
+            if grid:
+                raise ValueError("data.window_grid 는 phys2d_sup 와 같이 못 쓴다")
+            tf_nf = ClipTransform(resolution, hflip_p=0.0, square_crop=aug.get("square_crop", "none"),
+                                  out_uint8=bool(cfg_data.get("transfer_uint8", False)))
+            dsets.append(Phys2DSupDataset(s, n_frames, tf_nf, hflip_p=aug.get("hflip_p", 0.0)))
+        elif t in ("pusht", "wall"):
+            # action 조건부 궤적 (Push-T 2026-10-09, Wall 2026-10-11). 블록 = 관측 1 장 복제 → n_frames = 2 × 관측 수. aug 없음
+            from app.vjepa_frozen.pusht_data import make_traj_dataset
+            if n_frames % 2:
+                raise ValueError(f"{t}: data.n_frames 는 2 의 배수 (관측 복제 tubelet)")
+            dsets.append(make_traj_dataset(s, s.get("split", "train"), n_blocks=n_frames // 2,
+                                      frameskip=int(s.get("frameskip", 5)), resolution=resolution, seed=int(s.get("seed", 0)),
+                                      subset_frac=float(s.get("subset_frac", 1.0)), subset_seed=int(s.get("subset_seed", 0)),
+                                      virtual_len=int(s.get("virtual_len", 0))))
         else:
-            raise ValueError(f"data.datasets[].type={t!r}; frames_index | video_csv")
+            raise ValueError(f"data.datasets[].type={t!r}; frames_index | video_csv | video_window | phys2d_sup | pusht | wall")
         weights.append(s.get("weight"))
+    has_lab = [isinstance(d, Phys2DSupDataset) for d in dsets]
+    if any(has_lab) and not all(has_lab):
+        raise ValueError("phys2d_sup (라벨 있음) 와 다른 데이터셋을 섞을 수 없다 (collate 가 라벨을 한꺼번에 쌓는다)")
     use_w = any(w is not None for w in weights)
     if use_w:
         weights = [1.0 if w is None else float(w) for w in weights]
@@ -507,6 +651,10 @@ class TrainCollator:
 
     def __call__(self, batch):
         clips = torch.stack([b[0][0] for b in batch])            # (B, 3, T, H, W)
+        if len(batch[0]) > 3:                                    # phys2d_sup 상태 라벨 (2026-10-19) — info 자리로 넘긴다
+            if self.mask_sampler is not None:
+                raise ValueError("phys2d_sup 라벨은 meta.sync_masks 경로에서만 넘긴다")
+            return clips, None, None, {"labels": {k: torch.stack([b[3][k] for b in batch]) for k in batch[0][3]}}
         if self.mask_sampler is None:
             return clips, None, None, None
         enc, pred, info = self.mask_sampler(len(batch))

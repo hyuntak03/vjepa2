@@ -1,0 +1,13 @@
+# =============================================================================
+# vast AR-state ep70 post-FT — VOBench split v2 train + gravity train 의 가능 영상 (2026-10-15, 사용자: PFT 에 gravity 포함)
+#
+#   GPUS=4 bash z_training/train.sh vobench_vast_ar_state_postft_g
+#   채점 모델 이름 = vith_vast_ar_state_ep70_vobftg (cvpr/registry/models.yaml)
+#
+# vobench_vast_ar_state_postft 와 과제 · lr · 30 epoch · 출발점이 같고 데이터만 다르다 (vobench_split2g_train, 828 clip).
+# =============================================================================
+extends: vobench_vast_ar_state_postft
+
+data:
+  datasets:
+    - {name: vobench_split2g_train, weight: 1.0}

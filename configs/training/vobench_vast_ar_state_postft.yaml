@@ -1,0 +1,13 @@
+# =============================================================================
+# vast AR-state ep70 predictor post-FT — VOBench split v2 train 의 가능 영상 (2026-10-14)
+#
+#   GPUS=4 bash z_training/train.sh vobench_vast_ar_state_postft
+#   GPUS=4 bash z_training/eval.sh vobench_vast_ar_state_postft vobench_v1_split2_test
+#
+# vobench_ar_state_postft_v2 (ariel AR-state ep40 출발) 와 데이터 · 과제 (문맥 8 블록 → 8 블록 rollout) · lr · 30 epoch 가 같고 출발점만 다르다.
+# 출발 = z_training/vast/ar_state/latest.pt (arch kind ar + ar_feedback state → 로더가 ar_state 로 읽고 config kind 와 대조한다).
+# =============================================================================
+extends: vobench_ar_state_postft_v2
+
+model:
+  predictor_init_checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_training/vast/ar_state/latest.pt

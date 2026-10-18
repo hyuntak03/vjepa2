@@ -1,0 +1,14 @@
+# =============================================================================
+# 릴리즈 V-JEPA 2 ViT-H predictor post-FT — VOBench_v1 **전체** 가능 영상 (held-out 없음, 상한선, 2026-10-14)
+#
+#   GPUS=4 bash z_training/train.sh vobench_release_postft_all
+#   GPUS=4 bash z_training/eval.sh vobench_release_postft_all vobench_v1
+#
+# 묻는 것: 채점 영상의 가능 arm 을 다 보면 어디까지 오르나 (상한선). held-out 판 (vobench_release_postft) 과 같은 설정 · epoch,
+#   데이터만 2 배 (1,440 clip → 45 step/epoch). 비교는 같은 split v2 test 720 쌍에서 (그 쌍의 가능 영상을 이 판은 학습에서 봤다).
+# =============================================================================
+extends: vobench_release_postft
+
+data:
+  datasets:
+    - {name: vobench_allpos_train, weight: 1.0}

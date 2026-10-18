@@ -336,7 +336,7 @@ def build_from_config(cfg: dict, device: torch.device) -> VJEPA2Bundle:
     # attention 규칙(kind) 은 **체크포인트가 스스로 선언한다** (`arch.kind`).
     # 릴리즈 predictor 에는 그 키가 없으므로 "default" 가 된다. config 가 다른 값을 말하면
     # 죽는다 — 조용히 틀린 mask 로 채점하는 것이 제일 비싼 실패다 (CLAUDE.md §1-2 참고).
-    ck_kind = str(((pstate or {}).get("arch") or {}).get("kind") or "").strip() or None
+    ck_kind = predictor_variants.kind_from_arch((pstate or {}).get("arch"))   # vast `ar + ar_feedback: state` → ar_state
     cfg_kind = predictor_cfg.get("kind")
     if cfg_kind is not None and ck_kind is not None and str(cfg_kind) != ck_kind:
         raise ValueError(
@@ -382,6 +382,18 @@ def build_from_config(cfg: dict, device: torch.device) -> VJEPA2Bundle:
             raise RuntimeError(f"predictor_checkpoint 모양 불일치 {len(bad)}개 (key, ckpt, model): {bad[:3]} — "
                                "protocol yaml 의 model.predictor 와 학습 run 의 predictor 구조가 다르다")
         _load_state_dict(predictor, pstate["predictor"], tag=f"predictor<-{os.path.basename(pc_path)}")
+        if pstate.get("encoder_lora"):
+            # 2026-10-18: app/vjepa_frozen 학습이 context encoder 에 LoRA 를 달았다 → 같은 자리에 다시 붙이고 가중치를 읽는다
+            if not dual_encoder or context_encoder is target_encoder:
+                raise ValueError(f"{pc_path} 에 encoder LoRA 가 있다 — dual_encoder: true (context ≠ target) 로 채점해야 한다")
+            from app.vjepa_frozen import lora as _LR
+            lc = pstate.get("encoder_lora_cfg") or {}
+            _LR.apply_lora(context_encoder, int(lc["rank"]), float(lc["alpha"]), lc["targets"])
+            _LR.load_lora(context_encoder, pstate["encoder_lora"])
+            context_encoder = context_encoder.to(device=device, dtype=dtype).eval()
+            for p_ in context_encoder.parameters():
+                p_.requires_grad_(False)
+            logger.info(f"context encoder LoRA <- {pc_path} ({lc})")
         del pstate
     else:
         _load_state_dict(predictor, state["predictor"], tag="predictor")

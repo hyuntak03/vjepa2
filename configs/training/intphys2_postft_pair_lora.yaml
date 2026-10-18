@@ -1,0 +1,17 @@
+# =============================================================================
+# 릴리즈 ViT-H predictor post-FT + **context encoder LoRA** — IntPhys 2 Main 샘플 (쌍) 단위 split (2026-10-18 사용자: "encoder 엔 LoRA 달고 encoder 까지 열어서")
+#
+#   GPUS=4 bash z_training/train.sh intphys2_postft_pair_lora
+#   intphys2_postft_pair (predictor 만, 같은 split · 창 · step) 와 한 변수만 다르다: context encoder (online `encoder`) 의 qkv · proj · fc1 · fc2 에 LoRA (rank 8).
+#   target encoder (EMA) 는 얼린 채 (타깃이 움직이지 않는다). LoRA lr = predictor lr × 10. 구현 app/vjepa_frozen/lora.py, 채점기는 체크포인트의 encoder_lora 를 읽는다.
+#   채점: analysis/intphys2/configs/vjepa2_vith_intphys2_pair_{test,train}_postft_pair_lora.yaml (MainPair = test 쌍, MainPairTrain = 학습 쌍)
+# =============================================================================
+extends: intphys2_postft_pair
+
+model:
+  encoder_lora:
+    rank: 8
+    alpha: 16
+    targets: [qkv, proj, fc1, fc2]
+    lr_mult: 10
+    act_ckpt: true

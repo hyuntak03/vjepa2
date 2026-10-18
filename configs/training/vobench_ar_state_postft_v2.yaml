@@ -1,0 +1,10 @@
+# =============================================================================
+# vobench_ar_state_postft 를 누수 없는 split v2 로 다시 (2026-10-14). v1 split 은 test 가능 영상 52 개가 train 과 같은 설정 · 궤적.
+#   GPUS=4 bash z_training/train.sh vobench_ar_state_postft_v2
+#   GPUS=4 bash z_training/eval.sh vobench_ar_state_postft_v2 vobench_v1_split2_test
+# =============================================================================
+extends: vobench_ar_state_postft
+
+data:
+  datasets:
+    - {name: vobench_split2_train, weight: 1.0}

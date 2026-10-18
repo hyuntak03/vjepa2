@@ -96,18 +96,22 @@ def build_predictor(m: dict, encoder_embed_dim: int, state: Optional[dict], devi
             raise KeyError(f"{init_ck}: 'predictor' 키가 없다")
         logger.info(f"predictor 초기값 <- {init_ck} (model.predictor_init_checkpoint)")
         # 2026-09-27: 모든 kind 가 같은 160 키라 strict 로드는 kind 가 달라도 통과한다 — 체크포인트 arch.kind 와 맞춘다
-        _ck_kind = (state.get("arch") or {}).get("kind")
+        from analysis.predictors import kind_from_arch
+        _ck_kind = kind_from_arch(state.get("arch"))          # vast `ar + ar_feedback: state` → ar_state
         _want = str(pc.get("kind", "oneshot"))
         _same = _ck_kind == _want or {_ck_kind, _want} <= {"oneshot", "default"}   # oneshot = default (릴리즈 위상)
         if _ck_kind and not _same:
             raise ValueError(f"{init_ck}: arch.kind={_ck_kind!r} 인데 model.predictor.kind={_want!r} 다 (다른 규칙의 가중치로 시작하게 된다)")
+    if "kv_rollout" in pc:
+        extra["kv_rollout"] = bool(pc["kv_rollout"])          # ar 모드 rollout KV 캐시 (2026-10-10, ariel)
     # ── kind: oneshot(기본, 릴리즈) | prefix(문맥 양방향·미래 block-causal) | causal — Ariel 학습 코드 (2026-09-22) 이식.
     #    prefix 판은 파라미터 이름·모양이 릴리즈와 같아 strict 로드가 되고, attention 마스크만 다르다
     #    (src/models/rollout_predictor.py). 채점기는 체크포인트 arch.kind 로 규칙을 읽는다.
     kind = str(pc.get("kind", "oneshot"))
-    if kind not in ("oneshot", "prefix", "prefix_full", "causal", "ar", "ctx_ar", "mret"):
-        raise ValueError(f"model.predictor.kind 는 oneshot | prefix | prefix_full | causal | ar | ctx_ar | mret: {kind!r}")
-    # ar (2026-09-26, Ariel 팔 C · 2026-09-27 이식): mask token 없이 LN(h) 전 블록을 넣는 자기회귀 판. 학습 손실·val 은 app/vjepa_frozen/ar.py
+    KINDS = ("oneshot", "prefix", "prefix_full", "causal", "ar", "ctx_ar", "ar_state", "ctx_state", "mret")
+    if kind not in KINDS:
+        raise ValueError(f"model.predictor.kind 는 {' | '.join(KINDS)}: {kind!r}")
+    # ar (2026-09-26, Ariel 팔 C · 2026-09-27 이식): mask token 없이 LN(h) 전 블록을 넣는 자기회귀 판. ar_state (2026-10-10) = ar + 상태 되먹임. 학습 손실·val 은 app/vjepa_frozen/ar.py
     if kind != "oneshot":
         from src.models.rollout_predictor import vit_prefix_predictor
         common = dict(
@@ -117,14 +121,15 @@ def build_predictor(m: dict, encoder_embed_dim: int, state: Optional[dict], devi
             predictor_embed_dim=int(pc.get("embed_dim", 384)), depth=int(pc.get("depth", 12)),
             num_heads=int(pc.get("num_heads", 12)), num_mask_tokens=int(pc.get("num_mask_tokens", 10)),
             use_rope=bool(m.get("use_rope", True)), use_sdpa=bool(m.get("use_sdpa", True)),
-            n_registers=int(pc.get("n_registers", 0)), **extra)
+            n_registers=int(pc.get("n_registers", 0)), action_dim=int(pc.get("action_dim", 0)), **extra)
         if kind == "mret":
             # DC1(b) 움직임 정렬 조회 (2026-09-25, src/models/mret_predictor.py). 새 키 mret_* 는 체크포인트에 없어도 된다.
             from src.models.mret_predictor import vit_mret_predictor
             mk = {k: pc[k] for k in ("mret_hidden", "mret_beta_init", "mret_sigma", "mret_learn_sigma", "mret_per_layer", "mret_vmax") if k in pc}
-            pred = vit_mret_predictor(**common, **mk)
+            pred = vit_mret_predictor(**{k: v for k, v in common.items() if k not in ("action_dim", "kv_rollout")}, **mk)
         else:
             pred = vit_prefix_predictor(mask_mode=kind, **common)
+        init_path = m.get("init_predictor")            # ariel (2026-10-09): 우리 run 의 predictor-only ckpt 에서 시작, type/action embed 만 새로
         if state is not None:
             sd = _clean_backbone_key(state["predictor"])
             if kind == "mret":
@@ -136,6 +141,13 @@ def build_predictor(m: dict, encoder_embed_dim: int, state: Optional[dict], devi
             else:
                 msg = pred.load_state_dict(sd, strict=True)
                 logger.info(f"predictor({kind}) <- checkpoint['predictor'] (strict): {msg}")
+        elif init_path:
+            ck = torch.load(init_path, map_location="cpu", weights_only=False)
+            r = pred.load_state_dict(ck["predictor"], strict=False)
+            allowed = {"action_embed.weight", "action_embed.bias", "type_embed"}
+            if set(r.missing_keys) - allowed or r.unexpected_keys:
+                raise RuntimeError(f"init_predictor {init_path}: missing {r.missing_keys} unexpected {r.unexpected_keys}")
+            logger.info(f"predictor({kind}) <- {init_path} (epoch {ck.get('epoch')}, step {ck.get('step')}); 새로 초기화: {sorted(r.missing_keys) or '없음'}")
         else:
             logger.info(f"predictor({kind}): 새로 초기화 (scratch)")
         pred = pred.to(device)
@@ -172,16 +184,32 @@ def load_base_checkpoint(path: str) -> dict:
 
 def init_opt(predictor: nn.Module, iterations_per_epoch: int, start_lr: float, ref_lr: float,
              final_lr: float, warmup_epochs: float, num_epochs: int, wd: float, final_wd: float,
-             ipe_scale: float = 1.0, betas=(0.9, 0.999), eps: float = 1e-8, use_scaler: bool = False):
-    """app/vjepa/utils.init_opt 의 predictor-only 판. bias / 1-D 파라미터는 weight decay 제외."""
+             ipe_scale: float = 1.0, betas=(0.9, 0.999), eps: float = 1e-8, use_scaler: bool = False,
+             is_anneal: bool = False, anneal_epochs: float = 0.0):
+    """app/vjepa/utils.init_opt 의 predictor-only 판. bias / 1-D 파라미터는 weight decay 제외.
+
+    lr 스케줄 세 가지 (vast 이식, 2026-10-16)
+      기본                : WarmupCosineSchedule (warmup -> cosine -> final_lr)
+      is_anneal           : LinearDecaySchedule (ref_lr -> final_lr 선형). 릴리즈 cooldown 규약 — `optimization.anneal_ckpt` 와 같이 쓴다
+      anneal_epochs > 0   : **WSD** (warmup -> 상수 ref_lr -> 마지막 anneal_epochs 선형 감소). 공식 `src/utils/schedulers.WSDSchedule`.
+                            두 단계 (상수 + cooldown) 와 같은 lr 모양을 run 하나로 낸다 — vast 의 natural_ar_vw* · ctxt_video 가 이것"""
     decay = [p for n, p in predictor.named_parameters() if p.requires_grad and ("bias" not in n) and (len(p.shape) != 1)]
     no_decay = [p for n, p in predictor.named_parameters() if p.requires_grad and (("bias" in n) or (len(p.shape) == 1))]
     param_groups = [{"params": decay},
                     {"params": no_decay, "WD_exclude": True, "weight_decay": 0}]
     optimizer = torch.optim.AdamW(param_groups, betas=tuple(betas), eps=eps)
     T_max = int(ipe_scale * num_epochs * iterations_per_epoch)
-    scheduler = WarmupCosineSchedule(optimizer, warmup_steps=int(warmup_epochs * iterations_per_epoch),
-                                     start_lr=start_lr, ref_lr=ref_lr, final_lr=final_lr, T_max=T_max)
+    if is_anneal:
+        from src.utils.schedulers import LinearDecaySchedule
+        scheduler = LinearDecaySchedule(optimizer, ref_lr=ref_lr, final_lr=final_lr, T_max=T_max)
+    elif anneal_epochs > 0:
+        from src.utils.schedulers import WSDSchedule
+        scheduler = WSDSchedule(optimizer, warmup_steps=int(warmup_epochs * iterations_per_epoch),
+                                anneal_steps=int(anneal_epochs * iterations_per_epoch), T_max=T_max,
+                                start_lr=start_lr, ref_lr=ref_lr, final_lr=final_lr)
+    else:
+        scheduler = WarmupCosineSchedule(optimizer, warmup_steps=int(warmup_epochs * iterations_per_epoch),
+                                         start_lr=start_lr, ref_lr=ref_lr, final_lr=final_lr, T_max=T_max)
     wd_scheduler = CosineWDSchedule(optimizer, ref_wd=wd, final_wd=final_wd, T_max=T_max)
     scaler = torch.cuda.amp.GradScaler() if use_scaler else None
     return optimizer, scaler, scheduler, wd_scheduler
@@ -189,7 +217,7 @@ def init_opt(predictor: nn.Module, iterations_per_epoch: int, start_lr: float, r
 
 # ----------------------------------------------------------------------------- checkpoint
 def save_checkpoint(path: str, predictor: nn.Module, optimizer, scaler, epoch: int, step: int,
-                    loss: float, cfg: dict, arch: dict):
+                    loss: float, cfg: dict, arch: dict, extra: dict | None = None):
     """predictor 만 담는다 (encoder 는 base checkpoint 를 가리킨다).
 
     키 `predictor` 는 채점기(analysis/intphys2/model.py: model.predictor_checkpoint) 와
@@ -203,6 +231,8 @@ def save_checkpoint(path: str, predictor: nn.Module, optimizer, scaler, epoch: i
             "context_encoder_key": cfg["model"].get("context_encoder_key", "encoder"),
             "target_encoder_key": cfg["model"].get("target_encoder_key", "target_encoder"),
             "arch": arch, "config": cfg, "format": "vjepa_frozen/predictor-only/v1"}
+    if extra:                                                 # 2026-10-18: encoder_lora · encoder_lora_cfg (app/vjepa_frozen/lora.py)
+        save.update(extra)
     tmp = path + ".tmp"
     torch.save(save, tmp)
     os.replace(tmp, path)                                     # 저장 중 죽어도 latest.pt 가 반쪽이 안 된다

@@ -1,0 +1,45 @@
+# =============================================================================
+# vast AR-state ep70 predictor post-FT + **상태 supervision** — phys2d_sup_v1 (2026-10-19, 사용자 결정)
+#
+#   DRYRUN=1 bash z_training/train.sh phys2d_sup_vast_ar_state_pft
+#   GPUS=4 bash z_training/train.sh phys2d_sup_vast_ar_state_pft
+#
+# 출발 = vast AR-state ep70 (vobench_vast_ar_state_postft 와 같다: C8 → K8 블록, TF + rollout 8, lr 5e-5).
+# 바꾼 것 두 가지:
+#   데이터 : phys2d_sup_v1_state (2D 물리 67,334 창, 사건은 예측 구간에) — 라벨을 같이 읽는 type: phys2d_sup
+#   손실   : 기존 AR L1 (TF + rollout) + weight × state_head 손실
+# state_head (app/vjepa_frozen/state_head.py): predictor 출력 (encoder 공간 1280) 을 블록마다 정체 쿼리 48 개 (모양 6 × 색 8) 로
+#   attention pooling → (T, 48, 1280) → 공유 head 3 개: 존재 (BCE, 그 블록까지 본 적 있나) · 위치 (x, y)/256 (L1) ·
+#   속도 (cos, sin, ‖v‖/8) (L1, 속력 < 0.5 px/장이면 cos·sin 끔). 위치 · 속도는 본 적 있고 화면 안이면 **가려져 있어도** 건다.
+#   TF 출력 (위치 b → 블록 b+1) 과 rollout 출력 (걸음 r → 블록 C+r) 둘 다. 라벨 = 그 블록 마지막 장.
+# ⚠️ 상태 라벨은 관측만으로 얻는 정보가 아니다 — "관측만으로 학습" 주장과 섞지 말 것 (CLAUDE.md §12 질문 6).
+#    도메인 밖 판정 (IntPhys 1 · VOBench) 을 같이 본다 — in-loop val 은 IntPhys 1 dev (natural_ar_state 에서 물려받음).
+# =============================================================================
+extends: vobench_vast_ar_state_postft
+
+data:
+  n_frames: 32                # = 창 인덱스의 n_frames (C8 + K8 블록, 자르지 않는다)
+  batch_size: 12              # rank 당 (vobench_vast_ar_state_postft 실측 18.3 G / 24 G)
+  num_workers: 6
+  datasets:
+    - {name: phys2d_sup_v1_state, weight: 1.0}
+  aug:
+    hflip_p: 0.5              # 영상 · 라벨에 같이 (Phys2DSupDataset)
+    random_resized_crop: null
+    square_crop: none         # 256² 원본
+
+state_head:
+  weight: 1.0                 # 전체 = AR L1 + weight × (존재 + 위치 + 속도)
+  w: {exist: 1.0, pos: 1.0, vel: 1.0}
+  split: {tf: 1.0, ar: 1.0}   # TF 출력 · rollout 출력에 거는 비중
+  lr_mult: 10                 # head lr = 스케줄 lr × 10 (새로 짓는 head)
+  num_heads: 16
+  hidden: 512
+
+optimization:
+  epochs: 15
+  ipe: 300                    # optimizer step / epoch (고정). 300 × 15 = 4,500 step × 48 = 21.6 만 창 (≈ 창 인덱스 3.2 바퀴)
+  lr: 5.0e-5
+  start_lr: 1.0e-6
+  final_lr: 1.0e-6
+  warmup: 1
