@@ -32,6 +32,7 @@ ap.add_argument("--ctx", type=int, nargs="+", default=[4, 8, 16])
 ap.add_argument("--eval_every", type=int, default=1000)
 ap.add_argument("--n_eval", type=int, default=192)
 ap.add_argument("--root", default="/workspace/dataset/training_data/phys2d_sup_v2")
+ap.add_argument("--rows", default="boundary", help="행 목록 파일 이름 (boundary | uniform)")
 a = ap.parse_args()
 dev, S, TUB, K = "cuda", 256, 2, 16
 torch.manual_seed(0)
@@ -55,7 +56,7 @@ n_par = sum(p.numel() for p in head.parameters())
 def source(split, ctxs):
     ds = VarWindowBatches.__new__(VarWindowBatches)
     ds.tubelet = TUB; ds.transform = type("T", (), {"resolution": 256})()
-    ds._init_boundary(dict(name=split, p=1.0, manifest=f"{a.root}/{split}/boundary.tsv", stride=1, context_frames=ctxs, predict_frames=K,
+    ds._init_boundary(dict(name=split, p=1.0, manifest=f"{a.root}/{split}/{a.rows}.tsv", stride=1, context_frames=ctxs, predict_frames=K,
                            crop_ratio=[1, 1], hflip_p=0.0, labels="phys2d_sup"))
     return ds
 
@@ -88,7 +89,29 @@ eval_items = [va.bnd_items[rng.randrange(lo_va, len(va.bnd_items))] for _ in ran
 
 
 @torch.no_grad()
+def evaluate_single():
+    """single head (물체 1 개): single_losses 의 기록을 자리별로 평균 (컨텍스트 TF · 예측 TF · rollout)"""
+    head.eval()
+    agg = {k: {} for k in ("tf_ctx", "tf_pred", "rollout")}
+    erng = random.Random(1)
+    for i in range(0, len(eval_items), a.bs):
+        x, lab = batch(va, eval_items[i:i + a.bs], 8, erng)
+        p_tf, p_ar, C, R = features(x, 8); nb = C + R
+        o_tf, o_ar = head(p_tf, S), head(p_ar, S)
+        sl = lambda a_, b_: SHM.slice_blocks(lab, a_, b_)
+        cut = lambda o, a_, b_: {k: v[:, a_:b_] for k, v in o.items()}
+        for key, o, l_ in (("tf_ctx", cut(o_tf, 0, C - 1), sl(1, C)), ("tf_pred", cut(o_tf, C - 1, nb - 1), sl(C, nb)), ("rollout", o_ar, sl(C, nb))):
+            _, g = SHM.single_losses(o, l_, W)
+            for k_, v_ in g.items():
+                agg[key].setdefault(k_, []).append(v_)
+    head.train()
+    return {k: {k_: float(np.nanmean(v_)) for k_, v_ in d.items()} for k, d in agg.items()}
+
+
+@torch.no_grad()
 def evaluate():
+    if getattr(head, "single", False):
+        return evaluate_single()
     head.eval()
     acc = {k: {"vis": [], "hid": [], "rec": [], "neg": [], "id": [], "conc": []} for k in ("tf_ctx", "tf_pred", "rollout", "copy")}
 
@@ -123,6 +146,10 @@ def evaluate():
 
 
 def show(step, res):
+    if getattr(head, "single", False):
+        print(f"[step {step}] " + " | ".join(f"{k} 보임 {r['pos_px_vis']:.1f} 가림 {r['pos_px_hid']:.1f}px 정체 {100 * r['id_acc']:.0f}% "
+                                              f"있음 recall {100 * r['ex_rec']:.0f}% 집중 {r['conc']:.1f}" for k, r in res.items()), flush=True)
+        return
     print(f"[step {step}] " + " | ".join(f"{k} 보임 {r['vis_mean']:.1f}/{r['vis_med']:.1f} 가림 {r['hid_mean'] or 0:.1f}/{r['hid_med'] or 0:.1f} "
                                           f"rec {100 * r['rec']:.0f}% bacc {100 * r['bacc']:.0f}"
                                           + (f" 정체 {100 * r['id_acc']:.0f}%" if r.get("id_acc") is not None else "")

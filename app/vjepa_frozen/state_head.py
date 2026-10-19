@@ -103,6 +103,69 @@ class Query3StateHead(nn.Module):
                 "pos": self.pos(z).reshape(*sh, 2), "vel": self.vel(z).reshape(*sh, 3), "attn": w.reshape(*sh, S)}
 
 
+class SingleStateHead(nn.Module):
+    """물체 1 개 장면 (phys2d_single) 용 decoder (2026-10-19, 사용자 설계, `state_head.type: single`).
+    블록마다 x_i = LN(토큰 i), a_i = softmax_i(τ · q · x_i / √D) (query 1 개, 투영 없음), z = Σ_i a_i x_i → (T, D),
+    공용 linear head 3 개: 물체 Linear(D → 49) (48 정체 + 없음) · 위치 Linear(D → 2) · 속도 Linear(D → 3).
+    출력은 (B, T, 1, …) — 손실은 single_losses (48 칸 라벨에서 그 영상의 정체 하나를 뽑아 쓴다)."""
+    single = True
+
+    def __init__(self, dim: int = 1280, n_cls: int = N_ID + 1, q_std: float = 1.0, tau: float = 1.0):
+        super().__init__()
+        self.query = nn.Parameter(torch.randn(1, dim) * q_std)
+        self.log_tau = nn.Parameter(torch.tensor(float(np.log(tau))))
+        self.scale = dim ** -0.5
+        self.obj = nn.Linear(dim, n_cls)
+        self.pos = nn.Linear(dim, 2)
+        self.vel = nn.Linear(dim, 3)
+
+    def forward(self, p: torch.Tensor, S: int):
+        B, N, D = p.shape
+        T = N // S
+        x = F.layer_norm(p.reshape(B * T, S, D).float().to(self.query.dtype), (D,))
+        w = torch.softmax(torch.einsum("kd,nsd->nks", self.query, x) * (self.scale * self.log_tau.exp()), dim=-1)   # (B*T, 1, S)
+        z = torch.einsum("nks,nsd->nkd", w, x)                                                                      # (B*T, 1, D)
+        sh = (B, T, 1)
+        return {"obj": self.obj(z).reshape(*sh, -1), "pos": self.pos(z).reshape(*sh, 2), "vel": self.vel(z).reshape(*sh, 3),
+                "attn": w.reshape(*sh, S)}
+
+
+def single_losses(out: dict, lab: dict, w: dict) -> tuple:
+    """SingleStateHead 손실. lab 은 48 칸 라벨 (B,T,48,…) — 장면 물체가 하나라 그 정체 칸 k 를 영상마다 뽑는다.
+    물체: CE 49 지선다, 정답 = k (보였으면) / 없음 (48, 아직 안 보였거나 화면 밖). w.exist_neg = 없음 정답 가중치.
+    위치 · 속도: L1, 그 블록에 상태가 있으면 (m_state — 가려져도 포함). 방향은 거의 정지면 뺀다 (m_dir)."""
+    obj = out["obj"][:, :, 0].float()                                                   # (B, T, 49)
+    any_ = (lab["seen"] | lab["m_state"]).any(1)                                        # (B, 48)
+    k = any_.float().argmax(-1)                                                         # (B,) 영상의 정체
+    has = any_.any(-1)
+    g = lambda t: t.gather(2, k.view(-1, 1, 1).expand(-1, t.size(1), 1)).squeeze(2) if t.dim() == 3 else \
+        t.gather(2, k.view(-1, 1, 1, 1).expand(-1, t.size(1), 1, t.size(-1))).squeeze(2)
+    seen, ms, md, hid = g(lab["seen"]) & has[:, None], g(lab["m_state"]) & has[:, None], g(lab["m_dir"]) & has[:, None], g(lab["hidden"]) & has[:, None]
+    pos_t, vel_t = g(lab["pos"]), g(lab["vel"])                                         # (B, T, 2) · (B, T, 3)
+    NONE = obj.size(-1) - 1
+    tgt = torch.where(seen, k[:, None].expand_as(seen), torch.full_like(seen, NONE, dtype=torch.long))
+    ce = F.cross_entropy(obj.reshape(-1, NONE + 1), tgt.reshape(-1), reduction="none").reshape(tgt.shape)
+    wt = torch.where(seen, 1.0, float(w.get("exist_neg", 1.0)))
+    l_ex = (ce * wt).sum() / wt.sum()
+    pos, vel = out["pos"][:, :, 0], out["vel"][:, :, 0]
+    l_pos, n_pos = _masked_l1(pos, pos_t, ms)
+    l_dir, _ = _masked_l1(vel[..., :2], vel_t[..., :2], md)
+    l_spd, _ = _masked_l1(vel[..., 2:], vel_t[..., 2:], ms)
+    loss = w.get("exist", 1.0) * l_ex + w.get("pos", 1.0) * l_pos + w.get("vel", 1.0) * (l_dir + l_spd)
+    with torch.no_grad():
+        err = (pos.float() - pos_t.float()).norm(dim=-1) * 256.0
+        mv = ms & ~hid
+        pred = obj.argmax(-1)
+        log = {"ex": float(l_ex), "pos": float(l_pos), "dir": float(l_dir), "spd": float(l_spd),
+               "pos_px_vis": float((err * mv).sum() / mv.sum().clamp_min(1)),
+               "pos_px_hid": float((err * hid).sum() / hid.sum().clamp_min(1)) if hid.any() else float("nan"),
+               "ex_acc": float(((pred != NONE) == seen).float().mean()), "n_state": float(n_pos),
+               "ex_rec": float((pred != NONE)[seen].float().mean()) if seen.any() else float("nan"),
+               "id_acc": float((pred == k[:, None])[seen].float().mean()) if seen.any() else float("nan"),
+               "conc": float((out["attn"][:, :, 0].amax(-1) * out["attn"].size(-1))[seen].float().mean()) if seen.any() else float("nan")}
+    return loss, log
+
+
 def build_head(SH: dict, dim: int) -> nn.Module:
     """config `state_head` → head. type: attn (기본, StateHead) | light (LightStateHead) | query3 (Query3StateHead)."""
     t = str(SH.get("type", "attn"))
@@ -110,9 +173,11 @@ def build_head(SH: dict, dim: int) -> nn.Module:
         return StateHead(dim, num_heads=int(SH.get("num_heads", 16)), hidden=int(SH.get("hidden", 512)))
     if t == "light":
         return LightStateHead(dim, hidden=int(SH.get("hidden", 0)))
+    if t == "single":
+        return SingleStateHead(dim, q_std=float(SH.get("q_std", 1.0)), tau=float(SH.get("tau", 1.0)))
     if t == "query3":
         return Query3StateHead(dim, q_std=float(SH.get("q_std", 1.0)), tau=float(SH.get("tau", 1.0)))
-    raise ValueError(f"state_head.type 은 attn | light | query3: {t!r}")
+    raise ValueError(f"state_head.type 은 attn | light | query3 | single: {t!r}")
 
 
 # ----------------------------------------------------------------------------- 라벨 (데이터 쪽, numpy)
@@ -197,10 +262,11 @@ def slice_blocks(lab: dict, a: int, b: int) -> dict:
 def ar_state_loss(head, p_tf, p_ar, lab: dict, S: int, C: int, R: int, w: dict, split: dict):
     """TF 출력 (블록 1..nb-1) 과 rollout 출력 (블록 C..C+R-1) 둘 다에 같은 head. split = {tf: 가중, ar: 가중}.
     return (loss, 로그)."""
+    fn = single_losses if getattr(head, "single", False) else state_losses
     o_tf = head(p_tf, S)
-    l_tf, g_tf = state_losses(o_tf, slice_blocks(lab, 1, 1 + p_tf.size(1) // S), w)
+    l_tf, g_tf = fn(o_tf, slice_blocks(lab, 1, 1 + p_tf.size(1) // S), w)
     o_ar = head(p_ar, S)
-    l_ar, g_ar = state_losses(o_ar, slice_blocks(lab, C, C + R), w)
+    l_ar, g_ar = fn(o_ar, slice_blocks(lab, C, C + R), w)
     loss = split.get("tf", 1.0) * l_tf + split.get("ar", 1.0) * l_ar
     log = {f"tf_{k}": v for k, v in g_tf.items()}
     log.update({f"ar_{k}": v for k, v in g_ar.items()})

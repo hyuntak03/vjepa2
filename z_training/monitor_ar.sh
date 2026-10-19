@@ -74,7 +74,7 @@ else:
     print(" (아직 step 로그 없음)")
 
 tl = os.path.join(D, "train.log")
-pat = re.compile(r"\] loss ([\d.]+) \(avg [\d.]+\) \[tf ([\d.]+) ar ([\d.]+) R=(\d+)\](?: hint (\d+))?(?: dl [\d.]+)?(?: dyn [\d.]+)?(?: gate [\d.]+ mov [\d.]+ sta [\d.]+ k1 [\d.]+ kR [\d.]+ >\.95 [\d.]+)?(?: hole [\d.]+ rec [\d.]+)?(?: st [\d.]+ pos [\d.na]+/[\d.na]+px ex [\d.]+)?(?: gn [\d.naif]+)? \| mask var C(\d+)K(\d+) (\w+) B(\d+)")
+pat = re.compile(r"\] loss ([\d.]+) \(avg [\d.]+\) \[tf ([\d.]+) ar ([\d.]+) R=(\d+)\](?: hint (\d+))?(?: dl [\d.]+)?(?: dyn [\d.]+)?(?: gate [\d.]+ mov [\d.]+ sta [\d.]+ k1 [\d.]+ kR [\d.]+ >\.95 [\d.]+)?(?: hole [\d.]+ rec [\d.]+)?(?: st [\d.]+ pos [\d.na]+/[\d.na]+px ex [\d.]+)?(?: id [\d.na]+)?(?: gn [\d.naif]+)? \| mask var C(\d+)K(\d+) (\w+) B(\d+)")
 pat_ms = re.compile(r"\] loss ([\d.]+) \(avg [\d.]+\) \[tf ([\d.]+) ar ([\d.]+) R=(\d+)\] \| mask ms W(\d+) (\w+) B(\d+) s([\d-]+)")   # multistart (10-14)
 seen = []
 if os.path.isfile(tl):
@@ -133,7 +133,7 @@ if seen:
                 byep.setdefault(int(e), []).append(float(gg[0]))
             print("       epoch 별 평균 gate  " + "  ".join(f"e{e}:{st.mean(v):.2f}" for e, v in sorted(byep.items())[-10:]))
     # 2026-10-19: 상태 감독 head (phys2d_sup, 합성 step 에만). st = head 손실 (TF + rollout), pos = rollout 위치 오차 (보임 / 가림, px), ex = rollout 존재 정확도
-    sl = re.findall(r"\[(\d+), +(\d+)\] loss ([\d.]+) \(avg [\d.]+\) \[tf ([\d.]+) ar ([\d.]+) R=\d+\].*? st ([\d.]+) pos ([\d.na]+)/([\d.na]+)px ex ([\d.]+)(?: gn ([\d.naif]+))? \| mask", open(tl, errors="ignore").read())
+    sl = re.findall(r"\[(\d+), +(\d+)\] loss ([\d.]+) \(avg [\d.]+\) \[tf ([\d.]+) ar ([\d.]+) R=\d+\].*? st ([\d.]+) pos ([\d.na]+)/([\d.na]+)px ex ([\d.]+)(?: id [\d.na]+)?(?: gn ([\d.naif]+))? \| mask", open(tl, errors="ignore").read())
     if sl:
         uq = list({(a, b): g for a, b, *g in sl}.values())
         fm = lambda v: float("nan") if v.startswith("na") else float(v)

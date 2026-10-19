@@ -532,7 +532,12 @@ def main(args, resume_preempt=False):
                     for q in head_params:
                         if q.grad is not None:
                             torch.distributed.all_reduce(q.grad); q.grad.div_(world_size)
-                if clip_grad or head_params:     # 2026-10-19: head 가 있으면 grad norm 을 늘 잰다 (clip 전 값, 로그 gn). 없으면 기존과 같다
+                if head_params and SH.get("clip_separate"):   # 2026-10-19: clip 은 predictor 에만 (gn = predictor norm). head 는 state_head.clip_head (null = 안 자름)
+                    _gn = torch.nn.utils.clip_grad_norm_(pred_mod.parameters(), float(clip_grad) if clip_grad else float("inf"))
+                    if SH.get("clip_head"):
+                        torch.nn.utils.clip_grad_norm_(head_params, float(SH["clip_head"]))
+                    aux["gn"] = float(_gn)
+                elif clip_grad or head_params:   # 2026-10-19: head 가 있으면 grad norm 을 늘 잰다 (clip 전 값, 로그 gn). 없으면 기존과 같다
                     _gn = torch.nn.utils.clip_grad_norm_(list(pred_mod.parameters()) + head_params, float(clip_grad) if clip_grad else float("inf"))
                     if head_params:
                         aux["gn"] = float(_gn)
@@ -719,6 +724,8 @@ def main(args, resume_preempt=False):
                     g_ = aux["hlog"]
                     ar_s += " st %.4f pos %.1f/%.1fpx ex %.3f" % (aux.get("head", 0.0), g_.get("ar_pos_px_vis", float("nan")),
                                                                 g_.get("ar_pos_px_hid", float("nan")), g_.get("ar_ex_acc", float("nan")))
+                if state_head is not None and aux.get("hlog") and "ar_id_acc" in aux["hlog"]:
+                    ar_s += " id %.3f" % aux["hlog"]["ar_id_acc"]
                 if state_head is not None and "gn" in aux:
                     ar_s += " gn %.2f" % aux["gn"]
                 if delta_weight:

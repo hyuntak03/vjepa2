@@ -1,0 +1,29 @@
+# =============================================================================
+# natural_ar_vw_state_phys2d_single — 물체 1 개 2D 물리 (phys2d_single_v1) + 상태 감독, query 1 개 decoder (2026-10-19, 사용자 설계)
+#
+# 블록 AR 기준 (natural_ar_vw_state) 위에:
+#   합성 step 20 % — phys2d_single_v1 train 39,593 편. 창 = 충돌 · 이탈은 경계에 맞춘 행 (예측 첫 장 = 사건, 40,117)
+#     + 나머지는 무작위 시작 행 (uniform, 511,782) — 가림은 어디서든 (사용자 10-18). manifest data_csv/phys2d_single_v1/train_mix.tsv
+#   head (type single): 블록마다 query 1 개 attention pooling (투영 없음) → (T, D) → 공용 linear 3 개
+#     물체 49 (48 정체 + 없음) CE · 위치 (x, y) L1 · 속도 (cos, sin, 속력) L1. 가려져도 위치 · 속도 감독. 약 7 만 파라미터
+#   clip 1.0 은 predictor gradient 에만 (clip_separate) — 지난 run 에서 head 가 predictor 와 같이 잘려 거의 못 배웠다
+# =============================================================================
+extends: natural_ar_vw_state_phys2d
+
+data:
+  var_window:
+    boundary:
+      name: phys2d_single_v1
+      p: 0.20
+      manifest: ${DATA_CSV}/phys2d_single_v1/train_mix.tsv
+      context_frames: [4, 8, 16]
+      predict_frames: 16
+
+state_head:
+  type: single
+  q_std: 1.0
+  hidden: null
+  num_heads: null
+  clip_separate: true
+  clip_head: null
+  lr_mult: 3                    # 1 → 3 (10-19 사용자): head 단독 검증에서 물체를 찾기까지 ~1000 step (lr 1e-3) — 같이 학습하면 너무 늦다. head 는 clip 과 분리
