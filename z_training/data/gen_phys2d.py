@@ -1186,12 +1186,33 @@ def write_preview(path_png, path_gif, frames, title):
     p.wait()
 
 
-def event_rows(sc, pos, vis, mover_speed, rng, min_ctx=4, min_pred=8):
-    """사건 (충돌 · 가림) 마다 boundary 행 하나. 전환 구간 (사건 직전 장 + 직후 장) 이 문맥 마지막 몇 장에 들어가도록
-    b = 사건 직후 장 + 1 + j (j ∈ {0,1,2}) — 가장 짧은 문맥 4 장에도 전환이 들어간다.
-    예측 구간이 깨끗해야 한다: 예측 못 하는 일 (멈춰 있던 가림막 · 컵의 출발) 직전에서 끊는다 (end). 로더는 n_frames = end 로 K 를 거른다."""
+def major_events(sc, pos, vis):
+    """문맥을 깨끗하게 유지할 때 피해야 할 전환 전부 (post = 전환 뒤 첫 장). 행으로 고르는 사건보다 넓다 — 충돌은 상한 없이 전부.
+    충돌 (dv ≥ DV_ROW, 방해 물체 제외) · 받침 이탈 · 가림 (완전히 가려지기 시작) · 다시 보임 (완전히 가려졌다 30 % 넘게 보이기 시작)."""
     n = len(pos)
     inframe = (pos[..., 0] > -5) & (pos[..., 0] < W + 5) & (pos[..., 1] > -5) & (pos[..., 1] < H + 5)
+    out = [(f + 1, "impact", i) for f, i, other, dv in sc.impacts
+           if dv >= DV_ROW and 1 <= f + 1 < n and inframe[f + 1, i] and sc.objs[i].role != "distractor"]
+    out += [(f + 1, "leave", i) for f, i, tag in sc.leaves if 1 <= f + 1 < n and sc.objs[i].role != "distractor"]
+    for i in range(len(sc.objs)):
+        for h in range(1, n):
+            if vis[h, i] < 0.02 <= vis[h - 1, i] and inframe[h, i]:
+                out.append((h, "occlude", i))
+            if vis[h, i] >= 0.3 and (vis[max(0, h - 2):h, i] < 0.02).all() and h >= 2 and (vis[:h, i] > 0.3).any():
+                out.append((h, "reappear", i))
+    return sorted(set(out))
+
+
+def event_rows(sc, pos, vis, mover_speed, rng, min_ctx=4, min_pred=8):
+    """사건 (충돌 · 가림 · 받침 이탈) 마다 boundary 행 하나. **전환은 예측 구간에 둔다** (2026-10-18 사용자 결정:
+    "충돌 직전까지만 context 에 보여주고 그 다음 충돌하고 멈추거나 그런 걸 예측 / 아니면 딱 충돌 시점까지만 context").
+    post = 전환 뒤 첫 장 (프레임 post−1 을 렌더한 뒤의 substep 에서 접촉 · 이탈이 일어났다). b = 예측 첫 장 = post + j,
+    j ∈ {−2, −1, 0} 이면 문맥이 전환 2 · 1 · 0 장 전에서 끝나고, j = +1 이면 문맥 마지막 장이 딱 전환 순간이다.
+    ctx_start = 문맥이 시작해도 되는 가장 이른 장: 이 행보다 앞선 다른 전환 (major_events) 의 post — 로더가 C ≤ (b − ctx_start)/s 로 거른다.
+    예측 구간이 깨끗해야 한다: 예측 못 하는 일 (멈춰 있던 가림막 · 컵의 출발, 화면 밖 물체 등장) 직전에서 끊는다 (end). 로더는 n_frames = end 로 K 를 거른다."""
+    n = len(pos)
+    inframe = (pos[..., 0] > -5) & (pos[..., 0] < W + 5) & (pos[..., 1] > -5) & (pos[..., 1] < H + 5)
+    major = major_events(sc, pos, vis)
     ev = []
     imp = [(f + 1, "impact", i, str(other), dv) for f, i, other, dv in sc.impacts
            if dv >= DV_ROW and 1 <= f + 1 < n and inframe[f + 1, i] and sc.objs[i].role != "distractor"]
@@ -1217,12 +1238,19 @@ def event_rows(sc, pos, vis, mover_speed, rng, min_ctx=4, min_pred=8):
                 ev.append((h, "occlude", i, "", 0.0))
     # 예측 못 하는 시작: 3 장 이상 멈춰 있던 가림막 · 컵이 움직이기 시작
     unpred = [u for u in range(3, n) if mover_speed[u] > MOVE_THR and (mover_speed[u - 3:u] <= MOVE_THR).all()] + list(sc.spawn_frames)
+    # 화면 밖에서 생긴 물체가 처음 보이는 장 — 생성 시각이 문맥 안이어도 문맥에는 안 보이므로 예측 못 한다
+    for i, o in enumerate(sc.objs):
+        if o.role == "spawn":
+            seen = np.where(vis[:, i] > 0.02)[0]
+            if len(seen):
+                unpred.append(int(seen[0]))
     sizes = np.array([o.size for o in sc.objs], np.float32)
     rows, used = [], set()
     for post, kind, i, other, dv in sorted(ev):
-        b = post + 1 + int(rng.integers(0, 3))
+        b = post + int(rng.integers(-2, 2))
         end = min([u for u in unpred if u >= b] + [n])
-        if b < min_ctx or end - b < min_pred or b in used:
+        ctx_start = max([p for p, _, _ in major if p < b and p < post] + [0])
+        if b - ctx_start < min_ctx or end - b < min_pred or b in used:
             continue
         # 예측 구간 안에서 실제로 움직여야 한다 (복사 정답 금지): 앞 8 장 사이 물체가 반폭 이상 또는 가림막이 8 px 이상
         e = min(end, b + 8) - 1
@@ -1231,7 +1259,7 @@ def event_rows(sc, pos, vis, mover_speed, rng, min_ctx=4, min_pred=8):
         if not moving:
             continue
         used.add(b)
-        rows.append(dict(boundary=int(b), end=int(end), event=kind, event_frame=int(post), obj=int(i),
+        rows.append(dict(boundary=int(b), end=int(end), ctx_start=int(ctx_start), event=kind, event_frame=int(post), obj=int(i),
                          obj_role=sc.objs[i].role, other=other, dv=round(float(dv), 1)))
     return rows
 
@@ -1291,7 +1319,7 @@ def generate(name, seed, max_attempts=80):
         frames, pos, ang, vis, ms = frames[:n], pos[:n], ang[:n], vis[:n], ms[:n]
         ok, why, metrics = check(sc, frames, pos, vis, ms)
         rows = event_rows(sc, pos, vis, ms, np.random.default_rng([seed, attempt, 3]))
-        if ok and not any(r["boundary"] >= 16 and r["end"] - r["boundary"] >= 16 for r in rows):
+        if ok and not any(r["boundary"] - r["ctx_start"] >= 16 and r["end"] - r["boundary"] >= 16 for r in rows):
             ok, why = False, ["no event row C16K16"]
         if ok:
             metrics["n_rows"] = len(rows)
@@ -1317,7 +1345,7 @@ def make_clip(job):
     mp4 = os.path.abspath(os.path.join(d, clip + ".mp4"))
     write_mp4(mp4, frames)
     meta = dict(clip=clip, scenario=name, category=category, seed=seed, attempt=attempt, sim_fps=FPS, video_fps=VIDEO_FPS,
-                n_frames=len(frames), event_rows=rows,
+                n_frames=len(frames), event_rows=rows, events=[dict(frame=int(p), kind=k, obj=int(i)) for p, k, i in major_events(sc, pos, vis)],
                 size=[W, H], g_px_s2=sc.g, floor_y=sc.floor_y, background=bg_kind, flipped_lr=flipped, preroll_s=t0,
                 objects=[dict(kind=o.kind, size=o.size, role=o.role, color=o.color,
                               elasticity=o.shape.elasticity, friction=o.shape.friction) for o in sc.objs],
@@ -1373,14 +1401,15 @@ def main():
     # var_window 표 (build_fps4_table.py 형식): path fps n_frames fstp n4 — mp4 가 4 fps 라 fstp 1, n4 = 장 수
     with open(os.path.join(a.out, "fps4_table.tsv"), "w") as fh:
         fh.writelines(f"{r['mp4']}\t{VIDEO_FPS}\t{r['n_frames']}\t1\t{r['n_frames']}\n" for r in good)
-    # var_window boundary manifest: 예측 첫 장 = boundary_frame, n_frames = 깨끗한 예측 구간 끝 (로더가 n − b ≥ K 로 거른다)
-    bcols = ["path", "n_frames", "boundary_frame", "video_frames", "event", "event_frame", "obj_role", "other", "dv", "scenario", "category"]
+    # var_window boundary manifest: 예측 첫 장 = boundary_frame, n_frames = 깨끗한 예측 구간 끝 (로더가 n − b ≥ K 로 거른다),
+    # ctx_start = 다른 전환이 없는 문맥의 가장 이른 장 (로더가 b − s·C ≥ ctx_start 로 거른다)
+    bcols = ["path", "n_frames", "boundary_frame", "ctx_start", "video_frames", "event", "event_frame", "obj_role", "other", "dv", "scenario", "category"]
     nb = 0
     with open(os.path.join(a.out, "boundary.tsv"), "w") as fh:
         fh.write("\t".join(bcols) + "\n")
         for r in good:
             for w in r["rows"]:
-                fh.write("\t".join(str(v) for v in [r["mp4"], w["end"], w["boundary"], r["n_frames"], w["event"], w["event_frame"],
+                fh.write("\t".join(str(v) for v in [r["mp4"], w["end"], w["boundary"], w["ctx_start"], r["n_frames"], w["event"], w["event_frame"],
                                                     w["obj_role"], w["other"], w["dv"], r["name"], r["category"]]) + "\n")
                 nb += 1
     print(f"boundary 행 {nb:,} (영상당 {nb / max(1, len(good)):.1f})")
