@@ -726,6 +726,11 @@ def main(args, resume_preempt=False):
                                                                 g_.get("ar_pos_px_hid", float("nan")), g_.get("ar_ex_acc", float("nan")))
                 if state_head is not None and aux.get("hlog") and "ar_id_acc" in aux["hlog"]:
                     ar_s += " id %.3f" % aux["hlog"]["ar_id_acc"]
+                if state_head is not None and aux.get("hlog"):   # 2026-10-19: 성분 (물체 CE · 위치 · 방향 · 속력, tf/ar) · 집중도 (rollout)
+                    g_ = aux["hlog"]
+                    ar_s += " cmp %.3f/%.3f %.4f/%.4f %.3f/%.3f %.3f/%.3f" % tuple(g_.get(f"{a}_{b}", float("nan")) for b in ("ex", "pos", "dir", "spd") for a in ("tf", "ar"))
+                    if "ar_conc" in g_:
+                        ar_s += " conc %.1f" % g_["ar_conc"]
                 if state_head is not None and "gn" in aux:
                     ar_s += " gn %.2f" % aux["gn"]
                 if delta_weight:

@@ -74,7 +74,7 @@ else:
     print(" (아직 step 로그 없음)")
 
 tl = os.path.join(D, "train.log")
-pat = re.compile(r"\] loss ([\d.]+) \(avg [\d.]+\) \[tf ([\d.]+) ar ([\d.]+) R=(\d+)\](?: hint (\d+))?(?: dl [\d.]+)?(?: dyn [\d.]+)?(?: gate [\d.]+ mov [\d.]+ sta [\d.]+ k1 [\d.]+ kR [\d.]+ >\.95 [\d.]+)?(?: hole [\d.]+ rec [\d.]+)?(?: st [\d.]+ pos [\d.na]+/[\d.na]+px ex [\d.]+)?(?: id [\d.na]+)?(?: gn [\d.naif]+)? \| mask var C(\d+)K(\d+) (\w+) B(\d+)")
+pat = re.compile(r"\] loss ([\d.]+) \(avg [\d.]+\) \[tf ([\d.]+) ar ([\d.]+) R=(\d+)\](?: hint (\d+))?(?: dl [\d.]+)?(?: dyn [\d.]+)?(?: gate [\d.]+ mov [\d.]+ sta [\d.]+ k1 [\d.]+ kR [\d.]+ >\.95 [\d.]+)?(?: hole [\d.]+ rec [\d.]+)?(?: st [^|]*)?(?: gn [\d.naif]+)? \| mask var C(\d+)K(\d+) (\w+) B(\d+)")
 pat_ms = re.compile(r"\] loss ([\d.]+) \(avg [\d.]+\) \[tf ([\d.]+) ar ([\d.]+) R=(\d+)\] \| mask ms W(\d+) (\w+) B(\d+) s([\d-]+)")   # multistart (10-14)
 seen = []
 if os.path.isfile(tl):
@@ -132,31 +132,83 @@ if seen:
             for (e, _), gg in zip({(a, b): 0 for a, b, *_ in gl}.keys(), uniq):
                 byep.setdefault(int(e), []).append(float(gg[0]))
             print("       epoch 별 평균 gate  " + "  ".join(f"e{e}:{st.mean(v):.2f}" for e, v in sorted(byep.items())[-10:]))
-    # 2026-10-19: 상태 감독 head (phys2d_sup, 합성 step 에만). st = head 손실 (TF + rollout), pos = rollout 위치 오차 (보임 / 가림, px), ex = rollout 존재 정확도
-    sl = re.findall(r"\[(\d+), +(\d+)\] loss ([\d.]+) \(avg [\d.]+\) \[tf ([\d.]+) ar ([\d.]+) R=\d+\].*? st ([\d.]+) pos ([\d.na]+)/([\d.na]+)px ex ([\d.]+)(?: id [\d.na]+)?(?: gn ([\d.naif]+))? \| mask", open(tl, errors="ignore").read())
-    if sl:
-        uq = list({(a, b): g for a, b, *g in sl}.values())
-        fm = lambda v: float("nan") if v.startswith("na") else float(v)
-        def _avg(rows, i):
-            xs = [fm(r[i]) for r in rows if fm(r[i]) == fm(r[i])]
+    # 2026-10-19: 상태 감독 head (합성 step 에만). 줄마다 항목을 따로 읽는다 (옛 run 은 없는 항목이 빠진다)
+    tl_txt = open(tl, errors="ignore").read()
+    H = {}
+    for ln in tl_txt.splitlines():
+        m0 = re.search(r"\[(\d+), +(\d+)\] loss [\d.]+ \(avg [\d.]+\) \[tf ([\d.]+) ar ([\d.]+)", ln)
+        if not m0:
+            continue
+        key = (int(m0[1]), int(m0[2]))
+        mg = re.search(r" gn ([\d.]+)", ln)
+        synth = " st " in ln
+        r_ = {"ep": key[0], "lat": float(m0[3]) + float(m0[4]), "gn": float(mg[1]) if mg else None, "synth": synth}
+        if synth:
+            ms = re.search(r" st ([\d.]+) pos ([\d.na]+)/([\d.na]+)px ex ([\d.]+)", ln)
+            if ms:
+                r_.update(st=float(ms[1]), pv=float(ms[2]) if ms[2][0].isdigit() else float("nan"),
+                          ph=float(ms[3]) if ms[3][0].isdigit() else float("nan"))
+            mi = re.search(r" id ([\d.]+)", ln)
+            mc = re.search(r" cmp ([\d./na]+) ([\d./na]+) ([\d./na]+) ([\d./na]+)", ln)
+            mz = re.search(r" conc ([\d.]+)", ln)
+            if mi:
+                r_["id"] = float(mi[1])
+            if mc:
+                r_["cmp"] = [tuple(float(x) if x[0].isdigit() else float("nan") for x in mc[j].split("/")) for j in range(1, 5)]
+            if mz:
+                r_["conc"] = float(mz[1])
+        H[key] = r_
+    rows = list(H.values())
+    syn = [r_ for r_ in rows if r_["synth"] and "st" in r_]
+    if syn:
+        G, R_, DIM = "\033[32m", "\033[31m", "\033[2m"
+        def mean(xs):
+            xs = [x for x in xs if x is not None and x == x]
             return st.mean(xs) if xs else float("nan")
-        rec = uq[-20:]
-        try:
-            SHc = c.get("state_head") or {}
-            wgt = float(SHc.get("weight", 1.0))
-        except Exception:
-            wgt = 1.0
-        lat = _avg(rec, 1) + _avg(rec, 2)
-        print(f" {B}상태 head{N} (로그 줄에 찍힌 합성 step {len(uq):,} 개, 최근 {len(rec)} 개 평균)  손실 {_avg(rec, 3):.3f} (×{wgt:g}) vs latent {lat:.3f}   "
-              f"rollout 위치 오차 보임 {B}{_avg(rec, 4):.1f}{N} / 가림 {B}{_avg(rec, 5):.1f}{N} px   존재 정확도 {_avg(rec, 6):.3f}")
-        gn = [fm(r[7]) for r in uq if r[7]]
-        if gn:
-            print(f"       grad norm (합성 step, clip 전)  최근 {st.mean(gn[-20:]):.2f} · 최대 {max(gn):.2f}")
+        SHc = (c.get("state_head") or {}) if isinstance(c, dict) else {}
+        clipv = float(((c.get("optimization") or {}).get("clip_grad")) or 0) if isinstance(c, dict) else 0
+        rec = syn[-8:]
+        import unicodedata
+        def lab(t, w=11):     # 한글은 두 칸 — 화면 폭으로 맞춘다
+            n = sum(2 if unicodedata.east_asian_width(ch) in "WF" else 1 for ch in t)
+            return "   " + t + " " * max(1, w - n)
+        print("─" * 78)
+        print(f" {B}head{N}   {SHc.get('type', 'attn')}  ·  손실 ×{float(SHc.get('weight', 1.0)):g}  ·  head lr ×{SHc.get('lr_mult', 1)}"
+              f"  ·  clip {'predictor 만' if SHc.get('clip_separate') else '함께'}   {DIM}(최근 {len(rec)} 합성 step 평균){N}")
+        pv, ph = mean([r_.get("pv") for r_ in rec]), mean([r_.get("ph") for r_ in rec])
+        col = lambda v: (G if v < 28 else Y if v < 60 else R_)        # 복사 기준선 28 px
+        print(lab("손실") + f"head {B}{mean([r_['st'] for r_ in rec]):.3f}{N}   vs   잠재 L1 {mean([r_['lat'] for r_ in rec]):.3f}")
+        print(lab("위치 오차") + f"보임 {col(pv)}{B}{pv:6.1f}{N} px   가림 {col(ph)}{B}{ph:6.1f}{N} px   {DIM}(1 칸 = 16 px · 복사 기준선 28 px){N}")
+        if any("cmp" in r_ for r_ in rec):
+            cm = [r_["cmp"] for r_ in rec if "cmp" in r_]
+            f2 = lambda j, k, nd: f"{mean([x[j][k] for x in cm]):.{nd}f}"
+            print(lab("성분 tf/ar") + f"물체CE {f2(0, 0, 3)}/{f2(0, 1, 3)}   위치 {f2(1, 0, 4)}/{f2(1, 1, 4)}"
+                  f"   방향 {f2(2, 0, 3)}/{f2(2, 1, 3)}   속력 {f2(3, 0, 3)}/{f2(3, 1, 3)}")
+        idv = mean([r_.get("id") for r_ in rec]) if any("id" in r_ for r_ in rec) else None
+        cz = mean([r_.get("conc") for r_ in rec]) if any("conc" in r_ for r_ in rec) else None
+        s_id = f"정체 {B}{100 * idv:4.0f} %{N} {DIM}(49 지선다, 우연 2 %){N}" if idv is not None else ""
+        s_cz = (f"집중도 {B}{cz:5.1f}x{N} " + (f"{Y}⚠ 균등에 붙음 = 기본값 읽기{N}" if cz < 2 else f"{DIM}(균등 = 1){N}")) if cz is not None \
+            else f"집중도 {DIM}— (이 run 로그에 없음){N}"
+        print(lab("읽기") + s_id + "     " + s_cz)
+        sg = [r_["gn"] for r_ in syn if r_["gn"] is not None]
+        ng = [r_["gn"] for r_ in rows if not r_["synth"] and r_["gn"] is not None]
+        if sg:
+            nclip = sum(g > clipv for g in sg) if clipv else 0
+            rs, rn = mean(sg[-8:]), mean(ng[-40:])
+            ratio = rs / rn if rn == rn and rn > 0 else float("nan")
+            tag = ((f"{R_}⚠ 합성이 주도{N}" if ratio > 3 else f"{G}✓ 제약 범위{N}") if ratio == ratio else "")
+            print(lab("grad norm") + f"합성 {B}{rs:.2f}{N} / 자연 {B}{rn:.3f}{N}  →  {B}{ratio:.1f} 배{N} {tag} {DIM}(제약 = 3 배 이하){N}")
+            print(lab("") + f"{DIM}합성 최근 50 최대 {max(sg[-50:]):.2f} · 전체 최대 {max(sg):.2f}"
+                  + (f" · clip {clipv:g} 초과 {nclip}/{len(sg)}" if clipv else "") + f"{N}")
         byep = {}
-        for (e, _), g in zip({(a, b): 0 for a, b, *_ in sl}.keys(), uq):
-            byep.setdefault(int(e), []).append(g)
-        print("       epoch 별 (head 손실 / 위치 보임·가림 px)  " + "  ".join(
-            f"e{e}:{_avg(v, 3):.2f}/{_avg(v, 4):.0f}·{_avg(v, 5):.0f}" for e, v in sorted(byep.items())[-8:]))
+        for r_ in syn:
+            byep.setdefault(r_["ep"], []).append(r_)
+        has_id = any("id" in r_ for r_ in syn)
+        cells = [f"e{e} {mean([x['st'] for x in v]):5.2f} · {mean([x.get('pv') for x in v]):3.0f}/{mean([x.get('ph') for x in v]):3.0f}px"
+                 + (f" · {100 * mean([x.get('id') for x in v]):2.0f}%" if has_id else "") for e, v in sorted(byep.items())[-6:]]
+        print(lab("epoch 추이") + f"{DIM}(손실 · 위치 보임/가림" + (" · 정체" if has_id else "") + f"){N}")
+        for i in range(0, len(cells), 3):
+            print(lab("") + "   ".join(cells[i:i + 3]))
     ck = {}
     for g in seen[-400:]:
         ck.setdefault((int(g[5]), int(g[6])), []).append(float(g[2]))
@@ -174,16 +226,26 @@ if os.path.isfile(mp):
         v = r.get("val") or {}
         if "acc" in v:
             vals.append((r["epoch"], 100 * v["acc"], v.get("margin"), v.get("n_pair"), v.get("by_type") or {}))
-if vals:   # 2026-10-18: margin 도 · val 데이터셋 이름은 config 에서 (기본 VOBench late 432 쌍 — 정식 채점과 같은 정의)
+if vals:   # 2026-10-18: margin 도 · val 데이터셋 이름은 config 에서 (기본 VOBench late 432 쌍 — 정식 채점과 같은 정의). 10-19 모양 정리
     vname = ((c.get("val") or {}).get("dataset") if isinstance(c, dict) else None) or "val"
-    print(f" {B}val{N} {vname} {vals[-1][3]} 쌍 (rollout, epoch 0 = 학습 전)  acc / margin")
-    print("       " + "  ".join(f"e{e}:{a_:.1f}/{m_:+.4f}" if m_ is not None else f"e{e}:{a_:.1f}" for e, a_, m_, _, _ in vals[-8:]))
+    G_, DIM_ = "\033[32m", "\033[2m"
+    print("─" * 78)
+    _best = max(vals[1:] or vals, key=lambda t: t[1])
+    print(f" {B}val{N}    {vname} · {vals[-1][3]} 쌍 · rollout   {DIM_}(epoch 0 = 학습 전, 우연 50){N}")
+    import unicodedata
+    def vlab(t, w=11):
+        n = sum(2 if unicodedata.east_asian_width(ch) in "WF" else 1 for ch in t)
+        return "   " + t + " " * max(1, w - n)
+    print(f"{vlab('지금')}{B}e{vals[-1][0]} {vals[-1][1]:.1f} %{N}   최고 e{_best[0]} {_best[1]:.1f} %   출발 e{vals[0][0]} {vals[0][1]:.1f} %"
+          + (f"   margin {vals[-1][2]:+.4f}" if vals[-1][2] is not None else ""))
+    print(vlab("추이") + "  ".join(f"e{e} {a_:.1f}" for e, a_, m_, _, _ in vals[-8:]))
     bt = vals[-1][4]
     if any("/late" in k for k in bt):     # VOBench late: 위반별 primitive / realistic
         g = lambda o, vi: bt.get(f"{o}/{vi}/late", {}).get("acc")
-        print("       위반별 (P / R)  " + "  ".join(
-            f"{lab} {100 * g('primitive', vi):.1f} / {100 * g('realistic', vi):.1f}" for vi, lab in (("permanence", "영속"), ("shape", "모양"), ("color", "색"))
-            if g("primitive", vi) is not None and g("realistic", vi) is not None))
+        for o, olab in (("primitive", "primitive"), ("realistic", "realistic")):
+            if all(g(o, vi) is not None for vi in ("permanence", "shape", "color")):
+                print(vlab(olab) + "   ".join(f"{lab_} {B}{100 * g(o, vi):5.1f}{N}" for vi, lab_ in (("permanence", "영속"), ("shape", "모양"), ("color", "색"))))
+    print("─" * 78)
 
 if os.path.isfile(tl):      # 데이터별 step 수 (op320 · vob 같은 고정/경계 소스가 계획대로 섞이는지)
     from collections import Counter
