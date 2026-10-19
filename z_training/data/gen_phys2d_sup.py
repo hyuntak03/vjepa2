@@ -1100,7 +1100,7 @@ def record_contacts(sc):
                 if j is not None and j != i and sc.objs[j].role != "distractor":
                     sc.contacts.add((min(i, j), max(i, j)))
         o.body.each_arbiter(f)
-        for tag in sc.touching.get(i, set()) - now:
+        for tag in sorted(sc.touching.get(i, set()) - now):     # 정렬 — 문자열 집합 순서는 PYTHONHASHSEED 를 따른다 (재현성, 2026-10-19)
             sc.leaves.append((sc.cur_frame, i, tag))
         sc.touching[i] = now
 

@@ -1,0 +1,10 @@
+# phys2d · phys3d 생성기 고정 버전 (2026-10-19). 다른 기계에서 같은 데이터를 만들려면 이 버전으로 맞춘다.
+# 라벨 (상태 · 사건 · 행) 은 이 셋 + 아래 seed 로 정해진다. 2D 프레임은 opencv 버전에, mp4 바이트는 ffmpeg/libx264 버전에 따라 달라질 수 있다.
+#   python -m venv /venv/physgen && /venv/physgen/bin/pip install -r z_training/data/requirements_phys_gen.txt
+# python 3.12 · ffmpeg 6.1.1 (apt) 에서 만들었다.
+numpy==2.5.2
+opencv-python==5.0.0.93
+pymunk==7.3.1
+# 3D 는 Blender 4.2.3 LTS (내장 python · Bullet · Cycles):
+#   https://download.blender.org/release/Blender4.2/blender-4.2.3-linux-x64.tar.xz
+#   apt install libsm6 libxi6 libxrender1 libxkbcommon0 libgl1

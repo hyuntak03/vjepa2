@@ -49,6 +49,8 @@ CUDA_VISIBLE_DEVICES= /venv/vjepa/bin/python z_training/tests/gating_ctx_block_c
 | [`VARIANTS.md`](VARIANTS.md) | **모든 학습 variant** — 철학 · 구조 그림 · run 표 · 카드 · 채점 정의 · 조립 키 |
 | [`docs/PROBLEMS_AND_DIRECTION_2026-10-18.md`](docs/PROBLEMS_AND_DIRECTION_2026-10-18.md) | 능력별 (읽기 · 전이 · 지속 · 영속) 무엇이 안 되나, 문제 6 개, 방향 5 개 |
 | [`docs/RESULTS_GATING_2026-10-18.md`](docs/RESULTS_GATING_2026-10-18.md) | residual gating 구조 · 학습 · 결과 · 진단 |
+| [`docs/PHYS2D_SINGLE_DATASET_2026-10-19.md`](docs/PHYS2D_SINGLE_DATASET_2026-10-19.md) | **2D 물체 1 개 + 장마다 상태 라벨** (`phys2d_single_v1`) — 39,593 편, 중력 7 · 영속 5 · 고체성 5 (정적 지형) · 섞음 1, 가림 시점 고름 (블록 자리별 폭 1.9 pt) · 정체 층화 · 재현 지문 |
+| [`docs/PHYS3D_DATASET_2026-10-19.md`](docs/PHYS3D_DATASET_2026-10-19.md) | 3D (Blender 2.5D) 물리 + 상태 라벨 (`phys3d_v1`) — ⚠️ 생성 중단 (18,063 / 30,800), 같은 명령으로 이어 한다 |
 | [`docs/PHYS2D_SUP_DATASET_2026-10-18.md`](docs/PHYS2D_SUP_DATASET_2026-10-18.md) | **2D 물리 + 장마다 상태 라벨 (정본, §V `phys2d_sup_v2`)** — 38,343 편, 정체 48, 전환은 예측 구간에 · 가림은 어디든, 창 14.2 만 · 편향 점검 |
 | [`docs/PHYS2D_DATASET_2026-10-18.md`](docs/PHYS2D_DATASET_2026-10-18.md) | (대체됨) phys2d v1 · v2 — boundary 행이 전환을 문맥 끝에 넣는다 (결정과 반대) |
 | [`docs/RESULTS_2026-10-16.md`](docs/RESULTS_2026-10-16.md) | 릴리즈 GRASP · op 데이터 · ctxt_video (영상 문맥) |
