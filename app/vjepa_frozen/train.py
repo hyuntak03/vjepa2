@@ -222,6 +222,21 @@ def main(args, resume_preempt=False):
         if world_size > 1 else predictor
     pred_mod = pred_core            # 옵티마이저·저장·val 은 늘 안쪽 predictor (래퍼·DDP 없이)
 
+    # ── state_head (2026-10-19, 사용자 결정, main 425d67d 이식): 합성 데이터 (phys2d_sup) 상태 라벨로 AR 출력 (TF · rollout) 에 보조 손실.
+    #    정체 쿼리 48 개 attention pooling → 존재 · 위치 · 속도 head (app/vjepa_frozen/state_head.py). config `state_head:` 가 있으면 켠다.
+    #    라벨은 var_window boundary 소스 (`labels: phys2d_sup`) 가 그 step 에만 싣는다 — 자연 영상 step 은 head 를 안 쓴다.
+    #    predictor state_dict 밖 (채점기 strict) — 체크포인트에 `state_head` 로 따로. DDP 는 predictor 만이라 head grad 는 직접 평균.
+    SH = cfg.get("state_head") or None
+    state_head, head_params = None, []
+    if SH:
+        if not is_ar:
+            raise ValueError("state_head 는 kind=ar 전용이다")
+        from app.vjepa_frozen import state_head as SHM
+        state_head = SHM.build_head(SH, ctx_enc.embed_dim).to(device)        # type: attn (기본) | light (2026-10-19)
+        head_params = list(state_head.parameters())
+        logger.info(f"state_head ({SH.get('type', 'attn')}): {sum(q.numel() for q in head_params) / 1e6:.2f}M params · weight {SH.get('weight', 1.0)} · "
+                    f"w {SH.get('w', {})} · split {SH.get('split', {})} · lr_mult {SH.get('lr_mult', 10)}")
+
     # ---- 데이터 -------------------------------------------------------------------
     VW = D.get("var_window")           # 2026-10-02: 가변 창 batch 로더 (app/vjepa_frozen/var_window.py)
     dataset = None if VW else build_dataset(D, n_frames, res)
@@ -271,6 +286,11 @@ def main(args, resume_preempt=False):
         eps=float(O.get("eps", 1e-8)), use_scaler=use_scaler, is_anneal=bool(O.get("is_anneal", False)),
         anneal_epochs=float(O.get("anneal_epochs", 0)))
     clip_grad = O.get("clip_grad")
+    if state_head is not None:      # head 그룹: lr = 스케줄 lr × lr_mult (WSDSchedule 의 lr_scale), 1-D 는 weight decay 없음
+        _hm = float(SH.get("lr_mult", 10))
+        optimizer.add_param_group({"params": [q for q in head_params if q.ndim > 1], "lr": float(O["lr"]), "lr_scale": _hm})
+        optimizer.add_param_group({"params": [q for q in head_params if q.ndim <= 1], "lr": float(O["lr"]), "lr_scale": _hm,
+                                   "WD_exclude": True, "weight_decay": 0.0})
 
     # ---- val ----------------------------------------------------------------------
     valset = None
@@ -284,6 +304,12 @@ def main(args, resume_preempt=False):
     start_epoch, step = 0, 0
     if (auto_resume or resume_preempt) and os.path.exists(latest):
         start_epoch, step = U.load_resume(latest, pred_mod, optimizer, scaler)
+        if state_head is not None:
+            _ck = torch.load(latest, map_location="cpu", weights_only=False)
+            if "state_head" not in _ck:
+                raise KeyError(f"{latest} 에 state_head 가 없다 — config 와 run 이 맞는지 확인")
+            state_head.load_state_dict(_ck["state_head"]); del _ck
+            logger.info("resume: state_head <- latest.pt")
         for _ in range(start_epoch * ipe):
             scheduler.step(); wd_scheduler.step()
     elif os.path.exists(latest):
@@ -487,16 +513,29 @@ def main(args, resume_preempt=False):
                             g = torch.Generator(device=clips.device).manual_seed(int(seed) * 10**9 + rank * 10**7 + int(step))
                             hint = AR.encode_hints(tgt_enc, clips.to(enc_dtype), tubelet, spatial, n_hint, gen=g)
                 with _ac():
+                    lab = info.get("labels") if state_head is not None else None    # 2026-10-19: 합성 (phys2d_sup) step 에만 있다
+                    outs = {} if lab is not None else None
                     loss, jl, sl, R = AR.ar_losses(predictor, h, spatial, int(info["context_blocks"]),
                                                    int(info["predict_blocks"]), loss_exp, rollout_steps, hint=hint,
-                                                   delta_weight=delta_weight, aux=aux, tf_span=tf_span)
+                                                   delta_weight=delta_weight, aux=aux, tf_span=tf_span, out=outs)
+                    if lab is not None:
+                        lh, hlog = SHM.ar_state_loss(state_head, outs["p_tf"], outs["p_ar"], SHM.labels_to_device(lab, device),
+                                                     spatial, int(info["context_blocks"]), R, SH.get("w") or {}, SH.get("split") or {})
+                        aux["latent"] = float(loss.detach()); aux["head"] = float(lh.detach()); aux["hlog"] = hlog
+                        loss = loss + float(SH.get("weight", 1.0)) * lh
                 if scaler is not None:
                     scaler.scale(loss).backward()
                     scaler.unscale_(optimizer)
                 else:
                     loss.backward()
-                if clip_grad:
-                    torch.nn.utils.clip_grad_norm_(pred_mod.parameters(), float(clip_grad))
+                if head_params and world_size > 1 and lab is not None:       # 모든 rank 가 같은 step 종류 ((seed, step) 로 정해진다)
+                    for q in head_params:
+                        if q.grad is not None:
+                            torch.distributed.all_reduce(q.grad); q.grad.div_(world_size)
+                if clip_grad or head_params:     # 2026-10-19: head 가 있으면 grad norm 을 늘 잰다 (clip 전 값, 로그 gn). 없으면 기존과 같다
+                    _gn = torch.nn.utils.clip_grad_norm_(list(pred_mod.parameters()) + head_params, float(clip_grad) if clip_grad else float("inf"))
+                    if head_params:
+                        aux["gn"] = float(_gn)
                 if scaler is not None:
                     scaler.step(optimizer); scaler.update()
                 else:
@@ -676,6 +715,12 @@ def main(args, resume_preempt=False):
                 ar_s = (" [tf %.4f ar %.4f R=%d]" % (aux["jloss"], aux["sloss"], aux["R"])) if is_seq else ""
                 if HINT:
                     ar_s += " hint %d" % aux.get("n_hint", 0)
+                if state_head is not None and aux.get("hlog"):   # 2026-10-19: 마지막 합성 step 의 상태 head (rollout 기준) — 위치 px 보임/가림 · 존재 정확도
+                    g_ = aux["hlog"]
+                    ar_s += " st %.4f pos %.1f/%.1fpx ex %.3f" % (aux.get("head", 0.0), g_.get("ar_pos_px_vis", float("nan")),
+                                                                g_.get("ar_pos_px_hid", float("nan")), g_.get("ar_ex_acc", float("nan")))
+                if state_head is not None and "gn" in aux:
+                    ar_s += " gn %.2f" % aux["gn"]
                 if delta_weight:
                     ar_s += " dl %.4f" % aux.get("dloss", 0.0)
                 if dyn_weight:
@@ -695,10 +740,11 @@ def main(args, resume_preempt=False):
 
         logger.info(f"epoch {epoch + 1} avg loss {loss_meter.avg:.4f}" + (f" (tf {jl_meter.avg:.4f} ar {sl_meter.avg:.4f})" if is_seq else ""))
         if rank == 0:
-            U.save_checkpoint(latest, pred_mod, optimizer, scaler, epoch + 1, step, loss_meter.avg, cfg, arch)
+            _extra = {"state_head": state_head.state_dict(), "state_head_cfg": SH} if state_head is not None else None
+            U.save_checkpoint(latest, pred_mod, optimizer, scaler, epoch + 1, step, loss_meter.avg, cfg, arch, extra=_extra)
             if save_every > 0 and ((epoch + 1) % save_every == 0 or epoch + 1 == num_epochs):
                 U.save_checkpoint(os.path.join(folder, f"e{epoch + 1}.pt"), pred_mod, optimizer, scaler,
-                                  epoch + 1, step, loss_meter.avg, cfg, arch)
+                                  epoch + 1, step, loss_meter.avg, cfg, arch, extra=_extra)
         res = {}
         if V and int(V.get("every_epochs", 1)) > 0 and ((epoch + 1) % int(V.get("every_epochs", 1)) == 0 or epoch + 1 == num_epochs):
             res = _val(epoch + 1)

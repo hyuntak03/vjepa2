@@ -178,7 +178,7 @@ def ar_losses_video(predictor, zc: torch.Tensor, zf: torch.Tensor, S: int, C: in
 
 
 def ar_losses(predictor, h: torch.Tensor, S: int, C: int, K: int, loss_exp: float, rollout_steps: int, hint=None,
-              delta_weight: float = 0.0, aux: dict = None, tf_span: str = "all"):
+              delta_weight: float = 0.0, aux: dict = None, tf_span: str = "all", out: dict = None):
     """h (B, nb*S, D) LN 된 블록 토큰. return (loss, jloss, sloss, R). predictor 는 DDP 래퍼여도 된다 (forward 한 번).
     hint = encode_hints 의 (hx, hidx, keep) 또는 None. 주면 TF 에만 힌트를 넣고 jloss 에서 힌트 자리를 뺀다 (rollout 은 힌트 없음).
     tf_span (2026-10-15, 사용자 결정): "all" = TF 손실을 위치 0..nb-2 전부 (기존), "predict" = 예측 구간만 —
@@ -198,6 +198,8 @@ def ar_losses(predictor, h: torch.Tensor, S: int, C: int, K: int, loss_exp: floa
         hx, hidx, keep = hint
         arg["hint"] = {"x": hx, "idx": hidx}
     p_tf, p_ar = predictor(h, ar=arg)
+    if out is not None:                                       # 2026-10-19: state_head 보조 손실이 예측 출력을 쓴다 (TF 블록 1..nb-1 · rollout C..C+R-1)
+        out["p_tf"], out["p_ar"] = p_tf, p_ar
     core = predictor_core(predictor)
     if aux is not None and getattr(core, "gating_residual", False) and core._gate_roll is not None:   # 2026-10-17 ar gating 모니터
         g, A = core._gate_roll

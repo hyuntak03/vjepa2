@@ -154,6 +154,11 @@ class VarWindowBatches(torch.utils.data.IterableDataset):
         self.bnd_ratio = tuple(float(v) for v in bx.get("crop_ratio", [1.0, 1.3333]))
         self.bnd_hflip = float(bx.get("hflip_p", 0.5))
         self.bnd_name = str(bx.get("name", "boundary"))
+        # 2026-10-19: labels: phys2d_sup — 같은 창의 상태 라벨 (z_training/data/phys2d_sup_labels.py → state_head.pack_labels) 을 info["labels"] 에.
+        #   좌표 라벨이라 자르기 · 화면비 바꾸기를 금지한다 (crop_ratio [1, 1], 정사각 원본). 반전은 영상 · 라벨에 같이
+        self.bnd_labels = bx.get("labels")
+        if self.bnd_labels not in (None, "phys2d_sup"):
+            raise ValueError(f"boundary.labels 는 phys2d_sup 만: {self.bnd_labels!r}")
         C = [int(c) for c in bx["context_frames"]]
         for v in C + [self.bnd_K]:
             if v <= 0 or v % self.tubelet:
@@ -161,8 +166,9 @@ class VarWindowBatches(torch.utils.data.IterableDataset):
         s = self.bnd_stride
         for r in _csv.DictReader(open(bx["manifest"]), delimiter="\t"):
             b, n = int(r["boundary_frame"]), int(r["n_frames"])
+            c0 = int(r.get("ctx_start") or 0)                  # 선택 열: 다른 전환이 없는 문맥의 가장 이른 장 (phys2d)
             if n - b >= s * (self.bnd_K - 1) + 1:             # 예측 K 장이 실제로 나오는 영상만 (패딩 금지)
-                self.bnd_items.append((b // s, r["path"], b))   # (경계 앞 최대 문맥 장 수, 경로, 경계)
+                self.bnd_items.append(((b - c0) // s, r["path"], b))   # (경계 앞 최대 문맥 장 수, 경로, 경계)
         self.bnd_items.sort(key=lambda it: it[0])
         self.bnd_cmax = [it[0] for it in self.bnd_items]
         self.bnd_C = [c for c in C if self._bnd_n_ok(c) > 0]
@@ -191,9 +197,18 @@ class VarWindowBatches(torch.utils.data.IterableDataset):
         left = rng.randint(0, Wd - cw)
         x = fr[:, :, left:left + cw].permute(0, 3, 1, 2).float()                 # (W, 3, H, cw)
         x = F.interpolate(x, size=(r, r), mode="bilinear", align_corners=False).transpose(0, 1)   # (3, W, r, r)
-        if rng.random() < self.bnd_hflip:
+        flip = rng.random() < self.bnd_hflip
+        if flip:
             x = x.flip(-1)
-        return x.round_().clamp_(0, 255).to(torch.uint8).contiguous()
+        x = x.round_().clamp_(0, 255).to(torch.uint8).contiguous()
+        if not self.bnd_labels:
+            return x
+        if cw != Wd or H != Wd:
+            raise ValueError(f"boundary labels: 자르기 · 비정사각 금지 (H {H} W {Wd} crop {cw}) — crop_ratio [1, 1] 로")
+        from app.vjepa_frozen.state_head import pack_labels
+        from z_training.data.phys2d_sup_labels import load_clip, window_labels
+        lab = window_labels(load_clip(path), start=idx[0], n_frames=len(idx), stride=s, tubelet=self.tubelet, reduce="last")
+        return x, {k: torch.from_numpy(v) for k, v in pack_labels(lab, flip=flip).items()}
 
     def make_boundary(self, step):
         c = random.Random(f"{self.seed}-bndplan-{step}").choice(self.bnd_C)     # 모든 rank 같은 문맥 길이
@@ -202,11 +217,15 @@ class VarWindowBatches(torch.utils.data.IterableDataset):
         B = max(self.b_min, min(self.b_max, self.budget // W))
         rng = random.Random(f"{self.seed}-bnddata-{step}-{self.rank}")
         lo = bisect.bisect_left(self.bnd_cmax, c)
-        clips, fails = [], 0
+        clips, labs, fails = [], [], 0
         while len(clips) < B:
             _, path, b = self.bnd_items[rng.randrange(lo, len(self.bnd_items))]
             try:
-                clips.append(self._read_boundary(path, b, c, rng))
+                got = self._read_boundary(path, b, c, rng)
+                if self.bnd_labels:
+                    got, lab = got
+                    labs.append(lab)
+                clips.append(got)
             except Exception as e:
                 fails += 1
                 if fails > self.max_retry * B:
@@ -216,6 +235,8 @@ class VarWindowBatches(torch.utils.data.IterableDataset):
                 "context_blocks": c // self.tubelet, "predict_blocks": K // self.tubelet,
                 "gap_blocks": 0, "win_blocks": W // self.tubelet, "context_frames": c,
                 "type": f"var C{c}K{K} {self.bnd_name} B{B}", "read_fails": fails}
+        if labs:
+            info["labels"] = {k: torch.stack([l[k] for l in labs]) for k in labs[0]}       # (B, 블록, 48, …)
         return x, info
 
     # ---------------------------------------------------------------- multistart (2026-10-14)

@@ -335,3 +335,13 @@ vast_ar_vw_state_vidctx:          # AR · 문맥 = target_encoder 문맥 pass (�
   predictor.ar_feedback: state
   predictor.ar_input: video
   predictor.ar_target: window
+vast_ar_vw_state_phys2d:          # AR + phys2d_sup_v2 10 % + 상태 감독 (attn head 755 만, 채점은 predictor 만), 2026-10-19
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/natural_ar_vw_state_phys2d/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_phys2d_light:    # AR + phys2d_sup_v2 20 % + 상태 감독 (light head 6.9 만), 2026-10-19
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/natural_ar_vw_state_phys2d_light/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state

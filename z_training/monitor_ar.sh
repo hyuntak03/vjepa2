@@ -74,7 +74,7 @@ else:
     print(" (아직 step 로그 없음)")
 
 tl = os.path.join(D, "train.log")
-pat = re.compile(r"\] loss ([\d.]+) \(avg [\d.]+\) \[tf ([\d.]+) ar ([\d.]+) R=(\d+)\](?: hint (\d+))?(?: dl [\d.]+)?(?: dyn [\d.]+)?(?: gate [\d.]+ mov [\d.]+ sta [\d.]+ k1 [\d.]+ kR [\d.]+ >\.95 [\d.]+)?(?: hole [\d.]+ rec [\d.]+)? \| mask var C(\d+)K(\d+) (\w+) B(\d+)")
+pat = re.compile(r"\] loss ([\d.]+) \(avg [\d.]+\) \[tf ([\d.]+) ar ([\d.]+) R=(\d+)\](?: hint (\d+))?(?: dl [\d.]+)?(?: dyn [\d.]+)?(?: gate [\d.]+ mov [\d.]+ sta [\d.]+ k1 [\d.]+ kR [\d.]+ >\.95 [\d.]+)?(?: hole [\d.]+ rec [\d.]+)?(?: st [\d.]+ pos [\d.na]+/[\d.na]+px ex [\d.]+)?(?: gn [\d.naif]+)? \| mask var C(\d+)K(\d+) (\w+) B(\d+)")
 pat_ms = re.compile(r"\] loss ([\d.]+) \(avg [\d.]+\) \[tf ([\d.]+) ar ([\d.]+) R=(\d+)\] \| mask ms W(\d+) (\w+) B(\d+) s([\d-]+)")   # multistart (10-14)
 seen = []
 if os.path.isfile(tl):
@@ -132,6 +132,31 @@ if seen:
             for (e, _), gg in zip({(a, b): 0 for a, b, *_ in gl}.keys(), uniq):
                 byep.setdefault(int(e), []).append(float(gg[0]))
             print("       epoch 별 평균 gate  " + "  ".join(f"e{e}:{st.mean(v):.2f}" for e, v in sorted(byep.items())[-10:]))
+    # 2026-10-19: 상태 감독 head (phys2d_sup, 합성 step 에만). st = head 손실 (TF + rollout), pos = rollout 위치 오차 (보임 / 가림, px), ex = rollout 존재 정확도
+    sl = re.findall(r"\[(\d+), +(\d+)\] loss ([\d.]+) \(avg [\d.]+\) \[tf ([\d.]+) ar ([\d.]+) R=\d+\].*? st ([\d.]+) pos ([\d.na]+)/([\d.na]+)px ex ([\d.]+)(?: gn ([\d.naif]+))? \| mask", open(tl, errors="ignore").read())
+    if sl:
+        uq = list({(a, b): g for a, b, *g in sl}.values())
+        fm = lambda v: float("nan") if v.startswith("na") else float(v)
+        def _avg(rows, i):
+            xs = [fm(r[i]) for r in rows if fm(r[i]) == fm(r[i])]
+            return st.mean(xs) if xs else float("nan")
+        rec = uq[-20:]
+        try:
+            SHc = c.get("state_head") or {}
+            wgt = float(SHc.get("weight", 1.0))
+        except Exception:
+            wgt = 1.0
+        lat = _avg(rec, 1) + _avg(rec, 2)
+        print(f" {B}상태 head{N} (로그 줄에 찍힌 합성 step {len(uq):,} 개, 최근 {len(rec)} 개 평균)  손실 {_avg(rec, 3):.3f} (×{wgt:g}) vs latent {lat:.3f}   "
+              f"rollout 위치 오차 보임 {B}{_avg(rec, 4):.1f}{N} / 가림 {B}{_avg(rec, 5):.1f}{N} px   존재 정확도 {_avg(rec, 6):.3f}")
+        gn = [fm(r[7]) for r in uq if r[7]]
+        if gn:
+            print(f"       grad norm (합성 step, clip 전)  최근 {st.mean(gn[-20:]):.2f} · 최대 {max(gn):.2f}")
+        byep = {}
+        for (e, _), g in zip({(a, b): 0 for a, b, *_ in sl}.keys(), uq):
+            byep.setdefault(int(e), []).append(g)
+        print("       epoch 별 (head 손실 / 위치 보임·가림 px)  " + "  ".join(
+            f"e{e}:{_avg(v, 3):.2f}/{_avg(v, 4):.0f}·{_avg(v, 5):.0f}" for e, v in sorted(byep.items())[-8:]))
     ck = {}
     for g in seen[-400:]:
         ck.setdefault((int(g[5]), int(g[6])), []).append(float(g[2]))

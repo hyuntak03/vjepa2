@@ -187,7 +187,7 @@ def init_opt(predictor: nn.Module, iterations_per_epoch: int, start_lr: float, r
 
 # ----------------------------------------------------------------------------- checkpoint
 def save_checkpoint(path: str, predictor: nn.Module, optimizer, scaler, epoch: int, step: int,
-                    loss: float, cfg: dict, arch: dict):
+                    loss: float, cfg: dict, arch: dict, extra: dict = None):
     """predictor 만 담는다 (encoder 는 base checkpoint 를 가리킨다).
 
     키 `predictor` 는 채점기(analysis/intphys2/model.py: model.predictor_checkpoint) 와
@@ -201,6 +201,8 @@ def save_checkpoint(path: str, predictor: nn.Module, optimizer, scaler, epoch: i
             "context_encoder_key": cfg["model"].get("context_encoder_key", "encoder"),
             "target_encoder_key": cfg["model"].get("target_encoder_key", "target_encoder"),
             "arch": arch, "config": cfg, "format": "vjepa_frozen/predictor-only/v1"}
+    if extra:                                                 # 2026-10-19: state_head 등 predictor 밖 모듈 (채점기는 `predictor` 만 읽는다)
+        save.update(extra)
     tmp = path + ".tmp"
     torch.save(save, tmp)
     os.replace(tmp, path)                                     # 저장 중 죽어도 latest.pt 가 반쪽이 안 된다

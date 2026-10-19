@@ -1,0 +1,20 @@
+# =============================================================================
+# natural_ar_vw_state_phys2d_light — phys2d 상태 감독, **약한 head** (2026-10-19, 사용자 결정)
+#
+# natural_ar_vw_state_phys2d 와 head · 합성 비율 (0.10 → 0.20) 두 개가 다르다 (데이터 · clip 1.0 · 반전 끔 · lr_mult 1 같음).
+# 이유: attention head (755 만, Q·K·V·출력 투영 + MLP) 는 predictor 가 안 바뀌어도 정보를 찾아 읽는다 —
+#   phys2d run 의 VOBench late · IntPhys1 이 기준 AR 과 같고, 위치 오차가 복사 기준선과 비슷했다.
+# light: x_i = LN(토큰 i), a_ki = softmax_i(q_k · x_i / √1280), o_k = Σ_i a_ki x_i, Linear(1280 → 6) — 약 7 만 파라미터.
+#   predictor 출력 토큰 자체가 정체 쿼리와 닮고 · 상태를 선형으로 담아야 맞는다.
+# =============================================================================
+extends: natural_ar_vw_state_phys2d
+
+data:
+  var_window:
+    boundary:
+      p: 0.20                   # 0.10 → 0.20 (10-19 사용자 결정): 감독 횟수 2 배. ⚠️ phys2d run 과는 head + 비율 두 개가 다르다
+
+state_head:
+  type: light
+  hidden: 0                     # 0 = MLP 없음 (Linear 1280 → 6). 64 등을 주면 1280 → hidden → 6
+  num_heads: null
