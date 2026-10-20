@@ -31,6 +31,7 @@ x̂ : [B, 3, 2, 256, 256]
 bash z_pixel_decoder/run.sh                                      # tmux pixdec_<name>, GPU 8
 bash z_pixel_decoder/run.sh z_pixel_decoder/configs/vobench_vits.yaml 4
 tail -f z_pixel_decoder/runs/vobench_vits/train.log
+watch -c -n 2 bash z_pixel_decoder/monitor.sh [name]                 # 진행 · ETA · 손실 · val PSNR 추이 · 최신 그림 · GPU
 ```
 산출 (`runs/<name>/`, gitignore): `latest.pt` (decoder · opt · step) · `log.csv` (val MSE · PSNR) ·
 `samples/step_N.png` (val 블록 8 개 첫 장: 위 원본 · 아래 복원). 같은 `name` 으로 다시 올리면 `latest.pt` 에서 이어 돈다.
