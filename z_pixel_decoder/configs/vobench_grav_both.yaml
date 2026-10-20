@@ -1,0 +1,29 @@
+# Pixel decoder: VOBench_v1 + VOBench gravity, 블록별 latent (AR 공간) + 32 장 window latent (릴리즈 · 채점 공간) 둘 다 → 2 장 픽셀. ViT-S
+name: vobench_grav_both
+seed: 0
+data:
+  sources:
+    - {index: data_csv/vobench_v1/index.csv, root: /workspace/dataset/benchmarks/VOBench_v1}
+    - {index: data_csv/vobench_v1_gravity/index.csv, root: /workspace/dataset/benchmarks/VOBench_v1/gravity}
+  stride: 3              # 채점과 같은 프레임 간격
+  n_frames: 96
+  clip_frames: 32        # window 인코딩 = 채점 c16t32 와 같은 32 장 (블록 16)
+  latent: both           # block | window | both
+  val_frac: 0.1          # source_block 해시로 10 % val
+  workers: 8
+model:
+  checkpoint: checkpoint/models--facebook--vjepa2-vith-fpc64-256/snapshots/b5eac8703e3efdc1547fbb6ddfbeb133dc0bdee5/original/model.pth
+  dim: 384
+  depth: 12
+  heads: 6
+optim:
+  steps: 5000
+  warmup: 250
+  batch_size: 4          # GPU 당 clip 수 → 블록 4 × 16 × latent 2 = 128 (vobench_vits 와 같은 decoder batch)
+  lr: 0.001
+  weight_decay: 0.05
+  loss: l1
+  lpips: 1.0
+  clip: 1.0
+eval_every: 250
+n_val: 32                # val clip 수 (블록 512)

@@ -1,0 +1,21 @@
+# =============================================================================
+# natural_ar_vw_state_phys23d_single — 물체 1 개 2D + 3D 합성 + 상태 감독 (2026-10-20, 사용자 지시)
+#
+# natural_ar_vw_state_phys2d_single 과 데이터 하나만 다르다: 합성 창 = phys2d_single_v1 (551,899 행) + phys3d_single_v1 (302,946 행).
+#   3D 는 Blender 렌더 (조명 · 원근 · 질감) — 2D 감독이 VOBench · IntPhys (3D) 로 안 넘어가던 것을 줄이려는 것.
+#   창 목록 data_csv/phys23d_single/train_mix.tsv = 두 train_mix.tsv 를 이어 붙인 것 (둘 다 충돌 · 이탈 경계 + 무작위 시작).
+#   single head · weight 0.05 · head lr ×2 · clip predictor 만 — 그대로.
+#   ⚠️ 합성은 step 교대 (p 20 %) 가 아니라 **매 step 보조 손실** (mix: sum, 10-20 사용자) — 교대는 합성 step 의 큰 gradient 가
+#   Adam 2 차 모멘트를 키워 자연 step 갱신을 줄였다 (합성 / 자연 grad norm 5~6 배 · 20 % → 약 1/2.4, phys2d_single 의 자연 latent +0.02).
+#   합성 batch = token 예산 × budget_frac (0.25 → 본 창 수로 약 20 %). 합성 latent 손실 ×latent_weight, 상태 손실 ×state_head.weight
+# =============================================================================
+extends: natural_ar_vw_state_phys2d_single
+
+data:
+  var_window:
+    boundary:
+      name: phys23d_single
+      manifest: ${DATA_CSV}/phys23d_single/train_mix.tsv
+      mix: sum                    # 매 step 자연 batch + 합성 batch, 손실 합 → 한 번 step (p 는 무시)
+      budget_frac: 0.25
+      latent_weight: 1.0

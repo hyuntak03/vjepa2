@@ -18,6 +18,7 @@ app/vjepa/train.py 와 다른 점
 """
 from __future__ import annotations
 
+import contextlib
 import gc
 import json
 import logging
@@ -367,15 +368,29 @@ def main(args, resume_preempt=False):
         _val(0)
 
     # ---- 학습 루프 ----------------------------------------------------------------
+    MIX = False
     if VW:
         from app.vjepa_frozen.var_window import build_var_window_loader
         aug = D.get("aug") or {}
         vw_tf = ClipTransform(res, hflip_p=aug.get("hflip_p", 0.0), random_resized_crop=aug.get("random_resized_crop"),
                               square_crop=aug.get("square_crop", "none"), out_uint8=True)
-        vw_ds, loader = build_var_window_loader(
-            VW, vw_tf, tubelet, seed, rank, start_epoch * ipe, num_workers=int(D.get("num_workers", 8)),
-            pin_mem=bool(D.get("pin_mem", True)), prefetch_factor=int(D.get("prefetch_factor", 2)),
-            timeout_s=float(D.get("loader_timeout_s", 0)))
+        # 2026-10-20 (사용자): boundary.mix = sum — 합성을 step 교대가 아니라 보조 손실처럼 **매 step** 자연 batch 와 함께.
+        #   step 교대는 합성 step 의 큰 gradient 가 Adam 2 차 모멘트를 키워 자연 step 갱신을 줄인다 (합성 grad 5 배 · 20 % → 약 1/2.4).
+        #   자연 로더 = boundary 없음, 합성 로더 = boundary p 1 · token 예산 × budget_frac. 둘의 손실을 더해 한 번에 step.
+        BX = (VW or {}).get("boundary") or {}
+        MIX = str(BX.get("mix", "")) == "sum"
+        _ld = dict(num_workers=int(D.get("num_workers", 8)), pin_mem=bool(D.get("pin_mem", True)),
+                   prefetch_factor=int(D.get("prefetch_factor", 2)), timeout_s=float(D.get("loader_timeout_s", 0)))
+        if MIX:
+            VW_nat = {**VW, "boundary": None}
+            VW_syn = {**VW, "boundary": {**BX, "p": 1.0}, "token_budget": max(1, int(int(VW["token_budget"]) * float(BX.get("budget_frac", 0.25))))}
+            vw_ds, loader = build_var_window_loader(VW_nat, vw_tf, tubelet, seed, rank, start_epoch * ipe, **_ld)
+            syn_ds, syn_loader = build_var_window_loader(VW_syn, vw_tf, tubelet, seed + 7919, rank, start_epoch * ipe, **_ld)
+            syn_it = iter(syn_loader)
+            if rank == 0:
+                logger.info(f"boundary mix=sum: 매 step 자연 batch + 합성 batch (token 예산 {syn_ds.budget}, 합성 latent ×{BX.get('latent_weight', 1.0)} · 상태 ×{(SH or {}).get('weight', 1.0)})")
+        else:
+            vw_ds, loader = build_var_window_loader(VW, vw_tf, tubelet, seed, rank, start_epoch * ipe, **_ld)
         if rank == 0:
             logger.info(f"var_window: ipe {ipe}, token_budget {vw_ds.budget}, 조합 {len(vw_ds.combos)}개, 시작 step {start_epoch * ipe}\n"
                         + vw_ds.describe())
@@ -425,6 +440,9 @@ def main(args, resume_preempt=False):
                     clips = clips[:, :, o * tubelet: (o + n_blk) * tubelet]
                     info = {**info, "win_blocks": n_blk, "win_offset": o}
             clips = normalize_clips(clips.to(device, non_blocking=True))   # uint8 전송 -> GPU 정규화
+            if MIX:                                                          # 2026-10-20: 보조 합성 batch (mix=sum)
+                clips_s, info_s = next(syn_it)
+                clips_s = normalize_clips(clips_s.to(device, non_blocking=True))
             if not mask_all:
                 m_enc = m_enc.to(device, non_blocking=True)
                 m_pred = m_pred.to(device, non_blocking=True)
@@ -523,6 +541,27 @@ def main(args, resume_preempt=False):
                                                      spatial, int(info["context_blocks"]), R, SH.get("w") or {}, SH.get("split") or {})
                         aux["latent"] = float(loss.detach()); aux["head"] = float(lh.detach()); aux["hlog"] = hlog
                         loss = loss + float(SH.get("weight", 1.0)) * lh
+                loss_nat = None
+                if MIX:     # 2026-10-20: 자연 손실은 DDP 동기화 없이 gradient 만 쌓고, 합성 손실 backward 때 합쳐서 한 번 동기화
+                    if scaler is not None:
+                        raise ValueError("boundary.mix=sum 은 bf16 (scaler 없음) 에서만")
+                    with (predictor.no_sync() if hasattr(predictor, "no_sync") else contextlib.nullcontext()):
+                        loss.backward()
+                    loss_nat = loss.detach()
+                    with torch.no_grad(), _ac():
+                        hs = AR.encode_blocks(tgt_enc, clips_s.to(enc_dtype), tubelet)
+                    with _ac():
+                        outs_s = {}
+                        ls, jls, sls, Rs = AR.ar_losses(predictor, hs, spatial, int(info_s["context_blocks"]), int(info_s["predict_blocks"]),
+                                                        loss_exp, rollout_steps, tf_span=tf_span, out=outs_s)
+                        lab = info_s.get("labels") if state_head is not None else None
+                        loss = float(BX.get("latent_weight", 1.0)) * ls
+                        aux["syn_latent"] = float(ls.detach())
+                        if lab is not None:
+                            lh, hlog = SHM.ar_state_loss(state_head, outs_s["p_tf"], outs_s["p_ar"], SHM.labels_to_device(lab, device),
+                                                         spatial, int(info_s["context_blocks"]), Rs, SH.get("w") or {}, SH.get("split") or {})
+                            aux["latent"] = float(ls.detach()); aux["head"] = float(lh.detach()); aux["hlog"] = hlog
+                            loss = loss + float(SH.get("weight", 1.0)) * lh
                 if scaler is not None:
                     scaler.scale(loss).backward()
                     scaler.unscale_(optimizer)
@@ -547,7 +586,7 @@ def main(args, resume_preempt=False):
                     optimizer.step()
                 optimizer.zero_grad(set_to_none=True)
                 aux.update(jloss=float(jl.detach()), sloss=float(sl.detach()), R=R, n_hint=n_hint)
-                return float(loss.detach()), lr_now, wd_now
+                return float(loss.detach() + (loss_nat if loss_nat is not None else 0.0)), lr_now, wd_now
 
             def train_step_ctx_ar():
                 # 팔 C' (2026-09-27): 문맥 = ctx encoder 가 C 블록 창을 한 번에 (m_enc 로 미래 토큰 제거, prefix 팔과 같다),
