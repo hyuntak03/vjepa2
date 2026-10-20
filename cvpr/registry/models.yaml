@@ -345,3 +345,8 @@ vast_ar_vw_state_phys2d_light:    # AR + phys2d_sup_v2 20 % + 상태 감독 (lig
   predictor_checkpoint: ${CVPR_REPO}/z_training/runs/natural_ar_vw_state_phys2d_light/latest.pt
   predictor.kind: ar
   predictor.ar_feedback: state
+vast_ar_vw_state_phys2d_single:   # AR + phys2d_single_v1 20 % + 상태 감독 제약 (single head, weight 0.05 · head lr ×2 · clip predictor 만), 2026-10-19
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/natural_ar_vw_state_phys2d_single/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state

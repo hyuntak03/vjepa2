@@ -71,7 +71,9 @@ export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 export EVAL_DDP_TIMEOUT_S=${EVAL_DDP_TIMEOUT_S:-7200}
 
 GPUS=${GPUS:-1}
-DEVICES=$(for i in $(seq 0 $((GPUS-1))); do echo -n "cuda:$i "; done)
+# 2026-10-20: DEVICES="cuda:3" 처럼 물리 GPU 를 직접 줄 수 있다 (evals.main 이 CUDA_VISIBLE_DEVICES 를 이 번호로 덮어쓴다 —
+#   CUDA_VISIBLE_DEVICES 로 고르면 전부 GPU 0 에 몰린다). 없으면 기존처럼 cuda:0..GPUS-1
+DEVICES=${DEVICES:-$(for i in $(seq 0 $((GPUS-1))); do echo -n "cuda:$i "; done)}
 CFG=$(mktemp /tmp/wma_XXXXXX.yaml); trap 'rm -f "$CFG"' EXIT
 
 echo "=================================================="

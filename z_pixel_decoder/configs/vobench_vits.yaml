@@ -1,0 +1,26 @@
+# Pixel decoder: VOBench_v1 블록 latent (LN target_encoder, 256 × 1280) → 2 장 픽셀. ViT-S (384 · 12 층 · 6 head)
+name: vobench_vits
+seed: 0
+data:
+  index: data_csv/vobench_v1/index.csv
+  root: /workspace/dataset/benchmarks/VOBench_v1
+  stride: 3              # 채점과 같은 프레임 간격 (30 fps 의 3 장) — 블록 = (s, s+3)
+  n_frames: 96
+  val_frac: 0.1          # source_block 해시로 10 % 를 val 로 뺀다
+  workers: 8
+model:
+  checkpoint: checkpoint/models--facebook--vjepa2-vith-fpc64-256/snapshots/b5eac8703e3efdc1547fbb6ddfbeb133dc0bdee5/original/model.pth
+  dim: 384
+  depth: 12
+  heads: 6
+optim:
+  steps: 5000           # batch 128 × 8 GPU — bs32 · 20k step 와 같은 표본 수
+  warmup: 250
+  batch_size: 128        # GPU 당 (10-20 사용자: 32 → 128)
+  lr: 0.001              # batch 4 배 → lr 2 배 (√4)
+  weight_decay: 0.05
+  loss: l1               # l1 = [0, 1] 픽셀 L1 (feature 가 정하지 못하는 부분은 흐릿 = 중앙값) | mse = 정규화 공간
+  lpips: 1.0             # + λ · LPIPS(VGG) — 경계 · 텍스처. 0 이면 끈다. λ 는 1 에서 시작 (참고 논문 본문에 값 없음)
+  clip: 1.0
+eval_every: 250
+n_val: 128
