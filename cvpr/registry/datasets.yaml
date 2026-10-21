@@ -145,11 +145,37 @@ intphys1_late_auto2-6r12fit:      # 2026-10-18. ★ 쌍마다 stride 2–6 · �
   plausible_column: plausible
   type_column: block_type
   engine: wma
+intphys1_late_uni:                # 2026-10-20. IntPhys 1 dev 180 쌍 전부. 문맥 16 장 = [0, d−1] 균일 · 미래 16 장 = [d, 99] 균일 (build.py --uniform-d; 쌍마다 간격 다름)
+  raw_frames: 32
+  cache_tag: intphys1_late_uni
+  root: ${CVPR_DATA_CSV}/intphys1_late_uni
+  index_csv: index.csv
+  frames_root: ${CVPR_LOCAL}/world/world_analysis/IntPhys1_late_uni
+  frames_pattern: '{video_id}/{frame:06d}.png'
+  frames_start: 0
+  frames_stride: 1
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: block_type
+  engine: wma
 grasp_level2:
   raw_frames: 501
   cache_tag: grasp_level2
   root: ${CVPR_DATA_CSV}/grasp_level2
   index_csv: index.csv
+
+# 2026-10-21: vll7 판. 위 index.csv 의 `file` 열은 **vll5 노드 로컬** /data2/... 를 가리키는데
+#   vll7 에는 /data2 마운트가 없다 (`df -h /data2` -> No such file or directory).
+#   같은 영상이 NFS /data/dataset/world/Benchmarks/GRASP 에 풀려 있어 그쪽을 쓰는 index 를 따로 둔다
+#   (z_research/scripts/data/build_grasp_vll7_index.py, 4,096 행 실물 전수 확인).
+#   영상 파일은 같은 것이므로 채점값은 grasp_level2 와 같아야 한다. cache_tag 도 같게 두어 토큰 캐시를 공유한다.
+grasp_level2_vll7:
+  raw_frames: 501
+  cache_tag: grasp_level2
+  root: ${CVPR_DATA_CSV}/grasp_level2
+  index_csv: index_vll7.csv
   block_column: block_id
   pair_column: pair_id
   variant_column: variant
@@ -616,7 +642,7 @@ intphys2_main_nfs:
   note: vjepa2_vith_intphys2_main.yaml 이 쓰던 사본
 ek100:
   engine: ek100
-  base_path: ${CVPR_DATA2}/local_datasets/EPIC-KITCHENS_resized
+  base_path: ${CVPR_EK100_VIDEOS}
   dataset_train: ${CVPR_NFS}/epic-kitchens-100-annotations/EPIC_100_train.csv
   dataset_val: ${CVPR_NFS}/epic-kitchens-100-annotations/EPIC_100_validation.csv
   file_format: 0
@@ -627,7 +653,7 @@ vobench_v1:                       # 2026-10-10. UE 5.4 TestBed, 720 block × 4 a
   cache_tag: vobench_v1
   root: ${CVPR_DATA_CSV}/vobench_v1   # z_research/scripts/data/build_vobench_index.py
   index_csv: index.csv
-  frames_root: ${CVPR_DATA2}/local_datasets/world/Benchmark/VOBench_v1
+  frames_root: ${CVPR_VOBENCH}
   frames_pattern: '{file_name}/{frame:06d}.png'
   frames_start: 0
   frames_stride: 3
@@ -638,12 +664,51 @@ vobench_v1:                       # 2026-10-10. UE 5.4 TestBed, 720 block × 4 a
   type_column: condition            # <objset>/<violation>/<occlusion>
   engine: wma
   legacy_results_root: ${CVPR_REPO}/z_research/VOBench_v1/exp_results
+vobench_v1_late:                  # 2026-10-20. VOBench_v1 의 late (문맥 끝 가림) 만 — 864 arm / 216 block / **432 matched 쌍**.
+                                  #   학습 in-loop val (`val.dataset: vobench_v1_late`) 과 **같은 정의**라 학습 곡선과 직접 비교된다.
+  raw_frames: 96
+  cache_tag: vobench_v1_late
+  root: ${CVPR_DATA_CSV}/vobench_v1_late
+  index_csv: index.csv
+  frames_root: ${CVPR_VOBENCH}
+  frames_pattern: '{file_name}/{frame:06d}.png'
+  frames_start: 0
+  frames_stride: 3
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: condition            # <objset>/<violation>/late
+  engine: wma
+  legacy_results_root: ${CVPR_REPO}/z_research/VOBench_v1/exp_results
+
+vobench_v1_gravity:               # 2026-10-20. 216 block / 936 arm. block = 과거 하나 + 미래 여럿 (ledge pos·imp_float / arc 꼭대기 9 종).
+                                  #   ⚠️ 채점이 **cross** 다 (block 하나 = 문맥 하나라 가능 1 x 불가능 전부). 주지표 matched 와 다르니 섞지 말 것.
+                                  #   configs/protocols/datasets.md 의 같은 이름 항목과 같은 데이터 (옛 resolver 용 사본).
+  raw_frames: 96
+  cache_tag: vobench_v1_gravity
+  root: ${CVPR_DATA_CSV}/vobench_v1_gravity
+  index_csv: index.csv
+  frames_root: ${CVPR_VOBENCH}/gravity
+  frames_pattern: '{file_name}/{frame:06d}.png'
+  frames_start: 0
+  frames_stride: 3
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: condition
+  engine: wma
+  legacy_results_root: ${CVPR_REPO}/z_research/VOBench_v1/exp_results
+  overrides:
+    scoring.pairing: cross          # gravity_realistic 과 같은 방식. 안 주면 조용히 matched 로 돈다 (CLAUDE.md §1-2)
+
 vobench_v1_split_test:            # 2026-10-12. block 단위 test 절반 360 block × 4 변이 (z_training/data/build_vobench_split_index.py). post-FT 채점 전용
   raw_frames: 96
   cache_tag: vobench_v1_split_test
   root: ${CVPR_DATA_CSV}/vobench_v1_split
   index_csv: index_test.csv
-  frames_root: ${CVPR_DATA2}/local_datasets/world/Benchmark/VOBench_v1
+  frames_root: ${CVPR_VOBENCH}
   frames_pattern: '{file_name}/{frame:06d}.png'
   frames_start: 0
   frames_stride: 3
@@ -659,7 +724,7 @@ vobench_v1_split2_test:           # 2026-10-14. 장면 묶음 단위 test 절반
   cache_tag: vobench_v1_split2_test
   root: ${CVPR_DATA_CSV}/vobench_v1_split_v2
   index_csv: index_test.csv
-  frames_root: ${CVPR_DATA2}/local_datasets/world/Benchmark/VOBench_v1
+  frames_root: ${CVPR_VOBENCH}
   frames_pattern: '{file_name}/{frame:06d}.png'
   frames_start: 0
   frames_stride: 3
@@ -675,7 +740,7 @@ vobench_v1_asymmetry:             # 2026-10-10. late 만 864 arm, 창을 k 샘�
   cache_tag: vobench_v1_asymmetry
   root: ${CVPR_DATA_CSV}/vobench_v1_asymmetry   # z_research/scripts/data/build_vobench_asym.py
   index_csv: index.csv
-  frames_root: ${CVPR_DATA2}/local_datasets/world/Benchmark/VOBench_v1_asymmetry
+  frames_root: ${CVPR_VOBENCH}_asymmetry
   frames_pattern: '{file_name}/{frame:06d}.png'
   frames_start: 0
   frames_stride: 3
@@ -691,7 +756,7 @@ vobench_v1_gravity:                # 2026-10-11 재렌더 (g 375). VOBench gravi
   cache_tag: vobench_v1_gravity
   root: ${CVPR_DATA_CSV}/vobench_v1_gravity   # z_research/scripts/data/build_vobench_gravity_index.py
   index_csv: index.csv
-  frames_root: ${CVPR_DATA2}/local_datasets/world/Benchmark/VOBench_v1/gravity
+  frames_root: ${CVPR_VOBENCH}/gravity
   frames_pattern: '{file_name}/{frame:06d}.png'
   frames_start: 0
   frames_stride: 3

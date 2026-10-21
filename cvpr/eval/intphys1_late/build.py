@@ -122,17 +122,19 @@ def main():
     ap.add_argument("--auto-skip", default="", help="쌍마다 고를 stride 후보 (예: 2,3,4,5,6). docstring")
     ap.add_argument("--reveal-within", type=int, default=8)
     ap.add_argument("--fit", action="store_true", help="--auto-skip 과 같이: e 를 가림 구간 어디서든 (fit_end docstring)")
+    ap.add_argument("--uniform-d", action="store_true",
+                    help="2026-10-20 사용자: 문맥 16 장 = [0, d−1] 균일, 미래 16 장 = [d, 99] 균일 (쌍마다 문맥 · 미래 간격이 다르다). IntPhys 1 dev 180 쌍 전부")
     ap.add_argument("--frames-out", default="/local_datasets/world/world_analysis/IntPhys1_late")
     a = ap.parse_args()
     auto = [int(x) for x in a.auto_skip.split(",") if x]
     a.hidden_end = a.hidden_end or a.reveal_end or bool(auto)
-    name = "intphys1_late" + ("" if a.skip == 2 else f"_s{a.skip}") + (f"_auto{'-'.join(map(str, [min(auto), max(auto)])) if len(auto) > 1 else auto[0]}" + ("" if a.reveal_within == 8 else f"r{a.reveal_within}") + ("fit" if a.fit else "") if auto else "_rev" if a.reveal_end else "_hid" if a.hidden_end else ("" if a.ctx_end_offset == -1 else f"_o{a.ctx_end_offset:+d}".replace("+", "p").replace("-", "m")))
+    name = "intphys1_late_uni" if a.uniform_d else "intphys1_late" + ("" if a.skip == 2 else f"_s{a.skip}") + (f"_auto{'-'.join(map(str, [min(auto), max(auto)])) if len(auto) > 1 else auto[0]}" + ("" if a.reveal_within == 8 else f"r{a.reveal_within}") + ("fit" if a.fit else "") if auto else "_rev" if a.reveal_end else "_hid" if a.hidden_end else ("" if a.ctx_end_offset == -1 else f"_o{a.ctx_end_offset:+d}".replace("+", "p").replace("-", "m")))
     name += f"_dn{a.denoise}" if a.denoise >= 0 else ""
     VT = json.load(open(VIDEOS_JSON)) if a.hidden_end else None
     out_csv = REPO / "data_csv" / name; out_csv.mkdir(parents=True, exist_ok=True)
     fr_root = Path(a.frames_out + name[len("intphys1_late"):]); fr_root.mkdir(parents=True, exist_ok=True)
 
-    pairs = [r for r in csv.DictReader(open(PAIRS)) if r["group"] in ("moving/occluded", "static/occluded")]
+    pairs = [r for r in csv.DictReader(open(PAIRS)) if a.uniform_d or r["group"] in ("moving/occluded", "static/occluded")]
     idx = {r["video_id"]: r for r in csv.DictReader(open(SRC_INDEX))}
     rows, integ, dropped = [], [], []
     for p in pairs:
@@ -157,6 +159,9 @@ def main():
             if e is None:
                 dropped.append(dict(pos=p["pos"], imp=p["imp"], group=p["group"], event_kind=p["event_kind"])); continue
         ts = [e - SK * (N_CTX - 1 - k) for k in range(N_CTX)] + [e + SK * (k + 1) for k in range(N_FUT)]
+        if a.uniform_d:                                       # 문맥 = [0, d−1] 균일 16 장, 미래 = [d, 99] 균일 16 장
+            e = d - 1; SK = 0
+            ts = [int(round(x)) for x in np.linspace(0, d - 1, N_CTX)] + [int(round(x)) for x in np.linspace(d, N_RAW - 1, N_FUT)]
         lo = sum(t < 0 for t in ts); hi = sum(t > N_RAW - 1 for t in ts); ts = [min(max(t, 0), N_RAW - 1) for t in ts]
         from_pos = [k for k in range(N_CTX) if a.hidden_end and ts[k] >= d]       # d 뒤 문맥 장: 불가능 영상도 가능 영상 프레임을 쓴다
         pre_diff = {k: ndiff(p["pos"], p["imp"], ts[k]) for k in from_pos}

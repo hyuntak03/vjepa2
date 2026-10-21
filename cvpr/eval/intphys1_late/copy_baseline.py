@@ -48,7 +48,7 @@ def main():
             sur["copy_z"][r.video_id] = float((z[:, nc - 1:nc] - fut).abs().mean())
             sur["copy_h"][r.video_id] = float((h[:, nc - 1:nc] - fut).abs().mean())
             if i % 40 == 0: print(f"{i}/{len(ds.records)}", flush=True)
-    pairs = [p for p in csv.DictReader(open(REPO / "z_research/previous/OcclusionStats/intphys1/pairs.csv")) if "occluded" in p["group"] and p["pos"] in sur["copy_z"]]   # 그 데이터셋에 있는 쌍만 (intphys1_late_hid 는 54 쌍)
+    pairs = [p for p in csv.DictReader(open(REPO / "z_research/previous/OcclusionStats/intphys1/pairs.csv")) if p["pos"] in sur["copy_z"]]   # 그 데이터셋에 있는 쌍만 (intphys1_late_hid 54 · intphys1_late_uni 180)   # 그 데이터셋에 있는 쌍만 (intphys1_late_hid 는 54 쌍)
     model = json.load(open(run / "per_block.json"))["per_video_surprise"]
     out = {"n_pairs": len(pairs), "definition": __doc__.split("\n")[5:9]}
     for k, sv in (("model", model), *sur.items()):

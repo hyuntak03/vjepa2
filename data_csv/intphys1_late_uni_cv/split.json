@@ -1,0 +1,210 @@
+{
+ "source": "data_csv/intphys1_late_uni/index.csv",
+ "seed": 0,
+ "fold_of_block": {
+  "25": 0,
+  "26": 0,
+  "3": 0,
+  "22": 0,
+  "5": 0,
+  "8": 1,
+  "4": 1,
+  "0": 1,
+  "28": 1,
+  "23": 1,
+  "29": 0,
+  "14": 0,
+  "27": 0,
+  "18": 0,
+  "1": 0,
+  "6": 1,
+  "19": 1,
+  "9": 1,
+  "11": 1,
+  "16": 1,
+  "7": 0,
+  "17": 0,
+  "21": 1,
+  "2": 1,
+  "13": 1,
+  "12": 0,
+  "10": 0,
+  "24": 0,
+  "20": 1,
+  "15": 1,
+  "30": 0,
+  "33": 0,
+  "57": 0,
+  "39": 0,
+  "32": 0,
+  "50": 1,
+  "40": 1,
+  "59": 1,
+  "48": 1,
+  "46": 1,
+  "49": 0,
+  "41": 0,
+  "45": 0,
+  "52": 0,
+  "47": 0,
+  "51": 1,
+  "54": 1,
+  "58": 1,
+  "55": 1,
+  "38": 1,
+  "34": 0,
+  "43": 0,
+  "56": 1,
+  "36": 1,
+  "42": 1,
+  "44": 0,
+  "53": 0,
+  "37": 0,
+  "35": 1,
+  "31": 1,
+  "79": 0,
+  "68": 0,
+  "81": 0,
+  "89": 0,
+  "88": 0,
+  "82": 1,
+  "63": 1,
+  "83": 1,
+  "73": 1,
+  "77": 1,
+  "62": 0,
+  "70": 0,
+  "74": 0,
+  "80": 0,
+  "76": 0,
+  "65": 1,
+  "87": 1,
+  "64": 1,
+  "72": 1,
+  "84": 1,
+  "78": 0,
+  "61": 0,
+  "67": 1,
+  "60": 1,
+  "69": 1,
+  "86": 0,
+  "66": 0,
+  "85": 0,
+  "71": 1,
+  "75": 1
+ },
+ "fold0": {
+  "train_blocks": 45,
+  "train_possible_videos": 90,
+  "test_blocks": 45,
+  "test_pairs": 90,
+  "test_pairs_occluded": 48,
+  "by_stratum": {
+   "O1 moving/occluded": [
+    5,
+    5
+   ],
+   "O1 moving/visible": [
+    5,
+    5
+   ],
+   "O1 static/occluded": [
+    2,
+    3
+   ],
+   "O1 static/visible": [
+    3,
+    2
+   ],
+   "O2 moving/occluded": [
+    5,
+    5
+   ],
+   "O2 moving/visible": [
+    5,
+    5
+   ],
+   "O2 static/occluded": [
+    2,
+    3
+   ],
+   "O2 static/visible": [
+    3,
+    2
+   ],
+   "O3 moving/occluded": [
+    5,
+    5
+   ],
+   "O3 moving/visible": [
+    5,
+    5
+   ],
+   "O3 static/occluded": [
+    2,
+    3
+   ],
+   "O3 static/visible": [
+    3,
+    2
+   ]
+  }
+ },
+ "fold1": {
+  "train_blocks": 45,
+  "train_possible_videos": 90,
+  "test_blocks": 45,
+  "test_pairs": 90,
+  "test_pairs_occluded": 42,
+  "by_stratum": {
+   "O1 moving/occluded": [
+    5,
+    5
+   ],
+   "O1 moving/visible": [
+    5,
+    5
+   ],
+   "O1 static/occluded": [
+    3,
+    2
+   ],
+   "O1 static/visible": [
+    2,
+    3
+   ],
+   "O2 moving/occluded": [
+    5,
+    5
+   ],
+   "O2 moving/visible": [
+    5,
+    5
+   ],
+   "O2 static/occluded": [
+    3,
+    2
+   ],
+   "O2 static/visible": [
+    2,
+    3
+   ],
+   "O3 moving/occluded": [
+    5,
+    5
+   ],
+   "O3 moving/visible": [
+    5,
+    5
+   ],
+   "O3 static/occluded": [
+    3,
+    2
+   ],
+   "O3 static/visible": [
+    2,
+    3
+   ]
+  }
+ }
+}

@@ -20,6 +20,25 @@ export CVPR_NFS=${CVPR_NFS:-/data/hyuntak/project/2026/2027_cvpr} # NFS. 형제 
 export CVPR_BENCH_SRC=${CVPR_BENCH_SRC:-/data/dataset/world/Benchmarks}   # 벤치마크 원본 tar / InfLevel 폴더
 export CVPR_OTHER_CKPT=${CVPR_OTHER_CKPT:-/data/jongseo/project}          # 다른 사용자의 사전학습 체크포인트 (읽기 전용)
 
+# ── 노드마다 자리가 다른 루트 (2026-10-20) ──────────────────────────────────
+# 같은 데이터가 vll5 는 /data2/local_datasets/world/Benchmark/ 아래, vll7 은 /local_datasets/ 아래 다른 이름으로 있다.
+# 하나의 접두사 치환으로 안 되므로 (Benchmark/VOBench_v1 vs testbed/VOBench_v1) 루트별로 둔다.
+# configs/protocols/datasets.md 의 vobench_v1_gravity 항목이 이 갈림을 이미 경고하고 있었다 — 여기로 모은다.
+# 직접 주면 그게 이긴다:  CVPR_VOBENCH=/어디/VOBench_v1 bash cvpr/eval/testbed/run.sh ...
+case "$(hostname -s)" in
+  vll7) : "${CVPR_VOBENCH:=$CVPR_LOCAL/world/testbed/VOBench_v1}"
+        : "${CVPR_EK100_VIDEOS:=$CVPR_LOCAL/EPIC-KITCHENS_resized}"
+        # ⚠️ vll7 은 RTX PRO 6000 Blackwell (**sm_120**) 이다. 위에서 잡은 기본 CVPR_PY (vjepa2, torch 2.12.0+cu126) 는
+        #    sm_90 까지만 빌드돼 있어 `CUDA error: no kernel image is available` 로 죽는다 (2026-10-20 실측).
+        #    vjepa2_bw = torch 2.12.1+cu129, arch 목록에 sm_120 있음. 학습 하네스 (z_vll7_training/env.sh) 와 같은 환경이다.
+        CVPR_PY=/data/hyuntak/anaconda3/envs/vjepa2_bw/bin/python
+        CVPR_TORCHRUN=$(dirname "$CVPR_PY")/torchrun
+        export CVPR_PY CVPR_TORCHRUN ;;
+  *)    : "${CVPR_VOBENCH:=$CVPR_DATA2/local_datasets/world/Benchmark/VOBench_v1}"
+        : "${CVPR_EK100_VIDEOS:=$CVPR_DATA2/local_datasets/EPIC-KITCHENS_resized}" ;;
+esac
+export CVPR_VOBENCH CVPR_EK100_VIDEOS
+
 # ── 레포 안 자리 ─────────────────────────────────────────────────────────────
 export CVPR_CKPT=${CVPR_CKPT:-$CVPR_REPO/checkpoint}             # 릴리즈 체크포인트 (HF 스냅샷)
 export CVPR_DATA_CSV=${CVPR_DATA_CSV:-$CVPR_REPO/data_csv}        # index.csv 들

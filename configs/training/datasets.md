@@ -368,20 +368,34 @@ python z_training/data/build_fps4_table.py --csv data_csv/vll7_k400_320/all.csv 
 python z_training/data/build_fps4_table.py --csv data_csv/vll7_ssv2/all.csv      -o data_csv/vll7_ssv2/fps4_table.tsv      --workers 48
 python z_vll7_training/data/derive_fixed_csv.py --table data_csv/vll7_k400_320/fps4_table.tsv --mode fps4 --min 32 -o data_csv/vll7_k400_320/fps4_min32.csv
 python z_vll7_training/data/derive_fixed_csv.py --table data_csv/vll7_ssv2/fps4_table.tsv      --mode raw  --min 32 -o data_csv/vll7_ssv2/fs1_min32.csv
+python z_training/data/build_fps4_table.py --csv data_csv/phys2d_v1/train_clips.csv -o data_csv/phys2d_v1/fps4_table.tsv --workers 64   # 2026-10-19
 ```
 
 **fps 4 로 창 W 장을 패딩 없이 채울 수 있는 편수** (2026-10-16 전수 실측, `fps4_table.tsv`):
 
-| 창 W | 4 | 8 | 16 | 24 | 32 | 40 | 48 |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| K400 320p (240,436) | 100 % | 99.8 % | 99.0 % | 97.1 % | 92.1 % | 87.7 % | **0** |
-| SSv2 (146,773) | 100 % | 98.1 % | **50.1 %** | **1.9 %** | 7 편 | 6 편 | 1 편 |
+| 창 W | 4 | 8 | 16 | 24 | 32 | 40 | 48 | 64 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| K400 320p (240,436) | 100 % | 99.8 % | 99.0 % | 97.1 % | 92.1 % | 87.7 % | **0** | **0** |
+| SSv2 (146,773) | 100 % | 98.1 % | **50.1 %** | **1.9 %** | 7 편 | 6 편 | 1 편 | 0 |
+| phys2d_v1 (28,900) | 100 % | 100 % | 100 % | 100 % | 100 % | 100 % | **100 %** | **100 %** |
 
 ⚠️ K400 은 10 초 클립이라 fps 4 에서 **최대 약 41 장**, SSv2 는 fps 4 에서 **W 16 을 넘으면 사라진다.**
 그래서 (가) 긴 창은 K400 전용이 되어 **명목 가중치 != 실제 비율**이고 (나) 고정 32 장 창을 fps 4 로 잡으면 SSv2 가 7 편만 남는다.
 vast 의 `natural_ctx_state` 가 **SSv2 만 `frame_step: 1` (12 fps)** 로 돌린 이유가 이것이다 — 창 텐서 모양은 같고 **시간 척도가 섞인다**
 (같은 "K 블록 뒤" 가 K400 은 2~4 초, SSv2 는 0.7~1.3 초. RoPE 는 블록 번호만 안다).
 실제 비율은 `python z_vll7_training/data/var_window_report.py` 로 칸마다 본다.
+
+⚠️ **phys2d_v1 을 가변 창에 섞을 때** (2026-10-19). 원본이 4 fps · 64~128 장이라 **모든 창에 100 % 적격**이다 (위 표 마지막 줄).
+그래서 자연 영상이 못 채워 **버려져 있던 긴 칸** (W=48 x2, W=64) 이 되살아나고 **그 칸이 phys2d 100 %** 가 된다 —
+가중치를 0.2 로 낮춰도 프레임 비율이 28 % 아래로 안 내려간다 (실측). 격자를 먼저 돈 run 과 맞추려면
+`data.var_window.max_window` (2026-10-19 신설, `app/vjepa_frozen/var_window.py`) 로 창 상한을 건다.
+`max_window: 40` + `weight 0.4` -> 실측 프레임 **k400 57.6 : ssv2 19.4 : phys2d 23.0** (= 자연 77 : 합성 23,
+13 칸 · 평균 창 19.2 · rank 당 평균 clip 48.8 로 2 데이터셋 판과 일치). 쓰는 config `z_vll7_training/configs/ar_state_vw_phys2d.yaml`.
+
+## phys2d_v1_fps4_table
+
+`var_window` 용 표 (데이터셋 레지스트리 항목이 아니라 **경로로 직접 참조**한다 — K400 · SSv2 표와 같다).
+`data_csv/phys2d_v1/fps4_table.tsv` — 28,900 편 전부 열림, 전부 `fstp 1` (원본이 이미 4 fps), n4 = 64~128.
 
 ## vll7_k400_320_fps4_min32
 
@@ -514,3 +528,109 @@ decord_threads: 1
 type: phys2d_sup
 csv: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/phys2d_sup_v1/train_clips.csv
 decord_threads: 1
+
+## phys2d_sup_v2_state
+
+**phys2d_sup_v2 창 + 상태 라벨** (2026-10-19, vll7 생성) — `gen_phys2d_sup.py --per-scenario 2000 --seed 1` (20 시나리오).
+v1 과 같은 `type: phys2d_sup` 로더 (`app/vjepa_frozen/data.py` Phys2DSupDataset → `state_head`) 를 쓴다. 창은
+**vast 판 `build_phys2d_window_index.py`** (36eda71 이식) 가 clip json `events` 전체 + `_states.npz` 를 보고 만든다.
+
+⚠️ **v1 창 인덱스는 규칙이 깨져 있었다** (vast 실측, `z_training/docs/PHYS2D_SUP_DATASET_2026-10-18.md` §V-1):
+옛 builder 가 사건을 `boundary.tsv` 에서만 읽었는데 거기엔 행으로 고른 사건만 있어 **문맥에 전환이 있는 창이 56.6 %** 였다.
+v2 는 json `events` 전체로 ① 문맥에 충돌 · 이탈 없음 ② 예측 구간에 전환 ≥ 1 ③ 예측 구간에 화면 밖 물체 첫 등장 없음 을 건다.
+**v1 세트로 낸 수치와 섞지 말 것.**
+
+⚠️ 정체 48 칸 (모양 6 × 색 8) 은 이 세트에서만 성립한다. 같은 날의 `phys2d_v2` (경량 라벨: pos · angle · visible, 연속 RGB)
+로는 head supervision 이 안 된다 — clip 안 (모양, 색) 슬롯 충돌 12.7 % (2026-10-19 실측 2,000 clip).
+
+type: phys2d_sup
+csv: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/phys2d_sup_v2/train_T32C16s1.csv
+decord_threads: 1
+
+## phys2d_sup_v2_state_val
+
+위의 val 분할 (seed 2, train 과 겹침 0). 학습에 쓰지 않는다.
+
+type: phys2d_sup
+csv: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/phys2d_sup_v2/val_T32C16s1.csv
+decord_threads: 1
+
+
+## phys2d_single_v1_state
+
+**물체 1 개 2D 물리 + 상태 라벨** (2026-10-19, 사용자 생성 · vast cf8e528 생성기).
+`/local_datasets/world/training_data/phys2d_single_v1` — train 39,593 편 / val 1,440 편, video_fps 4, 길이 40~128 장.
+장면에 움직이는 물체가 **하나뿐**이라 정체 48 칸 (모양 6 × 색 8) 중 그 영상의 칸 하나만 쓴다
+(`state_head.SingleStateHead` + `single_losses`). 가림 비율 전체 장의 40.9 % (`train/audit.md`).
+
+이 줄은 **clip 목록** 이라 클립 안에서 연속 32 장을 **무작위 시작**으로 읽는다 (= vast `uniform.tsv` 에 해당).
+가림은 어디서든 나오고 문맥 · 예측 구간 가림 확률이 평평하다 (자리별 폭 2.2 pt, audit.md §1).
+
+⚠️ 상태 라벨은 관측만으로 얻는 정보가 아니다 — "관측만으로 학습" 주장과 섞지 말 것 (CLAUDE.md §12 질문 6).
+
+type: phys2d_sup
+csv: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/phys2d_single_v1/train_clips.csv
+decord_threads: 1
+
+## phys2d_single_v1_state_bnd
+
+위와 같은 세트의 **사건 경계 창** — `train/boundary.tsv` 의 `impact` · `leave` 행에서 **예측 첫 장 = 사건**
+으로 맞춘 고정 창 18,551 개 (C16 K16 s1. 경계가 영상 밖으로 나가는 행 21,566 개는 버렸다).
+`z_training/data/build_phys2d_single_index.py` 가 만든다. vast 의 `train_mix.tsv` 에서 boundary 쪽에 해당한다 —
+학습에서는 clip 쪽과 weight 로 섞는다.
+
+type: phys2d_sup
+csv: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/phys2d_single_v1/train_bnd_T32C16s1.csv
+decord_threads: 1
+
+## phys2d_single_v1_state_val
+
+위 세트의 val 분할 (1,440 편, clip 목록 · 무작위 시작). 학습에 쓰지 않는다.
+
+type: phys2d_sup
+csv: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/phys2d_single_v1/val_clips.csv
+decord_threads: 1
+
+## intphys1_late_uni_f0_train
+
+**IntPhys 1 dev late occ (uniform-d) 창, block 2-fold 의 fold 0 학습 절반 — 가능 영상 90 (45 block)** (2026-10-21 사용자: "dev set 으로 학습, held out 으로").
+`z_training/data/build_intphys1_late_uni_cv.py --copy` 산출. 32 장 = 평가 `intphys1_late_uni` 창 그대로 (문맥 [0, d−1] 균일 16 · 미래 [d, 99] 균일 16) 를 stride 1 로 읽는다.
+⚠️ dev = 평가 세트다. 이 데이터로 학습한 모델의 점수는 **반대 fold (`fold0_test.csv`) 로만** 읽는다. 프레임은 NFS 사본 (다른 노드에서 학습).
+
+type: frames_index
+root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/intphys1_late_uni_cv
+index_csv: fold0_train.csv
+frames_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_gen/IntPhys1_late_uni
+frames_pattern: "{video_id}/{frame:06d}.png"
+frames_start: 0
+frames_stride: 1
+raw_frames: 32
+
+## intphys1_late_uni_f1_train
+
+`intphys1_late_uni_f0_train` 의 짝 — fold 1 학습 절반 (가능 영상 90, 45 block). 점수는 `fold1_test.csv` 로만 읽는다.
+
+type: frames_index
+root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/intphys1_late_uni_cv
+index_csv: fold1_train.csv
+frames_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_gen/IntPhys1_late_uni
+frames_pattern: "{video_id}/{frame:06d}.png"
+frames_start: 0
+frames_stride: 1
+raw_frames: 32
+
+## vobench_objholdout_train
+
+**VOBench_v1 + gravity, 처음 보는 물체 split 의 train — 가능 영상 721 (VOBench 596 + gravity 125)** (2026-10-21, 사용자: "처음 보는 물체 · 모양 · 색에도 되나").
+`z_training/data/build_vobench_objholdout_index.py --copy`: 모양 torus · cone, 색 cyan · purple, 메시 basketball · scooter (칠한 색 42D4F4 · 911EB4) 가 train 에 0.
+split v2 장면 묶음 위에서 held-out 속성이 하나라도 있는 묶음은 통째로 test → train · test 가능 arm 설정 공유 0. test = `index_test.csv` (VOBench 422 block) · `gravity_test.csv` (91 block), 열 `holdout` = shape / color / mesh / both / seen.
+프레임은 train 영상만 NFS 사본 (`data_gen/VOBench_v1_objholdout`, gravity 는 `gravity/` 아래) — 다른 노드에서 학습.
+
+type: frames_index
+root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/vobench_v1_objholdout
+index_csv: index_train.csv
+frames_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_gen/VOBench_v1_objholdout
+frames_pattern: "{file_name}/{frame:06d}.png"
+frames_start: 0
+frames_stride: 3
+frames_start_choices: [0, 1, 2]

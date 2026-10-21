@@ -1,0 +1,49 @@
+# =============================================================================
+# 릴리즈 ViT-H predictor post-FT — IntPhys 1 dev late occ (uniform-d) 창, block 2-fold 의 fold 1 (2026-10-21 사용자)
+#   NODE=vll1 GPUS=2 bash z_training/sbatch.sh intphys1_late_uni_pft_f1      (짝: intphys1_late_uni_pft_f0, 설명은 그쪽)
+# 데이터 = z_training/data/build_intphys1_late_uni_cv.py: dev 90 block 을 (O 종류 × moving/static × visible/occluded) 층마다 반반.
+#   학습 = fold 1 block 의 가능 영상 90 · val (held-out) = 나머지 45 block 의 90 쌍 (가림 42).
+# 창 = 평가와 똑같이 32 장 (문맥 16 = [0, d−1] 균일 · 미래 16 = [d, 99] 균일), 문맥 16 고정, 뒤집기 없음.
+# 90 clip / global 16 ≈ 6 step/epoch → 40 epoch ≈ 240 step (intphys2_postft 와 비슷한 step 수).
+# ⚠️ IntPhys 1 dev 는 평가 세트 — 점수는 held-out fold 로만 읽는다.
+# =============================================================================
+extends: frozen_predictor_postft
+
+meta:
+  save_every_freq: 10
+
+data:
+  n_frames: 32
+  batch_size: 8                # rank 당 — GPU 2 장이면 global 16
+  datasets: [intphys1_late_uni_f1_train]
+  aug:
+    hflip_p: 0.0               # 채점에는 뒤집기가 없다
+    random_resized_crop: null
+
+mask:
+  - type: temporal_prefix
+    context_frames: [16]
+    weight: 1.0
+
+optimization:
+  epochs: 40
+  warmup: 2
+
+val:                           # held-out fold 의 쌍 정확도 (matched) — 매 epoch
+  dataset: intphys1_dev          # 레지스트리 이름 (필수) — 아래 data 가 경로 · 인덱스를 held-out fold 로 덮는다 (intphys1_postft 와 같은 방식)
+  n_blocks_per_type: 100       # 전부 (O 마다 15 block)
+  context_length: 16
+  batch_size: 8
+  every_epochs: 2
+  at_start: true
+  data:
+    root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/intphys1_late_uni_cv
+    index_csv: fold1_test.csv
+    frames_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_gen/IntPhys1_late_uni
+    frames_pattern: "{video_id}/{frame:06d}.png"
+    frames_start: 0
+    frames_stride: 1
+    block_column: block_id
+    pair_column: pair_id
+    plausible_column: plausible
+    type_column: block_type
