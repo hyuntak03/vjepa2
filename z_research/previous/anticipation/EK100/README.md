@@ -229,6 +229,8 @@ action 29.48 / verb 49.28 / noun 48.22 로 논문 (32.7 / 57.8 / 53.8) 보다 �
 `filter_annotations` 가 train 에 있는 (verb, noun) 조합만 남긴다: train 67,217 segment / 495 video, **verb 97 · noun 289 · action 3,568**;
 val 9,668 → **9,296** segment / 138 video (372개 버림). 논문의 "3,568 action / 97 verb / 300 noun" 과 맞는다 (noun 은 289개만 쓰인다).
 
+⚠️ **이것과 `cap16metric` 의 "지표 클래스" 는 다르다.** 지표 클래스 = 여기서 다시 **val 에도 있는 것**만 남긴 것 (action 1,114 · verb 73 · noun 201). 학습 부분집합의 생성 규칙은 **`Archive/CAP16METRIC_SUBSET_2026-10-21.md`** — train 만 클래스당 상한 16 으로 1/5.9, **val 은 전수**.
+
 ---
 
 ## 5. smoke 결과 (배관 점검, 수치를 읽는 용도 아님)

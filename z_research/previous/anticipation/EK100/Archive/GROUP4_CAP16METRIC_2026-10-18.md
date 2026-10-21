@@ -47,6 +47,8 @@ head 2 가 격자 끝에서 이겼으므로 최적이 더 위에 있을 수 있�
 - `val_every 5` · `ckpt_every 5` · `classifier.use_activation_checkpointing: false`
 - `anticipation_point_mode=released` (기준선 규약. `paper` 로 재면 action 35.34 → 14.14)
 - train `EPIC_100_train_cap16metric_seed0.csv` (11,470 행 / 470 편) · val `EPIC_100_validation_cap16metric_seed0.csv` (9,296 행 / 138 편)
+  - **부분집합 규칙 정본 = `Archive/CAP16METRIC_SUBSET_2026-10-21.md` + `z_research/scripts/data/build_ek100_cap16metric.py`** (2026-10-21 사후 복원, sha256 재현 확인).
+    train 만 지표 action 클래스당 상한 16 으로 1/5.9 로 줄인 것이고 **val 은 공식 filter 전수라 안 줄였다**
 - 1,114 action / 73 verb / 201 noun. action chance ≈ 0.45 %
 - ⚠️ full train CSV (67,217 행) 기준선은 action 35.34 다. 여기 수치와 **직접 비교 금지** (train 이 1/5.9)
 

@@ -27,6 +27,7 @@ data/           인덱스·데이터 준비
   verify_ek100_resized_frames.py  재인코딩본을 dataloader 와 같은 인덱스로 decord 로 읽어 원본 프레임과 픽셀 대조 (밀림 d=-2..2, 동률·중복 프레임 구분)
   verify_ek100_resized_headers.py  원본 vs 재인코딩본 파일을 직접 다시 읽어 대조: ffprobe 헤더 700 개 + decord 프레임 수·fps·색 (표본)
   build_ek100_val_official.py  EK100 validation 138 개를 공식 V-JEPA 2 val 입력 (짧은변 292 INTER_LINEAR -> 가운데 256, BT.709 태그) 과 같게 -> /data2/local_datasets/epic_test (--split train|both 로 train 495 도 같은 기하)
+  build_ek100_cap16metric.py  EK100 `cap16metric` train/val CSV (train = 지표 action 클래스당 상한 16 으로 11,470 행, val = 공식 filter 전수 9,296). 2026-10-21 사후 복원 — sha256 바이트 재현 확인 (`--verify`). 규칙 문서 z_research/previous/anticipation/EK100/Archive/CAP16METRIC_SUBSET_2026-10-21.md
   sbatch_build_ek100_official.sh  위 빌드를 vll5 SLURM (GPU 8 · CPU 128 · mem 전체 할당, 기본 train crf 15). sbatch 로만 부른다
 
 figures/        논문 그림. 전부 산출물에서 재계산해 summary.json 과 대조 검증한다
