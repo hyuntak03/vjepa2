@@ -168,10 +168,26 @@ def main(args, resume_preempt=False):
         if not is_ar:
             raise ValueError("state_head 는 kind=ar | ar_state 에서만 구현돼 있다")
         from app.vjepa_frozen import state_head as SHM
-        state_head = SHM.StateHead(ctx_enc.embed_dim, num_heads=int(SH.get("num_heads", 16)), hidden=int(SH.get("hidden", 512))).to(device)
+        state_head = SHM.build_head(SH, ctx_enc.embed_dim).to(device)       # type: attn (기본, 755 만) | light (6.9 만, vast 36f4921)
         head_params = list(state_head.parameters())
-        logger.info(f"state_head: {sum(q.numel() for q in head_params) / 1e6:.2f}M params · weight {SH.get('weight', 1.0)} · "
-                    f"w {SH.get('w', {})} · split {SH.get('split', {})} · lr_mult {SH.get('lr_mult', 10)}")
+        logger.info(f"state_head ({SH.get('type', 'attn')}): {sum(q.numel() for q in head_params) / 1e6:.2f}M params · "
+                    f"weight {SH.get('weight', 1.0)} · w {SH.get('w', {})} · split {SH.get('split', {})} · lr_mult {SH.get('lr_mult', 10)}")
+    # ── flow_head (2026-10-22, 사용자 요청): 자연 영상의 optical flow 로 AR 출력에 보조 손실.
+    #    라벨은 **관측만으로** 얻는다 (phys2d 상태 라벨과 다른 점 — CLAUDE.md §12 Q6). app/vjepa_frozen/flow_head.py
+    FH = cfg.get("flow_head") or None
+    flow_head, FHM = None, None
+    if FH:
+        if not is_ar:
+            raise ValueError("flow_head 는 kind=ar | ar_state 에서만 구현돼 있다")
+        if not ((D.get("var_window") or {}).get("flow")):
+            raise ValueError("flow_head 를 켜려면 data.var_window.flow (캐시 경로) 도 있어야 한다")
+        from app.vjepa_frozen import flow_head as FHM
+        flow_head = FHM.build_head(FH, ctx_enc.embed_dim).to(device)
+        head_params = head_params + list(flow_head.parameters())
+        logger.info(f"flow_head: {sum(q.numel() for q in flow_head.parameters()) / 1e3:.1f}k params · "
+                    f"weight {FH.get('weight', 1.0)} · split {FH.get('split', {})} · d_order {FH.get('d_order', 0)} · "
+                    f"lr_mult {FH.get('lr_mult', 10)}")
+    HCFG = SH or FH or {}        # head 공통 노브 (lr_mult · clip_separate · clip_head · freeze_predictor)
 
     # ---- 데이터 -------------------------------------------------------------------
     # 샘플링 두 갈래 (2026-10-16)
@@ -249,6 +265,12 @@ def main(args, resume_preempt=False):
                                    "lr": float(O["lr"]), "head_lr_mult": _hm})
         optimizer.add_param_group({"params": [q for n, q in state_head.named_parameters() if q.ndim <= 1],
                                    "WD_exclude": True, "weight_decay": 0.0, "lr": float(O["lr"]), "head_lr_mult": _hm})
+    if flow_head is not None:
+        _fm = float(FH.get("lr_mult", 10))
+        optimizer.add_param_group({"params": [q for n, q in flow_head.named_parameters() if q.ndim > 1],
+                                   "lr": float(O["lr"]), "head_lr_mult": _fm})
+        optimizer.add_param_group({"params": [q for n, q in flow_head.named_parameters() if q.ndim <= 1],
+                                   "WD_exclude": True, "weight_decay": 0.0, "lr": float(O["lr"]), "head_lr_mult": _fm})
 
     # ---- val ----------------------------------------------------------------------
     valset = None
@@ -281,6 +303,10 @@ def main(args, resume_preempt=False):
             _ck = torch.load(latest, map_location="cpu", weights_only=False)
             state_head.load_state_dict(_ck["state_head"]); del _ck
             logger.info("resume: state_head <- latest.pt")
+        if flow_head is not None:
+            _ck = torch.load(latest, map_location="cpu", weights_only=False)
+            flow_head.load_state_dict(_ck["flow_head"]); del _ck
+            logger.info("resume: flow_head <- latest.pt")
         for _ in range(start_epoch * ipe):
             scheduler.step(); wd_scheduler.step()
     elif os.path.exists(latest):
@@ -344,16 +370,37 @@ def main(args, resume_preempt=False):
         _val(0)
 
     # ---- 학습 루프 ----------------------------------------------------------------
+    MIX = False
     if VW:
         # 가변 창: step 번호가 (C, K, 데이터셋, B) 를 정한다 → 이어 돌릴 때 micro-batch 번호를 그대로 이어야 재현된다
         from app.vjepa_frozen.var_window import build_var_window_loader
         aug = D.get("aug") or {}
         vw_tf = ClipTransform(res, hflip_p=aug.get("hflip_p", 0.0), random_resized_crop=aug.get("random_resized_crop"),
                               square_crop=aug.get("square_crop", "none"), out_uint8=True)
-        vw_ds, loader = build_var_window_loader(
-            VW, vw_tf, tubelet, seed, rank, start_epoch * ipe * grad_accum,
-            num_workers=int(D.get("num_workers", 8)), pin_mem=bool(D.get("pin_mem", True)),
-            prefetch_factor=int(D.get("prefetch_factor", 2)), timeout_s=float(D.get("loader_timeout_s", 0)))
+        _ld = dict(num_workers=int(D.get("num_workers", 8)), pin_mem=bool(D.get("pin_mem", True)),
+                   prefetch_factor=int(D.get("prefetch_factor", 2)), timeout_s=float(D.get("loader_timeout_s", 0)))
+        # 2026-10-20 (vast f6e7934 이식): boundary.mix = sum — 합성을 **step 교대가 아니라 매 step 보조 손실**로.
+        #   교대는 합성 step 의 큰 gradient (자연의 5~6 배) 가 Adam 2 차 모멘트를 키워 자연 step 갱신을 약 1/2.4 로 줄였다.
+        #   자연 로더 = boundary 없음 · 합성 로더 = boundary p 1.0 · token 예산 x budget_frac. 두 손실을 더해 step 한 번.
+        #   키가 없으면 MIX False 라 종전과 완전히 같다.
+        BX = (VW or {}).get("boundary") or {}
+        MIX = str(BX.get("mix", "")) == "sum"
+        if MIX:
+            VW_nat = {**VW, "boundary": None}
+            VW_syn = {**VW, "boundary": {**BX, "p": 1.0},
+                      "token_budget": max(1, int(int(VW["token_budget"]) * float(BX.get("budget_frac", 0.25))))}
+            vw_ds, loader = build_var_window_loader(VW_nat, vw_tf, tubelet, seed, rank, start_epoch * ipe * grad_accum, **_ld)
+            syn_ds, syn_loader = build_var_window_loader(VW_syn, vw_tf, tubelet, seed + 7919, rank,
+                                                        start_epoch * ipe * grad_accum, **_ld)
+            syn_it = iter(syn_loader)
+            if not is_ar:
+                raise ValueError("boundary.mix=sum 은 kind=ar | ar_state 의 train_step_ar 에만 붙였다 "
+                                 "(다른 팔은 합성 batch 를 안 읽는다 — 붙이려면 그 train_step 에도 같은 블록을 넣을 것)")
+            if rank == 0:
+                logger.info(f"boundary mix=sum: 매 step 자연 batch + 합성 batch (합성 token 예산 {syn_ds.budget}, "
+                            f"합성 latent x{BX.get('latent_weight', 1.0)} · 상태 x{(SH or {}).get('weight', 1.0)})")
+        else:
+            vw_ds, loader = build_var_window_loader(VW, vw_tf, tubelet, seed, rank, start_epoch * ipe * grad_accum, **_ld)
         if rank == 0:
             logger.info(f"var_window: ipe {ipe} x grad_accum {grad_accum}, token_budget {vw_ds.budget}, "
                         f"조합 {len(vw_ds.combos)}개, 시작 step {start_epoch * ipe * grad_accum}\n" + vw_ds.describe())
@@ -389,8 +436,12 @@ def main(args, resume_preempt=False):
                     loader_it = iter(loader)
                     clips, m_enc, m_pred, info = next(loader_it)
             lab = info.get("labels") if (isinstance(info, dict) and m_enc is None) else None    # phys2d_sup (state_head)
-            if state_head is not None and lab is None:
+            if state_head is not None and lab is None and not MIX:
                 raise ValueError("state_head 인데 배치에 라벨이 없다 — data.datasets 가 type: phys2d_sup 이어야 한다")
+            if MIX:                                           # 보조 합성 batch (라벨은 여기에 있다)
+                clips_s, info_s = next(syn_it)
+                if state_head is not None and info_s.get("labels") is None:
+                    raise ValueError("mix=sum + state_head 인데 합성 batch 에 라벨이 없다 — boundary.labels: phys2d_sup 이어야 한다")
             if VW:
                 pass
             elif is_pusht:
@@ -416,6 +467,8 @@ def main(args, resume_preempt=False):
                     if lab is not None:                                  # 라벨은 블록 축 — 같은 창으로 자른다
                         lab = {k: v[:, o: o + n_blk] for k, v in lab.items()}
             clips = normalize_clips(clips.to(device, non_blocking=True))   # uint8 전송이면 GPU 정규화, float 이면 그대로
+            if MIX:                                                        # 합성도 같은 경로 — 안 옮기면 CPU 텐서가 encoder 에 들어가 죽는다 (2026-10-21)
+                clips_s = normalize_clips(clips_s.to(device, non_blocking=True))
             m_enc = m_enc.to(device, non_blocking=True)
             m_pred = m_pred.to(device, non_blocking=True)
             data_ms = (time.time() - t_it) * 1000
@@ -428,35 +481,75 @@ def main(args, resume_preempt=False):
                 if first_micro:
                     lr_hold[0] = scheduler.step(); lr_hold[1] = wd_scheduler.step()
                 lr_now, wd_now = lr_hold
-                if state_head is not None:
+                if head_params:
                     for g in optimizer.param_groups:                                  # head 그룹 lr = 스케줄 lr × lr_mult
                         if "head_lr_mult" in g:
                             g["lr"] = lr_now * g["head_lr_mult"]
-                        elif SH.get("freeze_predictor"):                              # 대조군: predictor 를 얼리고 head 만 (읽어 내기)
+                        elif HCFG.get("freeze_predictor"):                            # 대조군: predictor 를 얼리고 head 만 (읽어 내기)
                             g["lr"] = 0.0
                 if "context_blocks" not in info:
                     raise ValueError("kind=ar 는 mask.type=prefix_window 만 지원한다 (C·K 블록 수가 필요)")
                 with torch.no_grad(), _ac():
                     h = AR.encode_blocks(tgt_enc, clips.to(enc_dtype), tubelet)                # (B, nb*S, D) LN
                 sync_ctx = predictor.no_sync() if (grad_accum > 1 and not do_update and hasattr(predictor, "no_sync")) else nullcontext()
-                with sync_ctx:
-                    outs = {} if state_head is not None else None
+                # mix=sum (2026-10-20): 자연 손실은 **늘** no_sync 로 gradient 만 쌓고, 뒤의 합성 backward 가 한 번에 동기화한다
+                nat_ctx = (predictor.no_sync() if hasattr(predictor, "no_sync") else nullcontext()) if MIX else sync_ctx
+                with nat_ctx:
+                    outs = {} if head_params else None
                     with _ac():
                         loss, jl, sl, R = AR.ar_losses(predictor, h, spatial, int(info["context_blocks"]),
                                                        int(info["predict_blocks"]), loss_exp, rollout_steps, actions=info.get("actions"),
                                                        out=outs)
-                        if state_head is not None:
+                        if state_head is not None and lab is not None:
                             lh, hlog = SHM.ar_state_loss(state_head, outs["p_tf"], outs["p_ar"], SHM.labels_to_device(lab, device),
                                                          spatial, int(info["context_blocks"]), R, SH.get("w") or {}, SH.get("split") or {})
                             aux["latent"] = float(loss.detach())
                             aux["head"] = float(lh.detach())
                             aux["hlog"] = hlog
                             loss = loss + float(SH.get("weight", 1.0)) * lh
+                        if flow_head is not None:
+                            fl_t, fl_v = info.get("flow"), info.get("flow_valid")
+                            if fl_t is None:
+                                raise ValueError("flow_head 인데 배치에 flow 라벨이 없다 — data.var_window.flow.roots 를 볼 것")
+                            lf, flog = FHM.ar_flow_loss(flow_head, outs["p_tf"], outs["p_ar"],
+                                                        fl_t.to(device, non_blocking=True), fl_v.to(device, non_blocking=True),
+                                                        spatial, int(info["context_blocks"]), R, FH.get("split") or {},
+                                                        horizons=(D.get("var_window") or {}).get("flow", {}).get("horizons", [1, 2, 4, 8]),
+                                                        norm=FH.get("norm", "auto"))
+                            aux["latent"] = float(loss.detach()) if "latent" not in aux else aux["latent"]
+                            aux["flow"] = float(lf.detach())
+                            aux["flog"] = flog
+                            loss = loss + float(FH.get("weight", 1.0)) * lf
                     lb = loss / grad_accum
                     if scaler is not None:
                         scaler.scale(lb).backward()
                     else:
                         lb.backward()
+                if MIX:
+                    # 보조 합성 batch: latent x latent_weight + 상태 x state_head.weight. 자연 gradient 위에 더해 step 한 번.
+                    if scaler is not None:
+                        raise ValueError("boundary.mix=sum 은 bf16 (scaler 없음) 에서만 — fp16 scaler 와 섞으면 두 backward 의 스케일이 어긋난다")
+                    aux["nat_latent"] = float(loss.detach())
+                    with torch.no_grad(), _ac():
+                        hs = AR.encode_blocks(tgt_enc, clips_s.to(enc_dtype), tubelet)
+                    with sync_ctx:
+                        outs_s = {} if state_head is not None else None
+                        with _ac():
+                            ls, _jls, _sls, Rs = AR.ar_losses(predictor, hs, spatial, int(info_s["context_blocks"]),
+                                                              int(info_s["predict_blocks"]), loss_exp, rollout_steps, out=outs_s)
+                            loss_s = float(BX.get("latent_weight", 1.0)) * ls
+                            aux["syn_latent"] = float(ls.detach())
+                            if state_head is not None:
+                                lh, hlog = SHM.ar_state_loss(state_head, outs_s["p_tf"], outs_s["p_ar"],
+                                                             SHM.labels_to_device(info_s["labels"], device),
+                                                             spatial, int(info_s["context_blocks"]), Rs,
+                                                             SH.get("w") or {}, SH.get("split") or {})
+                                aux["latent"] = float(ls.detach())
+                                aux["head"] = float(lh.detach())
+                                aux["hlog"] = hlog
+                                loss_s = loss_s + float(SH.get("weight", 1.0)) * lh
+                        (loss_s / grad_accum).backward()
+                    loss = loss.detach() + loss_s.detach()
                 if do_update:
                     if scaler is not None:
                         scaler.unscale_(optimizer)
@@ -464,8 +557,19 @@ def main(args, resume_preempt=False):
                         for q in head_params:
                             if q.grad is not None:
                                 torch.distributed.all_reduce(q.grad); q.grad.div_(world_size)
-                    if clip_grad:
-                        torch.nn.utils.clip_grad_norm_(list(pred_mod.parameters()) + head_params, float(clip_grad))
+                    if head_params and HCFG.get("clip_separate"):   # 2026-10-19 (vast 167db20): clip 은 predictor 에만 (gn = predictor norm).
+                        #   head 는 state_head.clip_head (null = 안 자름) — 같이 자르면 head grad 가 predictor norm 에 눌려 거의 못 배운다
+                        _gn = torch.nn.utils.clip_grad_norm_(pred_mod.parameters(), float(clip_grad) if clip_grad else float("inf"))
+                        if HCFG.get("clip_head"):
+                            torch.nn.utils.clip_grad_norm_(head_params, float(HCFG["clip_head"]))
+                        aux["gn"] = float(_gn)
+                    elif clip_grad or head_params:  # 2026-10-19 (vast 36f4921): head 가 있으면 grad norm 을 늘 잰다 (clip 전 값, 로그 gn).
+                        #   왜: clip 없음 + head lr x10 으로 vast 에서 epoch 4 에 predictor 가 무너졌다
+                        #   (합성 step grad norm 13~22 vs 자연 0.25~0.85). 재야 무너지기 전에 보인다. clip_grad 없으면 자르지 않는다
+                        _gn = torch.nn.utils.clip_grad_norm_(list(pred_mod.parameters()) + head_params,
+                                                             float(clip_grad) if clip_grad else float("inf"))
+                        if head_params:
+                            aux["gn"] = float(_gn)
                     if scaler is not None:
                         scaler.step(optimizer); scaler.update()
                     else:
@@ -593,8 +697,16 @@ def main(args, resume_preempt=False):
                 step += 1                                        # optimizer step 수 (체크포인트·metrics 의 step)
             if is_seq:
                 jl_meter.update(aux["jloss"]); sl_meter.update(aux["sloss"])
+            if "flog" in aux:
+                for k_, v_ in [("latent", aux["latent"]), ("flow", aux["flow"])] + [("f_" + a, b) for a, b in aux["flog"].items()]:
+                    if isinstance(v_, (int, float)):
+                        head_meters.setdefault(k_, AverageMeter()).update(v_)
             if "hlog" in aux:
                 for k_, v_ in [("latent", aux["latent"]), ("head", aux["head"])] + list(aux["hlog"].items()):
+                    if np.isfinite(v_):
+                        head_meters.setdefault(k_, AverageMeter()).update(v_)
+            if "syn_latent" in aux:      # mix=sum: 자연 · 합성 latent 를 따로 남긴다 (metrics.jsonl 의 train_head)
+                for k_, v_ in (("nat_latent", aux["nat_latent"]), ("syn_latent", aux["syn_latent"])):
                     if np.isfinite(v_):
                         head_meters.setdefault(k_, AverageMeter()).update(v_)
             it_ms = (time.time() - t_it) * 1000
@@ -602,11 +714,23 @@ def main(args, resume_preempt=False):
             csv_logger.log(epoch + 1, itr, loss, info["context_frames"], lr_now, it_ms, gpu_ms, data_ms)
             if (itr % log_freq == 0) or (itr == ipe * grad_accum - 1) or not np.isfinite(loss):
                 ar_s = (" [tf %.4f ar %.4f R=%d]" % (aux["jloss"], aux["sloss"], aux["R"])) if is_seq else ""
+                if "flog" in aux:
+                    fl = aux["flog"]
+                    ar_s += (" [traj %.4f tf %.3f ar %.3f cv %.3f val %.2f"
+                             % (aux["flow"], fl["tf_l"], fl["ar_l"], fl["ar_c"], fl["valid"]))
+                    ar_s += " h " + " ".join("%s:%.2f/%.2f" % (k[1:], v, fl["c" + k[1:]])
+                                             for k in fl if k.startswith("l") and k != "l") + "]"
                 if "hlog" in aux:
                     hl = aux["hlog"]
                     ar_s += (" [head %.4f | ex %.3f/%.3f pos %.4f/%.4f dir %.3f/%.3f spd %.3f/%.3f | ar px vis %.1f hid %.1f]"
                              % (aux["head"], hl["tf_ex"], hl["ar_ex"], hl["tf_pos"], hl["ar_pos"], hl["tf_dir"], hl["ar_dir"],
                                 hl["tf_spd"], hl["ar_spd"], hl["ar_pos_px_vis"], hl["ar_pos_px_hid"]))
+                    if "ar_id_acc" in hl:        # 2026-10-19 (vast 167db20) single head: 49 지선다 정체 정확도 + attention 집중도
+                        ar_s += " id %.3f conc %.1f" % (hl["ar_id_acc"], hl.get("ar_conc", float("nan")))
+                if "syn_latent" in aux:   # mix=sum: 자연 batch 손실 (상태 없음) vs 합성 batch latent
+                    ar_s += " | nat %.4f syn %.4f" % (aux["nat_latent"], aux["syn_latent"])
+                if "gn" in aux:
+                    ar_s += " gn %.2f" % aux["gn"]
                 logger.info("[%d, %5d] loss %.4f (avg %.4f)%s | mask %s C=%s | lr %.2e wd %.2e | mem %.1fG | iter %.0f ms gpu %.0f ms data %.0f ms"
                             % (epoch + 1, itr, loss, loss_meter.avg, ar_s, info["type"], info["context_frames"], lr_now, wd_now,
                                torch.cuda.max_memory_allocated() / 1024**3, it_meter.avg, gpu_meter.avg, data_meter.avg))
@@ -620,6 +744,8 @@ def main(args, resume_preempt=False):
             _extra = {"encoder_lora": LR.lora_state_dict(ctx_enc), "encoder_lora_cfg": ctx_enc.lora_info} if lora_params else None
             if state_head is not None:
                 _extra = {**(_extra or {}), "state_head": state_head.state_dict(), "state_head_cfg": SH}
+            if flow_head is not None:
+                _extra = {**(_extra or {}), "flow_head": flow_head.state_dict(), "flow_head_cfg": FH}
             U.save_checkpoint(latest, predictor, optimizer, scaler, epoch + 1, step, loss_meter.avg, cfg, arch, extra=_extra)
             if save_every > 0 and ((epoch + 1) % save_every == 0 or epoch + 1 == num_epochs):
                 U.save_checkpoint(os.path.join(folder, f"e{epoch + 1}.pt"), predictor, optimizer, scaler,

@@ -102,12 +102,17 @@ class ClipTransform:
         side = min(H, W)
         return (H - side) // 2, (W - side) // 2, side, side
 
-    def __call__(self, buffer) -> torch.Tensor:
+    def __call__(self, buffer, return_params: bool = False):
+        """return_params (2026-10-22): (x, {box, HW, flip}) 도 함께. flow 라벨을 같은 자르기 · 반전으로 옮기는 데 쓴다
+        (app/vjepa_frozen/flow_labels.apply_transform). box = (top, left, h, w) 원본 픽셀 좌표."""
         if not torch.is_tensor(buffer):
             buffer = torch.from_numpy(np.ascontiguousarray(buffer))
         x = buffer.permute(3, 0, 1, 2).float().div_(255.0)          # (3, T, H, W) 0..1
         _, T, H, W = x.shape
         r = self.resolution
+        if return_params and self.window:
+            raise ValueError("return_params 는 window crop 과 같이 못 쓴다 (프레임마다 창이 달라 flow 한 장으로 못 옮긴다)")
+        box = (0, 0, H, W)
         if self.window:
             z = float(self.window.get("zoom", 1.5)); Hn = int(round(r * z)); Wn = max(int(round(W * Hn / H)), r)
             x = F.interpolate(x.transpose(0, 1), size=(Hn, Wn), mode="bilinear", align_corners=False).transpose(0, 1)
@@ -121,19 +126,24 @@ class ClipTransform:
         if self.rrc:
             top, left, h, w = self._rrc_box(H, W)
             x = x[:, :, top: top + h, left: left + w]
+            box = (top, left, h, w)
         elif self.square_crop == "center" and not self.window and H != W:
             top, left, h, w = self._square_box(H, W)
             x = x[:, :, top: top + h, left: left + w]
+            box = (top, left, h, w)
         if tuple(x.shape[-2:]) != (r, r):
             # 채점과 같은 커널: bilinear / antialias=False (공식 Garrido 전처리와 동일)
             x = F.interpolate(x.transpose(0, 1), size=(r, r), mode="bilinear",
                               align_corners=False).transpose(0, 1)
-        if self.hflip_p > 0 and random.random() < self.hflip_p:
+        flip = self.hflip_p > 0 and random.random() < self.hflip_p
+        if flip:
             x = x.flip(-1)
         x = x.contiguous()
         if self.out_uint8:
-            return x.mul_(255.0).round_().clamp_(0, 255).to(torch.uint8)
-        return (x - MEAN) / STD
+            x = x.mul_(255.0).round_().clamp_(0, 255).to(torch.uint8)
+        else:
+            x = (x - MEAN) / STD
+        return (x, {"box": box, "HW": (H, W), "flip": flip}) if return_params else x
 
 
 def normalize_clips(clips: torch.Tensor) -> torch.Tensor:

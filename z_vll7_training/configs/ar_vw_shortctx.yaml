@@ -1,0 +1,75 @@
+# =============================================================================
+# **짧은 문맥 · 긴 예측** AR — vast `natural_ar_vw` 규약 그대로, (C,K) 격자만 바꾼다 (2026-10-21 사용자 지시)
+#
+#   GPUS=4 bash z_vll7_training/tmux_train.sh ar_vw_shortctx
+#   DRYRUN=1 bash z_vll7_training/train.sh ar_vw_shortctx
+#   watch -c -n 5 bash z_vll7_training/monitor_ar_vw.sh
+#
+# ── 무엇이 같은가 (vast `configs/training/natural_ar_vw.yaml`, kind=ar) ──────
+#   * 문맥·미래 **둘 다** 블록 (tubelet 2 장) 마다 따로 `target_encoder` -> LN(h).
+#     블록 b 토큰은 블록 b 프레임만 본다 (시간 누수 0). encoder 는 하나뿐 (`context_encoder_key: target_encoder`)
+#   * predictor 는 **block-causal**, 위치 b 출력 = 블록 b+1 예측 (출력도 LN)
+#   * loss = jloss (**teacher forcing, 모든 위치** — 문맥 자리도 포함. `app/vjepa_frozen/ar.py:66`
+#     `jloss = l1(p_tf, h[:, S:])` 가 블록 0..nb-2 전부를 쓴다) + sloss (문맥 C 에서 R = min(K,16) 블록 rollout)
+#   * `kind: ar` 다 — **상태 되먹임 없음**. 되먹임은 출력 LN(p) 자신이다 (`ar_state` 는 predictor_norm 384 + type embed)
+#   * predictor 는 **무작위 초기화** (_vll7_base -> frozen_predictor_scratch, load_predictor: false). encoder 동결
+#
+# ── 무엇이 다른가 — (C, K) 격자 ──────────────────────────────────────────────
+#   ar_state_vw / vast  : C ∈ {2,4,8,16} 블록 · K ∈ {2,4,8,16} 블록
+#   **이 config**       : C ∈ {1, 2} 블록 · K ∈ {1, 2, 4, 8, 16} 블록
+#   문맥을 1~2 블록 (2~4 장, fps 4 로 0.5~1.0 초) 으로 **깎고** 예측 길이를 1~16 블록으로 **넓힌다**.
+#   의도: 문맥에서 베낄 것을 줄이고 긴 외삽을 강제한다. 짧은 K 칸 (1·2 블록) 은 TF 자리가 적은 대신
+#   rollout 이 짧아 "한 걸음 앞" 을 많이 보고, 긴 K 칸 (16 블록 = 8 초 예측) 이 외삽을 맡는다.
+#
+#   ⚠️ **어느 쪽 결과여도 문장이 선다** (§12 Q2):
+#     - 긴 K 에서 rollout 손실이 복사 대비 벌어지면 -> 짧은 문맥 + 긴 지평이 외삽을 가르친다 (목표 ★ 쪽)
+#     - 안 벌어지면 -> "창 설계를 바꿔도 같다" 가 되어 "다시 학습해도 같다" 의 또 한 항목이 된다
+#   ⚠️ 이 run 하나로는 (C 축소) 와 (K 확대) 를 **못 가른다** — 두 축을 같이 바꿨다. 가르려면 C 만 줄인 팔을 따로 돈다.
+#   ⚠️ **복사 기준선을 같이 내야 한다** (§12 Q5). 짧은 문맥 + 긴 예측은 복사가 특히 불리한 설정이라
+#      predictor 가 이겨도 당연할 수 있다. 채점 때 `surprise.ar_baseline=copy_last` 를 같은 격자에서 낸다.
+#
+# ── 데이터 — K400 320p + SSv2 **만** (사용자 지시) ───────────────────────────
+#   `_vll7_vw` 기본값 그대로. ⚠️ 그런데 **데이터 비율이 달라진다** (2026-10-21 `var_window_report.py` 실측):
+#     긴 창 격자 (W 8~64) : k400 76.7 : ssv2 23.3   — SSv2 는 긴 창을 못 채운다
+#     **이 격자** (W 4~36): **k400 59.8 : ssv2 40.2** (프레임 기준. step 60:40 · clip 52.7:47.3)
+#   창이 짧아져 SSv2 가 거의 모든 칸에 들어오기 때문이다. 10 칸 전부 쓸 수 있고, 둘 다 빠지는 칸은 없다
+#   (W=34·36 에서만 ssv2 가 min_eligible 20,000 미달로 빠져 k400 전용).
+#   -> **`ar_state_vw` 와 데이터 비율까지 다르다. 한 변수 대조가 아니다** — 비교할 때 반드시 적을 것.
+#   재현:
+#     python z_vll7_training/data/var_window_report.py \
+#       --table k400=data_csv/vll7_k400_320/fps4_table.tsv --table ssv2=data_csv/vll7_ssv2/fps4_table.tsv \
+#       --min-eligible-of ssv2=20000 --C 2,4 --K 2,4,8,16,32 --budget 950
+#
+# ── 예산 ─────────────────────────────────────────────────────────────────────
+#   token_budget 950 은 그대로라 **step 당 토큰 수는 같다** (-> step 시간도 비슷하다).
+#   창이 짧아진 만큼 B 가 커진다: rank 당 평균 clip **99.7** (ar_state_vw 48.8 의 2.0 배), 평균 창 9.4 장.
+#   4 GPU x 99.7 = step 당 ~399 clip -> 70 x 294 = 20,580 step ≈ **821 만 clip**
+#   (ar_state_vw 6 GPU 는 603 만, vast 8 GPU 는 1,046 만). ⚠️ clip 수가 다르다 — 비교할 때 적을 것.
+#   실측 epoch 시간 (ar_state_vw_phys2d, 6 GPU): 8.3 분 -> 70 epoch 약 10 시간. 4 GPU 도 토큰이 같아 비슷할 것.
+# =============================================================================
+extends: _vll7_vw
+
+tasks_per_node: 4            # 지금 이 노드에 잡혀 있는 GPU 수 (_vll7_base 는 6)
+
+model:
+  context_encoder_key: target_encoder   # encoder 하나 (EMA). 입력 = 타깃 = LN(target_encoder(블록))
+  target_encoder_key: target_encoder
+  predictor:
+    kind: ar                            # **기본 ar** — 상태 되먹임 없음 (ar_state 와 다른 점)
+    kv_rollout: true                    # KV 캐시 rollout. 값·grad 는 전체 재계산판과 동일
+    use_activation_checkpointing: false
+
+loss:
+  rollout_steps: 16                     # R = min(K, 16) = K — 예측 구간을 끝까지 굴린다
+
+data:
+  num_workers: 10                       # 72 CPU / 4 rank. 짧은 창은 batch 당 clip 수가 많아 (최대 237) 디코드가 는다
+  var_window:
+    context_frames: [2, 4]              # **1 · 2 블록**
+    predict_frames: [2, 4, 8, 16, 32]   # **1 · 2 · 4 · 8 · 16 블록**
+
+mask:                                   # var_window 가 (C,K) 를 정한다. MaskSampler 생성용 자리표시
+  - type: prefix_window
+    context_blocks: [1, 2]
+    predict_blocks: [1, 2, 4, 8, 16]
+    weight: 1.0
