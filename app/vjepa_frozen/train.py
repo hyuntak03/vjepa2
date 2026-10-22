@@ -182,11 +182,17 @@ def main(args, resume_preempt=False):
         if not ((D.get("var_window") or {}).get("flow")):
             raise ValueError("flow_head 를 켜려면 data.var_window.flow (캐시 경로) 도 있어야 한다")
         from app.vjepa_frozen import flow_head as FHM
-        flow_head = FHM.build_head(FH, ctx_enc.embed_dim).to(device)
+        # ⚠️ 지평선은 **데이터 쪽 한 곳** (data.var_window.flow.horizons) 에만 적는다 — 라벨을 만드는 쪽이 거기다.
+        #    head 쪽에 또 적으면 둘이 어긋나 head 출력 차원과 라벨 축이 안 맞는다 (2026-10-22 실제로 그랬다).
+        FHZ = [int(h) for h in (D.get("var_window") or {}).get("flow", {}).get("horizons", [1, 2, 4, 8])]
+        FSUP = [int(h) for h in (FH.get("supervise") or FHZ[1:] or FHZ)]     # 첫 지평선은 등속 기준선 재료 (기본 비감독)
+        if any(h not in FHZ for h in FSUP):
+            raise ValueError(f"flow_head.supervise {FSUP} 는 data.var_window.flow.horizons {FHZ} 의 부분집합이어야 한다")
+        flow_head = FHM.build_head({**FH, "supervise": FSUP}, ctx_enc.embed_dim).to(device)
         head_params = head_params + list(flow_head.parameters())
         logger.info(f"flow_head: {sum(q.numel() for q in flow_head.parameters()) / 1e3:.1f}k params · "
-                    f"weight {FH.get('weight', 1.0)} · split {FH.get('split', {})} · d_order {FH.get('d_order', 0)} · "
-                    f"lr_mult {FH.get('lr_mult', 10)}")
+                    f"지평선 라벨 {FHZ} 장 · 감독 {FSUP} 장 (= {[h / 2 for h in FSUP]} 블록) · "
+                    f"weight {FH.get('weight', 1.0)} · split {FH.get('split', {})} · lr_mult {FH.get('lr_mult', 10)}")
     HCFG = SH or FH or {}        # head 공통 노브 (lr_mult · clip_separate · clip_head · freeze_predictor)
 
     # ---- 데이터 -------------------------------------------------------------------
@@ -514,8 +520,7 @@ def main(args, resume_preempt=False):
                             lf, flog = FHM.ar_flow_loss(flow_head, outs["p_tf"], outs["p_ar"],
                                                         fl_t.to(device, non_blocking=True), fl_v.to(device, non_blocking=True),
                                                         spatial, int(info["context_blocks"]), R, FH.get("split") or {},
-                                                        horizons=(D.get("var_window") or {}).get("flow", {}).get("horizons", [1, 2, 4, 8]),
-                                                        norm=FH.get("norm", "auto"))
+                                                        horizons=FHZ, supervise=FSUP, norm=FH.get("norm", "auto"))
                             aux["latent"] = float(loss.detach()) if "latent" not in aux else aux["latent"]
                             aux["flow"] = float(lf.detach())
                             aux["flog"] = flog

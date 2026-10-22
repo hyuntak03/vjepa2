@@ -54,7 +54,7 @@ class TrajHead(nn.Module):
 
 
 def build_head(FH: dict, dim: int) -> nn.Module:
-    return TrajHead(dim, n_h=len(FH.get("horizons", [1, 2, 4, 8])), hidden=int(FH.get("hidden", 0)))
+    return TrajHead(dim, n_h=len(FH["supervise"]), hidden=int(FH.get("hidden", 0)))
 
 
 def _l1_per_h(pred, tgt, ok):
@@ -66,30 +66,34 @@ def _l1_per_h(pred, tgt, ok):
 
 
 def ar_flow_loss(head, p_tf, p_ar, flow, valid, S: int, C: int, R: int, split: dict,
-                 horizons=(1, 2, 4, 8), norm="auto", norm_eps: float = 1e-3, d_order: int = 0):
+                 horizons=(1, 2, 4, 8), supervise=(2, 4, 8), norm="auto", norm_eps: float = 1e-3):
     """TF 출력 (블록 1..nb-1) 과 rollout 출력 (블록 C..C+R-1) 둘 다에 같은 head.
-    flow (B, nb, H, 2, g, g) 패치 단위 누적 변위 · valid (B, nb, H, g, g).
+    flow (B, nb, H, 2, g, g) 패치 단위 누적 변위 · valid (B, nb, H, g, g). H = len(horizons).
 
-    지평선마다 크기가 다르므로 (0.5 s 1.06 → 4 s 2.22 패치) **그 batch 의 평균 |d| 로 나눠** 더한다
-    (norm="auto", gradient 없음). 고정값을 쓰려면 norm 에 숫자 목록을 준다.
-    손실 1.0 = "0 을 예측한 만큼 틀렸다" 가 되므로, 값이 1 보다 작아야 무언가를 배운 것이다.
+    horizons   라벨로 실어 온 지평선 전부. **첫 항은 등속 기준선의 재료**다 (앵커의 순간 속도).
+    supervise  그 중 실제로 손실을 거는 것. horizons 의 부분집합이고 head 출력 축과 1 : 1.
+               왜 나누나: 등속 기준선 d_h = (h / h0)·d_h0 을 쓰므로 h0 자리는 기준선이 정의상 0 이 된다.
+               h0 를 **감독에서 빼면** 감독하는 모든 칸이 제대로 된 파라미터 0 기준선을 갖는다
+               (실측 등속/0예측: 1 블록 0.58 · 2 블록 1.13 · 4 블록 1.79 — 1 블록이 가장 이기기 어렵다).
 
-    로그에 파라미터 0 기준선 둘을 같이 낸다 (CLAUDE.md §12 Q5):
-      z<h>  0 예측 (= 평균 |d^h| 를 자기 자신으로 나눈 1.0 이므로 생략하고, 대신 아래 둘을 본다)
-      c<h>  등속 외삽 — 첫 지평선의 **진짜** 변위를 비례로 늘린 것. 이걸 못 이기면 배운 게 없다.
-      l<h>  head 의 상대 L1. l < min(1, c) 여야 의미가 있다.
+    지평선마다 크기가 다르므로 (1 블록 0.92 → 4 블록 1.78 패치) **그 batch 의 평균 |d| 로 나눠** 더한다
+    (norm="auto", gradient 없음). 손실 1.0 = "0 을 예측한 만큼 틀렸다".
+
+    로그 (CLAUDE.md §12 Q5):  l<h> head 상대 L1 · c<h> 등속 상대 L1. **l < min(1, c)** 여야 배운 것이다.
     """
     H = [int(h) for h in horizons]
+    SUP = [int(h) for h in supervise]
+    si = [H.index(h) for h in SUP]
     T_tf = p_tf.size(1) // S
     y_tf, y_ar = head(p_tf, S), head(p_ar, S)
-    t_tf, v_tf = flow[:, 1:1 + T_tf], valid[:, 1:1 + T_tf]
-    t_ar, v_ar = flow[:, C:C + R], valid[:, C:C + R]
+    t_tf, v_tf = flow[:, 1:1 + T_tf][:, :, si], valid[:, 1:1 + T_tf][:, :, si]
+    t_ar, v_ar = flow[:, C:C + R][:, :, si], valid[:, C:C + R][:, :, si]
 
     with torch.no_grad():
         if norm == "auto":
             w = v_ar.unsqueeze(3)
             sc = ((t_ar.abs() * w).sum(dim=(0, 1, 4, 5)).sum(-1) / (w.sum(dim=(0, 1, 3, 4, 5)) * 2).clamp_min(1e-6))
-            sc = sc.clamp_min(norm_eps)                                        # (H,)
+            sc = sc.clamp_min(norm_eps)
         else:
             sc = torch.tensor([float(x) for x in norm], device=flow.device, dtype=torch.float32)
 
@@ -100,11 +104,12 @@ def ar_flow_loss(head, p_tf, p_ar, flow, valid, S: int, C: int, R: int, split: d
 
     log = {"valid": float(v_ar.mean())}
     with torch.no_grad():
-        cv = torch.stack([t_ar[:, :, 0] * (h / H[0]) for h in H], 2)           # 등속 외삽 (진짜 첫 지평선 기준)
+        base = flow[:, C:C + R][:, :, 0]                                   # 앵커의 순간 변위 (h0)
+        cv = torch.stack([base * (h / H[0]) for h in SUP], 2)              # 등속 외삽
         l_cv, _ = _l1_per_h(cv, t_ar, v_ar)
-        for k, h in enumerate(H):
-            log[f"l{h}"] = float(l_ar[k] / sc[k])                              # head (상대)
-            log[f"c{h}"] = float(l_cv[k] / sc[k])                              # 등속 (상대)
+        for k, h in enumerate(SUP):
+            log[f"l{h}"] = float(l_ar[k] / sc[k])
+            log[f"c{h}"] = float(l_cv[k] / sc[k])
         log["tf_l"] = float((l_tf / sc).mean())
         log["ar_l"] = float((l_ar / sc).mean())
         log["ar_c"] = float((l_cv / sc).mean())
