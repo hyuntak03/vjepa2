@@ -188,10 +188,14 @@ def main(args, resume_preempt=False):
         FSUP = [int(h) for h in (FH.get("supervise") or FHZ[1:] or FHZ)]     # 첫 지평선은 등속 기준선 재료 (기본 비감독)
         if any(h not in FHZ for h in FSUP):
             raise ValueError(f"flow_head.supervise {FSUP} 는 data.var_window.flow.horizons {FHZ} 의 부분집합이어야 한다")
-        flow_head = FHM.build_head({**FH, "supervise": FSUP}, ctx_enc.embed_dim).to(device)
+        FIN = str(FH.get("input", "diff"))      # diff = 인접(간격 g) 출력의 차 (기본) | token = 토큰 하나
+        if FIN not in ("diff", "token"):
+            raise ValueError(f"flow_head.input 은 diff | token: {FIN!r}")
+        flow_head = (FHM.build_diff_head if FIN == "diff" else FHM.build_head)(
+            {**FH, "supervise": FSUP}, ctx_enc.embed_dim).to(device)
         head_params = head_params + list(flow_head.parameters())
         logger.info(f"flow_head: {sum(q.numel() for q in flow_head.parameters()) / 1e3:.1f}k params · "
-                    f"지평선 라벨 {FHZ} 장 · 감독 {FSUP} 장 (= {[h / 2 for h in FSUP]} 블록) · "
+                    f"입력 {FIN} · 지평선 라벨 {FHZ} 장 · 감독 {FSUP} 장 (= 간격 {[h // tubelet for h in FSUP]} 블록) · "
                     f"weight {FH.get('weight', 1.0)} · split {FH.get('split', {})} · lr_mult {FH.get('lr_mult', 10)}")
     HCFG = SH or FH or {}        # head 공통 노브 (lr_mult · clip_separate · clip_head · freeze_predictor)
 
@@ -517,10 +521,12 @@ def main(args, resume_preempt=False):
                             fl_t, fl_v = info.get("flow"), info.get("flow_valid")
                             if fl_t is None:
                                 raise ValueError("flow_head 인데 배치에 flow 라벨이 없다 — data.var_window.flow.roots 를 볼 것")
-                            lf, flog = FHM.ar_flow_loss(flow_head, outs["p_tf"], outs["p_ar"],
-                                                        fl_t.to(device, non_blocking=True), fl_v.to(device, non_blocking=True),
-                                                        spatial, int(info["context_blocks"]), R, FH.get("split") or {},
-                                                        horizons=FHZ, supervise=FSUP, norm=FH.get("norm", "auto"))
+                            _fn = FHM.ar_flow_loss_diff if FIN == "diff" else FHM.ar_flow_loss
+                            _kw = {"tubelet": tubelet} if FIN == "diff" else {"norm": FH.get("norm", "auto")}
+                            lf, flog = _fn(flow_head, outs["p_tf"], outs["p_ar"],
+                                           fl_t.to(device, non_blocking=True), fl_v.to(device, non_blocking=True),
+                                           spatial, int(info["context_blocks"]), R, FH.get("split") or {},
+                                           horizons=FHZ, supervise=FSUP, **_kw)
                             aux["latent"] = float(loss.detach()) if "latent" not in aux else aux["latent"]
                             aux["flow"] = float(lf.detach())
                             aux["flog"] = flog

@@ -114,3 +114,98 @@ def ar_flow_loss(head, p_tf, p_ar, flow, valid, S: int, C: int, R: int, split: d
         log["ar_l"] = float((l_ar / sc).mean())
         log["ar_c"] = float((l_cv / sc).mean())
     return loss, log
+
+
+# ---------------------------------------------------------------- 쌍(차) readout (2026-10-22, 사용자 결정)
+# 왜 바꾸나 — 토큰 하나짜리 readout 은 **본 손실과 최적해가 다르다**:
+#   타깃 encoder 는 블록 b 의 두 장만 인코딩하므로 "b 가 h 장 뒤 어디 가 있나" 는 **진짜 토큰 h_b 에도 없다.**
+#   그래서 latent 손실 (p_b → h_b) 과 보조 손실이 서로 당긴다. 실측으로 그게 나타났다 (2026-10-22,
+#   ar_vw_shortctx_traj ep 1~22): latent 가 대조군보다 꾸준히 0.007~0.012 높고 IntPhys1 val 이 12 ep 연속 아래,
+#   궤적 head 는 세 지평선 모두 0.97 (= 거의 0 예측) 에서 정지.
+# 쌍의 차를 읽으면 충돌이 없다 — 블록 b → b+g 의 이동량은 (h_b, h_{b+g}) 의 **함수로 실제로 존재**하므로
+#   p → h 가 되면 보조 손실도 자동으로 만족된다. **두 손실의 최적해가 같다.**
+# 그리고 묻는 내용이 낫다: "예측한 **수열**이 진짜 운동을 담고 있나". latent 손실만으로는 블록마다 그럴듯하되
+#   시간적으로 멈춰 있는 수열에 벌점이 거의 없다 — 그게 우리가 기록한 실패 (거리 2~3 칸에서 멈춤) 와 같은 축이다.
+# ⚠️ 남는 걱정: flow 추정은 본질적으로 matching 이다. 같은 자리 토큰 둘의 **차**를 선형 사상하는 걸로
+#    "여기 있던 게 저기로 갔다" 를 계산할 수 있다는 보장은 없다. hidden > 0 으로 작은 MLP 를 쓸 수 있지만
+#    그러면 "predictor 가 담았나" 가 아니라 "head 가 뽑아낼 수 있나" 를 재게 된다 (CLAUDE.md §7-3).
+class TrajDiffHead(nn.Module):
+    """diff (B, T, S, D) = p_{b+g} - p_b  →  (B, T, 2, g, g). 지평선마다 출력 선형을 따로 둔다
+    (간격마다 변위 크기가 다르다). LayerNorm 은 공유."""
+
+    def __init__(self, dim: int = 1280, n_h: int = 3, hidden: int = 0):
+        super().__init__()
+        self.norm = nn.LayerNorm(dim)
+        mk = (lambda: nn.Linear(dim, 2)) if hidden <= 0 else \
+             (lambda: nn.Sequential(nn.Linear(dim, hidden), nn.GELU(), nn.Linear(hidden, 2)))
+        self.out = nn.ModuleList([mk() for _ in range(n_h)])
+
+    def forward(self, diff: torch.Tensor, k: int) -> torch.Tensor:
+        B, T, S, D = diff.shape
+        g = int(round(S ** 0.5))
+        y = self.out[k](self.norm(diff.reshape(B * T, S, D).float()))
+        return y.reshape(B, T, g, g, 2).permute(0, 1, 4, 2, 3).contiguous()
+
+
+def build_diff_head(FH: dict, dim: int) -> nn.Module:
+    return TrajDiffHead(dim, n_h=len(FH["supervise"]), hidden=int(FH.get("hidden", 0)))
+
+
+def _l1_one(pred, tgt, ok):
+    """(B, T, 2, g, g) · ok (B, T, g, g) → 스칼라 L1, 유효 질량."""
+    w = ok.unsqueeze(2).to(pred.dtype)
+    den = w.sum() * 2.0
+    return ((pred - tgt.to(pred.dtype)).abs() * w).sum() / den.clamp_min(1e-6), den
+
+
+def ar_flow_loss_diff(head, p_tf, p_ar, flow, valid, S: int, C: int, R: int, split: dict,
+                      horizons=(1, 2, 4, 8), supervise=(2, 4, 8), tubelet: int = 2, norm_eps: float = 1e-3):
+    """인접(간격 g 블록) predictor 출력의 **차**를 읽어 그 구간 변위를 맞힌다.
+
+    p_tf (B, (nb-1)*S, D)  위치 i ↔ **블록 i+1** 의 예측 토큰  → 문맥 블록도 포함한다 (사용자 지시 "context 에도 다").
+    p_ar (B, R*S, D)       걸음 r ↔ 블록 C+r
+    flow (B, nb, H, 2, g, g) · valid (B, nb, H, g, g)   앵커 = 각 블록의 마지막 장, 지평선 = 장 수
+    지평선 h 장 ↔ 블록 간격 g = h / tubelet. supervise [2, 4, 8] 이면 간격 1 · 2 · 4 블록.
+
+    쌍이 안 나오는 칸 (블록 수가 간격보다 적다) 은 그냥 건너뛴다 — 짧은 창에서는 긴 간격이 없다.
+    상대화: 지평선마다 그 batch 의 평균 |d| 로 나눈다 (gradient 없음). 1.0 = 0 예측과 같음.
+    """
+    H = [int(x) for x in horizons]
+    SUP = [int(x) for x in supervise]
+    T = p_tf.size(1) // S
+    B, _, Dm = p_tf.shape
+    Ptf = p_tf.reshape(B, T, S, Dm)                      # 블록 1..nb-1
+    Par = p_ar.reshape(B, R, S, Dm)                      # 블록 C..C+R-1
+
+    l_tf_all, l_ar_all, log = [], [], {}
+    for k, h in enumerate(SUP):
+        g = h // tubelet
+        ki = H.index(h)
+        parts_tf, parts_ar, cvs = None, None, None
+        if T > g:
+            tgt = flow[:, 1:1 + T - g, ki]; ok = valid[:, 1:1 + T - g, ki]
+            with torch.no_grad():
+                sc = ((tgt.abs() * ok.unsqueeze(2)).sum() / (ok.sum() * 2).clamp_min(1e-6)).clamp_min(norm_eps)
+            lv, _ = _l1_one(head(Ptf[:, g:] - Ptf[:, :-g], k), tgt, ok)
+            parts_tf = lv / sc
+            l_tf_all.append(parts_tf)
+        if R > g:
+            tgt = flow[:, C:C + R - g, ki]; ok = valid[:, C:C + R - g, ki]
+            with torch.no_grad():
+                sc = ((tgt.abs() * ok.unsqueeze(2)).sum() / (ok.sum() * 2).clamp_min(1e-6)).clamp_min(norm_eps)
+                cv = flow[:, C:C + R - g, 0] * (h / H[0])        # 등속 외삽 (파라미터 0)
+                cvs = _l1_one(cv, tgt, ok)[0] / sc
+            lv, _ = _l1_one(head(Par[:, g:] - Par[:, :-g], k), tgt, ok)
+            parts_ar = lv / sc
+            l_ar_all.append(parts_ar)
+            log[f"l{h}"] = float(parts_ar.detach()); log[f"c{h}"] = float(cvs)
+            log["valid"] = float(ok.mean())
+        elif parts_tf is not None:
+            log[f"l{h}"] = float(parts_tf.detach()); log[f"c{h}"] = float("nan")
+    zero = p_tf.sum() * 0.0
+    L_tf = torch.stack(l_tf_all).mean() if l_tf_all else zero
+    L_ar = torch.stack(l_ar_all).mean() if l_ar_all else zero
+    log["tf_l"] = float(L_tf.detach()); log["ar_l"] = float(L_ar.detach())
+    log["ar_c"] = float(sum(log.get(f"c{h}", 0.0) for h in SUP) / max(len(SUP), 1))
+    log.setdefault("valid", 0.0)
+    return float(split.get("tf", 1.0)) * L_tf + float(split.get("ar", 1.0)) * L_ar, log
