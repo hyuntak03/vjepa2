@@ -80,13 +80,19 @@ def build_model(arch, device):
     return m.to(device).eval().requires_grad_(False)
 
 
+DECODE_SWAP = None     # (from, to) 경로 치환 — 색인은 원래 경로를 쓰고 디코드만 다른 사본에서
+DECODE_SIZE = 0        # > 0 이면 decord 가 디코드하면서 바로 (size, size) 로 리사이즈한다
+
+
 def read_fps4(path, n_frames, fstp):
     """영상의 fps 4 프레임 전부를 **uint8 원본 크기** (n4, H, W, 3) 로. 리사이즈는 GPU 에서 한다.
     ⚠️ 2026-10-22 정정: 예전 판은 여기서 (n4, 3, 256, 256) float32 (영상당 34 MB) 를 만들었다.
        앞서 읽는 큐와 합쳐져 프로세스마다 RSS 50 GB 를 넘겼다 (실측). uint8 원본은 영상당 ~18 MB 이고
        GPU 리사이즈는 공짜다 — 아래 `to_gpu` 가 한다."""
     import decord
-    vr = decord.VideoReader(path, num_threads=1)
+    q = path.replace(*DECODE_SWAP) if DECODE_SWAP else path
+    kw = {"width": DECODE_SIZE, "height": DECODE_SIZE} if DECODE_SIZE > 0 else {}
+    vr = decord.VideoReader(q, num_threads=1, **kw)
     n = min(len(vr), int(n_frames))
     idx = list(range(0, n, int(fstp)))
     if len(idx) < 2:
@@ -141,8 +147,25 @@ def main():
     ap.add_argument("--num-shards", type=int, default=1)
     ap.add_argument("--device", default="cuda:0")
     ap.add_argument("--limit", type=int, default=0, help="앞 N 편만 (벤치마크용)")
+    # 2026-10-22: 이미 돌던 shard 를 **버리지 않고** 남은 꼬리만 여러 프로세스로 나눠 끝내려고 더했다.
+    #   같은 출력 dir 에 memmap 을 r+ 로 열고 **자기 구간 행만** 쓴다 (구간이 겹치지 않으면 안전하다).
+    #   --append 는 index.tsv · meta.json 을 다시 쓰지 않는다 (행 배치가 그대로여야 하므로 shard 규격도 같아야 한다).
+    ap.add_argument("--start", type=int, default=0, help="이 shard 목록의 [start, end) 만")
+    ap.add_argument("--end", type=int, default=0, help="0 이면 끝까지")
+    ap.add_argument("--append", action="store_true", help="기존 출력에 이어 쓴다 (memmap r+, 색인 유지)")
+    # 2026-10-22: 디코드만 저해상 사본에서 — 실측 320p 2.46 편/s → 256p + 내부 리사이즈 3.82 편/s (1.55x).
+    #   색인에는 **원래 경로**를 쓴다 (학습 로더가 320p 경로를 본다). RAFT 가 어차피 256x256 로 돌리므로 손실이 없다.
+    #   ⚠️ 이미 뽑아 둔 부분은 320p + GPU bilinear 로 만들어졌다 — 리샘플 필터가 다른 이음매가 생긴다
+    #      (라벨은 RAFT 추정치 + 유효 마스크라 그 차이는 라벨 잡음보다 훨씬 작다. 기록해 둔다)
+    ap.add_argument("--decode-swap", default="", help="'from:to' 경로 치환 (디코드 전용)")
+    ap.add_argument("--decode-size", type=int, default=0, help="decord 가 디코드하며 바로 (N, N) 로 리사이즈")
     ap.add_argument("--bench", action="store_true", help="쓰지 않고 처리량만 잰다")
     args = ap.parse_args()
+
+    global DECODE_SWAP, DECODE_SIZE
+    if args.decode_swap:
+        DECODE_SWAP = tuple(args.decode_swap.split(":", 1))
+    DECODE_SIZE = int(args.decode_size)
 
     rows = []
     for ln in open(args.table, encoding="utf-8"):
@@ -158,11 +181,23 @@ def main():
     nbytes = P * (2 * G * G * 2 + G * G)
     print(f"영상 {len(rows):,} 편 · 쌍 {P:,} 개 · G {G} → {nbytes / 2**30:.1f} GiB", flush=True)
 
+    lo_i = max(0, int(args.start))
+    hi_i = len(rows) if args.end <= 0 else min(len(rows), int(args.end))
+    if lo_i or hi_i != len(rows):
+        print(f"  구간 [{lo_i:,}, {hi_i:,}) 만 처리 ({hi_i - lo_i:,} 편)", flush=True)
+
     model = build_model(args.arch, args.device)
     if not args.bench:
         os.makedirs(args.out, exist_ok=True)
-        mf = np.lib.format.open_memmap(f"{args.out}/flow.f16", mode="w+", dtype=np.float16, shape=(P, 2, G, G))
-        mv = np.lib.format.open_memmap(f"{args.out}/valid.u8", mode="w+", dtype=np.uint8, shape=(P, G, G))
+        if args.append:
+            mf = np.load(f"{args.out}/flow.f16", mmap_mode="r+")
+            mv = np.load(f"{args.out}/valid.u8", mmap_mode="r+")
+            if mf.shape != (P, 2, G, G):
+                raise ValueError(f"--append 인데 기존 모양이 다르다 {mf.shape} != {(P, 2, G, G)} — shard 규격이 같아야 한다")
+        else:
+            mf = np.lib.format.open_memmap(f"{args.out}/flow.f16", mode="w+", dtype=np.float16, shape=(P, 2, G, G))
+            mv = np.lib.format.open_memmap(f"{args.out}/valid.u8", mode="w+", dtype=np.uint8, shape=(P, G, G))
+    if not args.bench and not args.append:
         with open(f"{args.out}/index.tsv", "w", encoding="utf-8") as fh:
             for i, (p, n, fstp, n4) in enumerate(rows):
                 fh.write(f"{p}\t{n4}\t{off[i]}\t{n4 - 1}\n")
@@ -179,13 +214,14 @@ def main():
     from concurrent.futures import ThreadPoolExecutor
     pool_ex = ThreadPoolExecutor(args.decode_workers)
     ahead = max(args.decode_workers * 3, 8)
-    futs, nxt = deque(), 0
-    while nxt < min(ahead, len(rows)):
+    futs, nxt = deque(), lo_i
+    while nxt < min(lo_i + ahead, hi_i):
         futs.append((nxt, pool_ex.submit(_safe_read, rows[nxt]))); nxt += 1
     t0, done, pairs, bad = time.time(), 0, 0, 0
+    n_todo = hi_i - lo_i
     while futs:
         i, fu = futs.popleft()
-        if nxt < len(rows):
+        if nxt < hi_i:
             futs.append((nxt, pool_ex.submit(_safe_read, rows[nxt]))); nxt += 1
         got = fu.result()
         if got is None:
@@ -200,11 +236,11 @@ def main():
             mf[s:e] = fg.numpy().astype(np.float16)
             mv[s:e] = (vg.clamp(0, 1) * 255).round().numpy().astype(np.uint8)
         done += 1; pairs += fg.shape[0]
-        if done % 20 == 0 or i == len(rows) - 1:
+        if done % 20 == 0 or i == hi_i - 1:
             dt = time.time() - t0
-            print(f"  {done:,}/{len(rows):,} 편 · {pairs:,} 쌍 · {dt:.0f}s → "
+            print(f"  {done:,}/{n_todo:,} 편 · {pairs:,} 쌍 · {dt:.0f}s → "
                   f"{pairs / dt:.0f} 쌍/s · {done / dt:.1f} 편/s · 실패 {bad}"
-                  + (f" · 남은 {(len(rows) - done) / (done / dt) / 3600:.1f} h" if done else ""), flush=True)
+                  + (f" · 남은 {(n_todo - done) / (done / dt) / 3600:.1f} h" if done else ""), flush=True)
     print(f"끝: {done:,} 편 · {pairs:,} 쌍 · {time.time() - t0:.0f}s · 실패 {bad}")
 
 

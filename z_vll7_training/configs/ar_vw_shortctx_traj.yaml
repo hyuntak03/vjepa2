@@ -33,6 +33,9 @@
 extends: ar_vw_shortctx
 
 data:
+  num_workers: 14             # 10 → 14 (스모크에서 flow 라벨 NFS 읽기로 데이터 대기가 GPU 시간과 맞먹었다).
+                              #   ⚠️ 결과에는 영향이 없다 — var_window 의 (C, K, 데이터셋, B, 영상) 은 (seed, step, rank) 만으로 정해지고
+                              #      worker 는 step 을 나눠 맡을 뿐이다. 속도 노브다
   var_window:
     snap_start: true          # flow 를 켜면 자동이지만 명시한다 (대조군에서 손으로 켜야 하므로)
     flow:
@@ -42,8 +45,12 @@ data:
       roots:
         k400: ["/data/hyuntak/flow_cache/vll7_k400_320/s0", "/data/hyuntak/flow_cache/vll7_k400_320/s1",
                "/data/hyuntak/flow_cache/vll7_k400_320/s2", "/data/hyuntak/flow_cache/vll7_k400_320/s3"]
-        ssv2: ["/data/hyuntak/flow_cache/vll7_ssv2/s0", "/data/hyuntak/flow_cache/vll7_ssv2/s1",
-               "/data/hyuntak/flow_cache/vll7_ssv2/s2", "/data/hyuntak/flow_cache/vll7_ssv2/s3"]
+        ssv2: ["/data/hyuntak/flow_cache/vll7_ssv2/t0", "/data/hyuntak/flow_cache/vll7_ssv2/t1",
+               "/data/hyuntak/flow_cache/vll7_ssv2/t2", "/data/hyuntak/flow_cache/vll7_ssv2/t3",
+               "/data/hyuntak/flow_cache/vll7_ssv2/t4", "/data/hyuntak/flow_cache/vll7_ssv2/t5",
+               "/data/hyuntak/flow_cache/vll7_ssv2/t6", "/data/hyuntak/flow_cache/vll7_ssv2/t7"]
+                              # ⚠️ ssv2 는 shard 8 개 (t0~t7) — 추출을 k400 과 동시에 돌리려고 늘렸다.
+                              #    k400 은 4 개 (s0~s3). FlowCache 가 경로 → shard 색인으로 합친다
 
 flow_head:
   hidden: 0                   # LayerNorm + Linear(1280 → 8). 1 만 파라미터 — 일부러 작게 뒀다.

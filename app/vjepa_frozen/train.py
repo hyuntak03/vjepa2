@@ -259,7 +259,7 @@ def main(args, resume_preempt=False):
     if lora_params:
         optimizer.add_param_group({"params": lora_params, "WD_exclude": True, "weight_decay": 0.0, "lr": float(O["lr"]),
                                    "lora_lr_mult": float(LORA.get("lr_mult", 10))})
-    if head_params:
+    if state_head is not None:        # ⚠️ head_params 로 분기하면 안 된다 — flow_head 만 켠 경우 SH 가 None 이다 (2026-10-22)
         _hm = float(SH.get("lr_mult", 10))
         optimizer.add_param_group({"params": [q for n, q in state_head.named_parameters() if q.ndim > 1],
                                    "lr": float(O["lr"]), "head_lr_mult": _hm})
@@ -719,7 +719,7 @@ def main(args, resume_preempt=False):
                     ar_s += (" [traj %.4f tf %.3f ar %.3f cv %.3f val %.2f"
                              % (aux["flow"], fl["tf_l"], fl["ar_l"], fl["ar_c"], fl["valid"]))
                     ar_s += " h " + " ".join("%s:%.2f/%.2f" % (k[1:], v, fl["c" + k[1:]])
-                                             for k in fl if k.startswith("l") and k != "l") + "]"
+                                             for k, v in fl.items() if k[0] == "l" and k[1:].isdigit()) + "]"
                 if "hlog" in aux:
                     hl = aux["hlog"]
                     ar_s += (" [head %.4f | ex %.3f/%.3f pos %.4f/%.4f dir %.3f/%.3f spd %.3f/%.3f | ar px vis %.1f hid %.1f]"
