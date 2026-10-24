@@ -3,6 +3,10 @@
 > **상태 (2026-10-19 12:00 UTC)**: train 30,800 작업 중 **18,063** 끝 (통과 18,039 · 실패 24), val 미시작.
 > 사용자 지시 ("3D 멈추고 2D 먼저") 로 멈췄다. 같은 명령으로 이어 한다 (결과 jsonl 에 있는 작업은 건너뛴다).
 > 편향 점검 · 창 인덱스 · 수치 정리는 생성이 끝난 뒤 이 문서에 붙인다.
+>
+> ⚠️ **2026-10-19 발견 — sphere 클립의 보임 라벨 (`vis_frac` · `bbox` · `hidden` · `seen` · `area`) 은 실행마다 다르다.** `sample_points` 의 `calc_loop_triangles` 가
+> UV 구에서 다각형 순서를 프로세스마다 달리 내 표본 점이 바뀐다 (위치 · 속도 · 사건은 같다, 나머지 다섯 모양은 같다). 물체 1 개 판
+> ([`PHYS3D_SINGLE_DATASET_2026-10-19.md`](PHYS3D_SINGLE_DATASET_2026-10-19.md)) 에서 고쳤고 이 판에는 반영하지 않았다 (이어 하기 중인 데이터와 섞이지 않게).
 
 | | |
 |---|---|
@@ -27,7 +31,7 @@
 - EEVEE (EGL) 는 `CUDA_VISIBLE_DEVICES` 를 무시해 워커 전부가 GPU 0 에 붙었다 (학습 GPU 메모리 96.9 / 97.9 GB). Cycles 만 쓴다.
 - Cycles GPU (OptiX): GPU 2~7 에 장당 2 워커 (4 는 OOM), 클립당 39 s. Cycles CPU: 스레드 1, 4 샘플 + OIDN 디노이즈, 클립당 219 s (16 샘플과 눈으로 같다).
   생성분 18,063 중 GPU 11,800 · CPU 6,263.
-- 재현: 라벨은 (코드, seed, Blender 4.2.3) 으로 정해진다. 픽셀은 GPU / CPU 렌더가 미세하게 다르고 어느 클립이 GPU 로 가는지는 실행마다 다르다 → 픽셀까지 같아야 하면 `GPUS=` (CPU 만).
+- 재현: 라벨은 (코드, seed, Blender 4.2.3) 으로 정해진다. 픽셀은 GPU / CPU 렌더가 미세하게 다르고 어느 클립이 GPU 로 가는지는 실행마다 다르다 → 픽셀까지 같아야 하면 `RENDER_GPUS=` (CPU 만).
 
 ## 재현
 
@@ -37,7 +41,7 @@ cd /workspace/world_model/vjepa2
 apt install -y libsm6 libxi6 libxrender1 libxkbcommon0 libgl1
 # 예시 한 편
 /workspace/tools/blender-4.2.3-linux-x64/blender -b -noaudio -P z_training/data/gen_phys3d_blender.py -- --scenario collide --seed 3 --out /tmp/p3d
-# 전체 (이어 하기 가능). 픽셀까지 재현하려면 GPUS=
-BLENDER=/workspace/tools/blender-4.2.3-linux-x64/blender OUT=/workspace/dataset/training_data/phys3d_v1 GPUS=2,3,4,5,6,7 GPU_PER=2 CPU_WORKERS=200 \
+# 전체 (이어 하기 가능). 픽셀까지 재현하려면 RENDER_GPUS=
+BLENDER=/workspace/tools/blender-4.2.3-linux-x64/blender OUT=/workspace/dataset/training_data/phys3d_v1 RENDER_GPUS=2,3,4,5,6,7 GPU_PER=2 CPU_WORKERS=200 \
   bash z_training/data/run_gen_phys3d_v1.sh
 ```

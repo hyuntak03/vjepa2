@@ -22,6 +22,18 @@ CAT = {"drop_bounce": "gravity", "projectile": "gravity", "toss_up": "gravity", 
        "pendulum": "gravity", "occ_pass": "permanence", "moving_screen": "permanence", "drop_behind": "permanence",
        "shelf_land": "solidity", "wall_bounce": "solidity", "collide": "solidity", "stack_topple": "solidity", "container": "solidity"}
 N_ID = 48
+# --single: 물체 1 개 판 (gen_phys3d_single_blender.py, 2026-10-19). uniform.tsv (4 장 간격 경계, ctx_start 0) 를 더 만든다
+SCEN_SINGLE = ["drop_bounce", "projectile", "toss_up", "ramp_roll", "ledge_fall", "pendulum", "occ_pass", "moving_screen",
+               "drop_behind", "shelf_land", "wall_bounce", "obstacle_bounce", "container"]
+CAT.update(obstacle_bounce="solidity")
+UNIFORM_STEP, UNIFORM_MIN_CTX, UNIFORM_K = 4, 4, 16
+
+
+def uniform_rows(T, rng, stride=1):
+    """경계 = UNIFORM_STEP 간격 (clip 마다 시작 위치 무작위) 의 모든 자리, 문맥 4 장 이상 · 예측 16 장 (gen_phys2d_single 과 같다).
+    stride s (학습이 s 장마다 1 장을 본다, v2 는 3): 간격 · 문맥이 s 배, 예측 16 장은 렌더 s·15 + 1 장. s = 1 이면 v1 과 같다."""
+    step, k = UNIFORM_STEP * stride, stride * (UNIFORM_K - 1) + 1
+    return list(range(UNIFORM_MIN_CTX * stride + int(rng.integers(0, step)), T - k + 1, step))
 
 
 def main():
@@ -36,8 +48,17 @@ def main():
     ap.add_argument("--frames", type=int, default=96)
     ap.add_argument("--nice", type=int, default=10)
     ap.add_argument("--collect-only", action="store_true")
+    ap.add_argument("--single", action="store_true", help="물체 1 개 판 (gen_phys3d_single_blender.py)")
+    ap.add_argument("--single-v2", action="store_true", help="물체 1 개 v2 (gen_phys3d_single_v2_blender.py, 2026-10-21)")
+    ap.add_argument("--single-v3", action="store_true", help="물체 1 개 v3 (gen_phys3d_single_v3_blender.py, 2026-10-23) — 공중 붙잡기 없음 · 4 fps 저장 (--stride 1)")
+    ap.add_argument("--stride", type=int, default=1, help="uniform 행: 학습이 몇 장마다 1 장을 보나 (v2 = 3)")
+    ap.add_argument("--pin", type=int, default=1, help="CPU 워커를 코어 하나에 묶기 (taskset)")
     a = ap.parse_args()
-    names = SCEN if a.scenarios == "all" else a.scenarios.split(",")
+    v3 = a.single_v3
+    a.single_v2 = a.single_v2 or v3                 # v3 는 행 · 열이 v2 와 같다 (장 단위만 4 fps)
+    a.single = a.single or a.single_v2
+    script = "gen_phys3d_single_v3_blender.py" if v3 else "gen_phys3d_single_v2_blender.py" if a.single_v2 else "gen_phys3d_single_blender.py" if a.single else "gen_phys3d_blender.py"
+    names = (SCEN_SINGLE if a.single else SCEN) if a.scenarios == "all" else a.scenarios.split(",")
     clips = os.path.join(a.out, "clips")
     wdir = os.path.join(a.out, "_work")
     os.makedirs(wdir, exist_ok=True)
@@ -59,9 +80,15 @@ def main():
         spec = [("cycles", g) for g in a.gpus.split(",") if g for _ in range(a.gpu_per)] + [("cpu", "")] * a.cpu_workers
         run = int(time.time())
         procs = []
+        cores = sorted(os.sched_getaffinity(0))
         for w, (eng, g) in enumerate(spec):
-            env = dict(os.environ, CUDA_VISIBLE_DEVICES=g, OMP_NUM_THREADS="1")
-            cmd = ["nice", "-n", str(a.nice), BLENDER, "-b", "-noaudio", "-P", os.path.join(HERE, "gen_phys3d_blender.py"), "--",
+            env = dict(os.environ, CUDA_VISIBLE_DEVICES=g, OMP_NUM_THREADS="1", PYTHONHASHSEED="0")
+            # CPU 워커는 코어 하나에 묶는다 — -t 1 이어도 OIDN 디노이즈 (TBB) 가 코어 수만큼 스레드를 써서 워커가 200 % 넘게 돌고
+            # 216 워커에 load 2,400 이 됐다 (2026-10-19). 뒤쪽 코어부터 쓴다 (앞쪽은 학습 dataloader 몫으로 남긴다)
+            pin = ["taskset", "-c", str(cores[-1 - (w % len(cores))])] if eng == "cpu" and a.pin else []
+            # -t 1: blender 는 기본으로 코어 수 (256) 만큼 스레드를 띄운다 — 워커 150 개면 컨테이너 pids.max (62,720) 에 걸려
+            # 일부가 조용히 죽었다 (2026-10-19 시험 156 개 중 62). 렌더 스레드는 setup_render 가 따로 정한다
+            cmd = pin + ["nice", "-n", str(a.nice), BLENDER, "-t", "1", "-b", "-noaudio", "-P", os.path.join(HERE, script), "--",
                    "--jobs", jf, "--claims", claims, "--results", os.path.join(wdir, f"res_{run}_{w:03d}.jsonl"), "--out", clips,
                    "--frames", str(a.frames), "--engine", eng]
             procs.append(subprocess.Popen(cmd, stdout=open(os.path.join(wdir, f"log_{w:03d}.txt"), "a"), stderr=subprocess.STDOUT, env=env))
@@ -85,25 +112,45 @@ def main():
     with open(os.path.join(a.out, "index.csv"), "w") as fh:
         fh.writelines(f"{r['mp4']} 0\n" for r in good)
     bcols = ["path", "n_frames", "boundary_frame", "ctx_start", "video_frames", "event", "event_frame", "obj_role", "other", "dv", "scenario", "category"]
+    if a.single_v2:                       # pred_min: 사건의 결과 (가림 → 다시 보임) 가 예측에 들어가려면 필요한 렌더 장 수 · ctx_gate: 앞선 충돌 · 이탈 (v1 의 ctx_start)
+        bcols = bcols + ["pred_min", "ctx_gate"]
     mcols = ["category", "name", "k", "n_frames", "attempt", "n_objects", "main_shape", "main_color", "main_identity", "n_occluders", "g",
              "n_events", "n_occ_episodes", "n_rows", "sec"]
-    nb = 0
+    xcols = ["n_ep_target", "n_timed_screens", "hidden_frac", "n_hidden_frames", "n_hidden_spans", "hidden_at_start", "hidden_at_end",
+             "n_wall_hits"] + (["max_blind_run"] if a.single_v2 else []) if a.single else []
+    nb = nu = 0
+    import numpy as np
+    fu = open(os.path.join(a.out, "uniform.tsv"), "w") if a.single else None
     with open(os.path.join(a.out, "boundary.tsv"), "w") as fb, open(os.path.join(a.out, "manifest.tsv"), "w") as fm:
         fb.write("\t".join(bcols) + "\n")
-        fm.write("\t".join(mcols) + "\n")
+        fm.write("\t".join(mcols + xcols + (["seed_retry"] if a.single else [])) + "\n")
+        if fu:
+            fu.write("\t".join(bcols) + "\n")
         for r in good:
             m = json.load(open(r["mp4"][:-4] + ".json"))
             role = [o["role"] for o in m["objects"]]
             for w in m["rows"]:
                 fb.write("\t".join(str(v) for v in [r["mp4"], w["end"], w["boundary"], w["ctx_start"], m["n_frames"], w["event"],
-                                                    w["event_frame"], role[w["obj"]], "", w["dv"], r["name"], m["category"]]) + "\n")
+                                                    w["event_frame"], role[w["obj"]], "", w["dv"], r["name"], m["category"]]
+                                   + ([w["pred_min"], w["ctx_gate"]] if a.single_v2 else [])) + "\n")
                 nb += 1
             mo = m["objects"][0]
             fm.write("\t".join(str(v) for v in [m["category"], r["name"], r["k"], m["n_frames"], m["attempt"], len(m["objects"]),
                                                 mo["shape"], mo["color"], mo["identity"], len(m["occluders"]), round(m["env"]["g"], 3),
                                                 len(m["events"]), sum(e["kind"] == "occlude" for e in m["events"]), len(m["rows"]),
-                                                r.get("sec", "")]) + "\n")
-    print(f"{len(good):,}/{len(res):,} 통과 → {a.out}/index.csv · boundary 행 {nb:,} (영상당 {nb / max(1, len(good)):.1f})")
+                                                r.get("sec", "")]
+                               + [round(m["metrics"][c], 3) if isinstance(m["metrics"][c], float) else m["metrics"][c] for c in xcols]
+                               + ([(m["seed"] - r["seed"]) // 7_919_007] if a.single else [])) + "\n")
+            if fu:
+                T = m["n_frames"]
+                for b in uniform_rows(T, np.random.default_rng([a.seed_base, r["k"], names.index(r["name"]) if r["name"] in names else 0, 77]), a.stride):
+                    fu.write("\t".join(str(v) for v in [r["mp4"], T, b, 0, T, "uniform", b, "main", "", 0.0, r["name"], m["category"]]
+                                       + ([1, 0] if a.single_v2 else [])) + "\n")
+                    nu += 1
+    if fu:
+        fu.close()
+    print(f"{len(good):,}/{len(res):,} 통과 → {a.out}/index.csv · boundary 행 {nb:,} (영상당 {nb / max(1, len(good)):.1f})"
+          + (f" · uniform 행 {nu:,} (영상당 {nu / max(1, len(good)):.1f})" if fu else ""))
 
 
 if __name__ == "__main__":
