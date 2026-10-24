@@ -1,0 +1,24 @@
+# =============================================================================
+# paper_lab 공정한 시험 (진행자 2, 2026-10-22 15 시, 사용자 승인 · 리더 지시 — PLAN §6, D9 의 C 안)
+# pl_pilot 과 같은 데이터 · 창 · 팔 구현. 바꾼 것은 R2 기준 셋뿐:
+#   (1) 최대 학습률 · 감쇠 꼴 = 기준 블록 AR 학습 (lr 5.2e-4, start 1e-5, final 1e-6, warmup 1 epoch, cosine)
+#   (2) 전역 토큰 예산 = 기준 (GPU 8 장 × 950 ≈ 7,600) → 우리 GPU 1 장 × 384 × 기울기 누적 20 = 7,680
+#   (3) 길이 = 기준 20,580 step 의 5 % → 8 epoch × 129 = 1,032 optimizer step (micro-step 20,640)
+# 체크포인트 e2 · e4 · e6 · e8 = 25 · 50 · 75 · 100 %. 15 시간 벽시계에서 멈추면 가장 늦은 체크포인트로 평가 (fair_chain.sh).
+# =============================================================================
+extends: pl_pilot
+
+optimization:
+  epochs: 8
+  ipe: 129                             # optimizer step / epoch (grad_accum 반영 전 아님 — train.py: ipe 는 optimizer step 수)
+  grad_accum: 20
+  lr: 5.2e-4                           # 기준 블록 AR 학습과 같은 최대 학습률
+  start_lr: 1.0e-5
+  final_lr: 1.0e-6
+  warmup: 1
+
+meta:
+  save_every_freq: 2                   # e2 · e4 · e6 · e8 (학습 곡선)
+
+val:
+  every_epochs: 2

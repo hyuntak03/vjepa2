@@ -1,0 +1,47 @@
+# =============================================================================
+# paper_lab 파일럿 (진행자 2, 2026-10-21) — 기준 블록 AR (vast AR-state ep70) 에서 **자연 영상만**으로 짧게 이어 학습.
+# 팔은 이 config 하나 + 환경변수 PL_METHOD (paper_lab/method/patch.py) 로만 갈린다 → 데이터 · step · lr · seed · batch 순서가 같다.
+#   기준 팔 A0 : PL_METHOD='{}'
+#   Xie & Alanwar 꼴 AX : PL_METHOD='{"occ": {"p": 0.5, "area": [0.15, 0.4]}}'
+#   우리 팔 A1 : E1b 결과로 정한다 (PLAN v2 §3)
+# 데이터 = vll5 로컬 K400 train 4 만 + SSv2 train (기준 블록 AR 의 학습 분포 안). 평가는 학습에 없는 K400 val · VOBench · 중력 세트.
+#   TRAIN_CFG_DIR=paper_lab/method/configs python z_training/harness/resolve_train.py pl_pilot -o <run>/config.yaml --folder <run>
+# =============================================================================
+extends: vobench_vast_ar_state_postft
+
+data:
+  n_frames: 32
+  datasets: []                       # var_window 가 대신한다
+  num_workers: 8
+  aug:
+    hflip_p: 0.5
+    random_resized_crop: null
+    square_crop: center
+  var_window:
+    datasets:
+      - {name: k400, table: /data/hyuntak/project/2026/2027_cvpr/vjepa2/paper_lab/_scratch/pilot_data/k400_fps4_table.tsv, weight: 1.0}
+      - {name: ssv2, table: /data/hyuntak/project/2026/2027_cvpr/vjepa2/paper_lab/_scratch/pilot_data/ssv2_fps4_table.tsv, weight: 1.0}
+    context_frames: [4, 8, 16]         # 2 · 4 · 8 블록 (fps 4, 블록 0.5 초) — 기준 블록 AR 학습 간격과 같다
+    predict_frames: [4, 8, 16]
+    token_budget: 384                  # rank 당 B × W 장. 24 GB 4090 에서 C8K8 · batch 12 가 돈 것 (vobench post-FT 실측) 에 맞춤
+    b_min: 4
+    b_max: 64
+    min_eligible: 1000
+
+mask:                                  # var_window 가 (C, K) 를 정한다 — 자리표시
+  - type: prefix_window
+    context_blocks: [2, 4, 8]
+    predict_blocks: [2, 4, 8]
+    weight: 1.0
+
+loss:
+  rollout_steps: 8
+
+optimization:
+  epochs: 10
+  ipe: 200                             # 10 × 200 = 2,000 step (파일럿)
+  grad_accum: 1
+  lr: 5.0e-5                           # 이어 학습 (기준 블록 AR 미세조정과 같은 lr)
+  start_lr: 1.0e-6
+  final_lr: 1.0e-6
+  warmup: 1

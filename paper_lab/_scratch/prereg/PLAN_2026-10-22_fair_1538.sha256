@@ -1,0 +1,4 @@
+bc80b2ee1e9785b0a6c3d32586e0796618c4f8cadcbce3db34d58f1c9654bb9f  paper_lab/_scratch/prereg/PLAN_2026-10-22_fair_1538.md
+b537b200c43a32a4beef3e9898b95b32f120452d851bb03e275b6954aec02a4a  paper_lab/method/configs/pl_fair.yaml
+db3b8c1cd9a7d4555593f9cfa9b42122a8ef375caf62fd1ca323cad3e826758b  paper_lab/method/run_fair.sh
+549b711620670a8f4a42a3b078c8b887b1d0f92c8fcbe8b6ed0d067b5f8bec71  paper_lab/method/fair_chain.sh
