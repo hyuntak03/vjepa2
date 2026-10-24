@@ -729,7 +729,9 @@ def main(args, resume_preempt=False):
                     fl = aux["flog"]
                     ar_s += (" [traj %.4f tf %.3f ar %.3f cv %.3f val %.2f"
                              % (aux["flow"], fl["tf_l"], fl["ar_l"], fl["ar_c"], fl["valid"]))
-                    ar_s += " h " + " ".join("%s:%.2f/%.2f" % (k[1:], v, fl["c" + k[1:]])
+                    # ⚠️ c<h> (등속 기준선) 는 그 step 에 AR 쌍이 없으면 **아예 안 실린다** (nan 으로 epoch 평균을 더럽히지 않으려고,
+                    #    app/vjepa_frozen/flow_head.py). 긴 창 격자에서는 R <= gap 인 칸이 흔해 실제로 빠진다 — 없으면 "-" 로 찍는다
+                    ar_s += " h " + " ".join("%s:%.2f/%s" % (k[1:], v, ("%.2f" % fl["c" + k[1:]]) if ("c" + k[1:]) in fl else "-")
                                              for k, v in fl.items() if k[0] == "l" and k[1:].isdigit()) + "]"
                 if "hlog" in aux:
                     hl = aux["hlog"]

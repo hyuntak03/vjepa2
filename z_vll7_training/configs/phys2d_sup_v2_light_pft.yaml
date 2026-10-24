@@ -1,0 +1,89 @@
+# =============================================================================
+# vast AR-state ep70 + **phys2d_sup_v2 상태 감독 (light head)** post-FT — vll7 (2026-10-19, 사용자 지시)
+#
+#   DRYRUN=1 bash z_vll7_training/train.sh phys2d_sup_v2_light_pft
+#   GPUS=6 bash z_vll7_training/tmux_train.sh phys2d_sup_v2_light_pft
+#   모니터  watch -c -n 5 bash z_vll7_training/monitor_state_head.sh phys2d_sup_v2_light_pft
+#
+# 출발 = vast AR-state ep70 (`z_training/vast/ar_state/latest.pt`, kind ar_state · kv_rollout).
+# 부모 `phys2d_sup_vast_ar_state_pft` (vll5, phys2d_sup_v1 + attn head) 에서 바꾼 것 넷:
+#   1. 데이터  phys2d_sup_v1_state -> **phys2d_sup_v2_state** (창 규칙이 고쳐진 판 — datasets.md 의 ⚠️ 참고)
+#   2. head    attn (755 만) -> **light (6.9 만)**  (vast 36f4921 이식)
+#   3. 안정화  clip_grad 1.0 · lr_mult 10 -> 1   (vast: clip 없음 + lr x10 으로 epoch 4 에 predictor 가 무너졌다)
+#   4. val     intphys1_dev -> **vobench_v1_late** (432 matched pair, 정식 채점과 같은 정의. vast 909f1b3)
+#
+# ── 왜 light head 인가 (vast 36f4921 · 우리 레포 실측) ────────────────────────
+# attn head (755 만: Q·K·V·출력 투영 + MLP) 는 **predictor 가 안 바뀌어도** 정보를 찾아 읽는다.
+# 우리 레포의 대조군이 그걸 보여 준다 — `z_training/runs/phys2d_sup_vast_ar_state_headonly`
+# (predictor 동결, head 만 학습) 의 마지막 epoch:
+#       PFT       ar px vis 19.4 / hid 44.1
+#       head only ar px vis 28.5 / **hid 34.0**   <- 가림 위치는 **동결 쪽이 더 낫다**
+# 즉 attn head 의 위치 오차가 내려가는 것은 predictor 가 상태를 담게 됐다는 증거가 못 된다.
+# light 는 그 우회로를 막는다: LN(토큰) 과 쿼리 내적 softmax -> 원래 토큰 평균 -> Linear(1280 -> 6).
+# 투영이 없으므로 **predictor 출력 토큰 자체**가 정체 쿼리와 닮고 상태를 선형으로 담아야 맞는다.
+# ⚠️ 그래도 이 run 만으로는 못 가른다 — 같은 설정의 **light head-only 대조군** (SET="state_head.freeze_predictor=true")
+#    을 같이 돌려야 "predictor 가 바뀌었다" 를 말할 수 있다. 안 돌렸으면 그렇게 적을 것.
+#
+# ⚠️ 상태 라벨은 관측만으로 얻는 정보가 아니다 — "관측만으로 학습" 주장과 섞지 말 것 (CLAUDE.md §12 질문 6).
+# =============================================================================
+extends: phys2d_sup_vast_ar_state_pft
+
+tasks_per_node: 6        # 부모는 vll5 의 8 — 이 노드는 GPU 6 장
+
+data:
+  n_frames: 32                # 창 인덱스의 n_frames (C16 + K16 장 = 8 + 8 블록)
+  batch_size: 32              # rank 당. vll5 는 12 / 24 G 에서 18.3 G — 이 노드는 96 G (스모크로 잰다)
+  num_workers: 6              # ⚠️ 12 로 돌렸다가 **호스트 RAM OOM-killer 에 rank 가 죽었다** (2026-10-19, `rank 실패 [(4, -9)]`).
+                              #   이 세션은 SLURM job 안이고 cgroup 상한이 **300 GB** 다
+                              #   (`/sys/fs/cgroup/memory/slurm/uid_1070/job_<id>/memory.limit_in_bytes`, scontrol TRES mem=300G).
+                              #   rank 6 × worker 12 = 워커 72 개가 그걸 넘겼다 (max_usage 가 정확히 300 GB, failcnt 740 만).
+                              #   6 으로 내리면 워커 36 개. data 시간 393 ms vs gpu 2300 ms 라 여유가 충분하다 (CLAUDE.md §7-1)
+  datasets:
+    - {name: phys2d_sup_v2_state, weight: 1.0}
+  aug:
+    hflip_p: 0.5              # 영상 · 라벨에 같이 (Phys2DSupDataset 이 건다)
+    random_resized_crop: null # 좌표 라벨과 어긋난다 (로더가 죽인다)
+    square_crop: none         # 256² 원본
+
+model:
+  predictor:
+    # 2026-10-19 **양쪽 다 실측**. 부모 (natural_ar_state, vll5 RTX 4090 24 G) 는 true 를 물려준다.
+    #     true  : VRAM 48.3 G · iter 2297 ms (gpu 2253 · data 43)
+    #     false : VRAM 72.4 G · iter 2700 ms (gpu 2303 · data 393)
+    #   ⚠️ **GPU 시간이 같다** (2253 vs 2303) — kind=ar_state 에서 재계산은 TF 경로 한 forward 에만 걸리고
+    #      rollout 은 KV 캐시판이라 안 걸린다 (natural_ar_state.yaml 주석). 재계산할 게 싸서 끄는 이득이 없다.
+    #      `ctxt_video.yaml:28` 의 "켜면 3 배 느림" 은 **ctx_state 팔** 측정이다 — 이 팔에 그대로 옮기면 안 된다.
+    #   느린 진짜 이유는 AR 구조다: 블록마다 ViT-H 를 따로 돌려 rank·step 당 32 clip × 16 블록 = 512 forward.
+    #   VRAM 을 더 써서 풀리는 종류가 아니다. false 로 둔 것은 여유 VRAM 을 쓰는 쪽이 안전하기 때문이고 속도 목적이 아니다.
+    use_activation_checkpointing: false
+
+state_head:
+  type: light                 # <- 이 run 의 요점 (app/vjepa_frozen/state_head.LightStateHead)
+  hidden: 0                   # 0 = MLP 없음 (Linear 1280 -> 6). 64 등을 주면 1280 -> hidden -> 6
+  num_heads: null             # light 는 안 쓴다 (attn 전용 키 삭제)
+  weight: 1.0                 # 전체 = AR L1 + weight x (존재 + 위치 + 속도)
+  w: {exist: 1.0, pos: 1.0, vel: 1.0}
+  split: {tf: 1.0, ar: 1.0}   # TF 출력 · rollout 출력에 같은 비중
+  lr_mult: 1                  # 10 -> 1 (vast 붕괴 사례). head lr = 스케줄 lr x 1
+
+optimization:
+  epochs: 15
+  ipe: 300                    # 15 x 300 = 4,500 step x (6 x 32) = 86.4 만 창 (창 인덱스 약 6 바퀴)
+  lr: 5.0e-5
+  start_lr: 1.0e-6
+  final_lr: 1.0e-6
+  warmup: 1
+  clip_grad: 1.0              # vast 실측: 자연 step grad norm 0.25~0.85, 합성 step 13~22 -> 1.0 이 합성 step 만 자른다.
+                              #   없으면 epoch 4 에 predictor 가 무너졌다. 로그의 `gn` 이 clip 전 값이다
+
+val:
+  dataset: vobench_v1_late    # 432 matched pair (216 block x 2). 정식 채점 `cvpr/eval/testbed/run.sh vobench_v1_late` 와 같은 정의
+  data: null                  # ⚠️ 필수 — 부모 (natural_prefix) 가 val.data 에 IntPhys1 경로를 통째로 박아 둔다.
+                              #    main resolve_train 은 {**레지스트리, **config.val.data} 라 config 가 이긴다 ->
+                              #    지우지 않으면 vobench 가 아니라 IntPhys1 을 잰다 (vast 909f1b3 가 고친 함정과 같은 것)
+  n_frames: 32                # 96 장 raw, stride 3 -> 32 장
+  context_length: 16          # 8 블록 보고 8 블록 (정식 채점과 같다)
+  n_blocks_per_type: 36       # 6 condition x 36 block = 216 block = 432 쌍 (전부)
+  batch_size: 8
+  every_epochs: 1
+  at_start: true              # epoch 0 에 vast AR 출발점을 먼저 찍는다

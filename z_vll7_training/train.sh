@@ -15,7 +15,7 @@
 #   4. 빈 DDP 포트를 찾아 TRAIN_DDP_PORT 로, TRAIN_EXPECT_WS 로 split-brain 을 막는다
 #   5. rank 당 CPU 스레드를 제한한다 (rank 마다 전 코어를 잡으면 decode 가 7 배 느려진다)
 #
-# 환경변수: GPUS(6) NAME FOLDER SET="a.b=1 c.d=null" LIMIT DEBUG DRYRUN THREADS TRAIN_DDP_PORT
+# 환경변수: GPUS(6) GPU_IDS="2 3" NAME FOLDER SET="a.b=1 c.d=null" LIMIT DEBUG DRYRUN THREADS TRAIN_DDP_PORT
 # 이어 돌리기: 같은 NAME 으로 다시 부르면 <run>/latest.pt 에서 재개 (meta.auto_resume)
 # -----------------------------------------------------------------------------
 set -euo pipefail
@@ -58,7 +58,14 @@ SET_ARGS=()
 for kv in ${SET:-}; do SET_ARGS+=(--set "$kv"); done
 [[ -n "${LIMIT:-}" ]] && SET_ARGS+=(--limit "$LIMIT")
 "$PY" z_training/harness/resolve_train.py "$CONFIG" -o "$CFG" --folder "$FOLDER" "${SET_ARGS[@]}"
-DEVICES=$(for i in $(seq 0 $((GPUS-1))); do echo -n "cuda:$i "; done)
+# GPU_IDS="2 3" 로 쓸 GPU 를 직접 고른다 (같은 노드에 run 둘을 나눠 올릴 때). 주면 GPUS 대신 이게 이긴다.
+#   launch.py 가 rank 마다 CUDA_VISIBLE_DEVICES 를 덮으므로 바깥 CUDA_VISIBLE_DEVICES 는 안 먹는다 (CLAUDE.md §2-3 과 같은 함정).
+if [[ -n "${GPU_IDS:-}" ]]; then
+  DEVICES=$(for i in $GPU_IDS; do echo -n "cuda:$i "; done)
+  GPUS=$(echo $GPU_IDS | wc -w)
+else
+  DEVICES=$(for i in $(seq 0 $((GPUS-1))); do echo -n "cuda:$i "; done)
+fi
 echo "  devices  : $DEVICES (world_size=$GPUS)"
 echo "  python   : $PY"
 [[ -f "$FOLDER/latest.pt" ]] && echo "  resume   : $FOLDER/latest.pt 가 있다 -> 이어서 돈다 (새로 시작하려면 다른 NAME)"

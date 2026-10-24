@@ -155,6 +155,15 @@ def main():
                 die(f"data.var_window.datasets 의 표가 없다: {t.get('table')!r} "
                     "(z_training/data/build_fps4_table.py 로 만든다)")
             t["table"] = tb
+        bx = vw.get("boundary")
+        if bx:   # 2026-10-20: boundary (사건 경계 창 + 상태 라벨). mix=sum 이면 합성 보조 손실 로더가 쓴다
+            mf = os.path.expandvars(str(bx.get("manifest", "")))
+            if not os.path.isfile(mf):
+                die(f"data.var_window.boundary.manifest 가 없다: {bx.get('manifest')!r} "
+                    "(z_training/data/build_phys2d_mix_manifest.py 로 만든다)")
+            bx["manifest"] = mf
+            if str(bx.get("mix", "")) == "sum" and tuple(bx.get("crop_ratio", (1.0, 1.0))) != (1.0, 1.0) and bx.get("labels"):
+                die("boundary.labels 가 있으면 crop_ratio 는 [1, 1] 이어야 한다 (좌표 라벨 — 로더도 거부한다)")
         if not cfg.get("optimization", {}).get("ipe"):
             die("data.var_window 는 optimization.ipe 가 필요하다 (epoch 길이를 데이터 크기로 정할 수 없다)")
     elif not out:

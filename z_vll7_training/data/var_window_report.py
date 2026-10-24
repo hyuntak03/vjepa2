@@ -27,6 +27,10 @@ ap.add_argument("--budget", type=int, default=950)
 ap.add_argument("--b-min", type=int, default=8)
 ap.add_argument("--b-max", type=int, default=256)
 ap.add_argument("--min-eligible", type=int, default=1000)
+ap.add_argument("--min-eligible-of", action="append", default=[], metavar="NAME=N",
+                help="데이터셋별 min_eligible 덮어쓰기 (config 의 datasets[].min_eligible 과 같은 것)")
+ap.add_argument("--max-window", type=int, default=None,
+                help="창 W 상한 (장). config 의 var_window.max_window 와 같은 것")
 a = ap.parse_args()
 
 W_OF = {}
@@ -38,6 +42,11 @@ weights = {n: 1.0 for n in W_OF}
 for w in a.weight:
     n, v = w.split("=", 1)
     weights[n] = float(v)
+
+min_elig = {n: a.min_eligible for n in W_OF}
+for m in a.min_eligible_of:
+    n, v = m.split("=", 1)
+    min_elig[n] = int(v)
 
 C_list = [int(x) for x in a.C.split(",")]
 K_list = [int(x) for x in a.K.split(",")]
@@ -52,20 +61,24 @@ def batch(W):
 
 
 print(f"표: " + ", ".join(f"{n} {len(v):,} 편" for n, v in W_OF.items()))
-print(f"가중치: {weights} | token_budget {a.budget} (B = clamp(budget//W, {a.b_min}, {a.b_max})) | min_eligible {a.min_eligible:,}\n")
+print(f"가중치: {weights} | token_budget {a.budget} (B = clamp(budget//W, {a.b_min}, {a.b_max}))")
+print(f"min_eligible: {min_elig}" + (f" | max_window {a.max_window}" if a.max_window else "") + "\n")
 hdr = f"{'C':>3} {'K':>3} {'W':>3} {'B':>4}  " + "  ".join(f"{n:>10}" for n in W_OF)
 print(hdr); print("-" * len(hdr))
 combos, dropped = [], []
 for C in C_list:
     for K in K_list:
         W = C + K
-        el = [n for n in W_OF if n_ok(n, W) >= a.min_eligible]
+        el = [n for n in W_OF if n_ok(n, W) >= min_elig[n]]
+        if a.max_window is not None and W > a.max_window:
+            el = []
         row = f"{C:>3} {K:>3} {W:>3} {batch(W):>4}  " + "  ".join(
             f"{n_ok(n, W):>10,}" + ("" if n in el else "*") for n in W_OF)
         if el:
             combos.append((C, K, W, el)); print(row)
         else:
-            dropped.append((C, K)); print(row + "   <- 버림")
+            why = "W>max" if (a.max_window is not None and W > a.max_window) else "적격 없음"
+            dropped.append((C, K)); print(row + f"   <- 버림 ({why})")
 print(f"\n쓸 수 있는 조합 {len(combos)} / {len(C_list) * len(K_list)}" + (f", 버린 조합 {dropped}" if dropped else ""))
 print("(* = 적격 편수가 min_eligible 미만이라 그 칸에서 그 데이터셋은 빠진다)")
 

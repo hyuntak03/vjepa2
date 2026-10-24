@@ -1,0 +1,55 @@
+# =============================================================================
+# context **block** 팔 — AR (블록별 인코딩) + 상태 되먹임, 가변 창, **scratch**
+#   데이터 = K400 320p + SSv2 + **phys2d_v1** (2026-10-19 사용자 지시: "pft 말고 ar scratch 부터")
+#
+#   GPUS=6 bash z_vll7_training/tmux_train.sh ar_state_vw_phys2d
+#   DRYRUN=1 bash z_vll7_training/train.sh ar_state_vw_phys2d
+#
+# ar_state_vw.yaml 과 **데이터 하나만** 다르다 (팔·샘플링·격자·예산·lr 동일) —
+# 그래서 "자연 영상만 vs 자연 영상 + 2D 물리" 가 한 변수 대조가 된다.
+# predictor 는 **무작위 초기화**다 (_vll7_base -> frozen_predictor_scratch, load_predictor: false).
+# encoder 는 동결 (`context_encoder_key: target_encoder` 하나만 쓴다, AC 와 같다).
+#
+# ── 왜 phys2d 를 섞나 ─────────────────────────────────────────────────────────
+# 정본 §2-4 목표 팔이다 — action 없이 관측만으로 intuitive physics 를 따르는 미래.
+# 자연 영상만으로 돌린 vast AR 은 IntPhys1 90.00 / VOBench 81.7 로 복사를 넘었지만 gravity 축은 안 쟀고,
+# phys2d post-FT (2026-10-18, `z_research/previous/TrainingEffects/Archive/PHYS2D_V1_POSTFT_2026-10-18.md` §9)
+# 는 gravity 를 8.74 -> 36.46 으로 올렸으나 **가속이 아니라 1 차 외삽**이었다 (imp_line 29.17, 복사 65.28 아래).
+# post-FT 가 아니라 처음부터 섞으면 그 기본값이 달라지는지를 묻는다.
+# ⚠️ 결과가 어느 쪽이든 문장이 선다: 넘으면 ★ (§2-4 합격선), 못 넘으면 "다시 학습해도 같다" 의 다섯째 항목.
+#
+# ── 데이터 비율은 명목 가중치가 아니라 실측으로 정했다 (2026-10-19) ───────────
+# phys2d_v1 은 원본이 **4 fps · 64~128 장**이라 fps 4 에서 창 W=64 까지 **100 % 적격**이다.
+# 그냥 weight 1.0 으로 넣으면
+#   (a) 프레임 비율이 k400 32.4 / ssv2 16.9 / **phys2d 50.7** 이 되고,
+#   (b) 자연 영상이 못 채워 **버려져 있던 긴 칸 3 개** (W=48 x2, W=64) 가 되살아나
+#       그 칸이 **phys2d 100 %** 가 된다 — 긴 예측을 2D 합성으로만 배운다.
+#   가중치를 0.2 까지 낮춰도 (b) 때문에 28 % 아래로 안 내려간다.
+# 그래서 **max_window: 40** 으로 격자를 먼저 돈 run (ctxt_video) 과 똑같이 13 칸으로 고정하고
+# (평균 창 19.2 장 · rank 당 평균 clip 48.8 — 2 데이터셋 판과 일치) weight 0.4 를 골랐다:
+#   실측 기대 프레임 비율 **k400 57.6 : ssv2 19.4 : phys2d 23.0** (= 자연 77 : 합성 23).
+#   자연 영상 안의 비율 74.8 : 25.2 는 종전 76.7 : 23.3 과 거의 같다.
+#   재현: python z_vll7_training/data/var_window_report.py \
+#           --table k400=data_csv/vll7_k400_320/fps4_table.tsv \
+#           --table ssv2=data_csv/vll7_ssv2/fps4_table.tsv \
+#           --table phys2d=data_csv/phys2d_v1/fps4_table.tsv \
+#           --weight phys2d=0.4 --min-eligible-of ssv2=20000 --max-window 40 \
+#           --C 4,8,16,32 --K 4,8,16,32 --budget 950
+#   ⚠️ 긴 창을 phys2d 로 메우고 싶으면 SET="data.var_window.max_window=null" — 대신 그 칸은 합성 전용이고
+#      ctxt_video 와 격자가 달라진다. 결과에 반드시 적을 것.
+#
+# ⚠️ phys2d 는 **창 제약 없는 clip 전체**다 (`train_clips.csv`, 28,900 편). 사건이 문맥 안에 들어가는 창도 나온다 —
+#    "사건은 예측 구간에만" 제약은 post-FT 팔 (phys2d_v1_future) 의 것이고, 여기서는 안 건다.
+#    AR 은 모든 블록 자리에서 다음 블록을 맞히므로 (TF) 사건 위치를 고를 이유가 없다.
+# ⚠️ phys2d 는 2D · 256x256 · 단일 렌더 스타일이다. aug 의 random_resized_crop 이 겉보기 속도를 흔들어 주지만
+#    도메인 폭은 자연 영상이 맡는다. 23 % 를 올리기 전에 이 config 의 결과를 먼저 본다.
+# =============================================================================
+extends: ar_state_vw
+
+data:
+  var_window:
+    max_window: 40           # 2026-10-19 신설 노브 (app/vjepa_frozen/var_window.py). 위 설명 참고
+    datasets:
+      - {name: k400,   table: "${DATA_CSV}/vll7_k400_320/fps4_table.tsv", weight: 1.0}
+      - {name: ssv2,   table: "${DATA_CSV}/vll7_ssv2/fps4_table.tsv",     weight: 1.0, min_eligible: 20000}
+      - {name: phys2d, table: "${DATA_CSV}/phys2d_v1/fps4_table.tsv",     weight: 0.4}

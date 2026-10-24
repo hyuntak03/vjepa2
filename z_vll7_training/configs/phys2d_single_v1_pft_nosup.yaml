@@ -1,0 +1,31 @@
+# =============================================================================
+# **대조군 A** — vast AR-state ep70 + phys2d_single_v1 post-FT, **상태 감독 없음** (2026-10-20, 사용자 지시)
+#
+#   DRYRUN=1 bash z_vll7_training/train.sh phys2d_single_v1_pft_nosup
+#   GPUS=4 bash z_vll7_training/tmux_train.sh phys2d_single_v1_pft_nosup
+#   모니터  watch -c -n 5 bash z_vll7_training/monitor.sh phys2d_single_v1_pft_nosup
+#
+# `phys2d_single_v1_pft_w1_lr3` 에서 **state_head 만 뺀다.** 데이터 · 창 · epoch · lr · clip · val 전부 같다.
+#
+# ── 왜 (2026-10-20) ──────────────────────────────────────────────────────────
+# `phys2d_single_v1_pft_w1_lr3` (weight 1.0 · lr_mult 3) e1~e8 실측:
+#     head 손실 2.31  vs  잠재 L1 0.86   -> 전체 손실의 73 % 가 state head
+#     predictor grad norm 중앙 8~12, clip_grad 1.0  -> predictor 는 자기 gradient 의 ~1/10 만 받는다
+#     잠재 L1  e1 0.4270 -> e8 0.4185 (8 epoch 에 2.0 %)  -> **predictor 가 거의 안 움직였다**
+#     VOBench late  e0 73.4 -> e1 82.9 -> e8 79.6 (e1 이후 평평, 모양은 70.8/77.8 -> 65.3/69.4 로 하락)
+# 즉 그 run 의 VOBench 변화가 **데이터 (phys2d_single) 때문인지 상태 감독 때문인지 못 가른다.**
+# 이 run 이 그 분모다 — 같은 데이터로 상태 감독만 뺐을 때 VOBench 가 어디로 가는가.
+#
+# 읽는 법 (어느 쪽이 나와도 문장이 선다, CLAUDE.md §12 Q2):
+#   이 run 도 e1 에 83 근처로 올랐다 뒤 79 로 내려오면 -> 그 움직임은 **데이터 때문**이고 상태 감독은 기여가 없다
+#   이 run 이 73 근처에 머물면                        -> e1 의 +9.5 pt 는 상태 감독이 만든 것
+#   이 run 이 더 높이 가면                            -> 상태 감독이 **해롭다**
+# ⚠️ 어느 경우든 복사 기준선을 같이 낸다 (CLAUDE.md §12 Q5). VOBench late 복사 기준선은 아직 안 쟀다.
+# ⚠️ 상태 라벨은 관측만으로 얻는 정보가 아니다 — 이 run 은 **관측만으로 학습**이고 `phys2d_single_v1_pft_w1_lr3` 는 아니다 (§12 Q6).
+#    두 run 을 "같은 조건에서 head 만 다름" 으로 쓰되, "관측만으로 배웠다" 는 이 run 에만 쓴다.
+# =============================================================================
+extends: phys2d_single_v1_pft_w1_lr3
+
+state_head: null   # <- 이 run 의 전부. `SH = cfg.get("state_head") or None` (train.py:165) 이라 head 가 안 지어진다.
+                   #   데이터셋은 그대로 type: phys2d_sup 다 — 라벨을 읽기는 하되 손실에 안 쓴다 (train.py:392 의 요구가 head 가 있을 때만).
+                   #   일부러 같은 로더를 쓴다: 창 · 증강 · 셔플 순서까지 같아야 분모가 된다.

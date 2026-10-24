@@ -3,6 +3,7 @@
 # 학습을 **tmux 세션**으로 올린다 (이 노드에서 직접, SLURM 없이). 세션이 셸과 무관하게 살아남는다.
 #
 #   GPUS=6 bash z_vll7_training/tmux_train.sh ctxt_video_tgtvideo [NAME]
+#   GPU_IDS="0 1" TRAIN_DDP_PORT=31500 bash z_vll7_training/tmux_train.sh <config>   # 같은 노드에 run 둘을 나눠 올릴 때
 #
 #   보기:   watch -c -n 2 bash z_vll7_training/monitor.sh <NAME>
 #   붙기:   tmux attach -t train_<NAME>        (떼기: Ctrl-b d)
@@ -20,6 +21,8 @@ SESS="train_$NAME"
 if tmux has-session -t "=$SESS" 2>/dev/null; then echo "이미 있다: tmux attach -t $SESS"; exit 1; fi
 mkdir -p "$VLL7_RUNS/$NAME"
 ENVS="GPUS=${GPUS:-6} NAME=$NAME"
+[[ -n "${GPU_IDS:-}" ]] && ENVS="$ENVS GPU_IDS=$(printf %q "$GPU_IDS")"
+[[ -n "${TRAIN_DDP_PORT:-}" ]] && ENVS="$ENVS TRAIN_DDP_PORT=$TRAIN_DDP_PORT"
 [[ -n "${SET:-}" ]]   && ENVS="$ENVS SET=$(printf %q "$SET")"
 [[ -n "${LIMIT:-}" ]] && ENVS="$ENVS LIMIT=$LIMIT"
 tmux new-session -d -s "$SESS" -c "$VJEPA2_ROOT" \

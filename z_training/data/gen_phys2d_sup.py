@@ -58,6 +58,7 @@ LOW_TAGS = ("floor", "side", "static")       # 바닥 · 방 옆벽 — 뜻있�
 P_WALLS = 0.75        # 보이는 방 옆벽
 P_DECOY = 0.25        # occ_pass 가림막을 궤적 밖에 두는 비율
 P_SPAWN = 0.5         # 화면 밖에서 물체가 들어오는 클립 (진동 시나리오는 0.3)
+SPAWN_FIXED_ATTEMPTS = 100   # 이 시도 수까지는 spawn 여부를 clip 마다 고정
 P_DISTRACTOR = 0.25
 P_EXTRA_SHELF = 0.3
 EXTRA_SCREENS_P = (0.45, 0.33, 0.16, 0.06)   # 궤적과 무관한 고정 가림막 0 · 1 · 2 · 3 개
@@ -1460,9 +1461,17 @@ def find_events(sc, ratio, T):
 
 
 def event_rows(sc, S, ratio, ms, events, rng, T, unpred_extra=(), min_ctx=4, min_pred=8):
-    """vast 판 boundary 행 (같은 열 · 같은 의미). b = 사건 직후 장 + 1 + j (j ∈ {0,1,2}), 예측 못 하는 시작 직전에서 끊는다."""
+    """boundary 행. **전환은 예측 구간에 둔다** (2026-10-18 사용자 결정: "충돌 직전까지만 context 에 보여주고 그 다음 충돌하고
+    멈추거나 그런 걸 예측 / 아니면 딱 충돌 시점까지만 context"). e["frame"] = 전환 뒤 첫 장 (post). b = 예측 첫 장 = post + j,
+    j ∈ {−2, −1, 0} → 문맥이 전환 2 · 1 · 0 장 전에서 끝남, j = +1 → 문맥 마지막 장이 딱 전환 순간.
+    ctx_start = 문맥이 시작해도 되는 가장 이른 장 = 이 행보다 앞선 **충돌 (dv ≥ DV_ROW, 방해 물체 제외) · 받침 이탈** 의 post.
+    가림 · 다시 보임은 문맥에 있어도 된다 (사용자: "permanence 는 context 에서 가려져도 되고 여러 번 가려져도 돼").
+    로더 (var_window boundary) 가 C ≤ (b − ctx_start) / s 로 거른다.
+    end = 예측 못 하는 시작 (멈춰 있던 가림막 · 컵의 출발, 화면 밖 물체가 처음 보이는 장, 떠다니는 가림막 진입) 직전."""
     pos = S["pos"][:T]
     inframe = _inframe(pos, -5)
+    gate = sorted({e["frame"] for e in events if (e["kind"] == "leave" or (e["kind"] == "impact" and e["dv"] >= DV_ROW))
+                   and sc.objs[e["obj"]].role != "distractor"})
     cand = []
     imp = [e for e in events if e["kind"] == "impact" and e["dv"] >= DV_ROW and inframe[e["frame"], e["obj"]]
            and sc.objs[e["obj"]].role != "distractor"]
@@ -1485,19 +1494,25 @@ def event_rows(sc, S, ratio, ms, events, rng, T, unpred_extra=(), min_ctx=4, min
         cand.append(e)
     cand += [e for e in events if e["kind"] in ("occlude", "reappear")]
     unpred = [u for u in range(3, T) if ms[u] > MOVE_THR and (ms[u - 3:u] <= MOVE_THR).all()] + list(sc.spawn_frames) + list(unpred_extra)
+    for i, o in enumerate(sc.objs):            # 화면 밖에서 생긴 물체가 처음 보이는 장 — 생성이 문맥 안이어도 문맥엔 안 보인다
+        if o.role == "spawn":
+            seen = np.where(ratio[:T, i] > HIDDEN)[0]
+            if len(seen):
+                unpred.append(int(seen[0]))
     sizes = np.array([o.bound for o in sc.objs], np.float32)
     rows, used = [], set()
     for e in sorted(cand, key=lambda d: d["frame"]):
-        b = e["frame"] + 1 + int(rng.integers(0, 3))
+        b = e["frame"] + int(rng.integers(-2, 2))
         end = min([u for u in unpred if u >= b] + [T])
-        if b < min_ctx or end - b < min_pred or b in used:
+        ctx_start = max([p for p in gate if p < b and p < e["frame"]] + [0])
+        if b - ctx_start < min_ctx or end - b < min_pred or b in used:
             continue
         q = min(end, b + 8) - 1
         d = np.linalg.norm(pos[q] - pos[b], axis=-1) * (inframe[b] & inframe[q])
         if not ((d > 0.5 * sizes).any() or ms[b:q + 1].max() * (q - b) / FPS > 8):
             continue
         used.add(b)
-        rows.append(dict(boundary=int(b), end=int(end), event=e["kind"], event_frame=int(e["frame"]), obj=int(e["obj"]),
+        rows.append(dict(boundary=int(b), end=int(end), ctx_start=int(ctx_start), event=e["kind"], event_frame=int(e["frame"]), obj=int(e["obj"]),
                          obj_role=sc.objs[e["obj"]].role, other=str(e["other"]), dv=float(e["dv"])))
     return rows
 
@@ -1610,7 +1625,10 @@ def build(name, seed, attempt, first_ident):
     if name != "cup_cover" and rng.random() < P_DISTRACTOR:
         add_distractor(sc, rng)
     add_extras(sc, rng)
-    if rng.random() < (0.3 if name in ("pendulum", "spring", "osc_behind") else P_SPAWN):
+    # spawn 여부는 재시도와 무관하게 정한다 (원판 점검: 설계 50 % → rejection 뒤 76.5 %). 다만 그러면 한 번 사건 시나리오의 15 % 가
+    # 200 회 안에 통과 못 하고, 실패가 모양과 얽혀 (원이 굴러서 잘 통과) 주 물체 층화가 깨진다 → 100 회째부터는 시도마다 다시 뽑는다
+    p_sp = 0.3 if name in ("pendulum", "spring", "osc_behind") else P_SPAWN
+    if (np.random.default_rng([seed, 6]).random() if attempt < SPAWN_FIXED_ATTEMPTS else rng.random()) < p_sp:
         add_spawns(sc, rng, int(rng.integers(1, 3)), x_range=sc.params.get("bin_x"))
     sc.params["n_spawn"] = len(sc.spawns)
     sc.params["n_distractor"] = sum(o.role == "distractor" for o in sc.objs)
@@ -1619,9 +1637,11 @@ def build(name, seed, attempt, first_ident):
     return rng, sc, bg, bgc, bg_kind
 
 
-def generate(name, seed, first_ident, max_attempts=200):
+def generate(name, seed, first_ident, max_attempts=200, log=None):
     why = []
     for attempt in range(max_attempts):
+        if log is not None and attempt:
+            log.append(list(why))            # 진단용: 앞 시도가 떨어진 이유
         rng, sc, bg, bgc, bg_kind = build(name, seed, attempt, first_ident)
         S = simulate(sc)
         if sc.auto_occ:
@@ -1649,7 +1669,7 @@ def generate(name, seed, first_ident, max_attempts=200):
         events = find_events(sc, ratio, T)
         drift_entry = []
         rows = event_rows(sc, S, ratio, ms, events, np.random.default_rng([seed, attempt, 3]), T, drift_entry)
-        if not any(r["boundary"] >= 16 and r["end"] - r["boundary"] >= 16 for r in rows):
+        if not any(r["boundary"] - r["ctx_start"] >= 16 and r["end"] - r["boundary"] >= 16 for r in rows):
             why = ["no event row C16K16"]
             continue
         metrics["n_rows"] = len(rows)
@@ -1829,13 +1849,13 @@ def main():
         fh.writelines(f"{r['mp4']} 0\n" for r in good)
     with open(os.path.join(a.out, "fps4_table.tsv"), "w") as fh:
         fh.writelines(f"{r['mp4']}\t{VIDEO_FPS}\t{r['n_frames']}\t1\t{r['n_frames']}\n" for r in good)
-    bcols = ["path", "n_frames", "boundary_frame", "video_frames", "event", "event_frame", "obj_role", "other", "dv", "scenario", "category"]
+    bcols = ["path", "n_frames", "boundary_frame", "ctx_start", "video_frames", "event", "event_frame", "obj_role", "other", "dv", "scenario", "category"]
     nb = 0
     with open(os.path.join(a.out, "boundary.tsv"), "w") as fh:
         fh.write("\t".join(bcols) + "\n")
         for r in good:
             for w in r["rows"]:
-                fh.write("\t".join(str(v) for v in [r["mp4"], w["end"], w["boundary"], r["n_frames"], w["event"], w["event_frame"],
+                fh.write("\t".join(str(v) for v in [r["mp4"], w["end"], w["boundary"], w["ctx_start"], r["n_frames"], w["event"], w["event_frame"],
                                                     w["obj_role"], w["other"], w["dv"], r["name"], r["category"]]) + "\n")
                 nb += 1
     print(f"boundary 행 {nb:,} (영상당 {nb / max(1, len(good)):.1f})")

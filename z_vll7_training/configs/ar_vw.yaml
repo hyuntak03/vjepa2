@@ -1,0 +1,39 @@
+# =============================================================================
+# **원래 AR 격자** (kind=ar, vast natural_ar_vw 와 같은 (C,K)) — 궤적 손실 **없음** (2026-10-24 사용자 정정)
+#
+#   GPUS=4 bash z_vll7_training/tmux_train.sh ar_vw
+#
+# 왜 이 config 가 생겼나 — 2026-10-22 에 "optical flow supervision" 을 붙일 때 그때 돌던
+# `ar_vw_shortctx` (문맥 1~2 블록) 에 얹었는데, 사용자 의도는 **원래 AR 에 붙이는 것**이었다 (10-24 정정).
+# 그래서 격자를 `_vll7_vw` 기본값 (= vast natural_ar_vw) 으로 되돌린 판을 다시 만든다.
+# 이것이 `ar_vw_traj` 의 **한 변수 대조군**이다 (손실만 다르다).
+#
+# vast natural_ar_vw 와 같은 것: kind ar · block-causal · 문맥·미래 모두 블록별 LN(target_encoder) ·
+#   loss = jloss (TF, 모든 위치) + sloss (rollout R = min(K,16)) · predictor 무작위 초기화 · encoder 동결 ·
+#   (C,K) ∈ {2,4,8,16} 블록 · token_budget 950 · WSD lr 5.2e-4 · 70 epoch × 294 step
+# ⚠️ **다른 것 하나 — 데이터다.** vast 는 K710 + SSv2 + HowTo100M(1 %), 이 노드는 **K400 320p + SSv2** 뿐이다
+#   (HowTo 가 메우던 W >= 48 칸 3 개가 버려진다, `_vll7_vw` 머리말). 그래서 시트 20 행 "AR predictor" 와
+#   **직접 비교하면 안 된다** — 비교 상대는 같은 노드의 `ar_vw_traj` 다.
+#
+# snap_start 를 **켠 채로 둔다**: 궤적 판은 flow 라벨 정렬 때문에 반드시 켜야 하므로,
+#   대조군도 켜 둬야 창 시작 위상 표본이 같다 (안 그러면 손실 외에 샘플링도 달라진다).
+# =============================================================================
+extends: _vll7_vw
+
+tasks_per_node: 4
+
+model:
+  context_encoder_key: target_encoder
+  target_encoder_key: target_encoder
+  predictor:
+    kind: ar
+    kv_rollout: true
+    use_activation_checkpointing: false
+
+loss:
+  rollout_steps: 16
+
+data:
+  num_workers: 14
+  var_window:
+    snap_start: true          # 궤적 판과 샘플링을 맞추기 위해 (flow 를 안 써도) 켠다

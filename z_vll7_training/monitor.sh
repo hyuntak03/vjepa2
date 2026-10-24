@@ -39,8 +39,24 @@ if [[ -z "${GPU//;/}" ]]; then
   fi
 fi
 [[ -z "${GPU//;/}" ]] && GPU_SRC="none"
-NR=$(nvidia-smi --query-compute-apps=pid --format=csv,noheader 2>/dev/null | wc -l | tr -dc '0-9')
-if [[ -z "$NR" || "$NR" == "0" ]]; then NR=$(pgrep -cf "python.*launch.py" 2>/dev/null | tr -dc '0-9'); fi
+
+# ── 이 run 의 GPU 만 남긴다 (2026-10-20) ────────────────────────────────────
+# 노드 하나에 run 을 둘 이상 올리면 (GPU_IDS 로 나눠 쓰는 경우) nvidia-smi 는 **전부**를 보여 준다.
+# <run>/pids.txt 의 rank pid 와 compute-apps 의 pid 를 맞춰 자기 카드만 고른다.
+# pids.txt 가 없거나 (옛 run) 겹치는 pid 가 없으면 (이미 죽은 run) 예전처럼 전부 보여 준다.
+MYGPU=""
+if [[ -f "$D/pids.txt" ]]; then
+  MYGPU=$(nvidia-smi --query-compute-apps=gpu_uuid,pid --format=csv,noheader 2>/dev/null \
+    | awk -F', *' -v pl="$(tr '\n' ' ' < "$D/pids.txt")" 'BEGIN{split(pl,a," "); for(i in a) P[a[i]]=1} $2 in P {print $1}' \
+    | while read -r u; do nvidia-smi --query-gpu=index,uuid --format=csv,noheader 2>/dev/null | awk -F', *' -v u="$u" '$2==u{print $1}'; done | sort -n | tr '\n' ' ')
+fi
+if [[ -n "${MYGPU// /}" ]]; then
+  GPU=$(echo "$GPU" | tr ';' '\n' | awk -F', *' -v ids="$MYGPU" 'BEGIN{split(ids,a," "); for(i in a) K[a[i]]=1} $1 in K' | tr '\n' ';')
+  NR=$(echo $MYGPU | wc -w | tr -dc '0-9')
+else
+  NR=$(nvidia-smi --query-compute-apps=pid --format=csv,noheader 2>/dev/null | wc -l | tr -dc '0-9')
+  if [[ -z "$NR" || "$NR" == "0" ]]; then NR=$(pgrep -cf "python.*launch.py" 2>/dev/null | tr -dc '0-9'); fi
+fi
 [[ -z "$NR" ]] && NR=0
 
 exec "$VJEPA2_PY" - "$D" "$RUN" "$SESS" "$NR" "$GPU" "$GPU_SRC" <<'PY'
@@ -144,14 +160,27 @@ else:
 line()
 
 # ── loss · (C,K) · 데이터 비율 (train.log, step 중복 제거) ──────────────────
+# MONITOR_NO_LOSS=1 이면 이 구역을 통째로 건너뛴다 — monitor_state_head.sh 가 자기 형식으로 다시 찍는다
+#   (예전에는 출력에서 grep -v 로 지웠는데, 색이 켜지면 `^ *loss` 앞에 escape 가 붙어 안 지워졌다)
 pat = re.compile(r"\[(\d+), +(\d+)\] loss ([\d.]+) \(avg ([\d.]+)\) \[tf ([\d.]+) ar ([\d.]+) R=(\d+)\].*?"
                  r"\| mask var C(\d+)K(\d+) (\w+) B(\d+)")
-seen = OrderedDict()
-if os.path.isfile(tl):
+# 2026-10-20: 고정 창 팔은 `| mask prefix C8K8 C=16` 이라 위 regex 에 안 걸려 loss 줄이 통째로 빠져 있었다.
+#   (C,K) 별 · 데이터 비율은 가변 창에만 있는 축이라 그대로 가변 전용으로 둔다.
+pat_fix = re.compile(r"\[(\d+), +(\d+)\] loss ([\d.]+) \(avg ([\d.]+)\) \[tf ([\d.]+) ar ([\d.]+) R=(\d+)\].*?"
+                     r"\| mask (\S+) C(\d+)K(\d+)")
+seen, seen_fix = OrderedDict(), OrderedDict()
+if os.path.isfile(tl) and not os.environ.get("MONITOR_NO_LOSS"):
     for ln in open(tl, errors="ignore"):
         m = pat.search(ln)
-        if m: seen[(m.group(1), m.group(2))] = m.groups()
+        if m:
+            seen[(m.group(1), m.group(2))] = m.groups(); continue
+        m = pat_fix.search(ln)
+        if m: seen_fix[(m.group(1), m.group(2))] = m.groups()
 S = list(seen.values())
+if not S and seen_fix:
+    e, i, l, avg, tf, ar, R, ds, C, K = list(seen_fix.values())[-1]
+    print(f" {c('loss', B):>6}   {c(f'{float(l):.4f}', B)}  =  tf {float(tf):.4f}  +  ar {float(ar):.4f}"
+          f"   {c(f'(epoch 평균 {float(avg):.4f})', DIM)}   {c(f'지금 {ds} C{C}K{K} R={R}', DIM)}")
 if S:
     e, i, l, avg, tf, ar, R, C, K, ds, Bb = S[-1]
     print(f" {c('loss', B):>6}   {c(f'{float(l):.4f}', B)}  =  tf {float(tf):.4f}  +  ar {float(ar):.4f}"

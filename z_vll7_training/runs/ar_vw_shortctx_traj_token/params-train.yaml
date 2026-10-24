@@ -1,0 +1,170 @@
+app: vjepa_frozen
+data:
+  aug:
+    hflip_p: 0.5
+    random_resized_crop:
+      ratio:
+      - 0.75
+      - 1.35
+      scale:
+      - 0.3
+      - 1.0
+    square_crop: center
+  batch_size: 8
+  datasets: []
+  loader_timeout_s: 600
+  n_frames: 64
+  num_workers: 14
+  persistent_workers: true
+  pin_mem: true
+  prefetch_factor: 2
+  resolution: 256
+  transfer_uint8: true
+  var_window:
+    b_max: 256
+    b_min: 8
+    context_frames:
+    - 2
+    - 4
+    datasets:
+    - name: k400
+      table: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/vll7_k400_320/fps4_table.tsv
+      weight: 1.0
+    - min_eligible: 20000
+      name: ssv2
+      table: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/vll7_ssv2/fps4_table.tsv
+      weight: 1.0
+    flow:
+      grid: 16
+      horizons:
+      - 1
+      - 2
+      - 4
+      - 8
+      patch: 16
+      roots:
+        k400:
+        - /data/hyuntak/flow_cache/vll7_k400_320/s0
+        - /data/hyuntak/flow_cache/vll7_k400_320/s1
+        - /data/hyuntak/flow_cache/vll7_k400_320/s2
+        - /data/hyuntak/flow_cache/vll7_k400_320/s3
+        ssv2:
+        - /data/hyuntak/flow_cache/vll7_ssv2/t0
+        - /data/hyuntak/flow_cache/vll7_ssv2/t1
+        - /data/hyuntak/flow_cache/vll7_ssv2/t2
+        - /data/hyuntak/flow_cache/vll7_ssv2/t3
+        - /data/hyuntak/flow_cache/vll7_ssv2/t4
+        - /data/hyuntak/flow_cache/vll7_ssv2/t5
+        - /data/hyuntak/flow_cache/vll7_ssv2/t6
+        - /data/hyuntak/flow_cache/vll7_ssv2/t7
+    min_eligible: 1000
+    predict_frames:
+    - 2
+    - 4
+    - 8
+    - 16
+    - 32
+    snap_start: true
+    token_budget: 950
+flow_head:
+  clip_head: 1.0
+  clip_separate: true
+  hidden: 0
+  lr_mult: 10
+  norm: auto
+  split:
+    ar: 1.0
+    tf: 1.0
+  supervise:
+  - 2
+  - 4
+  - 8
+  weight: 0.1
+folder: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_vll7_training/runs/ar_vw_shortctx_traj
+loss:
+  loss_exp: 1.0
+  rollout_steps: 16
+  target_layer_norm: true
+mask:
+- context_blocks:
+  - 1
+  - 2
+  predict_blocks:
+  - 1
+  - 2
+  - 4
+  - 8
+  - 16
+  type: prefix_window
+  weight: 1.0
+meta:
+  auto_resume: true
+  compile_encoders: true
+  dtype: bfloat16
+  encoder_dtype: bfloat16
+  log_freq: 10
+  save_every_freq: 5
+  seed: 0
+  sync_masks: true
+  use_sdpa: true
+model:
+  arch_name: vit_huge
+  base: vith
+  checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vith-fpc64-256/snapshots/b5eac8703e3efdc1547fbb6ddfbeb133dc0bdee5/original/model.pth
+  context_encoder_key: target_encoder
+  img_size: 256
+  load_predictor: false
+  mask_index: 0
+  patch_size: 16
+  predictor:
+    depth: 12
+    embed_dim: 384
+    kind: ar
+    kv_rollout: true
+    num_heads: 12
+    num_mask_tokens: 10
+    use_activation_checkpointing: false
+    zero_init_mask_tokens: true
+  target_encoder_key: target_encoder
+  tubelet_size: 2
+  uniform_power: false
+  use_rope: true
+nodes: 1
+optimization:
+  anneal_epochs: 7
+  betas:
+  - 0.9
+  - 0.999
+  clip_grad: null
+  epochs: 70
+  eps: 1.0e-08
+  final_lr: 1.0e-06
+  final_weight_decay: 0.04
+  ipe: 294
+  ipe_scale: 1.0
+  lr: 0.00052
+  start_lr: 1.0e-05
+  warmup: 1
+  weight_decay: 0.04
+tasks_per_node: 4
+val:
+  at_start: true
+  batch_size: 4
+  context_length: 16
+  data:
+    block_column: block_id
+    frames_pattern: '{block}/{quadruplet}/{run}/scene/scene_{frame:03d}.png'
+    frames_root: /local_datasets/world/world_analysis/IntPhys1_dev_frame_png
+    frames_start: 1
+    frames_stride: 3
+    index_csv: index.csv
+    pair_column: pair_id
+    plausible_column: plausible
+    root: /local_datasets/world/world_analysis/IntPhys1_dev_videos
+    type_column: block_type
+    variant_column: variant
+  dataset: intphys1_dev
+  every_epochs: 1
+  n_blocks_per_type: 10
+  n_frames: 32
+  seed: 0

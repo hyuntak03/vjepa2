@@ -1,0 +1,170 @@
+app: vjepa_frozen
+nodes: 1
+tasks_per_node: 4
+meta:
+  seed: 0
+  dtype: bfloat16
+  encoder_dtype: bfloat16
+  use_sdpa: true
+  log_freq: 10
+  save_every_freq: 5
+  auto_resume: true
+  compile_encoders: true
+  sync_masks: true
+model:
+  base: vith
+  img_size: 256
+  patch_size: 16
+  tubelet_size: 2
+  use_rope: true
+  uniform_power: false
+  context_encoder_key: target_encoder
+  target_encoder_key: target_encoder
+  load_predictor: true
+  mask_index: 0
+  predictor:
+    embed_dim: 384
+    depth: 12
+    num_heads: 12
+    num_mask_tokens: 10
+    use_activation_checkpointing: false
+    zero_init_mask_tokens: true
+    kind: ar_state
+    kv_rollout: true
+  predictor_init_checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_training/vast/ar_state/latest.pt
+  arch_name: vit_huge
+  checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vith-fpc64-256/snapshots/b5eac8703e3efdc1547fbb6ddfbeb133dc0bdee5/original/model.pth
+data:
+  n_frames: 64
+  resolution: 256
+  batch_size: 8
+  num_workers: 4
+  pin_mem: true
+  persistent_workers: true
+  datasets: []
+  aug:
+    hflip_p: 0.5
+    random_resized_crop:
+      scale:
+      - 0.3
+      - 1.0
+      ratio:
+      - 0.75
+      - 1.35
+    square_crop: center
+  prefetch_factor: 2
+  transfer_uint8: true
+  loader_timeout_s: 600
+  var_window:
+    datasets:
+    - name: k400
+      table: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/vll7_k400_320/fps4_table.tsv
+      weight: 1.0
+    - name: ssv2
+      table: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/vll7_ssv2/fps4_table.tsv
+      weight: 1.0
+      min_eligible: 20000
+    context_frames:
+    - 4
+    - 8
+    - 16
+    - 32
+    predict_frames:
+    - 4
+    - 8
+    - 16
+    - 32
+    token_budget: 950
+    b_min: 8
+    b_max: 256
+    min_eligible: 1000
+    boundary:
+      name: phys2d_single_v1
+      mix: sum
+      budget_frac: 0.25
+      latent_weight: 1.0
+      p: 0.2
+      manifest: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/phys2d_single_v1/train_mix.tsv
+      labels: phys2d_sup
+      stride: 1
+      context_frames:
+      - 4
+      - 8
+      - 16
+      predict_frames: 16
+      crop_ratio:
+      - 1.0
+      - 1.0
+      hflip_p: 0.5
+mask:
+- type: prefix_window
+  context_blocks:
+  - 2
+  - 4
+  - 8
+  - 16
+  predict_blocks:
+  - 2
+  - 4
+  - 8
+  - 16
+  weight: 1.0
+loss:
+  loss_exp: 1.0
+  target_layer_norm: true
+  rollout_steps: 16
+optimization:
+  epochs: 15
+  ipe: 300
+  ipe_scale: 1.0
+  lr: 5.0e-05
+  start_lr: 1.0e-06
+  final_lr: 1.0e-06
+  warmup: 1
+  weight_decay: 0.04
+  final_weight_decay: 0.04
+  betas:
+  - 0.9
+  - 0.999
+  eps: 1.0e-08
+  clip_grad: 1.0
+  anneal_epochs: 0
+val:
+  dataset: vobench_v1_late
+  n_blocks_per_type: 36
+  context_length: 16
+  batch_size: 8
+  every_epochs: 1
+  at_start: true
+  seed: 0
+  n_frames: 32
+  data:
+    root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/vobench_v1_late
+    index_csv: index.csv
+    frames_root: /local_datasets/world/testbed/VOBench_v1
+    frames_pattern: '{file_name}/{frame:06d}.png'
+    frames_start: 0
+    frames_stride: 3
+    block_column: block_id
+    pair_column: pair_id
+    plausible_column: plausible
+    type_column: condition
+    variant_column: variant
+state_head:
+  type: single
+  q_std: 1.0
+  tau: 1.0
+  hidden: null
+  num_heads: null
+  weight: 0.05
+  w:
+    exist: 1.0
+    pos: 1.0
+    vel: 1.0
+  split:
+    tf: 1.0
+    ar: 1.0
+  lr_mult: 3
+  clip_separate: true
+  clip_head: null
+folder: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_vll7_training/runs/phys2d_single_v1_pft_mix

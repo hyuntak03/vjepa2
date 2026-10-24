@@ -201,11 +201,15 @@ def ar_flow_loss_diff(head, p_tf, p_ar, flow, valid, S: int, C: int, R: int, spl
             log[f"l{h}"] = float(parts_ar.detach()); log[f"c{h}"] = float(cvs)
             log["valid"] = float(ok.mean())
         elif parts_tf is not None:
-            log[f"l{h}"] = float(parts_tf.detach()); log[f"c{h}"] = float("nan")
+            # ⚠️ 등속 기준선은 rollout 자리에서만 잰다. 쌍이 안 나오는 step 에서 nan 을 적으면
+            #    epoch 평균이 통째로 오염된다 (2026-10-22 실제로 그랬다) — 키를 **아예 안 적는다**.
+            log[f"l{h}"] = float(parts_tf.detach())
     zero = p_tf.sum() * 0.0
     L_tf = torch.stack(l_tf_all).mean() if l_tf_all else zero
     L_ar = torch.stack(l_ar_all).mean() if l_ar_all else zero
     log["tf_l"] = float(L_tf.detach()); log["ar_l"] = float(L_ar.detach())
-    log["ar_c"] = float(sum(log.get(f"c{h}", 0.0) for h in SUP) / max(len(SUP), 1))
+    _cs = [log[f"c{h}"] for h in SUP if f"c{h}" in log]
+    if _cs:
+        log["ar_c"] = float(sum(_cs) / len(_cs))
     log.setdefault("valid", 0.0)
     return float(split.get("tf", 1.0)) * L_tf + float(split.get("ar", 1.0)) * L_ar, log

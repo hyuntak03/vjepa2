@@ -1,0 +1,99 @@
+# =============================================================================
+# vast AR-state ep70 + **phys2d_single_v1 상태 감독 (single head)** post-FT — vll7 (2026-10-19, 사용자 지시)
+#
+#   DRYRUN=1 bash z_vll7_training/train.sh phys2d_single_v1_pft
+#   GPUS=4 bash z_vll7_training/tmux_train.sh phys2d_single_v1_pft
+#   모니터  watch -c -n 5 bash z_vll7_training/monitor_state_head.sh phys2d_single_v1_pft
+#
+# 출발 = vast AR-state ep70 (`z_training/vast/ar_state/latest.pt`, kind ar_state · kv_rollout).
+#
+# ── 왜 이 run 인가 (2026-10-19, head 설계 논쟁의 결론) ───────────────────────
+# head 넷 (light · query3 · attn · token) 을 **동결 predictor** 위에서 1,000 step 씩 따로 학습해 봤다
+# (`z_training/tools/state_head_fit.py`, phys2d_sup_v2 48 물체). 셋 다 recall 0 % · 정체 0 % 였고
+# 위치는 68~82 px 로 **복사 기준선 28.3 px 보다 2.5~3 배 나빴다**. attention 을 날카롭게 해도 (집중 1.6 -> 35.5)
+# 위치는 오히려 나빠졌다 -> **head 용량 · 구조가 병목이 아니다.**
+# 사용자 판단: 48 물체를 한꺼번에 묶는 과제 자체가 너무 어렵다 -> **물체 1 개 세트**로 과제를 줄이고
+# head 는 가장 단순한 꼴 (query 1 개 attention pooling + linear 3 개) 로 간다.
+# vast 가 같은 head 를 **자기네 attn-run e70 predictor** 위에서 재니 1,500 step 에 정체 68 % · 위치 32.9 px 가 나왔다
+# (167db20). ⚠️ 그 predictor 는 이미 상태 감독으로 학습된 것이라 **우리 출발점 (base AR ep70) 과 직접 비교 금지.**
+#
+# ── head (state_head.SingleStateHead, 약 7 만 파라미터) ──────────────────────
+#   블록마다 x_i = LN(토큰 i), a_i = softmax(τ · q·x_i/√D)  (query **1 개**, 투영 없음, q init std 1.0)
+#   z = Σ a_i x_i -> (T, D) -> 공용 linear 3 개:
+#     물체 Linear(D->49)  48 정체 + 없음, CE          위치 Linear(D->2)  (x, y)/256 L1
+#     속도 Linear(D->3)   (cos, sin, ‖v‖/8) L1
+#   위치 · 속도는 **가려져 있어도** 건다 (영속). 정체는 본 적 있는 블록만 (안 봤으면 '없음' 이 정답).
+#   ⚠️ q_std = 1.0 이 필수다. affine 없는 LN 뒤라 |x_i| = √D 가 정확해서 logit = q·x/√D 의 std 는 q 성분 std 와 같다 —
+#      q_std 0.02 면 logit std 0.02 -> softmax 가 균등에서 못 벗어나고 log_tau gradient 도 거의 0 이다 (10-19 실측).
+#
+# ── 데이터 (vast train_mix.tsv 와 같은 두 종류를 weight 로 섞는다) ───────────
+#   phys2d_single_v1_state      clip 39,593 편 · 무작위 시작 (가림은 어디서든)                  0.93
+#   phys2d_single_v1_state_bnd  사건 경계 창 18,551 개 (예측 첫 장 = 충돌 · 이탈)               0.07
+#   비율은 vast 의 행 수 (uniform 511,782 : boundary 40,117) 를 따랐다.
+#
+# ── 부모 (phys2d_sup_vast_ar_state_pft) 에서 바꾼 것 ─────────────────────────
+#   1. 데이터  phys2d_sup_v1_state -> phys2d_single_v1_state(+_bnd)
+#   2. head    attn (755 만) -> **single (약 7 만)**
+#   3. clip    predictor 에만 1.0 (clip_separate) — 같이 자르면 head grad 가 predictor norm 에 눌린다 (vast 167db20)
+#   4. head lr lr_mult 3 — head 단독 검증에서 물체를 찾기까지 ~1,000 step 걸렸다 (vast). 같이 학습하면 너무 늦다
+#   5. val     intphys1_dev -> **vobench_v1_late** (432 matched pair, 정식 채점과 같은 정의)
+#
+# ⚠️ 이 run 하나로는 "predictor 가 상태를 담게 됐다" 를 못 말한다 — 같은 설정의 **head-only 대조군**
+#    (SET="state_head.freeze_predictor=true") 이 있어야 한다. 안 돌렸으면 그렇게 적을 것.
+# ⚠️ 상태 라벨은 관측만으로 얻는 정보가 아니다 — "관측만으로 학습" 주장과 섞지 말 것 (CLAUDE.md §12 질문 6).
+# ⚠️ CLAUDE.md §11 "물체 하나 = 화면 움직임의 전부" 는 이 세트에서 성립한다 (가림막 4 개는 움직이지만 distractor 는 없다).
+#    그래서 이 세트의 수치는 **head 가 읽을 수 있는가**를 재는 것이고, VoE 채점 주장에 쓰지 않는다 — 판정은 VOBench late 로 한다.
+# =============================================================================
+extends: phys2d_sup_vast_ar_state_pft
+
+tasks_per_node: 4        # 부모는 vll5 의 8 — 이 할당 (job 224990) 은 GPU 4 장 · CPU 72 · cgroup 215 GB
+                         #   (지난 job 222869 은 6 장 / 300 GB 였다. 할당이 바뀌면 여기와 num_workers 를 같이 고친다)
+
+data:
+  n_frames: 32                # 창 인덱스의 n_frames (C16 + K16 장 = 8 + 8 블록)
+  batch_size: 32              # rank 당 (phys2d_sup_v2_light_pft 실측 72.4 G / 96 G)
+  num_workers: 6              # ⚠️ 12 로 돌렸다가 호스트 RAM OOM-killer 에 rank 가 죽었다 (2026-10-19 `rank 실패 [(4, -9)]`).
+                              #   cgroup 상한 215 GB · 워커 1 개당 약 2.9 GB 실측 -> rank 4 × 6 = 24 개면 약 70 GB
+  datasets:
+    - {name: phys2d_single_v1_state,     weight: 0.93}
+    - {name: phys2d_single_v1_state_bnd, weight: 0.07}
+  aug:
+    hflip_p: 0.5              # 영상 · 라벨에 같이 (Phys2DSupDataset 이 건다)
+    random_resized_crop: null # 좌표 라벨과 어긋난다 (로더가 죽인다)
+    square_crop: none         # 256² 원본
+
+model:
+  predictor:
+    use_activation_checkpointing: false   # 2026-10-19 실측: GPU 시간이 같다 (2253 vs 2303 ms). 여유 VRAM 을 쓰는 쪽
+
+state_head:
+  type: single                # <- 이 run 의 요점 (app/vjepa_frozen/state_head.SingleStateHead)
+  q_std: 1.0                  # ⚠️ 위 주석 참고. 0.02 면 attention 이 균등에서 못 벗어난다
+  tau: 1.0                    # log_tau 는 학습된다
+  hidden: null                # single 은 안 쓴다 (attn 전용 키 삭제)
+  num_heads: null
+  weight: 1.0                 # 전체 = AR L1 + weight × (물체 CE + 위치 + 속도)
+  w: {exist: 1.0, pos: 1.0, vel: 1.0}
+  split: {tf: 1.0, ar: 1.0}   # TF 출력 · rollout 출력에 같은 비중
+  lr_mult: 3                  # head lr = 스케줄 lr × 3 (vast 167db20)
+  clip_separate: true         # clip_grad 1.0 은 predictor 에만. gn 로그 = predictor norm
+  clip_head: null             # head 는 안 자른다
+
+optimization:
+  epochs: 15
+  ipe: 300                    # 15 × 300 = 4,500 step × (4 × 32) = 57.6 만 창
+  lr: 5.0e-5
+  start_lr: 1.0e-6
+  final_lr: 1.0e-6
+  warmup: 1
+  clip_grad: 1.0              # predictor 에만 (clip_separate). 로그 `gn` 이 clip 전 predictor norm
+
+val:
+  dataset: vobench_v1_late    # 432 matched pair (216 block × 2). 정식 채점과 같은 정의
+  data: null                  # ⚠️ 필수 — 부모 (natural_prefix) 가 val.data 에 IntPhys1 경로를 박아 둔다. 지우지 않으면 IntPhys1 을 잰다
+  n_frames: 32
+  context_length: 16
+  n_blocks_per_type: 36
+  batch_size: 8
+  every_epochs: 1
+  at_start: true              # epoch 0 에 vast AR 출발점을 먼저 찍는다

@@ -1,0 +1,17 @@
+# =============================================================================
+# 릴리즈 predictor post-FT — VOBench + gravity, **처음 보는 물체** split (2026-10-21, 사용자: "처음 보는 물체 · 모양 · 색에도 되는지")
+#
+#   NODE=vll3 GPUS=4 CPUS_PER_GPU=8 MEM_PER_GPU=36G bash z_training/sbatch.sh vobench_release_postft_objholdout
+#
+# vobench_release_postft_g (= vith_release_vobftg) 와 과제 · lr · batch (global 32) · 30 epoch 가 같고 split 만 다르다:
+#   train = held-out 모양 (torus · cone) · 색 (cyan · purple) · 메시 (basketball · scooter) 가 하나도 없는 장면 묶음의 가능 영상 721
+#   (z_training/data/build_vobench_objholdout_index.py). test 는 held-out 속성이 있는 묶음 전부 — 채점은 index_test.csv · gravity_test.csv 의 holdout 열로 나눠 읽는다.
+# ⚠️ vith_release_vobftg 는 이 test 의 일부 block 을 학습에서 봤다 — 같은 test 에서 비교 기준은 릴리즈 (학습 없음) 다.
+# =============================================================================
+extends: vobench_release_postft
+
+data:
+  datasets:
+    - {name: vobench_objholdout_train, weight: 1.0}
+
+val: null                     # 기본 val (IntPhys1 dev) 은 vll5 로컬 경로라 vll3 에서 못 읽는다 — 채점은 끝난 뒤 vll5 에서 held-out test 로

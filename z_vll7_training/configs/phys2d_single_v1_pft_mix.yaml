@@ -1,0 +1,110 @@
+# =============================================================================
+# **자연 영상 + 2D 상태 감독 (보조 손실)** post-FT — vll7 (2026-10-20, 사용자 지시 "vast 의 aux head 식으로 다시")
+#
+#   DRYRUN=1 bash z_vll7_training/train.sh phys2d_single_v1_pft_mix
+#   GPUS=4 bash z_vll7_training/tmux_train.sh phys2d_single_v1_pft_mix
+#   모니터  watch -c -n 5 bash z_vll7_training/monitor_state_head.sh phys2d_single_v1_pft_mix
+#
+# 출발 = vast AR-state ep70 (`z_training/vast/ar_state/latest.pt`) — `_w005` · `_nosup` 와 같은 출발점.
+#
+# ── 왜 이 run 인가 (vast f6e7934 `boundary.mix = sum` 이식) ──────────────────
+# vast 가 고친 것은 **합성을 step 교대가 아니라 매 step 보조 손실로** 돌리는 것이다:
+#   교대하면 합성 step 의 gradient 가 자연의 5~6 배라 Adam 2 차 모멘트를 합성이 정하고,
+#   그 결과 자연 step 의 갱신이 약 1/2.4 로 줄어든다. 매 step 더하면 두 gradient 가 같은 모멘트를 공유한다.
+#
+# ⚠️ **이 고침은 우리 기존 PFT 두 팔에는 적용할 수 없다 — 거기엔 자연 영상 팔이 없다.**
+#    `_w005` · `_nosup` 는 100 % phys2d_single 이라 "교대" 자체가 없었고, 합성 batch 안에서
+#    latent + weight × head 로 더하는 방식은 mix=sum 과 **수식이 같다**. 즉 그대로 베끼면 **아무것도 안 바뀐다.**
+#    mix=sum 이 의미를 가지려면 **자연 영상 팔이 주인공이고 합성이 보조**여야 한다 — 그게 이 config 다.
+#
+# ── 그래서 바뀐 것: 데이터 구성 ──────────────────────────────────────────────
+#   주 손실   자연 영상 (k400 320p + ssv2) 가변 창 AR latent        — `_vll7_vw` 그대로, 상태 라벨 없음
+#   보조 손실 phys2d_single_v1 창 (token 예산 × 0.25) 의 latent + 상태   — 매 step 함께, backward 한 번에 동기화
+#
+# 이것은 `_w005` 가 측정한 손상을 바로 겨냥한다 — 합성만으로 PFT 하니 VOBench late 영속이
+#   primitive 93.1 → 75.0 · realistic 95.8 → 76.4 로 무너졌다 (감독 없는 `_nosup` 도 81.9 / 80.6).
+#   자연 영상 팔이 그 자리를 붙잡아 주는지가 이 run 의 질문이다.
+#
+# ⚠️ **짝 대조군이 바뀐다.** 기존 `_nosup` (합성만, 감독 없음) 은 이 run 의 한 변수 대조가 **아니다**.
+#    맞는 짝은 같은 데이터 구성에서 `state_head: null` 인 run 이다 (`_pft_mix_nosup`, 아직 안 돌림).
+#    이 run 하나만 있으면 "자연을 섞어서 좋아졌는지" 와 "감독이 좋아졌는지" 를 못 가른다 — 결과에 반드시 적을 것.
+# ⚠️ **자연 가지는 출발점의 학습 분포와 같지 않다 — 근사다** (2026-10-21, 사용자 지적으로 체크포인트에서 확인).
+#    z_training/vast/ar_state/latest.pt 의 config.data.var_window.datasets =
+#      k710 (k710_320/fps4_table.tsv) · ssv2 · how (ht100m_1pct/fps4_table.tsv), 각 weight 1.0, (C,K) [2,4,8,16,32]
+#    vll7 에 있는 표는 vll7_k400_320 (240,436 행) · vll7_ssv2 (146,773 행) 둘뿐이고
+#    /local_datasets 에도 Kinetics400 · something-something-v2 뿐이다 (k710 · ht100m 없음).
+#    그래서: k400 ⊂ k710 (부분집합) · ssv2 같음 · **HowTo100M 은 통째로 빠진다** (1 인칭 · 긴 호흡).
+#    (C,K) 격자도 vast 는 2 장 칸을 포함, 여기는 4 장부터 (`_vll7_vw` 그대로).
+#    -> "자연 가지 = 원 분포로 돌아가는 닻" 은 **복원이 아니라 근사**다. 영속이 회복되면
+#    "자연 영상을 섞으면" 까지만 말하고 "원 분포로 돌아가서" 는 쓰지 말 것.
+# ⚠️ 상태 라벨은 관측만으로 얻는 정보가 아니다 — "관측만으로 학습" 주장과 섞지 말 것 (CLAUDE.md §12 Q6).
+# ⚠️ vast 는 같은 head · 같은 데이터로 **scratch 70 epoch** 를 돌려 채점이 기준 AR 과 같았다
+#    (VOBench late 73.6/76.4 vs 73.6/77.3 · IntPhys1 91.7 vs 90.0 · InfLevel 58.8 vs 58.4 — STATE_SUPERVISION_2026-10-20 §3-2).
+#    즉 **"오른다" 쪽에 기대를 걸 근거는 없다.** 이 run 이 세우는 문장은 "post-FT 규모 (4,500 step) 에서
+#    자연 영상을 섞으면 합성 전용 PFT 의 영속 손상이 사라지는가" 다 — 어느 쪽이 나와도 문장이 선다 (CLAUDE.md §12 Q2).
+#
+# ── 구현 (이식분) ───────────────────────────────────────────────────────────
+#   app/vjepa_frozen/var_window.py  `__init__` 에서 `_init_boundary` 호출 + `__iter__` 분기 (종전엔 도구 전용이었다)
+#   app/vjepa_frozen/train.py       MIX 블록 — 자연 backward (no_sync) → 합성 backward (동기) → step 한 번.
+#                                   로그에 `nat <자연 latent> syn <합성 latent>` 추가. bf16 전용 (scaler 금지)
+#   z_training/data/build_phys2d_mix_manifest.py  uniform.tsv + boundary.tsv(impact·leave) → train_mix.tsv
+#                                   551,899 행 = vast 의 511,782 + 40,117 과 일치
+# =============================================================================
+extends: ar_state_vw
+
+tasks_per_node: 4          # job 224990 = GPU 4 · CPU 72 · cgroup 200 GB
+
+model:
+  load_predictor: true
+  predictor_init_checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_training/vast/ar_state/latest.pt
+
+data:
+  num_workers: 4           # 자연 + 합성 **로더 둘** (rank 4 × 4 × 2 = 32 워커). 6 이면 cgroup 200 GB 에 닿는다 (10-20 EK100 실측)
+  var_window:
+    boundary:
+      name: phys2d_single_v1
+      mix: sum             # <- 이 run 의 요점. 합성을 매 step 보조 손실로 (교대 아님)
+      budget_frac: 0.25    # 합성 token 예산 = 950 × 0.25 = 237 (vast 기본값)
+      latent_weight: 1.0   # 합성 latent 가중치. 상태는 state_head.weight
+      p: 0.20              # mix=sum 이면 합성 로더가 1.0 으로 덮어쓴다 (이 값은 mix 를 끌 때만 쓰인다)
+      manifest: ${DATA_CSV}/phys2d_single_v1/train_mix.tsv
+      labels: phys2d_sup   # 같은 창의 상태 라벨을 info["labels"] 로
+      stride: 1
+      context_frames: [4, 8, 16]
+      predict_frames: 16
+      crop_ratio: [1.0, 1.0]   # ⚠️ 좌표 라벨 — 자르기 · 화면비 변경 금지 (로더가 죽인다). 256² 원본 그대로
+      hflip_p: 0.5             # 영상 · 라벨에 같이 건다
+
+state_head:                # `_w005` 와 같은 설정 (한 변수만 바꾸려면 여기가 아니라 데이터 구성이 바뀐 것)
+  type: single
+  q_std: 1.0               # ⚠️ affine 없는 LN 뒤라 0.02 면 attention 이 균등에서 못 벗어난다
+  tau: 1.0
+  hidden: null
+  num_heads: null
+  weight: 0.05             # 제약 크기 (vast 177291c · 우리 _w1_lr3 실측)
+  w: {exist: 1.0, pos: 1.0, vel: 1.0}
+  split: {tf: 1.0, ar: 1.0}
+  lr_mult: 3               # ⚠️ vast 의 2 를 베끼지 않는다 — vast base lr 5.2e-4 (scratch) vs 우리 5.0e-5 (post-FT).
+                           #    ×2 면 head lr 이 vast 가 노린 1e-3 의 1/10 이 된다. ×3 = 1.5e-4 는 _w1_lr3 에서 발산 없이 갔다
+  clip_separate: true      # clip 1.0 은 predictor 에만 (gn 로그 = predictor norm)
+  clip_head: null
+
+optimization:
+  epochs: 15               # `_w005` · `_nosup` 와 같은 step 예산 (15 × 300 = 4,500) — 세 팔을 같은 자리에서 비교
+  ipe: 300
+  lr: 5.0e-5               # post-FT (부모 ar_state_vw 는 scratch 용 5.2e-4)
+  start_lr: 1.0e-6
+  final_lr: 1.0e-6
+  warmup: 1
+  anneal_epochs: 0         # 부모의 WSD 7 ep 감소는 70 ep 용. 15 ep 에서는 끈다
+  clip_grad: 1.0           # predictor 에만 (clip_separate)
+
+val:
+  dataset: vobench_v1_late # 432 matched pair — `_w005` · `_nosup` 와 같은 val
+  data: null
+  n_frames: 32
+  context_length: 16
+  n_blocks_per_type: 36
+  batch_size: 8
+  every_epochs: 1
+  at_start: true           # epoch 0 에 출발점 (vast AR ep70) 을 먼저 찍는다 — 세 팔이 73.4 로 같아야 한다

@@ -42,6 +42,9 @@ ensure_shim || { echo "⚠️ shim 을 못 만들었다 — VOBench · IntPhys2 
 source "$VJEPA2_ROOT/cvpr/env.sh"
 export CVPR_DATA2=/local_datasets/world/_cvpr_data2_vll7
 export CVPR_PY="$VJEPA2_PY"                       # sm_120 (Blackwell) 을 아는 env
+# ⚠️ cvpr/env.sh 는 CVPR_TORCHRUN 을 **기본 CVPR_PY 옆에서** 계산해 둔다. intphys2 는 torchrun 으로 뜨므로
+#    이걸 같이 안 바꾸면 vjepa2 env 의 torchrun 이 떠서 sm_120 커널이 없다 (no kernel image). 2026-10-23 실측 실패.
+export CVPR_TORCHRUN="$(dirname "$VJEPA2_PY")/torchrun"
 export GPUS=${GPUS:-6}
 
 # ── 모델 이름: 레지스트리에 있으면 그걸, 없으면 SET 으로 체크포인트를 꽂는다 ──

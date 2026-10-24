@@ -1,4 +1,90 @@
-# phys2d_sup_v1 — 2D 중력 · 영속 · 고체성 학습셋 + 프레임별 상태 라벨 (2026-10-18, vll5)
+# phys2d_sup — 2D 중력 · 영속 · 고체성 학습셋 + 프레임별 상태 라벨 (2026-10-18)
+
+> **정본은 §V `phys2d_sup_v2`** (vast, 같은 날 저녁). §0 이하는 vll5 의 `phys2d_sup_v1` 기록이다 —
+> ⚠️ v1 의 창 인덱스 (`phys2d_sup_v1_future`, 67,334 창) 는 **문맥에 전환이 들어 있는 창이 56.6 %** 다 (§V-1). 다시 만들 것.
+
+## V. phys2d_sup_v2 (vast, 2026-10-18 저녁) — 전환은 예측 구간에, 가림은 어디든
+
+**사용자 결정** (이 판의 기준):
+- "충돌이면 충돌 직전까지만 context 에 보여주고 그 다음 충돌하고 멈추거나 그런 걸 예측해야지. 아니면 딱 충돌 시점까지만 context 로 주던가"
+- "permanence 는 context 에서 가려져도 되고 다양하게 여러 번 가려져도 돼 한 clip 내부에서" · "가려지는 게 화면 밖으로 나가는 거면 조금 그럴 수도"
+- 쓰임: predictor 출력 (T·N, D) → attention pooling (T, D) → 장마다 속도 (cos, sin, 크기) · 위치 (x, y) · 정체 (모양 × 색 48 또는 없음) head
+
+**위치**: `/workspace/dataset/training_data/phys2d_sup_v2/{train,val}` — train **38,343** clip (20 시나리오 × 2,000 시도, 통과 95.9 %, 4.9 GB) · val **1,156** (seed 2, 겹침 0, 149 MB).
+생성 16 분 (CPU 240 프로세스, nice 19 — GPU 학습과 같이 돌았다).
+
+### V-1. 왜 다시 만들었나 — v1 창 인덱스 실측 (main 코드로 시나리오당 10 편 생성, 솎기 전 창 2,987)
+
+| 문맥 안에 있는 것 | 창 비율 |
+|---|---:|
+| json 사건 아무거나 | 56.6 % |
+| 충돌 dv ≥ 60 (방해 물체 제외) | 41.9 % |
+| 예측 구간에 화면 밖 물체가 처음 보임 | 34.1 % |
+
+원인: `build_phys2d_window_index.py` 가 사건을 `boundary.tsv` 에서만 읽었는데 거기엔 **행으로 고른 사건만** (충돌 영상당 ≤ 2) 있다.
+그리고 생성기 boundary 행 자체가 `b = 사건 뒤 첫 장 + 1 + j` 로 전환을 **문맥 끝**에 넣었다 (vast `phys2d_v2` 와 같은 관례 — 결정과 반대).
+
+### V-2. 바꾼 것 (`gen_phys2d_sup.py` · `build_phys2d_window_index.py` · `app/vjepa_frozen/var_window.py`)
+
+- **경계** — post = 전환 뒤 첫 장 (전환은 post−1 렌더 뒤 substep 에서 일어난다). 예측 첫 장 b = post + j, j ∈ {−2, −1, 0, +1} 균등:
+  문맥이 전환 2 · 1 · 0 장 전에서 끝나거나 (j ≤ 0), 문맥 마지막 장이 딱 전환 순간 (j = +1). 실측 b − post 분포 41,344 / 42,570 / 42,983 / 48,315.
+- **`ctx_start` 열** — 이 행보다 앞선 **충돌 (dv ≥ 60, 방해 물체 제외) · 받침 이탈** 의 post. 로더 (var_window boundary) 가 문맥 C ≤ (b − ctx_start)/s 인 행만 쓴다
+  (열이 없는 manifest 는 예전과 같다). **가림 · 다시 보임은 문맥을 막지 않는다** (결정대로). 깨끗한 문맥 길이 ≥ 4 / 8 / 16 / 32 장: 100 / 74 / 54 / 27 % 행.
+- **예측 구간 끝 (`n_frames`)** — 화면 밖에서 생긴 물체가 **처음 보이는 장** 직전에서도 끊는다 (생성 시각만 보던 것은 생성이 문맥 안이면 놓쳤다).
+- **창 인덱스** — json `events` 전체를 읽는다. ① 문맥에 충돌 · 이탈 전환 없음 (문맥 마지막 장이 딱 전환 순간인 것은 허용) ② 예측 구간에 전환 (충돌 · 이탈 · 가림 · 다시 보임) ≥ 1
+  ③ 예측 구간에 화면 밖 물체 첫 등장 없음. 산출 `<split>/windows_T32C16s1.csv`.
+- **spawn 여부를 재시도와 무관하게** (v1: 설계 50 % → rejection 뒤 76.5 %). 그대로 고정하면 15 % 가 200 회 안에 통과 못 하고 실패가 모양과 얽혀
+  (원이 굴러서 잘 통과) 주 물체 원이 18.9 % 가 됐다 (val 시험판, 지웠다) → **100 회째 시도부터는 다시 뽑는다** (`SPAWN_FIXED_ATTEMPTS`).
+
+### V-3. 행 검사 (train 전수 175,212 행, `z_training/data/verify_phys2d_sup_rows.py <split 폴더>`)
+- 문맥 [ctx_start, b) 안에 충돌 · 이탈 전환: **0 행**. 사건이 경계 밖: 0 행.
+- 예측 구간에 화면 밖 물체 첫 보임: 171 행 (0.1 %) — 전부 문맥 마지막 장에 이미 2 % 미만으로 비친 경우 (검사는 전체 면적 비, 생성기는 화면 안 면적 비로 잰다). 위반 아님.
+- 사라짐의 원인: **가림막 99,422 vs 화면 밖 3,646 (3.5 %)**. 본 물체가 화면 밖에 있는 물체·장 0.9 %.
+
+### V-4. 편향 점검 (`train/audit.md`)
+
+| 항목 | v2 | v1 (vll5) |
+|---|---|---|
+| 주 물체 모양 · 색 | 16.4–17.3 % · 12.4–12.6 % (48 칸 777–833 편) | 16.6–16.7 · 12.4–12.5 % |
+| 전체 물체 모양 | 원 22.1 % (나머지 14.2–16.9) | 원 20.4 % |
+| g 5 등분 | 19.2–20.7 % | 19.8–20.3 % |
+| 들어오는 물체 있는 클립 | **65.1 %** (설계 50) | 76.5 % |
+| 가림 구간 / 영상 | 평균 2.10 · 0 / 1 / 2 / 3+ = 29 / 20 / 21 / **31 %** · 한 물체 2 번 이상 38.2 % | 24 % (3+) · 29.9 % |
+| 가려진 동안 움직임 | 86.1 % (이동 중앙 18 px) | 87.6 % |
+| boundary 행 | 175,111 — 가림 37.0 · 다시 보임 32.3 · 충돌 22.8 · 이탈 8.0 % | 가림 33 · 다시 보임 29 · 충돌 29 · 이탈 10 |
+| 예측 앞 8 장 복사 / 등속으로 풀리는 행 (< 0.5 반폭) | 8.2 / 17.6 % (충돌 2.3 / 2.8 · 이탈 0.7 / 1.4 · 가림 10.4 / 21.8 · 다시 보임 11.6 / 27.4) | 7.1 / 13.5 % |
+| 창 (T32 C16, clip 당 ≤ 4) | **142,182** (clip 95.1 %) · 첫 전환 충돌 58 · 가림 22 · 다시 보임 14 · 이탈 6 % | 67,334 (규칙 깨짐) |
+| 라벨 정합 | 위치 중앙 0.19 px · p99 0.85 · 속도 p99 0.68 px/장 | 같음 |
+| 누수 | seed 중복 0 · val–train 0 | 같음 |
+
+⚠️ **남은 치우침 — 알고 쓸 것**
+1. **rejection 이 세다** — 재시도 평균 container 73.7 · stack_topple 73.3 · drop_behind 69.5 … (v1 보다 많다). 거의 전부 "too short" (64 장 전에 움직임이 끝남, 시도 단위 집계 5,258 / 7,100).
+   오래 움직이는 변수 (반발 · 속도) 가 골라진다. 실패 1,657 편 (stack_topple 22 · container 19.5 %) → 시나리오 편수 1,636–2,000.
+2. **가림 · 다시 보임 행은 등속으로 꽤 풀린다** (21.8 / 27.4 %) — 가려진 동안 등속으로 굴러가는 경우. 영속 supervision 으로는 맞는 신호지만 "외삽으로 못 푼다" 는 충돌 · 이탈 행에만 성립.
+3. 가림 시작 시각이 앞쪽 (5 등분 35 / 22 / 17 / 17 / 9 %), y 아래 두 칸 71 %, 가림막 없는 영상 (16.5 %) 은 가림 0 % — v1 과 같은 성격.
+4. 창 인덱스의 첫 전환은 충돌이 58 % (창은 영상 어디서나 시작하므로 잦은 충돌이 많이 걸린다). 사건 종류 균형이 필요하면 boundary 행 (`boundary.tsv`, var_window) 을 쓴다.
+
+⚠️ **head 설계와의 관계** — 영상당 물체 평균 2.9 개 (1 개 12 %). (T, D) 하나로 위치 · 속도 · 정체를 내면 **물체가 여럿인 장에서 정답이 하나로 정해지지 않는다.**
+라벨은 물체마다 다 있다 (`window_labels`, max_obj 10). 쓰는 쪽에서 (a) 주 물체 하나 (`role == main`, 정체 층화된 쪽) 를 정답으로 정하거나
+(b) 정체 48 개 query 로 (T, 48, D) — vll5 의 `state_head` 방식 — 로 풀어야 한다. 어느 쪽인지는 정하지 않았다.
+
+**학습 레지스트리 · 상태 라벨 로더는 vast 에 없다** (`phys2d_sup` 타입 · `Phys2DSupDataset` 은 main/vll5 에만). 데이터를 vll5 로 옮기거나 로더를 이식해야 쓴다.
+
+### V-재현
+```bash
+cd /workspace/world_model/vjepa2
+R=/workspace/dataset/training_data/phys2d_sup_v2
+nice -n 19 /venv/vjepa/bin/python -W ignore z_training/data/gen_phys2d_sup.py --per-scenario 60   --seed 2 --workers 240 --preview-n 0 --out $R/val     # 0.6 분
+nice -n 19 /venv/vjepa/bin/python -W ignore z_training/data/gen_phys2d_sup.py --per-scenario 2000 --seed 1 --workers 240 --preview-n 3 --debug-overlay --out $R/train   # 16 분
+nice -n 19 /venv/vjepa/bin/python -W ignore z_training/data/audit_phys2d_sup.py --root $R/train --val $R/val --workers 100 > $R/train/audit.md
+/venv/vjepa/bin/python z_training/data/build_phys2d_window_index.py --root $R/train --max-per-clip 4   # → $R/train/windows_T32C16s1.csv
+/venv/vjepa/bin/python z_training/data/build_phys2d_window_index.py --root $R/val   --max-per-clip 2
+```
+var_window boundary 로 쓸 때: `boundary: {manifest: $R/train/boundary.tsv, ...}` — `ctx_start` 열을 로더가 읽는다.
+
+---
+
+# (기록) phys2d_sup_v1 — vll5
 
 > 생성기 `z_training/data/gen_phys2d_sup.py` · 편향 점검 `z_training/data/audit_phys2d_sup.py` · 라벨 읽기 `z_training/data/phys2d_sup_labels.py`.
 > vast 브랜치 `gen_phys2d.py` (174bf30, `phys2d_v2`) 를 포크했다 — 물리 · 렌더 · 사건 행 관례는 같고, **라벨 · 정체 · 여러 번 가림 · 치우침 수정**이 다르다.
