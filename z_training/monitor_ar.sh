@@ -50,7 +50,10 @@ try:
     for key in ("fixed", "boundary"):
         if vw.get(key):
             bx = vw[key]
-            print(f"       + {key} {bx.get('name', '')}: step 의 {100 * float(bx['p']):.0f} %"
+            _mix = key == "boundary" and str(bx.get("mix", "")) == "sum"     # 2026-10-20: 보조 손실 방식
+            print(f"       + {key} {bx.get('name', '')}: "
+                  + (f"매 step 보조 batch (mix sum · token 예산 × {float(bx.get('budget_frac', 0.25)):g} · 합성 latent ×{bx.get('latent_weight', 1.0)})" if _mix
+                     else f"step 의 {100 * float(bx['p']):.0f} %")
                   + (f", 경계 정렬 · 문맥 {bx['context_frames']} 장 · 예측 {bx['predict_frames']} 장 · stride {bx['stride']}" if key == "boundary" else ""))
 except Exception:
     pass
@@ -148,6 +151,9 @@ if seen:
             if ms:
                 r_.update(st=float(ms[1]), pv=float(ms[2]) if ms[2][0].isdigit() else float("nan"),
                           ph=float(ms[3]) if ms[3][0].isdigit() else float("nan"))
+            mx = re.search(r" posx ([\d.na]+)/([\d.na]+)/([\d.na]+)", ln)   # 2026-10-24 fit_on gt: 정답 / TF / 굴린
+            if mx:
+                r_["posx"] = tuple(float(x) if x[0].isdigit() else float("nan") for x in mx.groups())
             mi = re.search(r" id ([\d.]+)", ln)
             mc = re.search(r" cmp ([\d./na]+) ([\d./na]+) ([\d./na]+) ([\d./na]+)", ln)
             mz = re.search(r" conc ([\d.]+)", ln)
@@ -176,9 +182,24 @@ if seen:
         print(f" {B}head{N}   {SHc.get('type', 'attn')}  ·  손실 ×{float(SHc.get('weight', 1.0)):g}  ·  head lr ×{SHc.get('lr_mult', 1)}"
               f"  ·  clip {'predictor 만' if SHc.get('clip_separate') else '함께'}   {DIM}(최근 {len(rec)} 합성 step 평균){N}")
         pv, ph = mean([r_.get("pv") for r_ in rec]), mean([r_.get("ph") for r_ in rec])
-        col = lambda v: (G if v < 28 else Y if v < 60 else R_)        # 복사 기준선 28 px
+        # 복사 기준선 — z_training/tools/copy_baseline.py 가 run 의 합성 창 설정으로 잰 값 (없으면 옛 2D 기준 28 px) (2026-10-20)
+        cb_f = os.path.join(D, "copy_baseline.json")
+        cbv = cbh = None
+        if os.path.isfile(cb_f):
+            try:
+                cb = json.load(open(cb_f)); cbv, cbh = cb["copy_vis"]["mean"], cb["copy_hid"]["mean"]
+            except Exception:
+                pass
+        cv_, ch_ = (cbv or 28.0), (cbh or 28.0)
+        colv = lambda v: (G if v < 0.5 * cv_ else Y if v < cv_ else R_)   # 초록 = 복사의 절반 아래 · 노랑 = 복사보다 나음 · 빨강 = 복사보다 못함
+        colh = lambda v: (G if v < 0.5 * ch_ else Y if v < ch_ else R_)
         print(lab("손실") + f"head {B}{mean([r_['st'] for r_ in rec]):.3f}{N}   vs   잠재 L1 {mean([r_['lat'] for r_ in rec]):.3f}")
-        print(lab("위치 오차") + f"보임 {col(pv)}{B}{pv:6.1f}{N} px   가림 {col(ph)}{B}{ph:6.1f}{N} px   {DIM}(1 칸 = 16 px · 복사 기준선 28 px){N}")
+        cbtxt = (f"복사 기준선 보임 {cbv:.0f} / 가림 {cbh:.0f} px" if cbv else "복사 기준선 28 px (옛 값 — tools/copy_baseline.py 로 재기)")
+        print(lab("위치 오차") + f"보임 {colv(pv)}{B}{pv:6.1f}{N} px   가림 {colh(ph)}{B}{ph:6.1f}{N} px   {DIM}(1 칸 = 16 px · {cbtxt}){N}")
+        if any("posx" in r_ for r_ in rec):   # 2026-10-24: 같은 head (정답 토큰으로 학습) 를 세 입력에 — 정답이 head 의 바닥, 예측이 거기까지 내려오는지
+            px_ = [r_["posx"] for r_ in rec if "posx" in r_]
+            print(lab("같은 head") + "  ".join(f"{nm} {B}{mean([x[j] for x in px_]):6.1f}{N} px" for j, nm in enumerate(("정답 토큰", "TF 예측", "굴린 예측")))
+                  + f"   {DIM}(보이는 블록 · head 는 정답 토큰에서만 학습){N}")
         if any("cmp" in r_ for r_ in rec):
             cm = [r_["cmp"] for r_ in rec if "cmp" in r_]
             f2 = lambda j, k, nd: f"{mean([x[j][k] for x in cm]):.{nd}f}"
@@ -187,12 +208,19 @@ if seen:
         idv = mean([r_.get("id") for r_ in rec]) if any("id" in r_ for r_ in rec) else None
         cz = mean([r_.get("conc") for r_ in rec]) if any("conc" in r_ for r_ in rec) else None
         s_id = f"정체 {B}{100 * idv:4.0f} %{N} {DIM}(49 지선다, 우연 2 %){N}" if idv is not None else ""
-        s_cz = (f"집중도 {B}{cz:5.1f}x{N} " + (f"{Y}⚠ 균등에 붙음 = 기본값 읽기{N}" if cz < 2 else f"{DIM}(균등 = 1){N}")) if cz is not None \
-            else f"집중도 {DIM}— (이 run 로그에 없음){N}"
+        _sh = ((yaml.safe_load(open(os.path.join(D, "config.yaml"))) or {}).get("state_head") or {}).get("type")
+        s_cz = (f"집중도 {DIM}— (평균 풀링 head: attention 없음, 항상 균등){N}" if _sh == "mean" else   # 2026-10-23
+                (f"집중도 {B}{cz:5.1f}x{N} " + (f"{Y}⚠ 균등에 붙음 = 기본값 읽기{N}" if cz < 2 else f"{DIM}(균등 = 1){N}")) if cz is not None
+                else f"집중도 {DIM}— (이 run 로그에 없음){N}")
         print(lab("읽기") + s_id + "     " + s_cz)
         sg = [r_["gn"] for r_ in syn if r_["gn"] is not None]
         ng = [r_["gn"] for r_ in rows if not r_["synth"] and r_["gn"] is not None]
-        if sg:
+        MIXR = bool(sg) and not ng            # mix sum: 모든 step 이 자연 + 합성 (gn = 둘을 합친 predictor gradient)
+        if MIXR:
+            nclip = sum(g > clipv for g in sg) if clipv else 0
+            print(lab("grad norm") + f"자연 + 합성 합 {B}{mean(sg[-8:]):.2f}{N}   {DIM}(mix sum — 매 step 같은 성격의 gradient 라 Adam 공유 문제 없음){N}")
+            print(lab("") + f"{DIM}최근 50 최대 {max(sg[-50:]):.2f} · 전체 최대 {max(sg):.2f}" + (f" · clip {clipv:g} 초과 {nclip}/{len(sg)}" if clipv else "") + f"{N}")
+        elif sg:
             nclip = sum(g > clipv for g in sg) if clipv else 0
             rs, rn = mean(sg[-8:]), mean(ng[-40:])
             ratio = rs / rn if rn == rn and rn > 0 else float("nan")
@@ -252,7 +280,9 @@ if os.path.isfile(tl):      # 데이터별 step 수 (op320 · vob 같은 고정/
     cnt = Counter(g[7] for g in seen)
     if cnt:
         tot = sum(cnt.values())
-        print(" 데이터별 step  " + "  ".join(f"{k} {v:,} ({100 * v / tot:.1f}%)" for k, v in cnt.most_common()))
+        _bx = ((c.get("data") or {}).get("var_window") or {}).get("boundary") or {} if isinstance(c, dict) else {}
+        print(" 데이터별 step  " + "  ".join(f"{k} {v:,} ({100 * v / tot:.1f}%)" for k, v in cnt.most_common())
+              + (f"   + 합성 {_bx.get('name', '')} 매 step" if str(_bx.get("mix", "")) == "sum" else ""))
 # 2026-10-18: 측정판 (z_training/tools/panel.py → <run>/panel.jsonl). 점수가 가리는 것 — 운반 · 위치 · 물체 자리
 pj = os.path.join(D, "panel.jsonl")
 if pc.get("ar_input") == "video" if isinstance(pc, dict) else False:

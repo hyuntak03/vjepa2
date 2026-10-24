@@ -130,6 +130,28 @@ class SingleStateHead(nn.Module):
                 "attn": w.reshape(*sh, S)}
 
 
+class MeanStateHead(SingleStateHead):
+    """SingleStateHead 와 같은 출력 · 같은 손실 (single_losses), 모으기만 **평균 풀링** (2026-10-23, 사용자 결정).
+    블록마다 z = mean_i LN(토큰 i) → 공용 linear 3 개 (물체 49 · 위치 2 · 속도 3). query · τ 없음 (attention 없음).
+    뜻: 상태가 물체 칸 몇 개가 아니라 블록 토큰 평균 (화면 전체) 에서 선형으로 읽히도록 predictor 출력에 요구한다.
+    (측정: 문맥 블록 토큰 평균 → 속도 R² 0.59, 굴린 예측 평균 → 0.00 — velocity_transfer.py)"""
+
+    def __init__(self, dim: int = 1280, n_cls: int = N_ID + 1):
+        nn.Module.__init__(self)
+        self.obj = nn.Linear(dim, n_cls)
+        self.pos = nn.Linear(dim, 2)
+        self.vel = nn.Linear(dim, 3)
+
+    def forward(self, p: torch.Tensor, S: int):
+        B, N, D = p.shape
+        T = N // S
+        x = F.layer_norm(p.reshape(B * T, S, D).float().to(self.obj.weight.dtype), (D,))
+        z = x.mean(1, keepdim=True)                                                                                 # (B*T, 1, D)
+        sh = (B, T, 1)
+        return {"obj": self.obj(z).reshape(*sh, -1), "pos": self.pos(z).reshape(*sh, 2), "vel": self.vel(z).reshape(*sh, 3),
+                "attn": torch.full((B, T, 1, S), 1.0 / S, device=p.device)}
+
+
 def single_losses(out: dict, lab: dict, w: dict) -> tuple:
     """SingleStateHead 손실. lab 은 48 칸 라벨 (B,T,48,…) — 장면 물체가 하나라 그 정체 칸 k 를 영상마다 뽑는다.
     물체: CE 49 지선다, 정답 = k (보였으면) / 없음 (48, 아직 안 보였거나 화면 밖). w.exist_neg = 없음 정답 가중치.
@@ -175,9 +197,11 @@ def build_head(SH: dict, dim: int) -> nn.Module:
         return LightStateHead(dim, hidden=int(SH.get("hidden", 0)))
     if t == "single":
         return SingleStateHead(dim, q_std=float(SH.get("q_std", 1.0)), tau=float(SH.get("tau", 1.0)))
+    if t == "mean":                 # 2026-10-23: 평균 풀링 (MeanStateHead)
+        return MeanStateHead(dim)
     if t == "query3":
         return Query3StateHead(dim, q_std=float(SH.get("q_std", 1.0)), tau=float(SH.get("tau", 1.0)))
-    raise ValueError(f"state_head.type 은 attn | light | query3 | single: {t!r}")
+    raise ValueError(f"state_head.type 은 attn | light | query3 | single | mean: {t!r}")
 
 
 # ----------------------------------------------------------------------------- 라벨 (데이터 쪽, numpy)
@@ -257,6 +281,36 @@ def labels_to_device(lab: dict, device) -> dict:
 
 def slice_blocks(lab: dict, a: int, b: int) -> dict:
     return {k: v[:, a:b] for k, v in lab.items()}
+
+
+def visible_only(lab: dict) -> dict:
+    """2026-10-24 (fit_on: gt): 그 블록에 **보이는** 물체만 남긴다. 정답 토큰 (블록 2 장만 encoder 에 넣은 것) 은 가려지면 물체 정보가 없다
+    (측정: 정답 토큰 head 위치 오차 보임 20 px · 가림 40 px, gt_head_check.py) — 그래서 head 학습 · predictor 손실 둘 다 보이는 블록만.
+    seen (지금까지 본 적 있나) 도 '지금 보이나' 로 바꾼다 — 블록 하나의 정답 토큰은 과거를 모른다."""
+    v = lab["m_state"] & ~lab["hidden"]
+    out = dict(lab)
+    out["seen"], out["m_state"], out["m_dir"] = v, v, lab["m_dir"] & v
+    return out
+
+
+def ar_state_loss_gt(head, h, p_tf, p_ar, lab: dict, S: int, C: int, R: int, w: dict, split: dict):
+    """2026-10-24 (사용자 결정, `state_head.fit_on: gt`): head 는 **정답 토큰** h (= predictor 입력 · 채점 타깃, LN(target_encoder(블록)),
+    문맥 + 미래 전 블록) 에서만 학습하고, predictor 는 **같은 head (가중치 고정, gradient 끊음)** 로 자기 예측 (TF · rollout) 에 손실을 받는다.
+    → predictor 가 정답 토큰과 같은 방식으로 상태를 담아야 손실이 내려간다 (head 가 예측 쪽 코드를 따로 배우는 우회를 막는다).
+    보이는 블록만 (visible_only). return (loss, 로그) — loss = head 손실 (head 만 grad) + predictor 손실 (predictor 만 grad)."""
+    fn = single_losses if getattr(head, "single", False) else state_losses
+    lab = visible_only(lab)
+    nb = h.size(1) // S
+    l_gt, g_gt = fn(head(h.detach(), S), slice_blocks(lab, 0, nb), w)                       # head 만
+    frozen = {n: q.detach() for n, q in head.named_parameters()}
+    fc = lambda x: torch.func.functional_call(head, frozen, (x, S))                           # predictor 만
+    l_tf, g_tf = fn(fc(p_tf), slice_blocks(lab, 1, 1 + p_tf.size(1) // S), w)
+    l_ar, g_ar = fn(fc(p_ar), slice_blocks(lab, C, C + R), w)
+    loss = l_gt + split.get("tf", 1.0) * l_tf + split.get("ar", 1.0) * l_ar
+    log = {f"tf_{k}": v for k, v in g_tf.items()}
+    log.update({f"ar_{k}": v for k, v in g_ar.items()})
+    log.update({f"gt_{k}": v for k, v in g_gt.items()})
+    return loss, log
 
 
 def ar_state_loss(head, p_tf, p_ar, lab: dict, S: int, C: int, R: int, w: dict, split: dict):

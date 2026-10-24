@@ -1,0 +1,14 @@
+# =============================================================================
+# 릴리즈 predictor post-FT — VOBench split v2 train + gravity train 의 가능 영상 (2026-10-15, 사용자: PFT 에 gravity 포함)
+#
+#   GPUS=4 bash z_training/train.sh vobench_release_postft_g
+#   채점 모델 이름 = vith_release_vobftg (cvpr/registry/models.yaml)
+#
+# vobench_release_postft 와 과제 · lr · 30 epoch 가 같고 데이터만 다르다: vobench_split2g_train (720 + gravity pos 108 = 828 clip, 한 데이터셋이라 크기 비례로 섞인다).
+# gravity 는 (objset, law, 배경, 물체) 묶음 단위 반반 (z_training/data/build_vobench_gravity_split_index.py) — 채점은 gravity test 108 block 만.
+# =============================================================================
+extends: vobench_release_postft
+
+data:
+  datasets:
+    - {name: vobench_split2g_train, weight: 1.0}

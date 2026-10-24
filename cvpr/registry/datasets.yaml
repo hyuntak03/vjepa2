@@ -599,3 +599,64 @@ vobench_v1_gravity_heldout:   # 2026-10-15 vast: gravity held-out block 72 개  
   legacy_results_root: ${CVPR_REPO}/z_research/VOBench_v1/exp_results
   overrides:
     scoring.pairing: cross          # block 하나 = 문맥 하나라 cross (가능 1 × 불가능 전부) = 문맥 일치 쌍 전부
+intphys1_late_uni:                # 2026-10-20 (branch intphys1-late-uni 2bd0d5d). IntPhys 1 dev 180 쌍 전부. 문맥 16 장 = [0, d−1] 균일 · 미래 16 장 = [d, 99] 균일 (build.py --uniform-d)
+                                  #   프레임은 index 의 frames 열대로 원본 IntPhys1 dev PNG 심볼릭 링크 (vast 에서 만든 것)
+  raw_frames: 32
+  cache_tag: intphys1_late_uni
+  root: ${CVPR_DATA_CSV}/intphys1_late_uni
+  index_csv: index.csv
+  frames_root: ${CVPR_LOCAL}/world/world_analysis/IntPhys1_late_uni
+  frames_pattern: '{video_id}/{frame:06d}.png'
+  frames_start: 0
+  frames_stride: 1
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: block_type
+  engine: wma
+intphys2_violation_uni:           # 2026-10-22 사용자: IntPhys2 Main, 사람이 단 위반 시작 프레임 d 로 문맥 [0, d−1] 균일 16 · 미래 [d, N−1] 균일 16
+                                  #   (z_research/scripts/data/build_intphys2_violation_uni.py). 500 쌍 · 1000 영상 (라벨 2026-10-22b). ⚠️ 문맥이 가능 · 불가능에서 픽셀 동일하지 않다 (평균 |Δ| 중앙 3.9)
+  raw_frames: 32
+  cache_tag: intphys2_violation_uni
+  root: ${CVPR_DATA_CSV}/intphys2_violation_uni
+  index_csv: index.csv
+  frames_root: ${CVPR_LOCAL}/world/world_analysis/IntPhys2_violation_uni
+  frames_pattern: '{video_id}/{frame:06d}.png'
+  frames_start: 0
+  frames_stride: 1
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: block_type
+  engine: wma
+intphys2_violation_uni_mp4:       # 2026-10-22 같은 쌍 · 같은 프레임 번호를 PNG 대신 원본 mp4 에서 바로 읽는다 (index_mp4.csv 의 frames 컬럼).
+                                  #   라벨이 바뀌면 build_intphys2_violation_uni.py <라벨 JSON> --csv-only (몇 초) 뒤 바로 채점. 리사이즈는 채점기 (bilinear, antialias 없음, 512→256)
+  raw_frames: 32
+  cache_tag: intphys2_violation_uni_mp4
+  root: ${CVPR_DATA_CSV}/intphys2_violation_uni
+  index_csv: index_mp4.csv
+  video_root: /workspace/dataset/benchmarks/IntPhys2/Main
+  frames_index_column: frames
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: block_type
+  engine: wma
+intphys2_violation_uni_test:      # 2026-10-22 위 세트의 장면 단위 test 절반 252 쌍 (build_intphys2_violation_uni_split.py). IntPhys2 post-FT 모델은 이것으로만 읽는다
+  raw_frames: 32
+  cache_tag: intphys2_violation_uni_test
+  root: ${CVPR_DATA_CSV}/intphys2_violation_uni
+  index_csv: index_test.csv
+  frames_root: ${CVPR_LOCAL}/world/world_analysis/IntPhys2_violation_uni
+  frames_pattern: '{video_id}/{frame:06d}.png'
+  frames_start: 0
+  frames_stride: 1
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: block_type
+  engine: wma

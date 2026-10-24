@@ -150,7 +150,11 @@ class VarWindowBatches(torch.utils.data.IterableDataset):
         import csv as _csv
         self.bnd_p = float(bx["p"])
         self.bnd_stride = int(bx["stride"])
-        self.bnd_K = int(bx["predict_frames"])
+        # 2026-10-20 사용자: 예측 길이를 자연처럼 다양하게 — predict_frames 에 목록을 주면 step 마다 (C, K) 를 고른다.
+        #   숫자 하나면 기존과 완전히 같다.
+        pk = bx["predict_frames"]
+        self.bnd_Ks = [int(k) for k in pk] if isinstance(pk, (list, tuple)) else [int(pk)]
+        self.bnd_K = min(self.bnd_Ks)
         self.bnd_ratio = tuple(float(v) for v in bx.get("crop_ratio", [1.0, 1.3333]))
         self.bnd_hflip = float(bx.get("hflip_p", 0.5))
         self.bnd_name = str(bx.get("name", "boundary"))
@@ -160,20 +164,37 @@ class VarWindowBatches(torch.utils.data.IterableDataset):
         if self.bnd_labels not in (None, "phys2d_sup"):
             raise ValueError(f"boundary.labels 는 phys2d_sup 만: {self.bnd_labels!r}")
         C = [int(c) for c in bx["context_frames"]]
-        for v in C + [self.bnd_K]:
+        for v in C + self.bnd_Ks:
             if v <= 0 or v % self.tubelet:
                 raise ValueError(f"boundary: 문맥/예측 장 수 {v} 는 tubelet({self.tubelet}) 의 배수여야 한다")
         s = self.bnd_stride
+        kmax = []
         for r in _csv.DictReader(open(bx["manifest"]), delimiter="\t"):
             b, n = int(r["boundary_frame"]), int(r["n_frames"])
             c0 = int(r.get("ctx_start") or 0)                  # 선택 열: 다른 전환이 없는 문맥의 가장 이른 장 (phys2d)
             if n - b >= s * (self.bnd_K - 1) + 1:             # 예측 K 장이 실제로 나오는 영상만 (패딩 금지)
                 self.bnd_items.append(((b - c0) // s, r["path"], b))   # (경계 앞 최대 문맥 장 수, 경로, 경계)
-        self.bnd_items.sort(key=lambda it: it[0])
+                kmax.append((n - b - 1) // s + 1)                 # 경계부터 나오는 최대 예측 장 수
+        order = sorted(range(len(self.bnd_items)), key=lambda i: self.bnd_items[i][0])
+        self.bnd_items = [self.bnd_items[i] for i in order]
+        self.bnd_kmax = [kmax[i] for i in order]
         self.bnd_cmax = [it[0] for it in self.bnd_items]
         self.bnd_C = [c for c in C if self._bnd_n_ok(c) > 0]
-        logger.info(f"var_window boundary: p {self.bnd_p}, clip {len(self.bnd_items)} 개, stride {s}, 문맥 후보 "
-                    + ", ".join(f"C{c}:{self._bnd_n_ok(c):,}" for c in self.bnd_C) + f", 예측 {self.bnd_K} 장, crop 비 {self.bnd_ratio}")
+        if len(self.bnd_Ks) == 1:
+            self.bnd_combos = [(c, self.bnd_K) for c in self.bnd_C]
+            logger.info(f"var_window boundary: p {self.bnd_p}, clip {len(self.bnd_items)} 개, stride {s}, 문맥 후보 "
+                        + ", ".join(f"C{c}:{self._bnd_n_ok(c):,}" for c in self.bnd_C) + f", 예측 {self.bnd_K} 장, crop 비 {self.bnd_ratio}")
+        else:
+            km = np.asarray(self.bnd_kmax)
+            cm = np.asarray(self.bnd_cmax)
+            min_ok = int(bx.get("min_eligible", 1000))
+            cnt = {(c, k): int(((cm >= c) & (km >= k)).sum()) for c in C for k in self.bnd_Ks}
+            self.bnd_combos = [ck for ck, v in cnt.items() if v >= min_ok]
+            if not self.bnd_combos:
+                raise ValueError(f"boundary: 적격 (C, K) 조합이 없다 (min_eligible {min_ok}): {cnt}")
+            logger.info(f"var_window boundary: p {self.bnd_p}, clip {len(self.bnd_items)} 개, stride {s}, (C, K) 조합 "
+                        + ", ".join(f"C{c}K{k}:{cnt[(c, k)]:,}" for c, k in self.bnd_combos)
+                        + f" (빠짐: " + ", ".join(f"C{c}K{k}:{v}" for (c, k), v in cnt.items() if (c, k) not in self.bnd_combos) + f"), crop 비 {self.bnd_ratio}")
 
     def _bnd_n_ok(self, c):
         return len(self.bnd_cmax) - bisect.bisect_left(self.bnd_cmax, c)
@@ -181,11 +202,11 @@ class VarWindowBatches(torch.utils.data.IterableDataset):
     def _is_boundary(self, step):
         return self.bnd_p > 0 and random.Random(f"{self.seed}-bnd-{step}").random() < self.bnd_p
 
-    def _read_boundary(self, path, b, c, rng):
+    def _read_boundary(self, path, b, c, rng, K=None):
         import math
         import decord
         import torch.nn.functional as F
-        K, s, r = self.bnd_K, self.bnd_stride, self.transform.resolution
+        K, s, r = (K or self.bnd_K), self.bnd_stride, self.transform.resolution
         vr = decord.VideoReader(path, num_threads=1)
         idx = [b - s * (c - k) for k in range(c)] + [b + s * k for k in range(K)]
         if idx[0] < 0 or idx[-1] >= len(vr):
@@ -211,17 +232,23 @@ class VarWindowBatches(torch.utils.data.IterableDataset):
         return x, {k: torch.from_numpy(v) for k, v in pack_labels(lab, flip=flip).items()}
 
     def make_boundary(self, step):
-        c = random.Random(f"{self.seed}-bndplan-{step}").choice(self.bnd_C)     # 모든 rank 같은 문맥 길이
-        K = self.bnd_K
+        if len(self.bnd_Ks) == 1:
+            c = random.Random(f"{self.seed}-bndplan-{step}").choice(self.bnd_C)     # 모든 rank 같은 문맥 길이
+            K = self.bnd_K
+        else:
+            c, K = random.Random(f"{self.seed}-bndplan-{step}").choice(self.bnd_combos)   # 모든 rank 같은 (C, K)
         W = c + K
         B = max(self.b_min, min(self.b_max, self.budget // W))
         rng = random.Random(f"{self.seed}-bnddata-{step}-{self.rank}")
         lo = bisect.bisect_left(self.bnd_cmax, c)
         clips, labs, fails = [], [], 0
         while len(clips) < B:
-            _, path, b = self.bnd_items[rng.randrange(lo, len(self.bnd_items))]
+            j = rng.randrange(lo, len(self.bnd_items))
+            if self.bnd_kmax[j] < K:                                              # 예측 K 장이 안 나오는 행 — 다시 뽑는다
+                continue
+            _, path, b = self.bnd_items[j]
             try:
-                got = self._read_boundary(path, b, c, rng)
+                got = self._read_boundary(path, b, c, rng, K)
                 if self.bnd_labels:
                     got, lab = got
                     labs.append(lab)

@@ -1,0 +1,14 @@
+# =============================================================================
+# natural_ar_vw_state_phys3d_single — 물체 1 개 **3D** 합성만 + 상태 감독, 보조 손실 (mix sum) (2026-10-20, 사용자 지시)
+#
+# natural_ar_vw_state_phys23d_single 에서 합성 창만 3D (phys3d_single_v1, 302,946 행) 로 바꾼 것. 2D 는 뺐다.
+#   3D Blender 렌더 (조명 · 원근 · 질감) 라 VOBench · IntPhys (3D) 와 도메인이 가깝다.
+#   single head · 상태 ×0.05 · head lr ×2 · clip predictor 만 · 매 step 보조 합성 batch (token 예산 25 %) — 그대로.
+# =============================================================================
+extends: natural_ar_vw_state_phys23d_single
+
+data:
+  var_window:
+    boundary:
+      name: phys3d_single_v1
+      manifest: ${DATA_CSV}/phys3d_single_v1/train_mix.tsv

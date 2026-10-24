@@ -1,0 +1,37 @@
+# =============================================================================
+# natural_ar_vw_state_phys3d_only — 블록 AR 을 **3D 합성만으로** 짧게 학습 (2026-10-21, 사용자 결정)
+#
+#   GPUS=8 bash z_training/tmux_train.sh natural_ar_vw_state_phys3d_only
+#   평가: CUDA_VISIBLE_DEVICES=0 /venv/vjepa/bin/python -W ignore z_research/scripts/analysis/transport_gain.py \
+#             --run natural_ar_vw_state latest.pt --run natural_ar_vw_state_phys3d_only latest.pt
+#
+# 질문: 블록 AR 이 물체를 한 걸음에 실제의 약 30 % 만 옮긴다 (운반 이득 0.27~0.29, z_training/docs/CTXT_VS_BLOCK_MECHANISM_2026-10-21.md).
+#   원인이 **구조** ((블록 9, Y) 가 (블록 8, X) 를 가져오기 어렵다) 인가, **학습 신호** (자연 영상의 미래가 불확실해 L1 이 제자리 쪽을 가르친다) 인가.
+#   3D 합성은 움직임이 결정적이다 (물체 1 개, 카메라 고정) → 불확실성이 거의 없는 데이터로 같은 구조를 학습한다.
+#   읽는 법: 운반 이득이 1 근처로 오르면 구조는 운반을 할 수 있다 (원인 = 데이터 · 손실). 0.3 근처에 머물면 구조가 원인.
+#
+# natural_ar_vw_state 와 다른 것은 데이터와 길이뿐 (predictor · 손실 · lr 모양 · 블록 입력 · TF 전 위치 + 상태 rollout 은 같다):
+#   * 매 step 3D 합성 (boundary p 1.0, 자연 영상 없음). manifest = 무작위 구간 + 사건 구간 전부 (302,946 행)
+#   * 간격 3 (12 fps 렌더 → 4 fps, 자연과 같은 시간 축). 문맥 2 · 4 · 8 · 16 장 × 예측 2 · 4 · 8 · 16 장 (clip 48~96 장이라 32 장 이상은 거의 없다)
+#   * 상태 head 없음 (latent L1 만 — 구조가 운반을 배울 수 있는지만 본다)
+#   * 20 epoch × 294 step (기준 AR 의 70 epoch 보다 짧다), 마지막 3 epoch lr 감소. predictor 는 처음부터 (기준 AR 과 같다)
+# 단서: 평가 (val clip) 와 학습 (train clip) 이 같은 생성기 · 같은 시나리오다 — 일반화가 아니라 "학습 분포 안에서 운반을 하나" 를 본다.
+# =============================================================================
+extends: natural_ar_vw_state
+
+data:
+  var_window:
+    boundary:
+      name: phys3d_only
+      p: 1.0
+      manifest: ${DATA_CSV}/phys3d_single_v1/train_mix.tsv
+      stride: 3
+      context_frames: [2, 4, 8, 16]
+      predict_frames: [2, 4, 8, 16]
+      min_eligible: 500
+      crop_ratio: [1.0, 1.0]
+      hflip_p: 0.5
+
+optimization:
+  epochs: 20
+  anneal_epochs: 3

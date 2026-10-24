@@ -63,10 +63,14 @@ def validate_exact(
     action_classes,
     k=5,
     expected_clips=None,
+    heads_per_model=None,      # 2026-10-18 predictor_group: head i 는 모델 i // heads_per_model 의 feature 를 본다
+    model_names=None,
 ):
     heads = [c.module if hasattr(c, "module") else c for c in classifiers]  # DDP 를 벗긴다 (collective 없이)
     for h in heads:
         h.eval()
+    H = heads_per_model or len(heads)
+    M = len(heads) // H
     sizes = dict(verb=len(verb_classes), noun=len(noun_classes), action=len(action_classes))
     tp = {key: torch.zeros(len(heads), sizes[key], dtype=torch.float64, device=device) for key in KEYS}
     fn = {key: torch.zeros(len(heads), sizes[key], dtype=torch.float64, device=device) for key in KEYS}
@@ -85,7 +89,8 @@ def validate_exact(
         )
         with torch.autocast(device_type="cuda", dtype=torch.bfloat16, enabled=use_bfloat16):
             feats = model(clips, anticipation_times)
-            outs = [h(feats) for h in heads]
+            fl = feats if isinstance(feats, (list, tuple)) else None
+            outs = [h(feats if fl is None else fl[i // H]) for i, h in enumerate(heads)]
         for i, o in enumerate(outs):
             for key in KEYS:
                 accumulate(tp[key][i], fn[key][i], o[key], labels[key], k)
@@ -117,6 +122,14 @@ def validate_exact(
             f"(차이 {int(expected_clips) - n_clips}). decode 실패로 건너뛴 clip 이 있다 — 로그의 'Encountered exception' 확인"
         )
 
-    best = {key: dict(recall=max(h[key]["recall"] for h in per_head),
-                      accuracy=max(h[key]["accuracy"] for h in per_head)) for key in KEYS}
-    return dict(**best, n_clips=n_clips, expected_clips=expected_clips, k=k, per_head=per_head)
+    def _best(rows):
+        return {key: dict(recall=max(h[key]["recall"] for h in rows),
+                          accuracy=max(h[key]["accuracy"] for h in rows)) for key in KEYS}
+
+    best = _best(per_head)
+    out = dict(**best, n_clips=n_clips, expected_clips=expected_clips, k=k, per_head=per_head)
+    if M > 1:
+        names = list(model_names) if model_names else [f"model{j}" for j in range(M)]
+        out["per_model"] = [dict(name=names[j], **_best(per_head[j * H:(j + 1) * H]),
+                                 per_head=per_head[j * H:(j + 1) * H]) for j in range(M)]
+    return out

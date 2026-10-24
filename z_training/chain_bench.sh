@@ -16,7 +16,8 @@ if [[ -z ${NOWAIT:-} ]]; then
   say "대기: chain_vob 끝"
   until grep -q "끝$" z_training/logs/chain_vob.log 2>/dev/null; do sleep 60; done
 fi
-until ! nvidia-smi --query-compute-apps=pid --format=csv,noheader | grep -q .; do sleep 20; done
+# 2026-10-21: SKIP_GPU_WAIT=1 이면 GPU 가 빌 때까지 기다리지 않는다 (EK100 probe 와 VRAM 을 나눠 쓸 때)
+[[ -n ${SKIP_GPU_WAIT:-} ]] || until ! nvidia-smi --query-compute-apps=pid --format=csv,noheader | grep -q .; do sleep 20; done
 for run in $RUNS; do
   R=z_training/runs/$run; CK=$PWD/$R/latest.pt
   KS=$("$VJEPA2_PY" -c "import yaml;pc=yaml.safe_load(open('$R/config.yaml'))['model']['predictor'];print(' '.join(f'model.predictor.{k}={pc[k]}' for k in ('kind','n_registers','ar_feedback','ctx_target','ctx_input','ctx_encoder','gating_residual','gating_anchor','gating_out_ln','ar_input','ar_target') if k in pc))")   # ctx_target: 2026-10-17 (eval_bench 와 같은 버그)
@@ -34,7 +35,7 @@ for run in $RUNS; do
       fi
       say "  !! 실패 ($(grep -m1 -oE 'OutOfMemoryError|Error[^ ]*' "$R/eval/logs/${b}_w$w.log" || echo '로그 확인'))"
       mb=$((mb / 2)); vb=$(( vb > 1 ? vb / 2 : 1 ))
-      until ! nvidia-smi --query-compute-apps=pid --format=csv,noheader | grep -q .; do sleep 10; done
+      [[ -n ${SKIP_GPU_WAIT:-} ]] || until ! nvidia-smi --query-compute-apps=pid --format=csv,noheader | grep -q .; do sleep 10; done
     done
   done; done
 done

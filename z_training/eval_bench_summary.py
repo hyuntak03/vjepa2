@@ -32,9 +32,12 @@ if best:
     print(f"IntPhys1 A.8 격자 최고: {best[0]:.2f}% ({best[1]})   [릴리즈 88.89 · tube 기준선 82.22]")
 
 cols = {}
+_split = os.environ.get("I2_SPLIT", "Main")   # 2026-10-22: Main 이 아니면 그 split 태그 (_<split>) 가 붙은 실행만
 for d in sorted(glob.glob(os.path.join(E, f"intphys2_main_{stem}_w*"))):
+    if (_split == "Main") == d.endswith("_MainVuniTest") or (_split != "Main" and not d.endswith("_" + _split)):
+        continue
     f = os.path.join(d, "summary.json")
-    w = re.search(r"_(w\d+)(?:_vb\d+)?$", d).group(1) + ("" if "_vb" not in os.path.basename(d) else " (" + d.rsplit("_", 1)[-1] + ")")
+    w = re.search(r"_(w\d+)(?:_vb\d+)?(?:_[A-Za-z]+)?$", d).group(1) + ("" if "_vb" not in os.path.basename(d) else " (" + d.rsplit("_", 1)[-1] + ")")
     if not os.path.isfile(f):
         print(f"IntPhys2 {w}: summary 없음"); continue
     s = json.load(open(f))

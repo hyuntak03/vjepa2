@@ -1,0 +1,17 @@
+# =============================================================================
+# AR + phys3d 사건 구간 + 상태 감독 — head 를 **정답 토큰에서만** 학습 (2026-10-24, 사용자 결정)
+#
+#   GPUS=8 bash z_training/tmux_train.sh natural_ar_vw_state_phys3d_event_gthead
+#
+# natural_ar_vw_state_phys3d_event 와 데이터 · head 구조 (query 1 개 attention) · 손실 가중치 · 일정이 같다. 다른 점 (state_head.fit_on: gt):
+#   ① head 는 정답 토큰 h (= predictor 입력 · 채점 타깃, LN(target_encoder(블록)), 문맥 + 미래) 에서만 학습 (head 만 grad)
+#   ② predictor 는 같은 head (가중치 고정) 로 자기 예측 (TF · rollout) 에 손실 (predictor 만 grad)
+#   ③ 둘 다 물체가 **보이는** 블록만 (정답 토큰은 가려지면 물체 정보가 없다)
+# 왜: 예측에서 함께 학습한 head 는 물체 칸이 아닌 곳에 따로 적힌 코드를 읽었다 (정답 토큰에 씌우면 102~110 px).
+#     정답 토큰으로 학습한 head 는 처음 보는 정답 토큰에서 20 px · 방향 cos 0.99 인데 AR 예측에서는 110~118 px
+#     (z_research/scripts/analysis/gt_head_check.py, state_head_transfer.py).
+# =============================================================================
+extends: natural_ar_vw_state_phys3d_event
+
+state_head:
+  fit_on: gt

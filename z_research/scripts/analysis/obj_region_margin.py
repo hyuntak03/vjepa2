@@ -20,6 +20,7 @@ from src.models.rollout_predictor import vit_prefix_predictor                   
 ap = argparse.ArgumentParser()
 ap.add_argument("--run", nargs=2, action="append", required=True, metavar=("RUN", "CKPT"))
 ap.add_argument("--vobench", default="/workspace/dataset/benchmarks/VOBench_v1")
+ap.add_argument("--set", default="late", choices=["late", "gravity"], help="gravity (2026-10-23): block = 문맥 하나 + 미래 여럿, 정답 = 가능 미래가 그 칸 안 surprise 최저. 칸 = 모든 미래 (가능 · 불가능) 의 물체 자리 합집합")
 a = ap.parse_args()
 dev = "cuda"; S, C, K, G = 256, 8, 8, 16
 MEAN = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1, 1); STD = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1, 1)
@@ -49,11 +50,11 @@ def feats(x):
         zf = LN(E32(xv).float())[0]                                                                          # 전체 pass (창)
     return hb, zc, zf
 
-def tokens(label_path, W0):
+def tokens(label_path, W0, keys=("A", "B")):
     L = json.load(open(label_path))["labels"]; cen = []
     for b in range(C, C + K):
         cs = []
-        for key in ("A", "B"):
+        for key in keys:
             lab = {q["f"]: q for q in L.get(key, [])}
             q = [lab.get(IDX[2 * b]), lab.get(IDX[2 * b + 1])]
             if all(t is not None for t in q):
@@ -67,10 +68,9 @@ def tokens(label_path, W0):
                 s_ |= {rr * G + cc for rr in range(max(0, r0 - r), min(G, r0 + r + 1)) for cc in range(max(0, c0 - r), min(G, c0 + r + 1))}
             out += [kb * S + t for t in sorted(s_)]
         return out
-    far = []
     near3 = set(within(3))
     far = [t for t in range(K * S) if t not in near3]
-    return {"r1": within(1), "r2": within(2), "r3": within(3), "full": list(range(K * S)), "far": far}
+    return {"r1": within(1), "r2": within(2), "r3": within(3), "r4": within(4), "full": list(range(K * S)), "far": far}   # r4 = 9×9 (2026-10-20)
 
 class Model:
     def __init__(self, run, ck):
@@ -95,6 +95,37 @@ class Model:
         return (zf if self.video else hb)[C * S:]
 
 models = [Model(r, c) for r, c in a.run]
+if a.set == "gravity":   # 2026-10-23 사용자: AR · 2D · 3D 감독의 gravity 물체 자리 채점
+    rows = list(csv.DictReader(open(os.path.join(REPO, "data_csv/vobench_v1_gravity/index.csv"))))
+    blk = collections.defaultdict(dict)
+    for r in rows: blk[r["block_id"]][r["variant"]] = r
+    res = {m.name: collections.defaultdict(list) for m in models}
+    root = os.path.join(a.vobench, "gravity")
+    for bi, (b, arms) in enumerate(sorted(blk.items(), key=lambda kv: int(kv[0]))):
+        any_ = next(iter(arms.values())); bdir = os.path.dirname(os.path.join(root, any_["file_name"]))
+        lab = json.load(open(os.path.join(bdir, "label.json")))
+        letter = {x[0]: x[2] for x in lab["block"]["arms"]}                  # 팔 이름 → 미래 궤적 글자 (pos → P, imp_float → F …)
+        F_ = {}; W0 = None
+        for v, r in arms.items():
+            x, W0 = load(os.path.join(root, r["file_name"])); F_[v] = feats(x)
+        T = tokens(os.path.join(bdir, "label.json"), W0, keys=tuple(sorted(set(letter[v] for v in arms))))
+        for m in models:
+            hb, zc, zf = F_["pos"]; p = m.predict(hb, zc)                   # 문맥 공유 (f0–47 같은 프레임) → 예측 하나
+            err = {v: (p - m.target(F_[v][0], F_[v][2])).abs().mean(-1) for v in arms}
+            for key, t in T.items():
+                if t:
+                    tt = torch.tensor(t, device=dev); s_ = {v: float(e[tt].mean()) for v, e in err.items()}
+                    res[m.name][key].append(float(min(s_, key=s_.get) == "pos"))
+                    res[m.name][f"{key}_{any_['objset']}_{any_['law']}"].append(float(min(s_, key=s_.get) == "pos"))
+        if bi % 50 == 0: print(f"{bi}/{len(blk)}", flush=True)
+    print("\nVOBench gravity block 정답률 (%) — 가능 미래가 그 칸 안 surprise 최저. 우연 ledge 50 · arc 11.1 · 전체 37")
+    print(f"  {'모델':44s} {'3×3':>6s} {'5×5':>6s} {'7×7':>6s} {'9×9':>6s} {'전체':>6s} {'먼 배경':>7s}")
+    for m in models:
+        R = res[m.name]; f = lambda k: 100 * np.nanmean(R[k]) if R[k] else float("nan")
+        print(f"  {m.name:44s} {f('r1'):6.1f} {f('r2'):6.1f} {f('r3'):6.1f} {f('r4'):6.1f} {f('full'):6.1f} {f('far'):7.1f}   (n {len(R['full'])} block)")
+        for key, nm in (("r1", "3×3"), ("full", "전체")):
+            print(f"  {'':44s} {nm}: " + " · ".join(f"{o} {law} {f(f'{key}_{o}_{law}'):.1f}" for o in ("primitive", "realistic") for law in ("ledge", "arc")))
+    sys.exit(0)
 rows = [r for r in csv.DictReader(open(os.path.join(REPO, "data_csv/vobench_v1/index.csv"))) if r["occlusion"] == "late"]
 blk = collections.defaultdict(dict)
 for r in rows: blk[r["block_id"]][r["variant"]] = r
@@ -112,12 +143,15 @@ for bi, (b, arms) in enumerate(sorted(blk.items())):
             for key, t in T.items():
                 if t:
                     tt = torch.tensor(t, device=dev); res[m.name][key].append(float(ei[tt].mean() > ep[tt].mean()))
-            res[m.name]["viol_" + arms[pv]["violation"]].append(float(ei[torch.tensor(T["r2"], device=dev)].mean() > ep[torch.tensor(T["r2"], device=dev)].mean()) if T["r2"] else np.nan)
+            res[m.name]["viol_" + arms[pv]["violation"]].append(float(ei[torch.tensor(T["r4"], device=dev)].mean() > ep[torch.tensor(T["r4"], device=dev)].mean()) if T["r4"] else np.nan)
+            res[m.name][f"o_{arms[pv]['objset']}_{arms[pv]['violation']}"].append(float(ei[torch.tensor(T["r4"], device=dev)].mean() > ep[torch.tensor(T["r4"], device=dev)].mean()) if T["r4"] else np.nan)
     if bi % 50 == 0: print(f"{bi}/{len(blk)}", flush=True)
 
 print("\nVOBench late 쌍 정확도 (%) — 물체 자리 반경별 · 화면 전체 · 먼 배경 (반경 > 3). 우연 50")
-print(f"  {'모델':44s} {'3×3':>6s} {'5×5':>6s} {'7×7':>6s} {'전체':>6s} {'먼 배경':>7s} | 5×5 위반별 (영속 / 모양 / 색)")
+print(f"  {'모델':44s} {'3×3':>6s} {'5×5':>6s} {'7×7':>6s} {'9×9':>6s} {'전체':>6s} {'먼 배경':>7s} | 9×9 위반별 (영속 / 모양 / 색)")
 for m in models:
     R = res[m.name]; f = lambda k: 100 * np.nanmean(R[k]) if R[k] else float("nan")
-    print(f"  {m.name:44s} {f('r1'):6.1f} {f('r2'):6.1f} {f('r3'):6.1f} {f('full'):6.1f} {f('far'):7.1f} | "
+    print(f"  {m.name:44s} {f('r1'):6.1f} {f('r2'):6.1f} {f('r3'):6.1f} {f('r4'):6.1f} {f('full'):6.1f} {f('far'):7.1f} | "
           f"{f('viol_permanence'):.1f} / {f('viol_shape'):.1f} / {f('viol_color'):.1f}   (n {len(R['full'])} 쌍)")
+    print(f"  {'':44s} 9×9 primitive 영속 / 모양 / 색 " + " / ".join(f"{f('o_primitive_' + v):.1f}" for v in ("permanence", "shape", "color"))
+          + "   realistic " + " / ".join(f"{f('o_realistic_' + v):.1f}" for v in ("permanence", "shape", "color")))

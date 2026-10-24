@@ -1,0 +1,18 @@
+# =============================================================================
+# AR (natural_ar_vw_state, ep70) post-FT — IntPhys2 violation-uni train 장면 가능 영상 248 clip (2026-10-22, 사용자 지시)
+#
+#   GPUS=2 bash z_training/train.sh intphys2_vuni_ar_vw_state_postft
+#   채점: intphys2_violation_uni_test (252 쌍, 장면이 학습과 겹치지 않음)
+#
+# 과제 = 채점과 같다: 32 장 = 문맥 (위반 전 균일 16 장 = 8 블록) → 미래 (위반 뒤 균일 16 장 = 8 블록) rollout.
+# 나머지 (lr · 30 epoch · 출발점) 는 vobench_ar_vw_state_postft_g 와 같다. 뒤집기 없음 (채점에 없다).
+# =============================================================================
+extends: vobench_ar_vw_state_postft_g
+
+data:
+  batch_size: 8               # rank 당 × 2 GPU = 16 → 248 / 16 = 15 step/epoch
+  datasets:
+    - {name: intphys2_vuni_train, weight: 1.0}
+  aug:
+    hflip_p: 0.0
+    random_resized_crop: null

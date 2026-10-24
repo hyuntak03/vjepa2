@@ -1,0 +1,23 @@
+# =============================================================================
+# natural_ar_vw_state_phys3d_event — 3D 합성은 **사건 구간만** · 자연과 같은 시간 간격 · 길이 다양 (2026-10-20, 사용자 지시)
+#
+# natural_ar_vw_state_phys3d_single 에서 합성 창만 바꿨다. 나머지 (single head · 상태 ×0.05 · head lr ×2 · clip predictor 만 ·
+# 매 step 보조 합성 batch, token 예산 25 %) 는 그대로.
+#   1. 사건 구간만 — 이전 manifest 는 95 % 가 무작위 구간 (uniform 287,693 / 302,946) 이라 사건이 거의 안 뽑혔다.
+#      train_event.tsv = 충돌 12,784 + 이탈 (난간에서 떨어지기 시작 등) 2,469 = 15,253 사건, 사건마다 한 행.
+#      문맥 마지막 장이 사건 2~5 장 (raw) 앞 → 문맥은 사건 직전까지, 예측이 사건을 담는다.
+#   2. 시간 간격 3 (12 fps 렌더 → 4 fps) — 자연 영상 (fps 4) 과 같은 시간 축. 이전은 간격 1 (12 fps) 이라 장 사이 움직임이 1/3 이었다.
+#   3. 문맥 · 예측 길이를 자연처럼 다양하게 — (C, K) 를 step 마다 고른다. 간격 3 에서는 사건이 클립 앞쪽이라 긴 문맥이 드물다:
+#      적격 행 C2: K2..8 13.4k · K16 6.9k / C4: 8.1k · 3.6k / C8: 1.5k · 620 / C16: 110 이하 (min_eligible 500 에서 빠짐) / K32 0.
+# =============================================================================
+extends: natural_ar_vw_state_phys3d_single
+
+data:
+  var_window:
+    boundary:
+      name: phys3d_event
+      manifest: ${DATA_CSV}/phys3d_single_v1/train_event.tsv
+      stride: 3
+      context_frames: [2, 4, 8, 16]
+      predict_frames: [2, 4, 8, 16]
+      min_eligible: 500

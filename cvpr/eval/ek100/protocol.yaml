@@ -28,6 +28,23 @@ heads_presets:
   b512h8: { lrs: [3.0e-3, 1.0e-3, 3.0e-4, 1.0e-4],          wds: [1.0e-2, 1.0e-4] }   # 2026-10-14 vast: 전체 batch 512 (rank 64 × 8) 용 — lr 위쪽 중심 8 개                            # grid8 최적이 lr 위쪽 끝이라 한 칸 위 (2026-09-20)
   b1024h8: { lrs: [6.0e-3, 2.0e-3, 6.0e-4, 2.0e-4],         wds: [1.0e-2, 1.0e-4] }   # 2026-10-17 vast: 전체 batch 1024 (rank 128 × 8) — b512h8 의 lr 를 선형 ×2 (VRAM 이 18–34 GB 만 쓰여 사용자 결정)
 
+  # ↓ main 2026-10-18 → vast 2026-10-21. cap16metric 부분집합 (train 11,470 행) 전용 (main 의 GROUP4_CAP16METRIC 문서).
+  cap16g2:
+    heads:
+    - {lr: 3.0e-4, wd: 1.0e-4}
+    - {lr: 1.0e-3, wd: 1.0e-4, start_lr: 1.0e-5, warmup: 2.0}
+  #   global batch 96 (rank 16 x 6). 시트 "EK100 subset" 칸이 이 규약이다 (AR 48.88 / 49.01 / 33.10 = main ar_vast_ep70)
+  cap16b256:                      # 2026-10-22 사용자: GPU 8 × 32 = global 256. lr 은 cap16b96 의 256/96 배 (선형). ⚠️ 시트 EK100 subset 다른 값과 비교 불가 — 같은 실행 안의 팔끼리만
+    heads:
+    - {lr: 8.0e-4, wd: 1.0e-4}
+    - {lr: 1.6e-3, wd: 1.0e-4, start_lr: 2.7e-5, warmup: 1.0}
+    - {lr: 3.2e-3, wd: 1.0e-4, start_lr: 2.7e-5, warmup: 2.0}
+  cap16b96:
+    heads:
+    - {lr: 3.0e-4, wd: 1.0e-4}
+    - {lr: 6.0e-4, wd: 1.0e-4, start_lr: 1.0e-5, warmup: 1.0}
+    - {lr: 1.2e-3, wd: 1.0e-4, start_lr: 1.0e-5, warmup: 2.0}
+
 experiment:
   classifier:
     num_probe_blocks: 4

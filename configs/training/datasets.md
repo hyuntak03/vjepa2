@@ -395,3 +395,32 @@ frames_start: 0
 frames_stride: 3
 frames_start_choices: [0, 3, 6]
 raw_frames: 100
+
+## vobench_split2g_train
+
+**VOBench split v2 train (720) + VOBench gravity train 의 가능 'pos' (108) = 828 clip** (main 2026-10-15 판을 vast 로 옮김, 2026-10-22).
+`z_training/data/build_vobench_split_index.py` → `build_vobench_gravity_split_index.py`. gravity file_name 앞에 `gravity/` 가 붙어 한 frames_root 로 읽는다.
+
+type: frames_index
+root: ${DATA_CSV}/vobench_v1_split_v2g
+index_csv: index_train.csv
+frames_root: /workspace/dataset/benchmarks/VOBench_v1
+frames_pattern: "{file_name}/{frame:06d}.png"
+frames_start: 0
+frames_stride: 3
+frames_start_choices: [0, 1, 2]
+
+## intphys2_vuni_train
+
+**IntPhys2 Main violation-uni 의 train 장면 절반, 가능 영상만** — 248 clip / 124 장면 (2026-10-22, 사용자: release · AR 을 이 규칙으로 post-FT).
+영상마다 32 장 = 문맥 [0, d−1] 균일 16 + 미래 [d, N−1] 균일 16 (d = 사람이 단 위반 시작). `z_research/scripts/data/build_intphys2_violation_uni.py` → `build_intphys2_violation_uni_split.py`.
+짝인 test 절반 = 채점 데이터셋 `intphys2_violation_uni_test` (252 쌍). ⚠️ Main 은 논문이 학습 금지한 세트 — test 수치는 같은 test 쌍의 다른 모델 값과만 비교한다.
+
+type: frames_index
+root: ${DATA_CSV}/intphys2_violation_uni
+index_csv: index_train.csv
+frames_root: /workspace/world_model/local_datasets/world/world_analysis/IntPhys2_violation_uni
+frames_pattern: "{file_name}/{frame:06d}.png"
+frames_start: 0
+frames_stride: 1
+raw_frames: 32

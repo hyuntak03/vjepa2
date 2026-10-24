@@ -1,0 +1,11 @@
+# =============================================================================
+# 릴리즈 predictor post-FT — VOBench split v2 train + gravity train 가능 영상 828 clip, **20 epoch** (2026-10-22, 사용자 지시)
+#
+#   GPUS=4 bash z_training/train.sh vobench_release_postft_g_e20
+#
+# vobench_release_postft_g (main, 30 epoch) 와 데이터 · lr · 과제 (문맥 16 장 → 미래 16 장) 가 같고 epoch 만 20.
+# =============================================================================
+extends: vobench_release_postft_g
+
+optimization:
+  epochs: 20

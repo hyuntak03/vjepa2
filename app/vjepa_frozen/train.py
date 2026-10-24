@@ -205,6 +205,11 @@ def main(args, resume_preempt=False):
         ctx_enc = tgt_enc if ctx_enc is tgt_enc else torch.compile(ctx_enc, mode="default", dynamic=True)
         logger.info("encoders: torch.compile(mode=default, dynamic=True)")
     predictor = U.build_predictor(MD, ctx_enc.embed_dim, state if MD.get("load_predictor") else None, device, n_frames)
+    if MD.get("predictor_init_checkpoint"):   # 2026-10-22: 우리 학습 run 의 predictor 에서 시작 (AR post-FT). resume 이 있으면 그쪽이 덮는다
+        _ck = torch.load(MD["predictor_init_checkpoint"], map_location="cpu", weights_only=False)
+        _msg = predictor.load_state_dict(_ck["predictor"], strict=True)
+        logger.info(f"predictor init <- {MD['predictor_init_checkpoint']} (epoch {_ck.get('epoch')}, {_msg})")
+        del _ck
     # mask_mode: sample(기본) = step 마다 스펙 하나 / all = 릴리즈 사전학습처럼 스펙 전부, 손실 평균
     mask_all = str(cfg.get("mask_mode", "sample")) == "all"
     if mask_all and (kind in ("ar", "ctx_ar", "ctx_state") or D.get("window_grid")):
@@ -537,8 +542,12 @@ def main(args, resume_preempt=False):
                                                    int(info["predict_blocks"]), loss_exp, rollout_steps, hint=hint,
                                                    delta_weight=delta_weight, aux=aux, tf_span=tf_span, out=outs)
                     if lab is not None:
-                        lh, hlog = SHM.ar_state_loss(state_head, outs["p_tf"], outs["p_ar"], SHM.labels_to_device(lab, device),
-                                                     spatial, int(info["context_blocks"]), R, SH.get("w") or {}, SH.get("split") or {})
+                        if SH.get("fit_on") == "gt":     # 2026-10-24: head 는 정답 토큰에서만, predictor 는 고정 head 로 (SHM.ar_state_loss_gt)
+                            lh, hlog = SHM.ar_state_loss_gt(state_head, h, outs["p_tf"], outs["p_ar"], SHM.labels_to_device(lab, device),
+                                                            spatial, int(info["context_blocks"]), R, SH.get("w") or {}, SH.get("split") or {})
+                        else:
+                            lh, hlog = SHM.ar_state_loss(state_head, outs["p_tf"], outs["p_ar"], SHM.labels_to_device(lab, device),
+                                                         spatial, int(info["context_blocks"]), R, SH.get("w") or {}, SH.get("split") or {})
                         aux["latent"] = float(loss.detach()); aux["head"] = float(lh.detach()); aux["hlog"] = hlog
                         loss = loss + float(SH.get("weight", 1.0)) * lh
                 loss_nat = None
@@ -558,8 +567,12 @@ def main(args, resume_preempt=False):
                         loss = float(BX.get("latent_weight", 1.0)) * ls
                         aux["syn_latent"] = float(ls.detach())
                         if lab is not None:
-                            lh, hlog = SHM.ar_state_loss(state_head, outs_s["p_tf"], outs_s["p_ar"], SHM.labels_to_device(lab, device),
-                                                         spatial, int(info_s["context_blocks"]), Rs, SH.get("w") or {}, SH.get("split") or {})
+                            if SH.get("fit_on") == "gt":     # 2026-10-24
+                                lh, hlog = SHM.ar_state_loss_gt(state_head, hs, outs_s["p_tf"], outs_s["p_ar"], SHM.labels_to_device(lab, device),
+                                                                spatial, int(info_s["context_blocks"]), Rs, SH.get("w") or {}, SH.get("split") or {})
+                            else:
+                                lh, hlog = SHM.ar_state_loss(state_head, outs_s["p_tf"], outs_s["p_ar"], SHM.labels_to_device(lab, device),
+                                                             spatial, int(info_s["context_blocks"]), Rs, SH.get("w") or {}, SH.get("split") or {})
                             aux["latent"] = float(ls.detach()); aux["head"] = float(lh.detach()); aux["hlog"] = hlog
                             loss = loss + float(SH.get("weight", 1.0)) * lh
                 if scaler is not None:
@@ -763,6 +776,9 @@ def main(args, resume_preempt=False):
                     g_ = aux["hlog"]
                     ar_s += " st %.4f pos %.1f/%.1fpx ex %.3f" % (aux.get("head", 0.0), g_.get("ar_pos_px_vis", float("nan")),
                                                                 g_.get("ar_pos_px_hid", float("nan")), g_.get("ar_ex_acc", float("nan")))
+                if state_head is not None and aux.get("hlog") and "gt_pos_px_vis" in aux["hlog"]:   # 2026-10-24 fit_on gt: 같은 head 의 위치 오차 — 정답 토큰 / TF 예측 / 굴린 예측 (보이는 블록)
+                    g_ = aux["hlog"]
+                    ar_s += " posx %.1f/%.1f/%.1f" % tuple(g_.get(f"{a}_pos_px_vis", float("nan")) for a in ("gt", "tf", "ar"))
                 if state_head is not None and aux.get("hlog") and "ar_id_acc" in aux["hlog"]:
                     ar_s += " id %.3f" % aux["hlog"]["ar_id_acc"]
                 if state_head is not None and aux.get("hlog"):   # 2026-10-19: 성분 (물체 CE · 위치 · 방향 · 속력, tf/ar) · 집중도 (rollout)

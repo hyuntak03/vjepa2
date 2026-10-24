@@ -40,12 +40,17 @@ isval = lambda key: int(hashlib.md5(key.encode()).hexdigest(), 16) % 1000 < 1000
 train_dirs, val_dirs = [], []
 for src in SRC:
     pat = src.get("pattern", "{file_name}/{frame:06d}.png")
+    if src.get("video"):        # 2026-10-22: mp4 소스 (IntPhys2 Main) — 항목 = ("mp4", 경로, 소스 stride, 장 수). index 는 절대경로 csv 도 된다
+        for r in csv.DictReader(open(os.path.join(REPO, src["index"]))):
+            item = ("mp4", os.path.join(src["root"], pat.format(**r)), int(src.get("stride", D["stride"])), int(src["n_frames"]))
+            (val_dirs if isval(src["index"] + "/" + r[src.get("split_key", "source_block")]) else train_dirs).append(item)
+        continue
     for r in csv.DictReader(open(os.path.join(REPO, src["index"]))):
         m_ = re.search(r"\{frame(?::([^}]*))?\}", pat)                       # {frame:06d} 자리만 비우고 나머지는 행 값으로
         tmpl = (os.path.join(src["root"], pat[:m_.start()].format(**r)), m_.group(1) or "", pat[m_.end():].format(**r))
         item = (tmpl, int(src.get("start", 0)), int(src.get("n_frames", D.get("n_frames", 96))))
         (val_dirs if isval(src.get("index") + "/" + r[src.get("split_key", "source_block")]) else train_dirs).append(item)
-val_dirs.sort()
+val_dirs.sort(key=str)          # mp4 항목과 PNG 항목이 섞여도 정렬되게 (2026-10-22)
 S, STRIDE, NF = 256, int(D["stride"]), int(D.get("n_frames", 96))
 CF = int(D.get("clip_frames", 32))                     # window 인코딩 길이 (채점 c16t32 와 같은 32 장)
 LAT = str(D.get("latent", "block"))
@@ -55,6 +60,14 @@ assert LAT in ("block", "window", "both"), LAT
 def read_clip(item, o):
     """(3, CF, S, S) uint8 — 그 clip 의 o, o+stride, … 번째 장 (CF 장). 깨진 PNG (VOBench realistic/permanence/early_k2/
     assets_flat_acc_tennis_ball/pos_a/000008.png, 10-20 확인) 가 걸리면 None"""
+    if item[0] == "mp4":
+        try:
+            import decord
+            fr = decord.VideoReader(item[1], num_threads=1).get_batch([o + item[2] * k for k in range(CF)]).asnumpy()
+            fr = [np.asarray(Image.fromarray(f).resize((S, S), Image.BILINEAR)) for f in fr]
+        except Exception:
+            return None
+        return torch.from_numpy(np.stack(fr)).permute(3, 0, 1, 2)
     tmpl, st0, _ = item
     try:
         path = lambda n: tmpl[0] + format(n, tmpl[1]) + tmpl[2]
@@ -67,7 +80,8 @@ def read_clip(item, o):
 def sample_clip(items, rng):
     while True:
         it_ = rng.choice(items)
-        x = read_clip(it_, rng.randrange(0, it_[2] - STRIDE * (CF - 1)))
+        st_ = it_[2] if it_[0] == "mp4" else STRIDE
+        x = read_clip(it_, rng.randrange(0, (it_[3] if it_[0] == "mp4" else it_[2]) - st_ * (CF - 1)))
         if x is not None:
             return x
 

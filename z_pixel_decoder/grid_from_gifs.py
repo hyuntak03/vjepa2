@@ -5,7 +5,7 @@
 import argparse, glob, os
 from PIL import Image, ImageDraw
 ap = argparse.ArgumentParser(); ap.add_argument("dir"); ap.add_argument("--cols", default="13,15,16,18,20,22,24,26,28,30,31")
-ap.add_argument("--size", type=int, default=128); a = ap.parse_args()
+ap.add_argument("--size", type=int, default=128); ap.add_argument("--label", default="release pred"); a = ap.parse_args()
 cols = [int(c) for c in a.cols.split(",")]; s = a.size; L = 230; top = 18
 gifs = sorted(glob.glob(os.path.join(a.dir, "*.gif")))
 W, H = L + s * len(cols), top + 2 * s * len(gifs)
@@ -14,9 +14,9 @@ for j, t in enumerate(cols):
     dr.text((L + j * s + 3, 3), f"t{t} (f{3 * t})" + (" ctx" if t < 16 else ""), fill=(0, 0, 0) if t >= 16 else (110, 110, 110))
 for i, g in enumerate(gifs):
     im = Image.open(g); name = os.path.basename(g)[:-4].split("__")
-    for r, (panel, lab) in enumerate(((0, "original"), (1, "release pred"))):
+    for r, (panel, lab) in enumerate(((0, "original"), (1, a.label))):
         y = top + (2 * i + r) * s
-        dr.text((3, y + 3), "/".join(name[:2]) if r == 0 else "", fill=(0, 0, 0)); dr.text((3, y + 17), name[3][:30] if r == 0 else "", fill=(60, 60, 60))
+        dr.text((3, y + 3), "/".join(name[:2]) if r == 0 else "", fill=(0, 0, 0)); dr.text((3, y + 17), (name[3] if len(name) > 3 else "")[:30] if r == 0 else "", fill=(60, 60, 60))   # IntPhys1 (video_id 하나) 도
         dr.text((3, y + s - 16), lab, fill=(0, 0, 160) if r else (0, 0, 0))
         for j, t in enumerate(cols):
             im.seek(t); fr = im.convert("RGB").crop((panel * 256, 0, panel * 256 + 256, 256)).resize((s, s))

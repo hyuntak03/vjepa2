@@ -350,3 +350,49 @@ vast_ar_vw_state_phys2d_single:   # AR + phys2d_single_v1 20 % + 상태 감독 �
   predictor_checkpoint: ${CVPR_REPO}/z_training/runs/natural_ar_vw_state_phys2d_single/latest.pt
   predictor.kind: ar
   predictor.ar_feedback: state
+vast_ar_vw_state_phys3d_single:   # AR + phys3d_single_v1 (3D) 보조 손실 (mix sum) + 상태 감독 제약 (single head), 2026-10-20
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/natural_ar_vw_state_phys3d_single/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_phys3d_event:   # AR + phys3d 사건 구간만 · 간격 3 (4 fps) · (C, K) 다양 + 상태 감독 (single head, mix sum), 2026-10-20
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/natural_ar_vw_state_phys3d_event/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ek100_g5:                    # 2026-10-21 vast. EK100 cap16metric (시트 "EK100 subset") — encoder 1 개 + vast AR predictor 다섯 팔 (cvpr/eval/ek100/run_group.sh)
+  base: vith                      #   팔마다 결과 val_metrics__<name>.jsonl. ar_vast_ep70 은 main 의 같은 이름 팔 (48.88 / 49.01 / 33.10) 재현 확인용
+  predictor_group:
+  - name: ar_vast_ep70
+    predictor_checkpoint: ${CVPR_REPO}/z_training/runs/natural_ar_vw_state/latest.pt
+  - name: ar_vast_gres
+    predictor_checkpoint: ${CVPR_REPO}/z_training/runs/natural_ar_vw_state_gres/latest.pt
+  - name: ar_vast_phys2d_sup
+    predictor_checkpoint: ${CVPR_REPO}/z_training/runs/natural_ar_vw_state_phys2d_single/latest.pt
+  - name: ar_vast_phys3d_sup
+    predictor_checkpoint: ${CVPR_REPO}/z_training/runs/natural_ar_vw_state_phys3d_event/latest.pt
+vith_release_vobpft_e20:          # 2026-10-22 릴리즈 predictor post-FT — VOBench split v2 + gravity train 828 clip, 20 epoch (configs/training/vobench_release_postft_g_e20.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/vobench_release_postft_g_e20/latest.pt
+vast_ar_vw_state_vobpft:          # 2026-10-22 AR (natural_ar_vw_state ep70) post-FT — VOBench split v2 + gravity train 828 clip, 30 epoch, C8K8 (configs/training/vobench_ar_vw_state_postft_g.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/vobench_ar_vw_state_postft_g/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_i2vupft:         # 2026-10-22 AR post-FT — IntPhys2 violation-uni train 장면 248 clip (16 → 16), 30 epoch. 채점은 intphys2_violation_uni_test 만
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/intphys2_vuni_ar_vw_state_postft/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vith_release_i2vupft:             # 2026-10-22 릴리즈 predictor post-FT — IntPhys2 violation-uni train 장면 248 clip (16 → 16), 30 epoch. 채점은 intphys2_violation_uni_test 만
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/intphys2_vuni_release_postft/latest.pt
+vast_ek100_i2pft:                 # 2026-10-23 EK100 cap16metric — 사용자: 세 모델 동시 (AR + IntPhys2 post-FT · AR + phys2d 감독 · AR + phys3d 감독). 8 GPU × 12 = 96
+  base: vith
+  predictor_group:
+  - name: ar_vast_i2vupft
+    predictor_checkpoint: ${CVPR_REPO}/z_training/runs/intphys2_vuni_ar_vw_state_postft/latest.pt
+  - name: ar_vast_phys2d_sup        # 2026-10-23 사용자: 같은 실행에 추가 (encoder 공유)
+    predictor_checkpoint: ${CVPR_REPO}/z_training/runs/natural_ar_vw_state_phys2d_single/latest.pt
+  - name: ar_vast_phys3d_sup
+    predictor_checkpoint: ${CVPR_REPO}/z_training/runs/natural_ar_vw_state_phys3d_event/latest.pt

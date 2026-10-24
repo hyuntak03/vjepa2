@@ -68,7 +68,7 @@ SET_ARGS=()
 for kv in ${SET:-}; do SET_ARGS+=(--set "$kv"); done
 [[ -n "${LIMIT:-}" ]] && SET_ARGS+=(--limit "$LIMIT")
 "$PY" z_training/harness/resolve_train.py "$CONFIG" -o "$CFG" --folder "$FOLDER" "${SET_ARGS[@]}"
-DEVICES=$(for i in $(seq 0 $((GPUS-1))); do echo -n "cuda:$i "; done)
+DEVICES=${DEVICES:-$(for i in $(seq 0 $((GPUS-1))); do echo -n "cuda:$i "; done)}   # DEVICES="cuda:4 cuda:5" 로 GPU 를 직접 (2026-10-22)
 echo "  devices  : $DEVICES (world_size=$GPUS)"
 [[ -f "$FOLDER/latest.pt" ]] && echo "  resume   : $FOLDER/latest.pt 가 있다 -> 이어서 돈다 (새로 시작하려면 다른 NAME)"
 echo "=================================================="

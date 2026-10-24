@@ -1,0 +1,35 @@
+# Pixel decoder: vob_grav_i1_vitb_both + IntPhys2 Main (2026-10-22 사용자: "IntPhys2 Main set 도 넣어서, step 넉넉하게" → 25,000 step)
+#   IntPhys2 Main = mp4 1,012 편 (60 fps · 720 장 · 512²). 간격 6 (10 fps) 으로 32 장 → 3.2 초 clip, 256² 로 줄인다.
+#   split 은 SceneIndex (같은 장면의 가능 · 불가능 영상이 train / val 에 갈리지 않게). 처음부터 학습 (이어 학습 아님).
+name: vob_grav_i1_i2_vitb_both
+seed: 0
+data:
+  sources:
+    - {index: data_csv/vobench_v1/index.csv, root: /workspace/dataset/benchmarks/VOBench_v1}
+    - {index: data_csv/vobench_v1_gravity/index.csv, root: /workspace/dataset/benchmarks/VOBench_v1/gravity}
+    - {index: data_csv/intphys1_dev/index.csv, root: /workspace/dataset/benchmarks/IntPhys1/dev,
+       pattern: "{block}/{quadruplet}/{run}/scene/scene_{frame:03d}.png", start: 1, n_frames: 100, split_key: block_id}
+    - {index: /workspace/dataset/benchmarks/IntPhys2/Main/metadata.csv, root: /workspace/dataset/benchmarks/IntPhys2/Main,
+       video: true, pattern: "{file_name}", stride: 6, n_frames: 720, split_key: SceneIndex}
+  stride: 3
+  n_frames: 96
+  clip_frames: 32
+  latent: both
+  val_frac: 0.1
+  workers: 8
+model:
+  checkpoint: checkpoint/models--facebook--vjepa2-vith-fpc64-256/snapshots/b5eac8703e3efdc1547fbb6ddfbeb133dc0bdee5/original/model.pth
+  dim: 768
+  depth: 12
+  heads: 12
+optim:
+  steps: 25000          # 2026-10-22 사용자: 15,000 → 25,000 (이전 decoder 는 15K 에서 PSNR 이 아직 오르는 중, 데이터도 더 많다)
+  warmup: 250
+  batch_size: 4
+  lr: 0.0005
+  weight_decay: 0.05
+  loss: l1
+  lpips: 1.0
+  clip: 1.0
+eval_every: 250
+n_val: 32

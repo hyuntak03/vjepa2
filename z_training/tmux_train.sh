@@ -21,6 +21,7 @@ mkdir -p z_training/runs/"$NAME"
 ENVS="GPUS=${GPUS:-8} NAME=$NAME"
 [[ -n "${SET:-}" ]]   && ENVS="$ENVS SET=$(printf %q "$SET")"
 [[ -n "${LIMIT:-}" ]] && ENVS="$ENVS LIMIT=$LIMIT"
+[[ -n "${DEVICES:-}" ]] && ENVS="$ENVS DEVICES=$(printf %q "$DEVICES")"
 tmux new-session -d -s "$SESS" -c "$VJEPA2_ROOT" \
   "source \"$CONDA_ACTIVATE\" \"$CONDA_ENV\"; env $ENVS bash z_training/train.sh $CONFIG; \
    echo; echo '=== train.sh 종료 (exit '\$?') — 이 창은 로그 확인용으로 남겨 둔다 ==='; exec bash"

@@ -335,6 +335,23 @@ def merge_ek100(cfg, ds, md):
             enc[k] = md[k]
     if "predictor_checkpoint" in md:
         mk["predictor_checkpoint"] = md["predictor_checkpoint"]     # 엔진이 읽는지는 엔진 쪽 README 참고
+    if "predictor_group" in md:
+        # 2026-10-18 (main → vast 2026-10-21): frozen encoder 하나 위에 predictor 여러 개 (evals/action_anticipation_frozen 의 MultiAnticipative).
+        #   [{name, predictor_checkpoint}, ...]. name 은 결과 파일 이름 (val_metrics__<name>.jsonl) 이 된다.
+        g = md["predictor_group"]
+        if not isinstance(g, list) or not g:
+            die("models.yaml 의 predictor_group 은 비어 있지 않은 list 여야 한다")
+        seen = set()
+        for e in g:
+            if not isinstance(e, dict) or not e.get("name"):
+                die(f"predictor_group 항목에 name 이 없다 -> {e}")
+            if e["name"] in seen:
+                die(f"predictor_group 에 같은 name 이 둘 -> {e['name']}")
+            seen.add(e["name"])
+            cp = e.get("predictor_checkpoint")
+            if cp and not os.path.exists(cp):
+                die(f"predictor_group[{e['name']}].predictor_checkpoint 가 없다 -> {cp}")
+        mk["predictor_group"] = g
 
 
 # ── 실물 검사 ─────────────────────────────────────────────────────────────────
@@ -587,9 +604,17 @@ def main():
         if heads != "config":
             if heads not in presets:
                 die(f"heads={heads} 는 heads_presets {list(presets)} 에 없다")
-            lrs, wds = presets[heads]["lrs"], presets[heads]["wds"]
-            cfg["experiment"]["optimization"]["multihead_kwargs"] = [
-                dict(lr=lr, start_lr=lr, final_lr=0.0, weight_decay=wd, final_weight_decay=wd, warmup=0.0) for wd in wds for lr in lrs]
+            P = presets[heads]
+            if P.get("heads"):
+                # 2026-10-18 (main → vast 2026-10-21): 격자 (lrs x wds) 로는 못 적는 head (warmup · start_lr 가 head 마다 다른 것) 를 위한 명시 목록.
+                cfg["experiment"]["optimization"]["multihead_kwargs"] = [
+                    dict(lr=float(h["lr"]), start_lr=float(h.get("start_lr", h["lr"])), final_lr=float(h.get("final_lr", 0.0)),
+                         weight_decay=float(h["wd"]), final_weight_decay=float(h.get("final_wd", h["wd"])),
+                         warmup=float(h.get("warmup", 0.0))) for h in P["heads"]]
+            else:
+                lrs, wds = P["lrs"], P["wds"]
+                cfg["experiment"]["optimization"]["multihead_kwargs"] = [
+                    dict(lr=lr, start_lr=lr, final_lr=0.0, weight_decay=wd, final_weight_decay=wd, warmup=0.0) for wd in wds for lr in lrs]
         if a.smoke or a.limit:
             data, opt = cfg["experiment"]["data"], cfg["experiment"]["optimization"]
             data["limit_videos"] = int(a.limit or 4)

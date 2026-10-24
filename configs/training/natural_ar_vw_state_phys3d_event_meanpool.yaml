@@ -1,0 +1,14 @@
+# =============================================================================
+# AR + phys3d 사건 구간 + 상태 감독 — head 모으기만 **평균 풀링** (2026-10-23, 사용자 결정)
+#
+#   GPUS=8 bash z_training/tmux_train.sh natural_ar_vw_state_phys3d_event_meanpool
+#
+# natural_ar_vw_state_phys3d_event 와 데이터 · 손실 가중치 · 일정이 같고 state_head.type 만 single → mean.
+# 왜: 감독 head (query 1 개 attention) 는 예측 출력에서 위치를 읽는데, 같은 출력의 블록 토큰 평균에서는 속도가 안 읽힌다
+#     (문맥 평균 R² 0.59 · 굴린 예측 평균 0.00, z_research/scripts/analysis/velocity_transfer.py).
+#     평균 풀링 head 는 상태가 물체 칸 몇 개가 아니라 블록 전체 토큰에 선형으로 담기도록 predictor 출력에 요구한다.
+# =============================================================================
+extends: natural_ar_vw_state_phys3d_event
+
+state_head:
+  type: mean

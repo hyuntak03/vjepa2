@@ -1,158 +1,326 @@
-# 상태 감독 (state supervision) — 동기 · 설계 · 결과 · 고민 (2026-10-18 ~ 10-20)
+# 상태 감독 — 왜 · 어떻게 · 잘 됐나 · 무엇이 문제인가 (2026-10-20)
 
-> 블록 AR predictor (`kind=ar`, 상태 되먹임) 를 학습할 때, 합성 데이터의 **물체 상태 라벨** (정체 · 위치 · 속도) 로
-> predictor 출력에 보조 손실을 거는 실험들을 한 곳에 모은다. 수치는 각 run 의 `train.log` · `metrics.jsonl` · 채점 산출물에서 다시 계산했다.
+> 블록 단위로 미래를 예측하는 predictor 에, 합성 영상의 **물체 상태 정답** (무엇이 · 어디에 · 얼마나 빨리) 으로 보조 손실을 거는 실험.
+> 그리고 pixel decoder 로 predictor 가 만든 미래를 그림으로 본 결과와, 거기서 정리한 문제.
+> **지금 쓰는 설정만** 적는다. 지나간 시도는 "왜 이렇게 정했나" 의 근거로만 남긴다.
+> 수치는 학습 로그 · 채점 결과 파일에서 다시 계산했다. 코드 · config 이름과 재현 명령은 맨 아래 부록에 모았다.
 
 ---
 
-## 1. 동기와 철학
+## 용어
 
-**목표** — 실제 영상을 보고 latent 예측 손실로 직관 물리를 배워 그럴듯한 미래를 그리는 predictor.
-지금 블록 AR 은 두 가지가 안 된다 (`PROBLEMS_AND_DIRECTION_2026-10-18.md`):
-
-- **영속** — 가림이 문맥 끝에 걸리면 predictor 미래에는 물체다운 토큰이 처음부터 없다 (CLAUDE.md §5-5). 가려지지 않아도 문맥에서 멀어질수록 물체가 흐려진다
-- **뚜렷함** — L1 은 애매하면 중간값을 내라고 해서, 미래가 평균적인 물체 · 복사에 가까워진다
-
-**상태 감독의 생각** — "예측한 미래에서 물체의 **존재 → 정체 (모양 × 색) → 위치 · 속도** 가 읽혀야 한다" 를 손실로 건다.
-그러면 predictor 는 미래를 복사하거나 흐리게 만들어서는 맞힐 수 없다 (복사하면 위치가 안 움직이고, 흐리면 정체가 안 읽힌다).
-
-**철학 (사용자 결정)**
-
-| | 내용 |
+| 말 | 뜻 |
 |---|---|
-| 주인공은 latent 예측 | 자연 영상 latent 손실이 학습의 중심이다. 상태 감독은 그 위의 **제약** — "자연 영상으로 배우되 지름길로 배우지 마라" |
-| 압력은 출력에 | 감독 head 를 predictor 출력 (TF · rollout 둘 다, 문맥 자리 포함) 에 건다 — 출력 · 마지막 proj 까지 압력이 가도록 |
-| head 는 꾀를 못 부리게 | head 가 크면 predictor 가 안 바뀌어도 head 가 혼자 읽는다 → head 는 작게 |
-| 가려져도 감독 | 가려진 물체의 위치 · 정체도 맞히게 한다 — 영속 · 내부 상태 추정 |
-| 한 번에 학습 | head 를 미리 학습해 고정하지 않고 predictor 와 같이 학습 (정답 토큰으로 미리 학습한 자는 가림을 못 가르친다) |
-| config 로만 켜고 끈다 | `state_head:` · `data.var_window.boundary:` 키. 없으면 기준 AR 과 같다 |
+| 블록 | 연속한 영상 2 장. predictor 가 다루는 시간 단위. 블록 하나는 화면을 16 × 16 = 256 칸으로 나눈 토큰 |
+| 문맥 | predictor 가 보는 과거 (보통 16 장 = 블록 8 개) |
+| 미래 예측 (굴리기) | predictor 가 자기 예측을 다시 입력으로 넣어 블록을 하나씩 이어 만드는 것 |
+| 블록 AR | 문맥도 미래도 블록 단위로 다루는 우리 본선 predictor |
+| 영상 문맥 모델 | 문맥 16 장을 encoder 에 한 번에 넣고, 미래는 블록 단위로 예측하는 비교 모델 (그림 폴더 이름 AR_context_video) |
+| release | V-JEPA 2 원본 predictor |
+| latent | encoder 가 만든 토큰 공간. predictor 는 픽셀이 아니라 이 공간에서 예측한다 |
 
 ---
 
-## 2. 구현 (요약)
+## 0. 한눈에
 
-### 2-1. 데이터 — 합성 step 에만 감독
-
-| 데이터 | 내용 | 라벨 |
-|---|---|---|
-| `phys2d_sup_v2` (10-18) | 2D 물리 38,343 편, 물체 여러 개 (평균 2.5, 최대 9), 정체 48 = 모양 6 × 색 8 | 장마다 위치 · 속도 · 보임 · 가림 · 정체 (`_states.npz`) |
-| `phys2d_single_v1` (10-19) | 2D, **물체 1 개**, 39,593 편 | 같은 형식 |
-| `phys3d_single_v1` (10-20) | **3D Blender 렌더**, 물체 1 개 | 같은 형식 (+ 3D 위치 · 속도) |
-
-- step 의 일부 (`boundary.p`, 10 % → 20 %) 를 합성 창으로 바꾼다. 나머지는 자연 영상 (k710 · ssv2 · how, 기준 AR 과 같다)
-- 창: 충돌 · 이탈은 예측 첫 장을 사건에 맞춘 행, 나머지는 무작위 시작 행 (가림은 어디서든) — `data_csv/<set>/train_mix.tsv`
-- 라벨은 블록 마지막 장 상태. TF 출력 블록 b → 라벨 블록 b+1, rollout 걸음 r → 블록 C+r (latent 정답과 같은 정렬). 좌표 라벨이라 자르기 금지, 반전 끔
-
-### 2-2. head 설계의 변천
-
-| head | 구조 | 크기 | 결과 |
-|---|---|---:|---|
-| `attn` (main 425d67d) | 정체 query 48 × multi-head attention (투영 Q·K·V·O) + MLP → 존재 · 위치 · 속도 | 755 만 | 잘 읽는다 (rollout 위치 14 px). **채점 그대로** — head 가 혼자 읽는다 |
-| `light` | query 48 · 투영 없는 내적 pooling · linear 1 개 | 6.9 만 | 같이 학습하면 못 읽음 (위치 53 px · 있음 recall 0 %) — "없음" 95 % 불균형 + clip 에 묶임 |
-| `query3` | query 48 + 위치 · 속도 · 물체 49 지선다 linear 3 개 | 13 만 | 단독 학습 1,500 step 정체 47~54 % — 느림 |
-| **`single`** (지금) | 물체 1 개 장면: **query 1 개** attention pooling → `(T, D)` → **linear 3 개** (물체 49 = 정체 48 + 없음 · 위치 · 속도) | 7 만 | 정체 80 % · 위치 21 px (복사 28 px 보다 좋음) |
-
-### 2-3. 학습 설정 (지금 기준, `configs/training/natural_ar_vw_state_phys2d_single.yaml`)
-
-| 키 | 값 | 이유 |
-|---|---|---|
-| `state_head.type` | `single` | 위 |
-| `state_head.weight` | **0.05** | 제약 크기. 1.0 이면 합성 step 이 Adam 을 장악해 latent 학습이 멈췄다 (3-3) |
-| `state_head.lr_mult` | 2 | head 만 약 1e-3 (단독 검증에서 잘 된 값) |
-| `state_head.clip_separate` | true | clip 1.0 은 predictor gradient 에만. head 까지 같이 자르면 head 가 못 배웠다 |
-| `optimization.clip_grad` | 1.0 | clip 없이 epoch 4 에 predictor 가 무너졌다 (3-3) |
-| `boundary.p` | 0.20 | 합성 step 비율 |
-
-코드: `app/vjepa_frozen/state_head.py` (head · 손실) · `var_window.py` (라벨 싣기) · `train.py` (손실 · clip 분리 · 로그) · `z_training/monitor_ar.sh` (head 구역).
+- **하려는 것** — 실제 영상으로 미래를 예측하며 물리를 배우는 predictor. 로봇 planning 에 쓸 것이라 **블록 AR** 이 본선.
+- **문제** — 지금 predictor 는 미래에서 **물체를 움직이지 않고** (P1), **몇 블록 뒤 물체를 잃는다** (P2).
+- **시도** — 합성 영상에서 "예측한 미래에서 물체가 무엇이고 어디 있는지 읽혀야 한다" 를 작은 보조 손실로 걸었다.
+- **결과** — 읽히게는 됐다 (2D: 위치 오차 21 px, 그대로 복사하면 39 px). **그런데 채점도 그림도 그대로다** — 정보는 담겼지만 그려지지 않는다 (P5). ⚠️ 3D (이전 설정) 는 복사 20 px 대비 15 px 로 복사보다 조금 나은 정도였다
+- **원인 확인** — 블록 하나의 토큰에도 속도가 들어 있다 (§5-1). 문제는 입력이 아니라 predictor 가 그 속도를 미래로 옮기지 않는 것.
+- **다음** — 물체가 움직이는 칸에 손실을 더 거는 것 (칸은 **픽셀 변화로** 고른다, §5-2), 그리고 그려지지 않는 기억 자리 (기억 토큰).
 
 ---
 
-## 3. 결과
+## 1. 목표
 
-### 3-1. head 가 읽는 것 (single run, 합성 step 학습 로그)
+**실제 영상을 보고 latent 예측만으로 직관 물리를 배워, 그럴듯한 미래를 그리는 predictor.**
 
-| epoch | 6 | 14 | 60 |
-|---|---:|---:|---:|
-| 정체 정확도 (49 지선다, 우연 2 %) | 29 % | 58 % | **80 %** |
-| rollout 위치 오차 보임 / 가림 (px, 복사 기준선 28) | 64 / 68 | 30 / 27 | **21 / 22** |
-| attention 집중도 (균등 = 1) | 46 | 139 | 200 |
+**왜 블록 AR 인가**
+- 로봇 planning 은 **지금 이미지 한 장 + 목표 이미지 한 장** 에서 시작한다 → 행동을 넣어 미래를 굴려 목표와 비교.
+- 그러려면 문맥 · 미래 · 목표가 모두 **블록 단위의 같은 공간** 에 있어야 한다.
+- 영상 문맥 모델은 그림에서 움직임을 더 잘 잇지만, 문맥이 이미지 한 장이 되면 그 장점이 사라진다 → **본선이 아니라 목표치로 쓰는 참고점.**
 
-가려진 물체의 위치도 보이는 물체와 같은 수준으로 읽힌다.
+**왜 P1 (움직이던 물체를 미래로 이어 옮기기) 을 본선 문제로 두나**
+- planning 에서 물체 움직임은 대부분 **행동** 이 만든다. 그러니 P1 을 풀면 planning 이 좋아진다는 보장은 없다.
+- 그래도 두는 이유는 **"스스로 움직이는 물체를 못 이으면 행동으로 생긴 움직임도 못 잇는다"** 는 가정이다 — ⚠️ **가정, 미검증.**
+- planning 은 블록 하나에서 시작하므로, §5-1 에서 planning 에 의미 있는 칸은 **"블록 하나"** 다.
 
-### 3-2. 채점 — 기준 AR 과 같은 수준
+---
+
+## 2. 상태 감독
+
+### 2-1. 왜 하나
+
+latent 예측 손실 (L1) 만으로는 predictor 가 **지름길** 을 탄다.
+
+| 지름길 | 모습 | 왜 손실이 허락하나 |
+|---|---|---|
+| 복사 | 마지막 문맥 블록을 거의 그대로 낸다 | 배경이 화면 대부분이라 복사만으로도 손실이 꽤 낮다 |
+| 흐림 | 물체가 어디 갈지 모르면 퍼뜨린다 | L1 은 불확실하면 중간값을 내는 게 이득 |
+
+**생각** — "예측한 미래에서 물체의 **정체 (모양 × 색) · 위치 · 속도** 가 읽혀야 한다" 를 걸면:
+- 복사하면 → 위치가 안 움직여서 틀린다
+- 흐리면 → 정체가 안 읽혀서 틀린다
+
+즉 **지름길을 막는 제약** 이다. 가르치는 주인공은 여전히 자연 영상 latent 손실이다.
+
+### 2-2. 원칙 (사용자 결정)
+
+| 원칙 | 왜 |
+|---|---|
+| **주인공은 자연 영상 latent 손실**, 상태 감독은 제약 | 정답 상태는 합성에만 있다. 합성이 학습을 장악하면 실제 영상 능력이 떨어진다 |
+| **predictor 가 내는 미래에 건다** | 바꾸고 싶은 건 predictor 가 그리는 미래다. 내부 어딘가가 아니라 그려질 출력에 압력을 둔다 |
+| **읽는 장치 (head) 는 작게** | head 가 크면 predictor 가 안 바뀌어도 head 혼자 읽어 낸다 (755 만 파라미터 head 에서 실제로 그랬다) |
+| **가려진 물체도 감독** | 안 보여도 "거기 있다" 를 유지하게 — 영속 · 내부 상태 |
+| **head 와 predictor 를 같이 학습** | 정답 토큰으로 미리 학습해 고정한 head 는 "가려진 물체" 를 가르칠 수 없다 (정답 토큰에 물체가 안 보이니까) |
+| **설정 하나로 켜고 끈다** | 끄면 기준 블록 AR 과 똑같다 → 비교가 깨끗하다 |
+
+### 2-3. 어떻게 (지금 설정)
+
+**데이터 — 3D 합성, 물체 1 개** (Blender 렌더)
+- 정답: 장마다 정체 (48 = 모양 6 × 색 8) · 위치 · 속도 · 보이는지 · 가려졌는지
+- **왜 3D** — 2D 합성으로 배운 것은 실제 영상 벤치마크로 넘어가지 않았다. 조명 · 원근 · 질감이 있는 쪽이 실제 영상에 더 가깝다
+- **왜 물체 1 개** — "head 가 어느 물체를 말하는지" 맞추는 문제가 없어진다 → head 를 아주 작게 만들 수 있다
+- **어느 구간을 뽑나** — 충돌 · 이탈 사건이 예측 첫 장에 걸리는 구간 + 무작위 구간. 사건 순간이 물리가 드러나는 곳이라서
+
+**head — 약 7 만 파라미터**
+- 미래 블록의 256 칸을 학습된 가중 평균 하나로 모은다 → 선형 층 3 개: 물체 (정체 48 + "없음") · 위치 · 속도
+- 블록마다 그 블록 시점의 정답 상태와 비교한다
+
+**합성을 섞는 법 — 매 step 같이**
+- 매 step: 자연 영상 batch 의 latent 손실 + 합성 batch (분량은 자연의 25 %) 의 latent 손실 + 상태 손실 × 0.05 → **한 번에 갱신**
+- **왜** — 예전엔 step 의 20 % 를 통째로 합성 step 으로 돌렸다. 합성 step 의 gradient 가 자연의 5~6 배라 optimizer (Adam) 가 기억하는 gradient 크기가 커지고,
+  그 결과 자연 step 의 갱신이 약 1/2.4 로 줄었다 (자연 latent 손실이 기준보다 높게 끝남). 매 step 같이 섞으면 optimizer 가 늘 같은 성격의 gradient 를 본다
+
+**세기 조절**
+
+| 무엇 | 값 | 왜 |
+|---|---|---|
+| 상태 손실 가중치 | 0.05 | "제약" 크기. 1.0 이면 합성이 학습을 장악했다 |
+| head 학습률 배수 | 2 배 | head 만 조금 빠르게. optimizer (AdamW) 는 손실 크기와 무관하게 학습률만큼 움직이므로, 가중치를 줄였다고 학습률을 키워 보상하면 안 된다 (20 배에서 발산) |
+| gradient 자르기 | predictor 에만 | 같이 묶으면 head 의 큰 gradient 때문에 predictor 갱신이 같이 잘린다 |
+
+---
+
+## 3. 잘 됐나
+
+### 3-1. head 는 읽는다 — 복사보다 얼마나 나은지는 설정마다 다르다
+
+복사 기준선 = 마지막 문맥 블록의 물체 위치를 그대로 미래에 쓴 오차. **학습 설정마다 다르므로 run 마다 정답 상태로 다시 쟀다** (10-20).
+⚠️ 정정 — 이전 판은 모든 run 에 "복사 28 px" 를 썼다. 28 은 옛 2D 여러 물체 세트에서 잰 중앙값이라 지금 run 들에 맞지 않는다.
+
+| 학습 | 시점 | 정체 (49 지선다, 우연 2 %) | 굴린 미래 위치 오차 보임 / 가림 | 복사 기준선 보임 / 가림 |
+|---|---|---:|---|---|
+| 2D · 물체 1 개 · 합성 step 따로 | 끝 (60 epoch) | 80 % | 21 / 22 px | 39 / 42 px |
+| 3D · 물체 1 개 · 매 step 같이 (이전 설정: 간격 1 · 95 % 무작위 구간) | 28 epoch 에서 멈춤 | 83 % | 14 / 17 px | **20 / 23 px** |
+| 3D · 사건 구간만 · 간격 3 · 길이 다양 (지금) | 2 epoch (학습 중) | 66 % | 35 / 35 px | **68 / 70 px** |
+
+- 가려진 물체도 보이는 물체와 거의 같게 읽힌다
+- 2D 는 복사의 절반 정도. 이전 3D 는 **복사보다 25 % 정도만 나았다** — 그 설정에서는 물체가 미래에 별로 안 움직여 복사가 이미 좋은 답이었다
+- 지금 설정은 사건 (충돌 · 이탈) 이 예측 구간에 있고 간격도 3 배라 복사가 크게 틀린다 (68 px). head 는 2 epoch 에 이미 복사의 절반
+
+### 3-2. 채점은 그대로다 ❌
+
+VOBench late = 늦은 가림 세트, gravity = 중력 세트. P / R = 정밀도 / 재현율.
 
 | | VOBench late P / R | gravity P / R (우연 37) | IntPhys1 | IntPhys2 | InfLevel |
 |---|---|---|---:|---:|---:|
-| 기준 AR | 73.6 / 77.3 | 20.4 / 8.3 | 90.0 | 51.8 | 58.4 |
-| attn head + phys2d 10 % | 75.0 / 76.9 (in-loop) | — | 90.6 | — | — |
-| **single + phys2d_single 20 %** | 73.6 / 76.4 | 17.6 / 7.4 | 91.7 | 51.8 | 58.8 |
+| 기준 블록 AR | 73.6 / 77.3 | 20.4 / 8.3 | 90.0 | 51.8 | 58.4 |
+| + 2D 감독 | 73.6 / 76.4 | 17.6 / 7.4 | 91.7 | 51.8 | 58.8 |
+| + 3D 감독 (학습 중) | 학습 중 검증 72.7 (3 epoch 67.6 → 8 epoch 71.3 → 11 epoch 72.7) | — | — | — | — |
 
-VOBench late 위반별 (primitive / realistic): 영속 94.4 / 94.4 · 모양 58.3 / 63.9 · 색 68.1 / 70.8 — 기준 AR (93.1 / 95.8 · 61.1 / 65.3 · 66.7 / 70.8) 과 칸마다 1~3 쌍 차이.
-자연 영상 latent (tf+ar) 는 기준 AR 보다 0.02 높게 끝났다 (e69: 1.098 vs 1.078).
+- VOBench late 위반별 (2D 감독): 사라짐 94 · **모양 58~64 · 색 68~71** — 기준과 칸마다 1~3 쌍 차이
+- **관건은 3D 학습이 VOBench late 80 을 넘느냐.** 모양이 잘 안 오른다
 
-### 3-3. 실패와 정정 (기록)
+### 3-3. 물체 자리만 봐도 그대로다 — "평균에 묻힌다" 는 아니다
 
-| 시도 | 일 | 교훈 |
-|---|---|---|
-| attn head · lr ×10 · clip 없음 | epoch 4 의 합성 step 하나에서 손실 46 → predictor 가 입력과 무관한 출력으로 무너짐 (val 동점 50 %) | 합성 step grad norm 13~22 vs 자연 0.25~0.85 — clip 필요 |
-| light head (같이 학습) | 위치 53 px · 있음 recall 0 % | "없음" 95 % 불균형, clip 이 head 까지 잘랐다 |
-| ⚠️ **정정** — "light head 가 위치를 못 읽는 건 RoPE 라 토큰 내용에 위치가 없어서" | main 의 IdReadout (같은 pooling + linear) 이 위치를 약 1 칸으로 읽었다 → **철회**. 원인은 학습 조건 | |
-| single · weight 1 · lr ×3 | 자연 latent 1.25 로 멈춤 · val 50 (margin 0) | 합성 step 이 Adam 2 차 모멘트를 정해 자연 step 갱신이 약 1/5 |
-| single · weight 0.05 · lr ×20 | head 발산 (위치 176 → 277 px) | ⚠️ **정정** — "손실을 줄인 만큼 lr 로 보상" 은 틀렸다. AdamW 는 gradient 크기와 무관하게 lr 만큼 움직인다 |
-| ⚠️ **정정** — "상태 384 에 걸면 출력 1280 과 달리 가림 충돌이 없다" | 출력 = linear(상태) 라 같은 정보 → **철회**. 분리하려면 출력으로 안 그려지는 칸이 필요 | |
+물체가 화면의 1~2 % 라 화면 평균 손실에 신호가 묻힌다는 의심이 있었다. 물체 주변 칸만으로 채점해 봤다 (VOBench late 432 쌍, 우연 50).
 
-### 3-4. 그림으로 본 릴리즈 predictor (pixel decoder, `z_pixel_decoder/`)
+| 칸 범위 | 3×3 | 5×5 | 7×7 | 9×9 | 화면 전체 | 물체에서 먼 배경만 |
+|---|---:|---:|---:|---:|---:|---:|
+| 기준 블록 AR | 57.6 | 58.3 | 65.5 | 69.7 | 76.4 | **74.3** |
+| + 2D 감독 | 58.3 | 59.5 | 65.5 | 67.6 | 75.0 | 73.8 |
 
-블록 latent → 픽셀 decoder 로 릴리즈 V-JEPA 2 predictor 의 VOBench 미래를 그렸다 (`z_pixel_decoder/runs/vobench_vits/renders/`).
-가림이 없어도 물체가 미래 처음 2~3 블록만 남고 사라지고, late 가림에서는 다시 나타나지 않는다 — §5-5 와 같다.
-(이 decoder 는 블록별 latent 로 학습해 릴리즈의 32 장 window latent 는 모자이크로 그린다. 두 공간을 함께 배우는 ViT-B decoder 를 학습 중)
+- 물체 자리에서도 감독이 이기지 못한다
+- **먼 배경만으로도 74 %** — 정상 / 위반을 가르는 신호가 물체 칸에 몰려 있지 않다 (encoder 가 블록 안 모든 칸을 서로 섞어서로 추측). → 가설 **기각**
 
 ---
 
-## 4. 고민 (열린 문제)
+## 4. 그림으로 본 미래 (pixel decoder)
 
-| # | 고민 | 근거 | 다음 |
+### 4-1. 어떻게 봤나
+
+- **decoder** — 블록 latent → 픽셀 2 장. ViT-B 크기 (8,700 만 파라미터). encoder 는 고정, decoder 만 학습
+- 학습 데이터: VOBench 전체 + 중력 세트 + IntPhys1 dev
+- 품질: 검증 PSNR **35.2 dB**. VOBench 물체는 모양 · 색이 또렷하다. ⚠️ IntPhys1 의 작고 빠른 공은 아직 흐리다
+- **predictor 그림** — 문맥 16 장은 원본, 미래 16 장은 predictor 출력을 decoder 로 그림 (추가 학습 없이 그리기만).
+  **주황 점** = 문맥 마지막 장의 물체 위치 → 물체가 거기서 얼마나 움직였는지 보는 기준
+
+### 4-2. 무엇이 보였나
+
+| 현상 | release | **블록 AR (본선)** | 영상 문맥 모델 (참고) | 블록 AR + 3D 감독 (10 epoch) |
+|---|---|---|---|---|
+| 물체가 움직이나 | 1~2 블록 가다 멈춤 | **거의 안 움직임** — 주황 점에 머묾 | **진행 방향으로 2~4 블록 따라감** | 블록 AR 과 같음 |
+| 언제 사라지나 | 2~4 블록 (0.6~1.2 초) | 같음 | 조금 늦게, 결국 사라짐 | 같음 |
+| 중력 (포물선 · 선반에서 떨어짐) | 아래로 안 휨 | 안 휨 — 선반 높이에서 사라짐 | 안 휨 | 안 휨 |
+| 가림 뒤 다시 나오나 | 안 나옴 | 안 나옴 | 안 나옴 | 안 나옴 |
+| 그 밖 | | | 채점은 낮은데 (VOBench late 52 / 55) 움직임은 가장 낫다 | **물체 자리에 엉뚱한 색 조각** |
+
+미래 16 장의 PSNR (참고만 — 배경이 지배하고, 세트마다 clip 6~8 개):
+
+| | 가림 없음 | 늦은 가림 | 중력 |
+|---|---:|---:|---:|
+| 정답 latent 를 그린 것 (상한) | 34.9 | 32.4 | 31.5 |
+| release | 28.6 | 24.1 | 25.3 |
+| 블록 AR | 27.8 | 21.5 | 26.8 |
+| 영상 문맥 모델 | 29.0 | 20.9 | 26.7 |
+| 블록 AR + 3D 감독 (10 epoch) | 27.0 | 21.8 | 24.4 |
+
+**읽은 것**
+- 블록 AR 이 물체를 안 움직이는 건 측정과 맞는다 — 물체 내용이 원래 칸을 떠나는 비율 0.24 (실제 0.57)
+- 영상 문맥 모델은 같은 블록 공간에 물체를 움직여 그린다 → **블록 공간이라서 못 하는 게 아니다**
+- 3D 감독의 색 조각: 감독이 물체 칸에 "head 가 읽기 좋은 방향" 을 써 넣어, 정답 latent 처럼 생기지 않은 토큰이 된 것으로 본다 (추측, 학습 14 % 시점)
+
+---
+
+## 5. 문제 정의
+
+| # | 문제 | 한 줄 정의 | 근거 (측정 · 관찰) | 원인 |
+|---|---|---|---|---|
+| **P1** | **운반 안 됨** | 움직이던 물체가 미래에서 그 속도로 가지 않고 마지막 자리에 머문다 | 원래 칸 떠나는 비율 0.24 vs 실제 0.57 · 그림 · release 도 마지막 관측 2~3 칸 안에서만 유지 | "블록 토큰에 속도가 없다" 는 **§5-1 에서 기각**. 남는 것: predictor 가 입력의 속도를 미래로 옮기지 않는다 (predictor · 손실 쪽) |
+| **P2** | **굴릴수록 물체를 잃는다** | 미래 2~4 블록 뒤 물체가 흐려지다 배경이 된다 | 그림 (네 모델 모두) | (추측) L1 은 불확실하면 퍼진 평균을 낸다 → 물체 신호 < 배경. 자기 예측을 다시 넣으며 누적 |
+| P3 | 중력 없음 | 낙하 · 포물선이 안 나온다 | 그림 · 중력 세트 P / R 20.4 / 8.3 (우연 37) | (추측) P1 위의 문제 — 속도도 못 잇는데 가속은 더 어렵다 |
+| P4 | 영속 없음 | 가려진 물체가 다시 안 나온다 | 그림 · 늦은 가림 세트 | (구조) 가려지면 정답 토큰은 가림막 → latent 손실이 "지워라" 를 가르친다. 관측과 따로 노는 기억 자리가 없다 |
+| **P5** | **읽혀도 안 그려진다** | head 는 미래 위치를 읽는데 그려 보면 물체가 안 움직인다 | head 15~18 px vs 그림 정지 · 채점 그대로 · 물체 자리 채점도 그대로 | (추측) 상태 감독은 "읽히게 담아라" 만 요구한다 → 정보를 일부 방향에 써 넣을 뿐 "그 칸에 물체를 그리라" 는 압력이 아니다 |
+
+- **P1 · P2 가 뿌리**, P3 · P4 는 그 위, P5 는 "상태 감독으로는 P1 · P2 가 안 풀린다" 는 뜻이다
+- 모양 · 색 점수가 60 대인 것도 P2 · P4 의 결과로 본다 (물체가 안 그려지면 비교할 정체가 없다, 추측)
+- **원인이 아닌 것으로 확인됨** — 화면 평균에 묻힘 (§3-3) · 합성 렌더 잡음 (정지 장면 latent 잡음이 실제 영상의 1/5) · 블록 토큰에 속도 없음 (§5-1)
+
+### 5-1. P1 원인 가르기 — 문맥 토큰에 속도가 있나
+
+**질문** — P1 이 입력 탓 (블록 토큰에 속도가 없다) 인가, predictor · 손실 탓 (속도는 있는데 미래로 안 옮긴다) 인가.
+
+**어떻게**
+- 데이터: 3D 합성 검증 세트 6,148 개 (clip 727), 채점과 같은 3 장 간격. 물체가 보이는 경우만. 38 % 가 움직이는 경우 (> 2 px/장)
+- 재는 자리: 문맥 16 장의 **마지막 블록** — predictor 가 속도를 이어 가야 하는 바로 그 자리
+- 다섯 가지 토큰을 비교. **모두 문맥 장만 본다** (미래를 본 토큰이면 속도가 읽히는 게 당연하므로)
+- 토큰 모으기: 물체 중심 3×3 칸 평균 / 화면 256 칸 전체 평균 — 속도가 물체 밖에 퍼져 있는지도 본다
+- 읽기: 선형 회귀 (정규화 포함), clip 단위로 반을 학습 · 반을 평가. 근거: 표현에 정보가 선형으로 있는지 보는 표준 방법 (Alain & Bengio 2016)
+
+**결과** (평가 R², 괄호 = 움직이는 경우만)
+
+| 토큰 | 무엇을 보나 | 물체 3×3 | 화면 전체 |
+|---|---|---:|---:|
+| **블록 하나** | 그 블록 2 장만 (= planning 조건, 블록 AR 의 입력) | **0.61 (0.68)** | 0.40 (0.57) |
+| 블록 차이 | 마지막 두 블록의 차이 | 0.54 (0.62) | 0.39 (0.49) |
+| 블록 둘 이어 붙임 | 마지막 두 블록 | 0.61 (0.68) | 0.45 (0.54) |
+| 같은 encoder · 문맥 16 장 한 번에 | 블록과 같은 encoder, 본 시간 길이만 다름 | 0.67 (0.73) | 0.64 (0.70) |
+| 영상 문맥 모델의 입력 | 문맥 16 장 한 번에 (영상 문맥 모델이 쓰는 encoder) | 0.66 (0.73) | 0.62 (0.69) |
+
+방향 일치 (움직이는 경우, cos): 블록 하나 0.81 · 영상 문맥 0.84.
+
+**판정**
+
+| 블록 하나 | 블록 둘 | 영상 문맥 | 해석 | 다음 |
+|---|---|---|---|---|
+| ✗ | ✗ | ✓ | 블록 인코딩에 정보 없음 | 차이 입력으로는 부족할 수 있음. 영상 문맥 재검토 |
+| ✗ | ✓ | ✓ | 정보는 있으나 predictor 가 블록 간 차이를 계산해 쓰지 못함 | 블록 차이를 입력에 (싸고 직접적) |
+| **✓** | **✓** | **✓** | **← 여기. predictor · 손실 탓** | 압력을 출력 쪽에 |
+
+- **블록 하나에도 속도가 있다** — 영상 문맥과의 차이는 R² 0.05 (움직이는 경우). 2 장짜리 블록 하나가 이미 움직임을 담는다
+- 블록 둘 · 블록 차이는 블록 하나보다 낫지 않다 → **블록 차이를 입력에 넣어도 새 정보가 없다**
+- 블록 토큰의 속도는 **물체 칸에 모여 있다** (전체 평균으로 가면 0.68 → 0.57). 영상 문맥은 화면에 퍼져 있다 (0.73 → 0.69)
+- ⚠️ 단서
+  - 합성 3D 한 세트, 선형 읽기
+  - 물체 칸은 정답 위치로 골랐다 — predictor 는 물체 자리를 스스로 찾아야 한다
+  - R² 0.7 은 완벽이 아니다. "블록과 영상 문맥이 같다" 가 아니라 "차이가 작아 P1 (0.24 vs 0.57) 을 설명할 크기가 아니다" 까지만 말한다
+  - 실제 영상 (VOBench) 에서는 안 쟀다
+
+### 5-2. 블록 사이 latent 변화는 물체에 몰리나 — 가중 손실 켜기 전 점검
+
+**왜** — "움직이는 칸에 손실을 더 거는" 안은 원래 정답 토큰이 블록 사이에 많이 바뀌는 칸을 고르려 했다. 그 변화가 물체가 아니라 배경에 퍼져 있으면 가중치가 엉뚱한 곳에 걸린다 (§3-3 의 "먼 배경 74 %" 가 그 가능성을 시사).
+
+**어떻게** — §5-1 과 같은 데이터에서 연속한 블록 쌍 43,036 개. 변화가 큰 칸 중 물체 칸 (두 블록에서 물체가 차지한 영역) 의 비율. 같은 것을 **픽셀 변화** 로도 쟀다.
+
+| 물체가 움직이는 블록 쌍 (17,861) | 변화 큰 칸 (물체 칸 수만큼) 중 물체 비율 (완벽 = 1) | 변화 상위 10 % 칸이 물체 칸을 덮는 비율 | 무작위 기준 |
+|---|---:|---:|---:|
+| **latent 변화** | **0.14** | 0.25 | 0.04 |
+| 픽셀 변화 | 0.65 | 0.79 | 0.04 |
+
+- **latent 변화는 물체에 거의 몰리지 않는다** — 무작위의 3 배지만 변화 큰 칸의 86 % 가 물체 밖이다. 같은 장면의 픽셀 변화는 65 % 가 물체
+- 물체가 정지한 블록 쌍에서도 latent 변화 큰 칸은 무작위 수준 (0.04) — latent 는 물체가 안 움직여도 배경 칸이 블록마다 흔들린다
+- → **latent 변화로 고르면 의도와 다르게 배경에 걸린다. 그대로 켜지 않는다**
+- 대안: **픽셀 변화로 고른다** — 정답 라벨 없이 실제 영상에도 계산된다. 단 실제 영상은 카메라가 움직이면 화면 전체 픽셀이 바뀌므로 따로 다뤄야 한다
+
+---
+
+## 6. 다음
+
+| 순 | 무엇 | 겨냥 | 왜 |
 |---|---|---|---|
-| 1 | **읽히는 것 ≠ 채점이 오르는 것** | head 정체 80 % · 위치 21 px 인데 채점 그대로. 물체는 화면의 1~2 % (VOBench 물체 2~5 칸 / 256) 라 화면 평균 L1 에 묻힌다 (추측). 또는 "읽히는 방향" 으로만 담기고 정답 토큰과의 거리는 그대로 (추측) | 물체 자리 채점 (`obj_region_margin.py`), pixel decoder 로 미래 비교 |
-| 2 | **가려진 물체 감독이 latent 손실과 부딪힌다** | 정답 토큰은 가려지면 가림막 — "가림막을 그려라" vs "물체를 남겨라". 출력이 상태의 linear 라 상태에 걸어도 같다 | **기억 토큰**: 블록마다 출력으로 안 그려지는 `(1, D)` 토큰 (AC predictor 처럼 앞에), head 는 그 토큰에 linear 3 개 |
-| 3 | **합성 → 3D · 실제 영상으로 넘어가나** | 2D 감독은 VOBench (3D) 로 안 넘어갔다. 09 월 post-FT 세 번도 도메인 안에서만 올랐다 (`RESULTS_2026-09-19.md`). predictor 가 도메인별로 다르게 행동할 수 있다 (추측) | **phys3d 를 섞은 run** (`natural_ar_vw_state_phys23d_single`, 10-20 대기열) |
-| 4 | **제약이어야 하는데 주인공이 되기 쉽다** | weight 0.05 에서도 합성 / 자연 grad norm 이 5~6 배 (기준 3 배) | 상태 gradient 를 latent gradient 의 일정 비율로 맞추는 장치 (`grad_ratio`, 미구현) |
-| 5 | **head 의 세기** | 강하면 혼자 읽고, 약하면 못 배운다 | single 은 균형이 맞았다 — 기억 토큰으로 가면 pooling 도 필요 없다 |
-| 6 | **기억이 생겨도 예측에 쓰이나** | head 만 만족시키는 곁가지가 될 수 있다 | 기억 끄기 실험. 쓰이게 만드는 힘: 다시 나타남 창 (`reappear` 6 만 행) · 실제 영상의 문맥 구멍 (`loss.ctx_hole`) |
+| 1 | 3D 감독 학습의 끝점 (10-21 오전) — 채점 + 같은 장면 그림 | P5 | VOBench late 80 을 넘는가, 색 조각이 사라지는가 |
+| 2 | **움직이는 칸에 손실을 더 건다 — 칸은 픽셀 변화로 고른다** | P1 · P2 · P5 | 입력에 속도는 있다 (§5-1) → predictor 가 그걸 미래로 옮기게 압력을 출력에. latent 변화는 배경에 퍼져 있어 (§5-2) 픽셀 변화로 칸을 고른다. 정답 라벨이 필요 없어 실제 영상에도 걸린다 (카메라 움직임 처리 필요) |
+| 3 | 기억 토큰 + 상태 감독 | P4 | 블록마다 그림으로 나가지 않는 토큰 하나를 둔다 (행동 조건 predictor 가 행동 토큰을 앞에 붙이는 방식). 상태 감독은 여기에 → latent 손실과 안 부딪힌다. 기억을 끄면 예측이 나빠지는지로 "쓰이는가" 확인 |
+| 보류 | decoder 를 거친 픽셀 손실 | P5 | 무겁고 decoder 오차가 섞인다 |
 
-**정답 (latent 목표) 을 바꾸는 것은 하지 않는다** — 정답은 관측이고, 가려진 물체가 안 보이는 게 맞다.
-필요한 건 predictor 안에 **관측과 따로 노는 상태 공간** 을 두는 것 (Dreamer 의 잠재 상태 · 관측 모델 분리와 같은 생각).
-encoder 를 여는 것 (LoRA) 은 하지 않는다 — 정답 쪽을 열면 붕괴 위험, 문맥 쪽은 이미 상태를 잘 읽는다 (속도 R² 0.996, probe 98~100 %).
+"블록 차이를 입력에" 는 뺐다 — 블록 차이가 블록 하나보다 속도를 더 담지 않는다 (§5-1).
 
----
-
-## 5. 다음 순서 (제안)
-
-1. `natural_ar_vw_state_phys23d_single` — 2D + 3D 합성 (고민 3). 10-20 pixel decoder 학습 뒤 자동 시작
-2. 기억 토큰 run — 고민 2 · 6. head 를 출력 pooling 에서 기억 토큰 linear 로 옮기는 것만 다르게
-3. 그 뒤 한 키씩: 변하는 칸 가중 L1 (뚜렷함) · 다시 나타남 창 · 실제 영상 문맥 구멍
+**잘 됐는지 보는 법**
+1. 그림: 물체가 주황 점에서 영상 문맥 모델만큼 움직이는가 (P1), 사라지는 블록이 늦어지는가 (P2)
+2. 측정: 원래 칸을 떠나는 비율 0.24 → 실제 0.57 쪽으로
+3. 채점: VOBench late 80, 중력 세트
 
 ---
 
-## 재현
+## 부록 A. 코드 · config 위치
+
+| 본문 개념 | 이름 |
+|---|---|
+| 지금 학습 설정 | `configs/training/natural_ar_vw_state_phys3d_single.yaml` (run 이름 같음) |
+| 3D 합성 데이터 | `phys3d_single_v1` (2D 는 `phys2d_single_v1`) |
+| 상태 감독 켜기 · 끄기 | config `state_head:` 블록 + `data.var_window.boundary:` 블록 |
+| head (7 만) | `state_head.type: single` — `app/vjepa_frozen/state_head.py` |
+| 매 step 같이 섞기 · 분량 25 % | `boundary.mix: sum` · `boundary.budget_frac: 0.25` — `app/vjepa_frozen/train.py` |
+| 상태 손실 가중치 · head 학습률 배수 · gradient 자르기 | `state_head.weight: 0.05` · `state_head.lr_mult: 2` · `state_head.clip_separate: true` |
+| 사건 구간 뽑기 | `app/vjepa_frozen/var_window.py` (boundary manifest) |
+| 학습 모니터 | `z_training/monitor_ar.sh` |
+| 복사 기준선 (§3-1) | `z_training/tools/copy_baseline.py <run>` → `<run>/copy_baseline.json` (모니터가 읽는다) |
+| 블록 AR (기준) · 영상 문맥 모델 · 2D 감독 | run `natural_ar_vw_state` · `natural_ar_vw_state_ctxt_video` · `natural_ar_vw_state_phys2d_single` |
+| pixel decoder | `z_pixel_decoder/` (config `vob_grav_i1_vitb_both.yaml`) |
+| 그림 | `z_pixel_decoder/runs/vob_grav_i1_vitb_both/renders/{release, AR, AR_context_video, AR_phys3d_sup_e10}/{visible, late, gravity}/` |
+| 물체 자리 채점 (§3-3) | `z_research/scripts/analysis/obj_region_margin.py` |
+| 속도 읽기 · 변화 칸 점검 (§5-1 · §5-2) | `z_research/scripts/analysis/velocity_probe_block_vs_window.py` |
+| 렌더 잡음 | `z_research/scripts/analysis/latent_noise_floor.py` |
+
+## 부록 B. 재현
 
 ```bash
 cd /workspace/world_model/vjepa2
-# 학습 (config 맨 위 주석에 설계 이유)
-GPUS=8 bash z_training/tmux_train.sh natural_ar_vw_state_phys2d_single       # single head · 2D
-GPUS=8 bash z_training/tmux_train.sh natural_ar_vw_state_phys23d_single      # single head · 2D + 3D
-watch -c -n 2 bash z_training/monitor_ar.sh <run>                            # head 구역: 손실 · 위치 · 정체 · 집중도 · 합성/자연 grad norm
+# 학습 · 모니터
+GPUS=8 bash z_training/tmux_train.sh natural_ar_vw_state_phys3d_single
+watch -c -n 2 bash z_training/monitor_ar.sh natural_ar_vw_state_phys3d_single
 
-# head 만 따로 (predictor 고정) — 자 검증
-CUDA_VISIBLE_DEVICES=0 /venv/vjepa/bin/python z_training/tools/state_head_fit.py --run natural_ar_vw_state_phys2d \
-    --head '{"type":"single"}' --root /workspace/dataset/training_data/phys2d_single_v1 --rows uniform --tag single_fit --steps 1500
-# 자리별 (컨텍스트 TF · 예측 TF · rollout) 위치 · 존재
-CUDA_VISIBLE_DEVICES=0 /venv/vjepa/bin/python z_training/tools/state_head_probe.py --run <run> --ckpt latest.pt
-
-# 채점 (GPU 8)
+# 채점
 GPUS=8 bash z_training/eval_bench.sh <run> latest.pt                                          # IntPhys1 · IntPhys2
-RESULTS_ROOT=legacy GPUS=8 bash cvpr/eval/testbed/run.sh vobench_v1_late    vast_ar_vw_state_phys2d_single
-RESULTS_ROOT=legacy GPUS=8 bash cvpr/eval/testbed/run.sh vobench_v1_gravity vast_ar_vw_state_phys2d_single   # 점수는 block 정의
-# 2D 렌더 잡음 · latent 잡음 바닥
+RESULTS_ROOT=legacy GPUS=8 bash cvpr/eval/testbed/run.sh vobench_v1_late    <registry 이름>
+RESULTS_ROOT=legacy GPUS=8 bash cvpr/eval/testbed/run.sh vobench_v1_gravity <registry 이름>   # 점수는 block 정의
+CUDA_VISIBLE_DEVICES=7 /venv/vjepa/bin/python z_research/scripts/analysis/obj_region_margin.py \
+    --run natural_ar_vw_state latest.pt --run natural_ar_vw_state_phys2d_single latest.pt     # §3-3
+
+# §5-1 · §5-2 (encoder 만, GPU 8 장 나눠 약 5 분)
+F=<scratch>/vp2; P=z_research/scripts/analysis/velocity_probe_block_vs_window.py
+for k in 0 1 2 3 4 5 6 7; do CUDA_VISIBLE_DEVICES=$k /venv/vjepa/bin/python -W ignore $P --out $F --shard $k --nshard 8 & done; wait
+CUDA_VISIBLE_DEVICES=0 /venv/vjepa/bin/python -W ignore $P --out $F --nshard 8 --probe_only
+
+# pixel decoder 학습 · predictor 그림 (그리기만)
+bash z_pixel_decoder/run.sh z_pixel_decoder/configs/vob_grav_i1_vitb_both.yaml
+D=z_pixel_decoder/runs/vob_grav_i1_vitb_both
+CUDA_VISIBLE_DEVICES=7 /venv/vjepa/bin/python z_pixel_decoder/render_predictor.py --set visible --n 6 \
+    --decoder $D/latest.pt --model natural_ar_vw_state --name AR      # --model release|<run>, --set visible|late|early|mid|gravity
+/venv/vjepa/bin/python z_pixel_decoder/grid_from_gifs.py $D/renders/AR/visible --label "AR pred"
+
+# 렌더 잡음
 CUDA_VISIBLE_DEVICES=0 /venv/vjepa/bin/python z_research/scripts/analysis/latent_noise_floor.py
 ```

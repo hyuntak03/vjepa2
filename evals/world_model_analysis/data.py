@@ -99,6 +99,11 @@ class WMADataset:
         #   구간을 잘라내고 시작하는데 그 위치가 행마다 다르다 (gravity 159~194).
         #   없으면 0 부터 = 기존 동작.
         self._frames_start_col = d.get("frames_start_column")
+        # frames_index_column: **영상마다 고른 프레임 번호 목록** (공백 구분) 을 index.csv 컬럼에서 읽는다 (mp4 경로 전용, 2026-10-22).
+        #   IntPhys2 위반 시작 라벨처럼 행마다 문맥 · 미래 구간이 다를 때 PNG 로 풀지 않고 csv 만 바꿔 다시 채점한다.
+        #   file 은 data.video_root (없으면 data.root) 기준 상대경로 또는 절대경로.
+        self._frames_index_col = d.get("frames_index_column")
+        self._video_root = d.get("video_root") or self.root
         if self._frames_root and not os.path.isdir(self._frames_root):
             raise FileNotFoundError(f"data.frames_root 가 없다: {self._frames_root}")
         rows = list(csv.DictReader(open(os.path.join(self.root, d.get("index_csv", "index.csv")))))
@@ -217,12 +222,16 @@ class WMADataset:
                                  self._frames_pattern.format(frame=f, **rec.raw))
                 fr.append(np.asarray(Image.open(p).convert("RGB")))
             return torch.from_numpy(np.stack(fr))
-        vr = decord.VideoReader(os.path.join(self.root, rec.file), num_threads=1)
+        vr = decord.VideoReader(os.path.join(self._video_root, rec.file), num_threads=1)
         # ⚠️ 여기는 예전에 `range(self.n_frames)` 만 썼다 — frames_start/_stride 가 PNG 경로에만
         #    걸려 있어서 mp4 는 **항상 0 번 프레임부터 연속**으로 읽었다. InfLevel 이 그래서 틀렸다
         #    (2026-09-21). 이제 둘 다 mp4 에도 건다.
         st = int(rec.raw.get(self._frames_start_col, 0)) if self._frames_start_col else 0
         idx = list(range(st, st + self.n_frames * self._frames_stride, self._frames_stride))
+        if self._frames_index_col:      # 행마다 고른 원본 프레임 번호 (공백 구분) — PNG 로 풀지 않고 mp4 에서 바로 읽는다
+            idx = [int(x) for x in rec.raw[self._frames_index_col].split()]
+            if len(idx) != self.n_frames:
+                raise ValueError(f"{rec.file}: {self._frames_index_col} 에 {len(idx)} 장인데 n_frames={self.n_frames}")
         if idx[-1] >= len(vr):
             raise IndexError(f"{rec.file}: 프레임 {idx[-1]} 요청인데 길이는 {len(vr)} 이다 "
                              f"(start={st}, n_frames={self.n_frames}, stride={self._frames_stride})")

@@ -1,0 +1,30 @@
+# =============================================================================
+# 릴리즈 V-JEPA 2 ViT-H predictor (oneshot, mask token) post fine-tuning — VOBench_v1 block split 의 가능 영상 (2026-10-14)
+#
+#   GPUS=4 bash z_training/train.sh vobench_release_postft
+#   GPUS=4 bash z_training/eval.sh vobench_release_postft vobench_v1_split2_test
+#
+# 묻는 것: 릴리즈 predictor 도 이 장면 분포 (가능 영상만) 를 보면 late · 이동 물체의 정체 · 존재를 배우나 — ar_state post-FT
+#   (configs/training/vobench_ar_state_postft.yaml) 와 같은 데이터 · split · 과제 (문맥 16 장 → 미래 16 장) · lr · epoch.
+# 데이터: vobench_split2_train (split v2 — 장면 묶음 단위, test 와 공유 설정 0 · 360 block 의 가능 변이 720 clip). 채점: vobench_v1_split2_test (720 쌍). 분포 밖은 IntPhys 1 로 따로.
+# =============================================================================
+extends: frozen_predictor_postft
+
+meta:
+  save_every_freq: 5
+
+data:
+  batch_size: 8               # rank 당 × 4 GPU = 32 → 720 clip / 32 = 22 step/epoch (ar_state post-FT 는 48 · 15 step)
+  num_workers: 4
+  datasets:
+    - {name: vobench_split2_train, weight: 1.0}
+  aug:
+    hflip_p: 0.5
+    random_resized_crop: null # 합성 장면 · 물체가 작다 — 자르면 물체가 화면 밖으로 나간다
+
+optimization:
+  epochs: 30
+  lr: 5.0e-5
+  start_lr: 1.0e-6
+  final_lr: 1.0e-6
+  warmup: 1

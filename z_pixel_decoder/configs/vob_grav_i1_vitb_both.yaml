@@ -19,7 +19,7 @@ model:
   depth: 12
   heads: 12
 optim:
-  steps: 5000
+  steps: 15000          # 5000 → 15000 (10-20 사용자: 5000 에서 PSNR 이 아직 오르는 중). 같은 이름으로 다시 올리면 latest.pt 에서 이어 돈다
   warmup: 250
   batch_size: 4          # GPU 당 clip → 블록 4 × 16 × latent 2 = 128
   lr: 0.0005             # ViT-B 라 S (1e-3) 의 절반

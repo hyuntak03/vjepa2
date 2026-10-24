@@ -1,0 +1,43 @@
+# =============================================================================
+# AR (natural_ar_vw_state, ep70) post-FT — VOBench split v2 train + gravity train 가능 영상 828 clip (2026-10-22, 사용자 지시)
+#
+#   GPUS=4 bash z_training/train.sh vobench_ar_vw_state_postft_g
+#
+# main 의 vobench_vast_ar_state_postft_g 와 같은 데이터 · 과제 (문맥 8 블록 → 8 블록 rollout) · lr · 30 epoch.
+# 출발 = 이 기계의 AR run latest (model.predictor_init_checkpoint). 가변 창 로더는 끈다.
+# =============================================================================
+extends: natural_ar_vw_state
+
+meta:
+  save_every_freq: 5
+
+model:
+  predictor_init_checkpoint: /workspace/world_model/vjepa2/z_training/runs/natural_ar_vw_state/latest.pt
+
+data:
+  n_frames: 32
+  batch_size: 12              # rank 당 × 4 GPU = 48 → 828 / 48 = 17 step/epoch
+  num_workers: 4
+  var_window: null
+  datasets:
+    - {name: vobench_split2g_train, weight: 1.0}
+  aug:
+    hflip_p: 0.5
+    random_resized_crop: null
+
+mask:
+  - type: prefix_window
+    context_blocks: [8]
+    predict_blocks: [8]
+    weight: 1.0
+
+optimization:
+  epochs: 30
+  ipe: null
+  anneal_epochs: null
+  lr: 5.0e-5
+  start_lr: 1.0e-6
+  final_lr: 1.0e-6
+  warmup: 1
+  weight_decay: 0.04
+  final_weight_decay: 0.04
