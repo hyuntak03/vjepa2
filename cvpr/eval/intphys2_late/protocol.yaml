@@ -1,0 +1,5 @@
+# eval/intphys2_late — IntPhys 2 Main, 사람 라벨 위반 시작 d 앞을 균일 문맥 16 장 · 뒤를 균일 미래 16 장 (2026-10-22). 채점 규칙은 testbed 와 같다
+#   (surprise = mean |p − LN(h)[future]|, matched pair (같은 쌍 번호의 가능 · 불가능), 문맥 16 + 미래 16, dual encoder, fp32 + autocast fp16, mask_index 0).
+#   창 정렬은 데이터 쪽 (build.py 가 쌍마다 32 장을 골라 둔다).
+extends: ../testbed/protocol.yaml
+legacy_name: intphys2_late

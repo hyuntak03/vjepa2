@@ -99,6 +99,11 @@ class WMADataset:
         #   구간을 잘라내고 시작하는데 그 위치가 행마다 다르다 (gravity 159~194).
         #   없으면 0 부터 = 기존 동작.
         self._frames_start_col = d.get("frames_start_column")
+        # frames_column (2026-10-23, IntPhys 2 late): **영상마다 읽을 프레임 번호 목록**을 index.csv 컬럼에서 (공백 구분, 0-based).
+        #   mp4 경로 전용. 주면 frames_start/_stride/_start_column 은 안 쓴다. 목록 길이 = n_frames 여야 한다.
+        self._frames_col = d.get("frames_column")
+        if self._frames_col and self._frames_root:
+            raise ValueError("data.frames_column 은 mp4 경로 전용이다 (frames_root 와 같이 쓰지 않는다)")
         if self._frames_root and not os.path.isdir(self._frames_root):
             raise FileNotFoundError(f"data.frames_root 가 없다: {self._frames_root}")
         rows = list(csv.DictReader(open(os.path.join(self.root, d.get("index_csv", "index.csv")))))
@@ -109,7 +114,14 @@ class WMADataset:
         tcol = d.get("type_column")
 
         if limit and self.block_col:                       # smoke: 앞 N block 만
-            keep = sorted({r[self.block_col] for r in rows}, key=lambda v: int(v))[:limit]
+            # block_id 가 숫자인 세트 (IntPhysGen 계열) 는 숫자 순, 아니면 문자열 순.
+            # 2026-10-21: GRASP 는 block_id 가 'Unchangeableness2_048' 이라 int() 가 터졌다.
+            def _bk(v):
+                try:
+                    return (0, int(v), "")
+                except (TypeError, ValueError):
+                    return (1, 0, str(v))
+            keep = sorted({r[self.block_col] for r in rows}, key=_bk)[:limit]
             rows = [r for r in rows if r[self.block_col] in set(keep)]
         elif limit:
             # group_column 값마다 고르게 뽑는다. index.csv 가 그룹별로 정렬돼 있으면
@@ -221,6 +233,13 @@ class WMADataset:
         # ⚠️ 여기는 예전에 `range(self.n_frames)` 만 썼다 — frames_start/_stride 가 PNG 경로에만
         #    걸려 있어서 mp4 는 **항상 0 번 프레임부터 연속**으로 읽었다. InfLevel 이 그래서 틀렸다
         #    (2026-09-21). 이제 둘 다 mp4 에도 건다.
+        if self._frames_col:
+            idx = [int(t) for t in rec.raw[self._frames_col].split()]
+            if len(idx) != self.n_frames:
+                raise ValueError(f"{rec.file}: {self._frames_col} 에 {len(idx)} 장인데 n_frames={self.n_frames}")
+            if max(idx) >= len(vr):
+                raise IndexError(f"{rec.file}: 프레임 {max(idx)} 요청인데 길이는 {len(vr)} 이다 ({self._frames_col} 열)")
+            return torch.from_numpy(vr.get_batch(idx).asnumpy())
         st = int(rec.raw.get(self._frames_start_col, 0)) if self._frames_start_col else 0
         idx = list(range(st, st + self.n_frames * self._frames_stride, self._frames_stride))
         if idx[-1] >= len(vr):

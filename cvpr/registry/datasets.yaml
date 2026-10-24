@@ -29,7 +29,27 @@ intphys1_late:                    # 2026-10-17. IntPhys 1 dev 의 가림 샘플�
   cache_tag: intphys1_late
   root: ${CVPR_DATA_CSV}/intphys1_late
   index_csv: index.csv
-  frames_root: ${CVPR_LOCAL}/world/world_analysis/IntPhys1_late
+  frames_root: ${CVPR_LOCAL}/world/IntPhys1_late      # 2026-10-24 재생성 (옛 world_analysis/ 경로는 다른 사용자 소유라 못 쓴다)
+  frames_pattern: '{video_id}/{frame:06d}.png'
+  frames_start: 0
+  frames_stride: 1
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: block_type
+  engine: wma
+intphys1_late_uni:                # 2026-10-24. IntPhys 1 dev **균일(uniform-d) 판** — 문맥 16 = [0, d−1] 균일 · 미래 16 = [d, n−1] 균일
+                                  #   (IntPhys 2 late 와 같은 창 규칙). 360 영상 = 180 쌍, O1·O2·O3 각 120 영상.
+                                  #   ⚠️ 이 노드에는 원래 index · 프레임이 없었다. 창 정의 (video_id 별 32 장) 는
+                                  #      z_pixel_decoder/runs/_frames/IntPhys1_uni/index.csv 의 `frames` 열에 남아 있어서,
+                                  #      2026-10-24 에 원본 dev PNG 트리에서 그 32 장만 다시 뽑았다 (0-based frames -> scene_{f+1:03d}.png,
+                                  #      전수 0 missing 확인). 옛 경로 world_analysis/ 는 다른 사용자 소유라 못 써서 경로가 다르다.
+  raw_frames: 32
+  cache_tag: intphys1_late_uni
+  root: ${CVPR_DATA_CSV}/intphys1_late_uni
+  index_csv: index.csv
+  frames_root: ${CVPR_LOCAL}/world/IntPhys1_late_uni
   frames_pattern: '{video_id}/{frame:06d}.png'
   frames_start: 0
   frames_stride: 1
@@ -139,6 +159,52 @@ intphys1_late_auto2-6r12fit:      # 2026-10-18. ★ 쌍마다 stride 2–6 · �
   frames_pattern: '{video_id}/{frame:06d}.png'
   frames_start: 0
   frames_stride: 1
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: block_type
+  engine: wma
+intphys2_late_uni:                # 2026-10-22. IntPhys 2 Main 498 쌍 (8 쌍은 라벨 없음). 사람 라벨 위반 시작 d (60 fps), 문맥 16 = [0, d−1] 균일 · 미래 16 = [d, n−1] 균일
+                                  #   (cvpr/eval/intphys2_late/build.py; 라벨 없는 쌍은 같은 장면 다른 쌍 라벨 95 쌍). ⚠️ 가능 · 불가능 문맥이 픽셀로 같지 않다 (IntPhys 2 렌더 특성)
+  raw_frames: 32
+  cache_tag: intphys2_late_uni
+  root: ${CVPR_DATA_CSV}/intphys2_late_uni
+  index_csv: index.csv
+  frames_root: /data2/local_datasets/world/world_analysis/IntPhys2_late_uni
+  frames_pattern: '{video_id}/{frame:06d}.png'
+  frames_start: 0
+  frames_stride: 1
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: block_type
+  engine: wma
+intphys2_late_uni_m10:            # 2026-10-23. intphys2_late_uni 와 같은데 d = 사람 라벨 − 10 (60 fps 10 장 = 1/6 초 앞당김, 사용자 지시). 500 쌍 (자기 라벨 436 · 다른 쌍 64)
+                                  #   build.py --d-offset -10. 프레임은 NFS (어느 노드에서나 읽힌다)
+  raw_frames: 32
+  cache_tag: intphys2_late_uni_m10
+  root: ${CVPR_DATA_CSV}/intphys2_late_uni_m10
+  index_csv: index.csv
+  frames_root: ${CVPR_REPO}/z_pixel_decoder/runs/_frames/IntPhys2_late_uni_m10
+  frames_pattern: '{video_id}/{frame:06d}.png'
+  frames_start: 0
+  frames_stride: 1
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: block_type
+  engine: wma
+intphys2_late_final:              # 2026-10-23. ★ 사용자 재라벨 labels_final.csv (레포 루트) 기준. 500 쌍, 쌍마다 문맥 16 · 미래 16 프레임 번호가 파일에 적혀 있다
+                                  #   (대부분 시트 라벨 − 10, 다른 쌍 라벨 64 쌍, 사용자 지정 7 쌍). PNG 를 만들지 않고 mp4 (NFS) 에서 frames 열의 번호를 바로 읽는다 (data.frames_column)
+                                  #   가능 영상이 더 짧은 36 쌍은 미래 끝 1–2 장을 가능 영상 마지막 장으로 (index 의 clamp_pos). index 는 build.py --final labels_final.csv --index-only
+  raw_frames: 32
+  cache_tag: intphys2_late_final
+  root: ${CVPR_DATA_CSV}/intphys2_late_final
+  index_csv: index.csv
+  frames_column: frames
   block_column: block_id
   pair_column: pair_id
   variant_column: variant

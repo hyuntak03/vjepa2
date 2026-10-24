@@ -17,10 +17,14 @@ DATASETS=${1:-${DATASETS:-intphys2_main}}
 MODELS=${2:-${MODELS:-vith}}
 win_for()   { [[ $1 == videomae2g ]] && echo "${WINDOWS:-ip2_vmae_fps6 ip2_vmae_fps3 ip2_vmae_fps2}" || echo "${WINDOWS:-ip2_w16 ip2_w32 ip2_w48}"; }
 batch_for() {                                   # 모델/창 -> max_window_batch
+  # 아래 값은 24 GB 카드 기준이다. IP2_BATCH_MULT=N 으로 배수를 곱한다 (96 GB 노드 등).
+  # ⚠️ max_window_batch 는 VRAM 상한일 뿐 수치에 영향이 없다 (protocol.yaml:47). video_batch 는 절대 건드리지 말 것 (:14).
+  local b
   case "$1/$2" in
-    vjepa21g/*16*) echo 12 ;; vjepa21g/*32*) echo 8 ;; vjepa21g/*48*) echo 6 ;;
-    */*16*|*/*fps*) echo 16 ;; */*32*) echo 12 ;; */*48*) echo 8 ;; *) echo 8 ;;
+    vjepa21g/*16*) b=12 ;; vjepa21g/*32*) b=8 ;; vjepa21g/*48*) b=6 ;;
+    */*16*|*/*fps*) b=16 ;; */*32*) b=12 ;; */*48*) b=8 ;; *) b=8 ;;
   esac
+  echo $(( b * ${IP2_BATCH_MULT:-1} ))
 }
 fail=0
 for d in $DATASETS; do for m in $MODELS; do for w in $(win_for "$m"); do

@@ -318,3 +318,149 @@ vith_vll7_ctxt_tgtvideo:          # 2026-10-17. 문맥 = 영상(창 전체 encod
   base: vith
   predictor_checkpoint: ${CVPR_REPO}/z_vll7_training/runs/ctxt_video_tgtvideo/latest.pt
   predictor.kind: ctx_state
+
+# 2026-10-22: 커밋 2bd0d5d (브랜치 intphys1-late-uni) 의 모델 항목을 main 으로 옮김 (intphys2_late 채점용)
+vith_vast_ar_state_ep70_phys2dsup:   # 2026-10-19. vast ar_state ep70 + phys2d_sup_v1 PFT 15 ep (AR L1 + state_head 보조 손실: 정체 48 쿼리 → 존재 · 위치 · 속도) (configs/training/phys2d_sup_vast_ar_state_pft.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/phys2d_sup_vast_ar_state_pft/latest.pt
+  predictor.kind: ar_state
+vith_pft_single_w005:             # 2026-10-20. vast ar_state ep70 + phys2d_single_v1 PFT 15 ep, **제약 크기 상태 감독** (state_head single, weight 0.05 · lr_mult 3). z_vll7_training/configs/phys2d_single_v1_pft_w005.yaml
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_vll7_training/runs/phys2d_single_v1_pft_w005/latest.pt
+  predictor.kind: ar_state
+
+vith_pft_single_nosup:            # 2026-10-20. 같은 데이터 · 같은 설정에서 **상태 감독만 뺀** 짝 (state_head null) — 관측만으로 학습. z_vll7_training/configs/phys2d_single_v1_pft_nosup.yaml
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_vll7_training/runs/phys2d_single_v1_pft_nosup/latest.pt
+  predictor.kind: ar_state
+
+vith_g1_phys2d:                   # 2026-10-21. ★ predictor_group — frozen encoder 를 공유해 세 팔을 한 실행에.
+  # 왜: wma sliding 경로는 팔마다 같은 ViT-H forward 를 반복한다. 비용의 대부분이 encoder 라
+  #     GRASP 4,096 영상 × 3 팔 × 창 2 = 6 h 였다 (2026-10-21 실측, GPU 4 장 100 %).
+  #     kind=ar_state 는 encoder 호출이 encode_blocks 한 줄이고 predictor 와 분리돼 있어 공유가 안전하다.
+  # 팔마다 **단독 실행과 같은 이름의 폴더**에 summary.json · per_block.json · per_window.json 을 쓴다
+  #     (폴더 이름은 resolve.py 가 채운다). 묶음 폴더에는 색인만 남는다.
+  # ⚠️ 비트 단위 동치를 확인하고 쓴다: python z_research/scripts/analysis/check_predictor_group.py
+  base: vith
+  predictor.kind: ar_state
+  predictor_checkpoint: ${CVPR_REPO}/z_training/vast/ar_state/latest.pt   # 첫 팔 = 아래 vast_ar_state_ep70
+  predictor_group:
+    - name: vith_vast_ar_state_ep70      # 출발점 anchor (predictor_checkpoint 생략 = 위 것)
+    - name: vith_pft_single_nosup
+      predictor_checkpoint: ${CVPR_REPO}/z_vll7_training/runs/phys2d_single_v1_pft_nosup/latest.pt
+    - name: vith_pft_single_w005
+      predictor_checkpoint: ${CVPR_REPO}/z_vll7_training/runs/phys2d_single_v1_pft_w005/latest.pt
+
+vith_pft_ip2pair:                 # 2026-10-19. 릴리즈 predictor + IntPhys 2 pair train post-FT 20 ep (1,200 step) — predictor 만 (z_training/runs/intphys2_postft_pair)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/intphys2_postft_pair/latest.pt
+vith_pft_ip2pair_lora:            # 2026-10-19. 같은 학습 + context encoder LoRA (r8 α16, qkv·proj·fc1·fc2) — 체크포인트의 encoder_lora 를 로더가 문맥 encoder 에 붙인다 (z_training/runs/intphys2_postft_pair_lora)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/intphys2_postft_pair_lora/latest.pt
+vith_vll7_ar_phys2d:              # 2026-10-19. ★ vll7 **scratch** AR (ar_state, 가변 창) — 데이터 K400 320p + SSv2 + **phys2d_v1**
+                                  #   `z_vll7_training/configs/ar_state_vw_phys2d.yaml` · 70 epoch x ipe 294 = 20,580 step · lr 5.2e-4 WSD · 6 GPU
+                                  #   predictor 무작위 초기화 (load_predictor: false), encoder 동결 (target_encoder 하나).
+                                  #   실측 프레임 비율 k400 57.6 : ssv2 19.4 : phys2d 23.0 (max_window 40 · phys2d weight 0.4 — datasets.md 의 vll7 절)
+                                  #   ⚠️ vast `vith_vast_ar_state_ep70` 과 **데이터가 다르다** (vast = K710+SSv2+HowTo, 여기 = K400+SSv2+phys2d) — 한 변수 대조가 아니다.
+                                  #      한 변수 대조 짝은 같은 노드의 `ar_state_vw` (phys2d 만 뺀 것) 이고 아직 안 돌렸다.
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_vll7_training/runs/ar_state_vw_phys2d/latest.pt
+  predictor.kind: ar_state
+
+# ── predictor_group: frozen encoder 하나 위에 predictor 여러 개 (2026-10-18, EK100 전용) ──────────────────
+#   같은 릴리즈 ViT-H (632M) 를 쓰고 predictor (22M) 만 다른 모델들을 **한 실행**으로 돌린다.
+#   encoder forward 를 batch 마다 한 번만 하므로 따로 돌릴 때보다 빠르다 (evals/.../MultiAnticipative).
+#   결과는 output_dir 의 val_metrics__<name>.jsonl 에 모델마다 따로 쌓인다. kind 는 체크포인트 arch 가 선언한다.
+vith_ek100_g6:                    # 2026-10-20. phys2d_single_v1 PFT 두 팔 + 출발점 anchor.
+                                  #   ⚠️ 시트 "EK100 subset" 열의 규약은 g4 로 역산해 확정했다 (2026-10-20):
+                                  #      cap16metric 부분집합 · HEADS=cap16b96 (head 3) · 20 epoch · global batch 96 · val_every 5,
+                                  #      열 U = **lr 별 최댓값** verb mean-class recall@5, 열 V = 같은 식의 noun.
+                                  #      g4 의 ar_vast_ep70 head 가 48.9 / 49.0 = 시트 21 행과 **정확히 일치**해 규약을 특정했다.
+                                  #   anchor 를 같은 실행에 넣는 이유: g4 와 g5 의 release 팔이 48.7 vs 48.9 로 0.2 pt 흔들린다 —
+                                  #      우리가 보려는 차이가 1 pt 규모라 실행 간 드리프트를 안에서 흡수해야 한다.
+  base: vith
+  predictor_group:
+  - name: ar_vast_ep70              # 출발점 anchor. g4 에서 verb 48.9 / noun 49.0 을 재현해야 한다
+    predictor_checkpoint: ${CVPR_REPO}/z_training/vast/ar_state/latest.pt
+  - name: pft_single_nosup          # 관측만 (state_head null)
+    predictor_checkpoint: ${CVPR_REPO}/z_vll7_training/runs/phys2d_single_v1_pft_nosup/latest.pt
+  - name: pft_single_w005           # 상태 감독 weight 0.05
+    predictor_checkpoint: ${CVPR_REPO}/z_vll7_training/runs/phys2d_single_v1_pft_w005/latest.pt
+
+vith_vast_op:                     # 시트 "AR predictor + Object permanence" — vast ar_state, object_permanence 경계 정렬 학습 70 ep
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/vast/ar_block_ctxt_block_target_op/latest.pt
+  predictor.kind: ar_state
+vith_vast_vob:                    # 시트 "AR predictor + VOBench" — vast ar_state, 학습 데이터에 VOBench 섞음 70 ep
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/vast/ar_block_ctxt_block_target_vob/latest.pt
+  predictor.kind: ar_state
+vith_vast_gres:                   # 시트 "AR predictor w/ residual gating" — vast ar_state + gating_residual 70 ep
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/vast/ar_block_ctxt_block_target_residual/latest.pt
+  predictor.kind: ar_state
+vith_vast_ctxvideo:               # 시트 "Ours (context: video, target: block) AR predictor" — vast ctx_state (ctx_target block) 70 ep
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/vast/ar_video_ctxt_block_target/latest.pt
+  predictor.kind: ctx_state
+vith_natural_tube:                # 시트 "Predictor tublet" — vast oneshot (릴리즈 구조) K710+SSv2+HowTo 70 ep + cooldown 64 (z_training/vast/README.md)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/vast/natural_k710_ssv2_howto.pt
+  predictor.kind: oneshot
+vith_pft_ip1late_f0:              # 2026-10-21. 릴리즈 predictor + IntPhys 1 dev late occ (uniform-d) 창 PFT, block 2-fold 의 fold 0 학습 40 ep (z_training/runs/intphys1_late_uni_pft_f0). ⚠️ 점수는 data_csv/intphys1_late_uni_cv/fold0_test.csv block 으로만
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/intphys1_late_uni_pft_f0/e40.pt
+
+# ── 짧은 문맥 AR (vll7, K400+SSv2) — 궤적(optical flow) 보조 손실 한 변수 대조 (2026-10-23) ──────────
+#   두 run 은 **같은 config · 같은 seed · 같은 step (epoch 40 · step 11,760)** 이고 보조 손실만 다르다.
+#   문맥 C = 1 또는 2 블록, 예측 K = 1·2·4·8·16 블록 (가변 창). predictor 무작위 초기화, encoder 동결.
+#   ⚠️ kind: ar 는 타깃 공간이 표준과 다르다 (블록별 LN(target_encoder)) — **쌍 정확도만** 비교한다 (CLAUDE.md §3-1).
+#   snap_eval.pt = 2026-10-23 00:14 에 latest.pt 를 고정 사본으로 뜬 것 (학습이 계속 latest.pt 를 덮어쓴다).
+#   ⚠️ epoch 이 다르다 — 대조군 43 (학습 중단됨) · 실험군 46 (학습 중). 한 변수 대조가 **아니다**.
+vith_vw_shortctx:                 # 대조군: 보조 손실 없음, epoch 43 · step 12,642 (z_vll7_training/configs/ar_vw_shortctx.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_vll7_training/runs/ar_vw_shortctx/snap_eval.pt
+  predictor.kind: ar
+vith_vw_shortctx_trajdiff:        # 실험군: 인접 블록 출력의 차 → 궤적(누적 변위) 보조 손실. **학습 완료 epoch 70 · step 20,580** (2026-10-23 03:29)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_vll7_training/runs/ar_vw_shortctx_trajdiff/latest.pt
+  predictor.kind: ar
+vith_vw_shortctx_e40:             # 위 둘의 **한 변수 짝** — 둘 다 epoch 40 · step 11,760 (대조군)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_vll7_training/runs/ar_vw_shortctx/e40.pt
+  predictor.kind: ar
+vith_vw_shortctx_trajdiff_e40:    # 〃 (실험군)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_vll7_training/runs/ar_vw_shortctx_trajdiff/e40.pt
+  predictor.kind: ar
+
+vith_ek100_g7:                    # 2026-10-23. 궤적(optical flow) 보조손실 + 릴리즈 predictor PFT 두 팔 (사용자 지정) + 출발점 anchor.
+                                  #   규약은 g6 과 같다: cap16metric 부분집합 · HEADS=cap16b96 · 20 epoch · 4 GPU x batch 24 = global 96 · val_every 5.
+                                  #   anchor (릴리즈 predictor) 를 같은 실행에 넣는 이유: g4/g5 의 release 팔이 48.7 vs 48.9 로 흔들린다 —
+                                  #   보려는 차이가 1 pt 규모라 실행 간 드리프트를 안에서 흡수해야 한다.
+                                  # ⚠️⚠️ pft_ip2pair_lora 의 **LoRA 는 이 평가에서 작동하지 않는다.**
+                                  #   LoRA 는 학습 때 online `encoder` (문맥 encoder) 에만 붙었는데 (app/vjepa_frozen/lora.py),
+                                  #   EK100 엔진은 `target_encoder` 하나로 특징을 낸다 (cvpr/eval/ek100/protocol.yaml: checkpoint_key: target_encoder).
+                                  #   따라서 이 팔은 pft_ip2pair 와 **predictor 가중치만 다르다.** "EK100 에서 LoRA 효과" 로 읽지 말 것.
+  base: vith
+  predictor_group:
+  - name: release                   # 출발점 anchor. g4 에서 verb 48.7 / noun 49.5 / action 33.1
+  - name: trajdiff                  # 궤적(optical flow) 보조손실, 짧은 문맥 AR, epoch 70 (K400+SSv2)
+    predictor_checkpoint: ${CVPR_REPO}/z_vll7_training/runs/ar_vw_shortctx_trajdiff/latest.pt
+  - name: pft_ip2pair               # 릴리즈 predictor + IntPhys 2 pair PFT 20 ep, encoder 동결
+    predictor_checkpoint: ${CVPR_REPO}/z_training/runs/intphys2_postft_pair/latest.pt
+  - name: pft_ip2pair_lora          # 같은 학습 + 문맥 encoder LoRA (r8 a16) — ⚠️ 위 참고: EK100 에선 LoRA 가 비활성
+    predictor_checkpoint: ${CVPR_REPO}/z_training/runs/intphys2_postft_pair_lora/latest.pt
+
+# ── 원래 AR 격자 (vast natural_ar_vw 와 같은 C,K ∈ {2,4,8,16} 블록) × 궤적(optical flow) 보조손실 (2026-10-24) ──
+#   10-22 판 (vith_vw_shortctx_trajdiff) 은 문맥 1~2 블록짜리에 얹혀 있었다 — 사용자 의도는 원래 AR 이었다 (10-24 정정).
+#   이 둘은 같은 격자 · 같은 데이터 (K400 320p + SSv2) · 같은 step (70 ep x 294) · snap_start 켬, **손실만 다르다** = 한 변수 대조.
+#   ⚠️ 시트 20 행 "AR predictor" (vast, K710+SSv2+HowTo) 와는 데이터가 달라 직접 비교 금지.
+vith_ar_vw_traj:                  # 실험군 — 인접 블록 출력의 차 -> 누적 변위 (flow_head.input: diff, supervise 1·2·4 블록)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_vll7_training/runs/ar_vw_traj/latest.pt
+  predictor.kind: ar
+vith_ar_vw:                       # 대조군 — 같은 config 에서 궤적 손실만 없음
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_vll7_training/runs/ar_vw/latest.pt
+  predictor.kind: ar

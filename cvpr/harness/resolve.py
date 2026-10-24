@@ -575,6 +575,24 @@ def main():
 
     if engine == "wma":
         cfg["tag"], cfg["output_dir"] = tag, output_dir
+        # predictor_group (2026-10-21): frozen encoder 를 공유해 predictor 여러 개를 한 실행에.
+        #   팔마다 **단독 실행과 똑같은 이름의 폴더**를 준다 — 이름 규칙을 엔진이 다시 짓지 않게
+        #   여기서 채운다 (`<dataset>_<팔 이름>_<창>`). 그래야 garrido_rescore.py · 시트가 그대로 돈다.
+        for g in (cfg.get("model") or {}).get("predictor_group") or []:
+            if not g.get("name"):
+                die("model.predictor_group 항목에 name 이 없다")
+            if g.get("output_dir"):
+                continue
+            if a.outdir or os.environ.get("OUTDIR"):
+                g["output_dir"] = f"{output_dir}__{g['name']}"
+            elif a.results == "legacy":
+                g["output_dir"] = f"{legacy_root}/{legacy_name or stem}__{a.dataset}_{g['name']}{win_suffix}"
+            else:
+                root = os.environ["CVPR_RESULTS"] if a.results == "cvpr" else a.results
+                g["output_dir"] = (f"{root}/{task}/{'' if stem == 'protocol' else stem + '__'}"
+                                   f"{a.dataset}_{g['name']}{win_suffix}")
+            if a.limit:
+                g["output_dir"] += f"_smoke{a.limit}"
         if a.limit:
             cfg["limit"] = int(a.limit)
         if a.smoke:

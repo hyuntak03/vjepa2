@@ -908,6 +908,35 @@ variant_column: variant
 plausible_column: plausible
 type_column: condition
 
+## vobench_v1_gravity
+
+**VOBench gravity (2026-10-19 추가 — 복사 기준선용).** `cvpr/registry/datasets.yaml` 의 같은 이름 항목과 **같은 데이터**다.
+216 block / 936 arm. block = 과거 하나 + 미래 여럿: ledge (`pos` · `imp_float`) · arc 꼭대기 (`pos` · `imp_float` ·
+`imp_rise` · `imp_line` · `imp_stop{,2,4,8,12}`). 원본 96 프레임 stride 3 → 32 장.
+
+⚠️ **왜 여기 또 있나** — 복사 기준선 엔진 (`cvpr/eval/testbed/copy_baseline.sh` → `te_v11_score.py`) 만 아직
+   옛 resolver (`z_research/scripts/harness/resolve.py` + 이 파일) 를 쓴다. cvpr 레지스트리 쪽은 `${CVPR_DATA2}` 를
+   쓰지만 이 파일은 **환경변수를 전개하지 않아** 실물 경로를 적어야 한다.
+⚠️ **frames_root 는 노드마다 다르다.** 아래 값은 **vll7** (실물 `/local_datasets/world/testbed/VOBench_v1/gravity`).
+   vll5 에서는 `/data2/local_datasets/world/Benchmark/VOBench_v1/gravity` 로 바꿀 것
+   (바로 위 `vobench_v1` 항목이 vll5 경로를 쓰고 있다 — 두 노드가 섞여 있으니 쓰기 전에 `ls` 로 확인한다).
+⚠️ 채점은 `scoring.pairing: cross` 다 (block 하나 = 문맥 하나라 가능 1 × 불가능 전부). 주지표 matched 와 다르다.
+
+raw_frames: 96
+cache_tag: vobench_v1_gravity
+results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/VOBench_v1/exp_results
+root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/vobench_v1_gravity
+index_csv: index.csv
+frames_root: /local_datasets/world/testbed/VOBench_v1/gravity
+frames_pattern: "{file_name}/{frame:06d}.png"
+frames_start: 0
+frames_stride: 3
+block_column: block_id
+pair_column: pair_id
+variant_column: variant
+plausible_column: plausible
+type_column: condition
+
 ## vobench_v1_split_test
 
 > ⚠️ **누수 (2026-10-14)** — test 가능 영상 720 중 52 개가 train 영상과 같은 설정 · 궤적 (렌더 노이즈만 다름). 새 채점은 `vobench_v1_split2_test` 로.
@@ -939,6 +968,30 @@ results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_research/VOBench_v1/
 root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/vobench_v1_split_v2
 index_csv: index_test.csv
 frames_root: /data2/local_datasets/world/Benchmark/VOBench_v1
+frames_pattern: "{file_name}/{frame:06d}.png"
+frames_start: 0
+frames_stride: 3
+block_column: block_id
+pair_column: pair_id
+variant_column: variant
+plausible_column: plausible
+type_column: condition
+
+## vobench_v1_late
+
+VOBench (UE 5.4 TestBed) 의 **occlusion=late 만** — 216 block × 4 arm = 864 clip, **432 matched pair** (vast 909f1b3 이식, 2026-10-19).
+학습 in-loop val 용. 96 프레임 30 fps PNG, 채점과 같게 0 부터 3 장 간격 32 장 (문맥 16 장 = 8 블록 → 예측 8 블록).
+`type_column` = condition (`<objset>/<violation>/late`, 6 값 × 36 block). 정식 채점은 `cvpr/eval/testbed/run.sh vobench_v1_late` (같은 정의).
+인덱스는 `data_csv/vobench_v1/index.csv` 를 `occlusion == late` 로 거른 것 (2026-10-19 vll7 에서 생성).
+vast 확인: AR 최종 체크포인트로 이 val 76.4 vs 정식 VOBench late 76.0.
+
+⚠️ `frames_root` 는 **vll7 로컬 경로**다. vll5 는 `/data2/local_datasets/world/Benchmark/VOBench_v1` 를 써야 한다 (`vobench_v1` 항목과 같은 사정).
+
+raw_frames: 96
+cache_tag: vobench_v1_late
+root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/vobench_v1_late
+index_csv: index.csv
+frames_root: /local_datasets/world/testbed/VOBench_v1
 frames_pattern: "{file_name}/{frame:06d}.png"
 frames_start: 0
 frames_stride: 3

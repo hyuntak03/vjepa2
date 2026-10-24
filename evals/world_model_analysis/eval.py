@@ -408,6 +408,24 @@ def _intphys1_windows(n_frames: int, skip: int, wsize: int, ctx_lens, stride: in
 
 
 @torch.inference_mode()
+def arm_outdir(cfg: dict, arm: str) -> str:
+    """predictor_group 팔의 출력 폴더. 팔 이름이 빈 문자열이면 (= group 없음) 평소 output_dir.
+
+    팔마다 **단독 실행과 똑같은 모양의 폴더**를 쓴다 (summary.json · per_block.json · per_window.json).
+    그래야 garrido_rescore.py · 시트 파이프라인이 그대로 돈다. 폴더 이름은 엔진이 짓지 않고
+    resolver (cvpr/harness/resolve.py) 가 단독 실행과 같은 규칙으로 채워 넣는다.
+    """
+    if not arm:
+        return cfg["output_dir"]
+    for g in cfg["model"].get("predictor_group") or []:
+        if g.get("name") == arm:
+            d = g.get("output_dir")
+            if not d:
+                raise ValueError(f"predictor_group '{arm}' 에 output_dir 이 없다 — resolver 가 채워야 한다")
+            return d
+    raise KeyError(f"predictor_group 에 '{arm}' 이 없다")
+
+
 def run_surprise_intphys1(ds, cfg, device):
     """IntPhys1 채점 프로토콜 (Garrido et al., "Intuitive physics understanding emerges...").
 
@@ -425,12 +443,44 @@ def run_surprise_intphys1(ds, cfg, device):
     W = S.get("intphys1", {}) or {}
     bundle = build_from_config(cfg["model"], device)
     ts, spatial = bundle.tubelet_size, bundle.num_spatial_tokens
+    # ---- predictor_group (2026-10-21): encoder 를 공유해 predictor 여러 개를 한 번에 ----------
+    # 세 팔이 predictor 만 다르고 frozen encoder 가 같을 때, 지금 구조는 같은 ViT-H forward 를
+    # 팔 수만큼 반복한다. 비용의 대부분이 encoder 라 GRASP 세 팔이 6 h 였다 (2026-10-21 실측).
+    # kind=ar · ar_state 는 encoder 호출이 `encode_blocks(target_encoder, x, ts)` 한 줄이고
+    # predictor 와 완전히 분리돼 있어, 그 출력 h_blk 를 팔마다 재사용하면 된다.
+    #   model.predictor_group: [{name, predictor_checkpoint, output_dir}, ...]
+    # ⚠️ 배치 구성 · 반복 순서 · reduction 순서를 하나도 안 바꾼다 — 단일 실행과 **비트 단위로 같아야** 한다
+    #    (검사: z_research/scripts/analysis/check_predictor_group.py).
+    GRP = cfg["model"].get("predictor_group") or []
+    arms = [("", bundle.predictor)]
+    if GRP:
+        arms = []
+        for g in GRP:
+            if not g.get("name"):
+                raise ValueError("predictor_group 항목에 name 이 없다")
+            if g is GRP[0] and not g.get("predictor_checkpoint"):
+                arms.append((g["name"], bundle.predictor)); continue
+            b2 = build_from_config({**cfg["model"], "predictor_checkpoint": g["predictor_checkpoint"],
+                                    "predictor_group": None}, device)
+            arms.append((g["name"], b2.predictor))
+            del b2                                   # encoder 사본은 버린다 (predictor 만 쓴다)
+        torch.cuda.empty_cache()
+        kinds = {n: PV.kind_of(pm) for n, pm in arms}
+        if len(set(kinds.values())) > 1:
+            raise ValueError(f"predictor_group 의 kind 가 섞였다 {kinds} — 분기 구조가 달라져 한 실행에 못 담는다")
+        logger.info(f"[surprise] predictor_group {len(arms)} 팔 (encoder 공유): "
+                    + ", ".join(n for n, _ in arms))
     # rollout 계열 (ar · ar_state · ctx_ar · ctx_state): 시작점마다 창을 블록별로 인코딩하고 C 마다 rollout. 정의 · 노브는 ar_scoring.py
     ctx_mode = PV.is_ctx_ar(bundle.predictor)
     state_mode = PV.is_ctx_state(bundle.predictor)      # 문맥 = 창 단위 (2026-10-16)
     state_tgt = PV.ctx_target_of(bundle.predictor)      # ⚠️ **학습 때와 같은 타깃** (window | block). 체크포인트 arch 가 정한다
     ar_mode = PV.is_rollout(bundle.predictor)
     ar_base = S.get("ar_baseline")
+    if GRP and not (ar_mode and not ctx_mode and not state_mode):
+        raise ValueError(
+            f"model.predictor_group 은 kind=ar · ar_state 전용이다 (지금 {PV.kind_of(bundle.predictor)}). "
+            "다른 kind 는 C 마다 encoder 를 다시 돈다 (z = context_encoder(x, masks=[ci]) · ctx_state_from_window) — "
+            "encoder 작업이 predictor 와 엉켜 있어 공유하려면 그 경로부터 분리해야 한다. 팔을 하나씩 따로 돌릴 것.")
     if ar_mode:
         ARS.check_ar_ready(bool(S.get("target_layer_norm", True)), ar_base)
         if (ctx_mode or state_mode) and ar_base:
@@ -491,7 +541,7 @@ def run_surprise_intphys1(ds, cfg, device):
                      f"reduce={reduce_c}, aggregate={aggs}, frame_budget={frame_budget}")
 
     idx = list(range(rank, len(ds), ws))
-    out = {}
+    out = {n: {} for n, _ in arms}          # 팔 이름 -> {video_id: {combo/agg: 값}}
     t_all = time.time()
     # video_batch: 한 번에 GPU 에 올리는 영상 수.
     #
@@ -508,7 +558,7 @@ def run_surprise_intphys1(ds, cfg, device):
     # context 가 이미 위반 프레임을 포함한 window 가 결과에 얼마나 기여했는지
     # 사후에 따지려면 집계 전 값이 있어야 한다 (평소엔 꺼둔다).
     dump_windows = bool(W.get("dump_windows", False))
-    win_dump = defaultdict(list)          # video_id -> [(combo, start, C, value), ...]
+    win_dump = {n: defaultdict(list) for n, _ in arms}   # 팔 -> video_id -> [(combo, start, C, value), ...]
     if rank == 0:
         logger.debug(f"[surprise] rank{rank} 시작 {len(idx)}개/rank "
                      f"(video_batch={vbs}, max_batch={max_batch})")
@@ -520,9 +570,9 @@ def run_surprise_intphys1(ds, cfg, device):
     for j, s0 in enumerate(steps):
         vidx = idx[s0 : s0 + vbs]
         clips = [ds.clip(i).to(device, bundle.dtype) for i in vidx]
-        res_of = [{} for _ in vidx]
+        res_of = {a: [{} for _ in vidx] for a, _ in arms}
         for name, wins, _ in combos:
-            per_start = [defaultdict(list) for _ in vidx]
+            per_start = {a: [defaultdict(list) for _ in vidx] for a, _ in arms}
             # ---- window 시작점 단위로 묶는다 -------------------------------------
             # 같은 시작점 t 의 window 는 C 와 무관하게 프레임 집합이 같다
             # (cf + tf = t 부터 wsize 프레임). 그래서 target encoder 는 시작점마다
@@ -555,23 +605,26 @@ def run_surprise_intphys1(ds, cfg, device):
                         h_full = bundle.target_encoder(x)      # ★ window 전체(C+M) 를 시작점당 1회
                 for C in cl_list:
                     if ar_mode:
-                        with _ac():
-                            if state_mode:
-                                p, h, _ = ARS.ctx_state_from_window(bundle.context_encoder, bundle.predictor, x, h_full,
-                                                                    C // ts, spatial, ctx_target=state_tgt,
-                                                                    target_encoder=bundle.target_encoder, tubelet=ts)
-                            elif ctx_mode:
-                                p, h, _ = ARS.ctx_ar_from_blocks(bundle.context_encoder, bundle.predictor, x, h_blk, C // ts, spatial)
-                            else:
-                                p, h, _ = ARS.rollout_from_blocks(bundle.predictor, h_blk, C // ts, spatial, baseline=ar_base)
-                        ARS.assert_finite(p, "run_surprise_intphys1")
-                        d = (p.float() - h.float()).abs()
-                        sv = (d.pow(lexp).mean(dim=(1, 2)) / lexp) if dist == "l1" else d.mean(dim=(1, 2))
-                        for (v, st), val in zip(gb, sv.tolist()):
-                            per_start[v][st].append(val)
-                            if dump_windows:
-                                win_dump[ds.records[vidx[v]].video_id].append(
-                                    (name, int(st), int(C), float(val)))
+                        # 팔 루프는 **여기** 가 가장 안쪽이다 — 위의 h_blk / h_full (encoder) 는
+                        # 팔과 무관하게 이미 한 번만 돌았다. 팔이 하나면 연산 순서가 예전과 글자 그대로 같다.
+                        for _arm, _pred in arms:
+                            with _ac():
+                                if state_mode:
+                                    p, h, _ = ARS.ctx_state_from_window(bundle.context_encoder, _pred, x, h_full,
+                                                                        C // ts, spatial, ctx_target=state_tgt,
+                                                                        target_encoder=bundle.target_encoder, tubelet=ts)
+                                elif ctx_mode:
+                                    p, h, _ = ARS.ctx_ar_from_blocks(bundle.context_encoder, _pred, x, h_blk, C // ts, spatial)
+                                else:
+                                    p, h, _ = ARS.rollout_from_blocks(_pred, h_blk, C // ts, spatial, baseline=ar_base)
+                            ARS.assert_finite(p, "run_surprise_intphys1")
+                            d = (p.float() - h.float()).abs()
+                            sv = (d.pow(lexp).mean(dim=(1, 2)) / lexp) if dist == "l1" else d.mean(dim=(1, 2))
+                            for (v, st), val in zip(gb, sv.tolist()):
+                                per_start[_arm][v][st].append(val)
+                                if dump_windows:
+                                    win_dump[_arm][ds.records[vidx[v]].video_id].append(
+                                        (name, int(st), int(C), float(val)))
                         continue
                     ci, ti = _context_target_indices(
                         ctx_frames=C, tgt_frames=wsize - C, tubelet_size=ts,
@@ -595,17 +648,19 @@ def run_surprise_intphys1(ds, cfg, device):
                         #   t+C 로 묶으면 C 마다 키가 달라져서 시작점이 다른 window 들이
                         #   한 버킷에 섞이고, 가장자리 버킷은 후보가 1개만 남아 min 이
                         #   무의미해진다 (측정: 같은 forward 결과에서 0.5 까지 벌어졌다).
-                        per_start[v][st].append(val)
+                        per_start[arms[0][0]][v][st].append(val)      # 비-AR 은 predictor_group 금지 → 팔 하나
                         if dump_windows:
-                            win_dump[ds.records[vidx[v]].video_id].append(
+                            win_dump[arms[0][0]][ds.records[vidx[v]].video_id].append(
                                 (name, int(st), int(C), float(val)))
-            for v in range(len(vidx)):
-                per_t = [(min(vv) if reduce_c == "min" else float(np.mean(vv)))
-                         for vv in per_start[v].values()]
-                res_of[v][f"{name}/avg"] = float(np.mean(per_t))
-                res_of[v][f"{name}/max"] = float(np.max(per_t))
-        for v, i in enumerate(vidx):
-            out[ds.records[i].video_id] = res_of[v]
+            for _arm, _ in arms:
+                for v in range(len(vidx)):
+                    per_t = [(min(vv) if reduce_c == "min" else float(np.mean(vv)))
+                             for vv in per_start[_arm][v].values()]
+                    res_of[_arm][v][f"{name}/avg"] = float(np.mean(per_t))
+                    res_of[_arm][v][f"{name}/max"] = float(np.max(per_t))
+        for _arm, _ in arms:
+            for v, i in enumerate(vidx):
+                out[_arm][ds.records[i].video_id] = res_of[_arm][v]
         del clips
         bar.update(len(vidx) * ws)
         if j % max(1, 20 // vbs) == 0:
@@ -616,20 +671,24 @@ def run_surprise_intphys1(ds, cfg, device):
     del bundle
     torch.cuda.empty_cache()
     merged = {}
-    for d in _gather(out):
-        merged.update(d)
+    for _arm, _ in arms:
+        m = {}
+        for d in _gather(out[_arm]):
+            m.update(d)
+        merged[_arm] = m
     if dump_windows:
-        wd = {}
-        for d in _gather(dict(win_dump)):
-            wd.update(d)
-        if rank == 0:
-            out_dir = cfg["output_dir"]
-            os.makedirs(out_dir, exist_ok=True)
-            with open(os.path.join(out_dir, "per_window.json"), "w") as f:
-                json.dump({"schema": ["combo", "window_start_frame", "context_length", "surprise"],
-                           "windows": wd}, f)
-            logger.info(f"[surprise] per-window 덤프 -> {out_dir}/per_window.json "
-                        f"({sum(len(v) for v in wd.values())} 값)")
+        for _arm, _ in arms:
+            wd = {}
+            for d in _gather(dict(win_dump[_arm])):
+                wd.update(d)
+            if rank == 0:
+                out_dir = arm_outdir(cfg, _arm)
+                os.makedirs(out_dir, exist_ok=True)
+                with open(os.path.join(out_dir, "per_window.json"), "w") as f:
+                    json.dump({"schema": ["combo", "window_start_frame", "context_length", "surprise"],
+                               "windows": wd}, f)
+                logger.info(f"[surprise] per-window 덤프 -> {out_dir}/per_window.json "
+                            f"({sum(len(v) for v in wd.values())} 값)")
     keys = [f"{name}/{a}" for name, _, _ in combos for a in aggs]
     return merged, keys
 
@@ -1010,7 +1069,10 @@ def main(args_eval, resume_preempt=False):
     if rank == 0:
         logger.info(f"[data] {ds.summary()}")
 
-    report = {"tag": cfg.get("tag"), "world_size": ws, "n_videos": len(ds), "config": cfg}
+    base_report = {"tag": cfg.get("tag"), "world_size": ws, "n_videos": len(ds), "config": cfg}
+    report = base_report          # predictor_group 이 아니면 이 객체 하나로 끝까지 간다 (예전과 동일)
+    if (cfg.get("probing") or {}).get("enabled") and (cfg["model"].get("predictor_group") or []):
+        raise ValueError("predictor_group + probing 은 아직 안 된다 — probing 은 팔마다 head 를 새로 학습해야 한다")
 
     # ---- surprise (위반 변이가 있는 데이터셋에서만) ----------------------------
     # surprise.mode 로 분기한다. 기본은 single (기존 동작 그대로).
@@ -1020,12 +1082,24 @@ def main(args_eval, resume_preempt=False):
     if cfg.get("surprise") and cfg.get("scoring"):
         mode = str(cfg["surprise"].get("mode", "single"))
         if mode == "intphys1":
-            sup_raw, aggs = run_surprise_intphys1(ds, cfg, device)
+            # 2026-10-21: predictor_group 이면 {팔 이름: {video_id: ...}} 로 온다. 없으면 {"": {...}}.
+            sup_arms, aggs = run_surprise_intphys1(ds, cfg, device)
         else:
-            sup_raw = run_surprise(ds, cfg, device)
-            aggs = list(next(iter(sup_raw.values())).keys()) if sup_raw else ["all"]
+            sup_arms = {"": run_surprise(ds, cfg, device)}
+            v0 = next(iter(sup_arms[""].values()), None)
+            aggs = list(v0.keys()) if v0 else ["all"]
 
-        if rank == 0:
+        arm_dirs = {}
+        for _arm, sup_raw in sorted(sup_arms.items()):
+          # 팔이 없으면 (_arm == "") report 는 base_report **그 객체**다 — 아래 probing·summary 가 예전처럼 이어 쓴다
+          out_dir = arm_outdir(cfg, _arm)
+          report = base_report if not _arm else dict(base_report, tag=f"{base_report['tag']}__{_arm}",
+                                                     predictor_arm=_arm)
+          if _arm:
+              arm_dirs[_arm] = out_dir
+              os.makedirs(out_dir, exist_ok=True)
+              logger.info(f"[surprise] ---- 팔 {_arm} -> {out_dir}")
+          if rank == 0:
             report["surprise_mode"] = mode
             report["surprise"] = {}
             dump = {"per_video_surprise": sup_raw, "per_block": {}}
@@ -1068,6 +1142,13 @@ def main(args_eval, resume_preempt=False):
                 dump["per_block"] = dump["per_block"]["all"]
             with open(os.path.join(out_dir, "per_block.json"), "w") as f:
                 json.dump(dump, f, indent=2)
+            if _arm:        # 팔마다 단독 실행과 같은 모양의 summary.json 을 바로 쓴다
+                with open(os.path.join(out_dir, "summary.json"), "w") as f:
+                    json.dump(report, f, indent=2, default=str)
+                logger.info(f"[wma] 팔 {_arm} done -> {out_dir}")
+        if arm_dirs:        # 묶음 폴더에는 색인만 남긴다 (팔 결과는 각자 폴더에)
+            report = dict(base_report, predictor_group=arm_dirs)
+            out_dir = cfg["output_dir"]
     _barrier()
 
     # ---- probing --------------------------------------------------------------
