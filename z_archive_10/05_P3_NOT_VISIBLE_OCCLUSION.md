@@ -1,5 +1,7 @@
 # 05 — P3 (ii) 마지막 관측에 안 보이는 것: 가림 (네 능력 4 영속)
 
+> ⚠️ **2026-10-21 갱신 → [`13_SINCE_2026-10-10.md`](13_SINCE_2026-10-10.md) §2 · §5 · §7.** VOBench 에서 late (문맥 끝 가림) 영속은 움직이는 네 운동 × 두 물체 집합 8 칸 전부 **A 0 / B 100** (v11 재현, 물체 집합 무관), 문맥 가운데 가림은 처리, 창을 밀어도 안 바뀜 → '마지막 관측에 안 보여서'. late 의 predictor 출력에서 정체 probe 0–5 % (부재). 자기회귀 predictor 는 late 영속 100 이지만 물체 자리에서는 0 % (presence without placement 재확인). 같은 분포로 post-FT 하면 late 를 푼다 (사라짐 14 → 97) — 분포 안 한정.
+
 > **결론** — 가림이 **마지막 관측 (문맥 끝)** 에 걸리면 V-JEPA 2 ViT-H 의 vanish 채점은 '물체→빈' 0 / '빈→물체' 100 으로 갈라져 50 % 가 되고, 학습된 자로 읽은 p 의 미래에는 처음부터 물체다운 토큰이 없다. 문맥 가운데 가림은 거의 처리한다. 정체 정보는 입력 (z) 과 p 에 남아 있지만 p 는 그것을 가려진 물체의 미래 자리에 놓지 않는다.
 > **근거** — (1) v11 등가속 (ramp) 가림 행 vanish 50.0 = A 0.00 / B 100.00 (k=1–4 전부; 등속 flat 가림 52.0 = A 0–12.5 / B 100), 같은 행 shape 54.5, k=1–4 평평 (`z_research/IntPhysGenV11/Archive/surprising_score/RESULTS_2026-08-30.md` 표 A·B·D). (2) 가림 타이밍: visible 87.2 / early 79.0 / mid 78.2 / **late 59.5**, 총 가림 장수를 맞춰도 +20.2 / +17.3 (`z_research/IntPhysGenV11_occlusion_timing_ablation/README.md`). (3) 실물 메시 A 0–10 / B 100 (`z_research/v11_realistic/README.md` §1) · K400 팬 가림 띠 hid .21 vs vis .42, 같은 칸 비가림 대비 약 1/3 (`auto_research/Archive/I_SCENE_CAUSAL_BOTTLENECK_2026-09-25.md` §4-4, 2 차 검증 확정).
 > **미결** — late 가 "문맥 끝을 가려서" 인지 "미래 앞을 가려서" 인지 가르는 팔이 없다 (대칭 가림). 자 없는 vanish 비교 (이동 k≥2 98–100 % 빈 미래 쪽) 와 identity_r8 자 (ramp k=2 t1 '있음' 69 %) 사이의 긴장도 남는다.

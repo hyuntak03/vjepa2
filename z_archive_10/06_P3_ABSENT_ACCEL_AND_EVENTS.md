@@ -1,5 +1,7 @@
 # 06 — P3 (iii) 마지막 관측에 없는 것: 3a 추세 (가속 · 감속 · 꼭대기) 와 3b 사건 (낙하 · 벽)
 
+> ⚠️ **2026-10-21 갱신 → [`13_SINCE_2026-10-10.md`](13_SINCE_2026-10-10.md) §3 · §7.** VOBench 중력 판 (재렌더, 미래 9 갈래): 릴리즈는 진짜 포물선 0/72, 고른 미래 = 진짜 운동을 11–15 프레임 잇다 **공중에서 멈춘** 미래 92–100 %; 예측 길이를 2 로 줄여도 창 끝에서 정지 쪽 (창 끝 효과 = 배경 · 그림자 토큰). 자기회귀 predictor 는 멈추진 않으나 등속 · 높이 유지 후보 (내려가는 중 진짜 포물선 0/24). 선반은 복사도 0 (못 가름 재확인). 2D post-FT 는 가속을 재는 칸에서 복사보다 36 pt 아래 (방향 있는 실패).
+
 > **결론** — V-JEPA 2 ViT-H 릴리즈 predictor 는 마지막 관측에 **없는** 변화를 미래에 넣지 않는다. 3a: 가속은 등속 외삽과 같은 거리만 가고 (가속 미반영), 감속량을 clip 별로 따라가지 않으며, 오르는 공은 꼭대기에서 돌아 내려오지 않는다. 3b: 선반 끝에서 떨어뜨리지 않고 (선반 높이 유지), 벽에서는 멈추지 않고 2 슬롯 통과한 뒤 물체를 잃는다. 다시 학습한 predictor 중에도 3a 를 진실대로 넣는 것은 확인되지 않았다.
 > **근거** — (1) RollOut_v2 flat_a 마지막 슬롯 x: p 28.1 ≈ 등속 외삽 32.4, 진실 54.0, h 53.7 (`z_research/RollOutV2/Archive/PREDICTOR_DISTANCE_LIMIT_2026-09-19.md` §3); RollOut_v3 같은 문맥 속도에서 12 튜블릿 뒤 진실 가속/등속/감속 112/94/76 px vs p 70/72/71 (`z_research/RollOutV3/Archive/CONTEXT_TO_FUTURE_2026-09-26.md` §2(b)).
 > (2) v11_realistic_ledge 실물 메시 **0 / 120** 쌍 (`z_research/v11_realistic/README.md` §2); gravity_realistic 꼭대기 문맥에서 공 자리가 arc 쪽인 block **2 %** (`z_research/v11_realistic/exp_results/gravity_retrieval.md` §7).

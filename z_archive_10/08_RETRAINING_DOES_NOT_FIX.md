@@ -1,5 +1,7 @@
 # 08 — 다시 학습해도 같다: post-FT 넷 · Ariel 세 팔 · 사전학습 8
 
+> ⚠️ **2026-10-21 갱신 → [`13_SINCE_2026-10-10.md`](13_SINCE_2026-10-10.md) §7.** 새 사례 다섯 (VOBench post-FT: VOBench +16 / IntPhys 1 −7 · 2D 물리 post-FT 두 팔 · IntPhys 2 encoder LoRA (외우기만) · 영상 타깃 predictor 48.33 · EK100 축소 훈련셋 probe 폭 0.36) 이 이 장을 세운다. **반례 하나**: 같은 장면 분포로 post-FT 하면 late 를 푼다 (사라짐 14 → 97 · late 정체 0–5 → 87–93 %) — 그래서 결론은 "**지금까지 해 본 학습은 도메인 밖에서** 안 올랐다" 로 좁혀 쓴다. 미결 "seed 한 번" 은 그대로.
+
 > **결론** — frozen ViT-H encoder 위에서 predictor 만 다시 학습한 모델 (post-FT 넷, Ariel 의 미래 전용 · 되먹임 세 팔, 팬 증강 post-FT) 도, encoder 부터 다시 학습한 jongseo 8 개도 **점수가 학습 도메인 안에서만 오른다.** 문맥에 없던 운동 변화 (가속 · 감속 · 중력 · 사건) 를 미래에 넣게 됐다고 확인되는 predictor 는 하나도 없다. 이것이 09 장 "Ariel 을 넘어야 한다" 의 출발선이다.
 > **근거** — (1) 전이 행렬은 대각만 오른다: v11 post-FT 는 v11 75.83 → 91.35 인데 IntPhys 1 88.89 → 77.22, IntPhys 1 post-FT 는 93.89 인데 v11 78.53 (`z_training/runs/_matrix/MATRIX.md`).
 > (2) Ariel 세 팔: EK100 reach R50 은 릴리즈 2.12 → full · prefix 2.17 · AR 1.75 (천장 2.2), K400 팬 가림 띠 permanence 는 .46–.47 (릴리즈 .53), AR 은 자기 되먹임 첫 걸음부터 무너진다 (팬 슬롯 1 −.042) (`auto_research/Archive/AR_PREDICTOR_2026-09-27.md` §2 · `VERIFY_AR_2026-09-27.md`).

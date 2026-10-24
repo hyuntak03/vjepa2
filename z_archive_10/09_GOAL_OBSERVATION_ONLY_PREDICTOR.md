@@ -1,5 +1,7 @@
 # 09 — 목표: action 없이 관측만으로 intuitive physics 를 따르는 미래를 예측하는 predictor
 
+> ⚠️ **2026-10-21 갱신 → [`13_SINCE_2026-10-10.md`](13_SINCE_2026-10-10.md) §5 · §8.** 설계 후보가 바뀌었다 (10-13): '상태/렌더 분리' 는 이미 시도된 형태 (상태 되먹임 AR) 가 실패해 1 순위에서 내려가고, **문맥 끝 dropout · 공간 대조 항** 이 올라왔다 (학습 팔 A0–A3, 사용자 실행). 기준 팔이 AR 40 epoch · vast 70 epoch 으로 옮겨져 §2 합격선의 'Ariel' 열 (prefix · full · AR 혼합) 을 같은 판으로 다시 채워야 한다. §4-1 의 AR IntPhys 1 90.56 은 18 epoch 판이고 40 epoch 판은 92.8 (복사 83.3). 3b 사건 후보는 여전히 없다. 상태 보조 head 는 특권 정보라 합격선과 분리.
+
 > **결론** — 목표 predictor 는 아직 없다 (★, 학습은 사용자 몫). 이 장이 고정하는 것은 셋이다: 무엇을 넘으면 "Ariel 을 넘었다" 고 하나 (합격선 8 칸), Ariel 이 어디서 왜 실패했나 → 설계 후보 (사건 3b 는 후보 없음), 이미 시도된 처방은 전부 도메인 안에서만 듣거나 학습이 안 됐다.
 > **근거** — Ariel 세 팔 (frozen ViT-H + action 없는 실영상 미래 예측) 은 EK100 reach 2.2 (릴리즈 2.1) · permanence .46–.47 (릴리즈 .53) · v11 late vanish 물체→빈 flat/ramp 37 / 13 · 가속 α AR −0.42 / −0.46 (`auto_research/Archive/AR_PREDICTOR_2026-09-27.md` · `z_research/TrainingEffects/scores/SCORES.md` · `auto_research/Archive/AR40_READOUT_2026-09-30.md`).
 > 큰 변위 커리큘럼은 팬 평가에서만 reach 를 늘린다 (팬 R50 4.83 → 10.23, SSv2 2.70 → 3.55, EK100 2.11 → 2.20; `auto_research/Archive/I_SCENE_CAUSAL_BOTTLENECK_2026-09-25.md` §5-4) · 움직임 정렬 조회 (mret) 는 bias 가 학습되지 않아 판정 보류 (§5-2).

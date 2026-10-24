@@ -3,6 +3,7 @@
 > 레포의 결과 · 분석 md **264 개** 전부 (`z_research` · `auto_research` · `z_training` · `z_AC_training` · `z_world_model_analysis` · `analysis` · `configs` · `evals` · 루트 제안서). 추출문에 항목이 있는 것 264 개, 없는 것 0 개 (아래 '추출 안 됨').
 > 열: **줄** = 원 문서 줄 수 · **날짜** · **상태** (원 문서 머리 기준: 정본 · 대체됨 → 정본 · superseded · 기록 · 인프라) · **장** = 이 아카이브에서 그 문서를 주로 쓰는 장 (00 스토리 · 01 P1 · 02 P2 · 03 testbed·측정 · 04 보이는 것 · 05 안 보이는 것 · 06 없는 것 · 07 encoder·predictor · 08 재학습 · 09 목표 · 09b AC).
 > 상태 · 날짜는 추출 에이전트가 원 문서 머리에서 읽은 값이다. 바꾸기 전에 원 문서를 볼 것.
+> ⚠️ **경로 이동 (2026-10-10)** — 아래 `z_research/<셋>` 의 세트 15 개 (anticipation · Benchmarks · context_encoder_analysis · IntPhys · IntPhysGenV8 · V10 · V11 · V11_occlusion_timing_ablation · OcclusionStats · predictor_training · RollOutV2 · RollOutV3 · TrainingEffects · v11_realistic · v11_roll_out) 와 `HANDOFF/OVERVIEW_2026-09-22.md` 는 지금 **`z_research/previous/<셋>`** 에 있다. 이 표의 경로는 10-10 당시 것이다 — `previous/` 를 끼워 읽는다. 본문 · 줄 수는 안 바뀌었다. 10-10 이후 추가된 92 개는 이 파일 **끝** 의 표.
 
 ## (루트)  (1 개)
 
@@ -446,4 +447,147 @@
 | 문서 | 줄 | 날짜 | 상태 | 장 |
 |---|---:|---|---|---|
 | `intphys1_examples/README.md` | 41 | 불명 | 인프라·방법 (예시 GIF; 결과 수치는 예시 3쌍뿐) | 02 |
+
+---
+
+## 2026-10-10 이후 추가 — 92 개 (갱신 2026-10-21; 쓰는 장은 `13_SINCE_2026-10-10.md` 의 절)
+
+> 10-10 스냅샷 뒤 생기거나 바뀐 md. **줄 · 날짜** 는 2026-10-21 파일 실물 (mtime), **상태** 는 추출문이 원 문서 머리에서 읽은 것, **장** 은 13 장의 절 (§) 또는 부록. `configs/protocols/*.md` · `auto_research/README.md` · `PAPER_STORY_2026-10-08.md` · `z_training/README.md` · `MATRIX.md` · EK100 README 는 10-10 이전 색인에도 있는 문서인데 10-10 이후 바뀐 곳이 있어 여기 다시 적었다 (위 표의 행은 그대로 둔다).
+
+### (루트)  (1 개)
+
+| 문서 | 줄 | 날짜 | 상태 | 장 |
+|---|---:|---|---|---|
+| `RESEARCH_SUMMARY_FOR_COLLAB_2026-10-10.md` | 175 | 2026-10-10 | 기록 (협업 제안용 — 새 수치 없음, 10-13 이전 설계 후보) | 00 · 13 §8 |
+
+### auto_research  (7 개)
+
+| 문서 | 줄 | 날짜 | 상태 | 장 |
+|---|---:|---|---|---|
+| `Archive/PREDICTOR_BOTTLENECK_2026-10-13.md` | 178 | 2026-10-13 | 기록 — 결론 1 · 3 **철회**, §3 는 '어디 상태 분리' 로 → 정본 `paper/DESIGN_CHOICES_2026-10-13.md` | 13 §6 · §10 |
+| `README.md` | 159 | 2026-10-13 | 현행 결과 로그 — ⚠️ 머리 blockquote 철회 전 문장, 표 행에만 철회 | 13 §10 |
+| `paper/DESIGN_CHOICES_2026-10-13.md` | 206 | 2026-10-13 | 정본 (방법 절 설계 근거 · 팔 A0–A3) | 13 §6 · §8 |
+| `paper/DESIGN_CHOICES_2026-10-13_EASY.md` | 233 | 2026-10-13 | 정본의 요약판 (합격선 추가 둘) | 13 §8 |
+| `paper/EXPERIMENTS_WHAT_WHERE_2026-10-13.md` | 586 | 2026-10-13 | 정본 (실험 × 주장 지도; E1a/E1b 교락 단서) | 13 §4 · §6 |
+| `paper/PAPER_STORY_2026-10-08.md` | 339 | 2026-10-13 | 정본 — ⚠️ 10-13 blockquote 가 철회 전 문장 | 13 §8 · §10 |
+| `paper/STATUS_2026-10-13.md` | 197 | 2026-10-14 | 정본 (현재 상황; 10-14 B13 정정 · post-FT attention) | 13 §5 · §6 |
+
+### configs  (1 개)
+
+| 문서 | 줄 | 날짜 | 상태 | 장 |
+|---|---:|---|---|---|
+| `training/datasets.md` | 516 | 2026-10-21 | 레지스트리 (학습셋 25 개 추가) | 13 부록 |
+
+### cvpr  (3 개)
+
+| 문서 | 줄 | 날짜 | 상태 | 장 |
+|---|---:|---|---|---|
+| `eval/ek100/cache/README.md` | 102 | 2026-10-17 | 인프라 (encoder 특징 캐시 — 논문 수치 없음) | — |
+| `eval/intphys1_late/README.md` | 152 | 2026-10-18 | 정본 (새 하네스 + 결과; 등급 없음 → 1 차) | 13 §9 |
+| `results/eval/intphys2/_breakdown_ar_state_2026-10-12/breakdown.md` | 132 | 2026-10-12 | 기록 (표만 · 해설 없음) | 13 §5 |
+
+### z_research/VOBench_v1  (59 개)
+
+| 문서 | 줄 | 날짜 | 상태 | 장 |
+|---|---:|---|---|---|
+| `Archive/EVAL_MATRIX_2026-10-15.md` | 76 | 2026-10-17 | 정본 (평가 행렬; 10-15 · 10-17 지표 정정) | 13 §3 · §7 |
+| `Archive/RESULTS_SUMMARY_2026-10-12.md` | 352 | 2026-10-13 | 정본 (종합, 10-13 갱신) | 13 §2 · §5 · §7 |
+| `README.md` | 418 | 2026-10-14 | 정본 — 세트 시작점 (10-11 7 차 · 10-14 갱신) | 13 §2–§5 |
+| `analysis/attention_map/README.md` | 193 | 2026-10-14 | 정본 (해석 정본은 STATUS B13) | 13 §6 |
+| `analysis/attention_map/compare/_superseded/README.md` | 8 | 2026-10-14 | 인프라 (물러난 그림) | 13 §6 |
+| `ariel_ar_ep40/gravity/README.md` | 26 | 2026-10-11 | 인프라 (정리본 안내 · 캡션 초안) | 13 §3 |
+| `ariel_ar_ep40/gravity/tables.md` | 233 | 2026-10-11 | 정본 표 (재렌더판) | 13 §3 |
+| `ariel_ar_ep40/surprise/README.md` | 31 | 2026-10-11 | 정본 (토큰 Δ — presence without placement) | 13 §5 |
+| `ariel_ar_ep40/surprise/TRACKING_2026-10-12.md` | 66 | 2026-10-12 | 정본 — ⚠️ 같은 날 공간 분포 분석 철회 (다시 시도 금지) | 13 §5 · §10 |
+| `ariel_ar_ep40/surprise/tables.md` | 245 | 2026-10-11 | 정본 표 (AR 공간 복사 `copy_blk`) | 13 §5 |
+| `ariel_ar_state_ep40/postft_vobench/README.md` | 36 | 2026-10-12 | 기록 — ⚠️ 첫 split 누수 (인용은 v2 판 `vjepa2_pft/`) | 13 §7 · §10 |
+| `ariel_ar_state_ep40/postft_vobench/c16t24/compare.md` | 86 | 2026-10-12 | 기록 — ⚠️ 첫 split 누수 (인용은 v2 판 `vjepa2_pft/`) | 13 §7 · §10 |
+| `ariel_ar_state_ep40/postft_vobench/compare.md` | 86 | 2026-10-12 | 기록 — ⚠️ 첫 split 누수 (인용은 v2 판 `vjepa2_pft/`) | 13 §7 · §10 |
+| `ariel_ar_state_ep40/surprise/README.md` | 32 | 2026-10-11 | 정본 (ar 와 구분 안 됨) | 13 §5 |
+| `ariel_ar_state_ep40/surprise/tables.md` | 245 | 2026-10-11 | 정본 (ar 와 구분 안 됨) | 13 §5 |
+| `bottleneck/README.md` | 21 | 2026-10-14 | 인프라 (산출물 지도 — 해석은 auto_research) | 13 §6 |
+| `dino_foresight/surprise/README.md` | 23 | 2026-10-11 | 인프라 (폴더 안내 · 재현) | 13 §2 |
+| `dino_foresight/surprise/tables.md` | 245 | 2026-10-10 | 정본 표 (vll7 판은 README · 해석 없음, 복사 없음) | 13 §2 |
+| `exp_results/_previous_20261010_gravity_g981/README.md` | 5 | 2026-10-11 | 기록 (옛 중력 판 — 재렌더판과 섞지 말 것) | 13 §3 |
+| `headroom/README.md` | 12 | 2026-10-13 | 인프라 (산출물 지도 — 해석은 auto_research) | 13 §6 |
+| `postft_split_v2/compare.md` | 86 | 2026-10-14 | 정본 표 (split v2 test 기준값) | 13 §7 |
+| `readout/README.md` | 67 | 2026-10-12 | 정본 (AR 자 — 같은 날 '물체다운 것 없다' 정정) | 13 §5 |
+| `readout/horizon_ar40/README.md` | 32 | 2026-10-12 | 정본 (1 차 — 감쇠는 블록 순서) | 13 §5 |
+| `vast_ar_state_ep70/surprise/README.md` | 50 | 2026-10-14 | 정본 (10-13 이후 ar_state 기준 · post-FT 포함) | 13 §5 · §7 |
+| `vast_ar_state_ep70/surprise/tables.md` | 245 | 2026-10-14 | 정본 (10-13 이후 ar_state 기준 · post-FT 포함) | 13 §5 · §7 |
+| `videomae_v2/surprise/README.md` | 23 | 2026-10-11 | 인프라 (폴더 안내 · 재현) | 13 §2 |
+| `videomae_v2/surprise/tables.md` | 190 | 2026-10-10 | 정본 표 (vll7 판은 README · 해석 없음, 복사 없음) | 13 §2 |
+| `vjepa2/encoder_voe_probe/README.md` | 51 | 2026-10-14 | 정본 (encoder 위반 선형 probe) | 13 §4 |
+| `vjepa2/gravity/README.md` | 27 | 2026-10-11 | 인프라 (정리본 안내 · 캡션 초안) | 13 §3 |
+| `vjepa2/gravity/tables.md` | 233 | 2026-10-11 | 정본 표 (재렌더판) | 13 §3 |
+| `vjepa2/gravity_horizon/README.md` | 32 | 2026-10-11 | 인프라 (설계 · 캡션) | 13 §3 |
+| `vjepa2/gravity_horizon/figures/_superseded/README.md` | 6 | 2026-10-11 | 인프라 (그림 1 · 2 차 물러남, 수치 동일) | 13 §3 |
+| `vjepa2/gravity_horizon/tables.md` | 183 | 2026-10-11 | 정본 표 | 13 §3 |
+| `vjepa2/probing/README.md` | 47 | 2026-10-13 | 정본 (튜블릿 정체 probe · 16 층 절) | 13 §4 |
+| `vjepa2/probing/concept/RESULTS.md` | 46 | 2026-10-10 | 기록 (무효 판정 — 개념 벡터 희석) | 13 §10 |
+| `vjepa2/probing/results/L16_e35_s0/RESULTS.md` | 64 | 2026-10-13 | 정본 run (수치 run 별) | 13 §4 |
+| `vjepa2/probing/results/L16_e35_s1/RESULTS.md` | 64 | 2026-10-13 | 정본 run (수치 run 별) | 13 §4 |
+| `vjepa2/probing/results/_invalid_run1_realistic_collapsed/NOTE.md` | 5 | 2026-10-10 | 무효 (realistic head 붕괴 — 인용 금지) | 13 §10 |
+| `vjepa2/probing/results/_invalid_run1_realistic_collapsed/RESULTS.md` | 60 | 2026-10-10 | 무효 (realistic head 붕괴 — 인용 금지) | 13 §10 |
+| `vjepa2/probing/results/e10_s0/RESULTS.md` | 64 | 2026-10-10 | 정본 run (수치 run 별) | 13 §4 |
+| `vjepa2/probing/results/e10_s1/RESULTS.md` | 64 | 2026-10-10 | 정본 run (수치 run 별) | 13 §4 |
+| `vjepa2/probing/results/e35_s0_realistic_only/RESULTS.md` | 36 | 2026-10-10 | 정본 run (수치 run 별) | 13 §4 |
+| `vjepa2/probing/results/e35_s0_user/RESULTS.md` | 64 | 2026-10-10 | 정본 run (수치 run 별) | 13 §4 |
+| `vjepa2/probing/results/e35_s1/RESULTS.md` | 64 | 2026-10-10 | 정본 run (수치 run 별) | 13 §4 |
+| `vjepa2/probing/results/p_only_e10_s0/RESULTS.md` | 64 | 2026-10-10 | 정본 run (수치 run 별) | 13 §4 |
+| `vjepa2/probing/results/p_only_e10_s1/RESULTS.md` | 64 | 2026-10-10 | 정본 run (수치 run 별) | 13 §4 |
+| `vjepa2/probing/results/p_only_e35_s0/RESULTS.md` | 64 | 2026-10-10 | 정본 run (수치 run 별) | 13 §4 |
+| `vjepa2/probing/results/p_only_e35_s1/RESULTS.md` | 64 | 2026-10-10 | 정본 run (수치 run 별) | 13 §4 |
+| `vjepa2/probing/temporal_generalization/RESULTS.md` | 160 | 2026-10-10 | 정본 (1 차 — 형식이 시점마다 다름) | 13 §4 |
+| `vjepa2/surprise/README.md` | 23 | 2026-10-11 | 인프라 (폴더 안내 · 재현) | 13 §2 |
+| `vjepa2/surprise/tables.md` | 245 | 2026-10-10 | 정본 표 (vll7 판은 README · 해석 없음, 복사 없음) | 13 §2 |
+| `vjepa2/surprise_object_region/README.md` | 34 | 2026-10-13 | 정본 (보조 분석 — 물체 자리 토큰만 채점) | 13 §2 · §5 |
+| `vjepa2/surprise_object_region/compare.md` | 79 | 2026-10-13 | 정본 (보조 분석 — 물체 자리 토큰만 채점) | 13 §2 · §5 |
+| `vjepa2_pft/README.md` | 103 | 2026-10-14 | 정본 (릴리즈 VOBench post-FT + 자 + 상한선) | 13 §7 |
+| `vjepa2_pft/SETTINGS.md` | 85 | 2026-10-14 | 인프라 (설정 정리; split v1 누수 기록) | 13 §7 |
+| `vjepa2_pft/readout_figures/motion_fidelity_late.md` | 58 | 2026-10-14 | 정본 표 (1 차 · 해석 문장 없음) | 13 §3 · §7 |
+| `vjepa2_pft/readout_figures/motion_fidelity_seen.md` | 58 | 2026-10-14 | 정본 표 (1 차 · 해석 문장 없음) | 13 §3 · §7 |
+| `vjepa2_pft/surprise/compare.md` | 86 | 2026-10-14 | 정본 표 | 13 §7 |
+| `vll7_ctxt_tgtvideo/surprise/tables.md` | 190 | 2026-10-17 | 정본 표 (vll7 판은 README · 해석 없음, 복사 없음) | 13 §2 |
+
+### z_research/previous  (7 개)
+
+| 문서 | 줄 | 날짜 | 상태 | 장 |
+|---|---:|---|---|---|
+| `README.md` | 30 | 2026-10-10 | 인프라 (10-10 세트 이동 기록) | 13 부록 |
+| `TrainingEffects/Archive/PHYS2D_V1_POSTFT_2026-10-18.md` | 342 | 2026-10-19 | 정본 (§9 가 결론; §7-b 추론 정정) | 13 §7 |
+| `anticipation/EK100/Archive/CAP16METRIC_SUBSET_2026-10-21.md` | 109 | 2026-10-21 | 정본 (규칙 사후 복원, sha256) | 13 §7 |
+| `anticipation/EK100/Archive/CHEAP_PROXY_2026-10-15.md` | 67 | 2026-10-15 | 기록 (중간 결과 · 팔 A 취소) | 13 §7 |
+| `anticipation/EK100/Archive/GROUP4_CAP16METRIC_2026-10-18.md` | 77 | 2026-10-21 | 정본 (jsonl 재확인) | 13 §7 |
+| `anticipation/EK100/Archive/GROUP5_VAST_VARIANTS_2026-10-18.md` | 112 | 2026-10-18 | 정본 (run 간 노이즈 0.98) | 13 §7 |
+| `anticipation/EK100/README.md` | 331 | 2026-10-21 | 정본 (시작점; cap16metric 주석 2 줄) | 13 §7 |
+
+### z_training  (8 개)
+
+| 문서 | 줄 | 날짜 | 상태 | 장 |
+|---|---:|---|---|---|
+| `README.md` | 165 | 2026-10-19 | 정본 (시작점; 10-18 IntPhys 2 LoRA 절) | 13 §7 |
+| `docs/PHYS2D_DATASET_2026-10-18.md` | 141 | 2026-10-19 | **대체됨 → `PHYS2D_SUP_DATASET_2026-10-18.md` §V** (전환이 문맥 끝 — 사용자 결정 반대) | 13 §7 · §10 |
+| `docs/PHYS2D_SUP_DATASET_2026-10-18.md` | 221 | 2026-10-19 | 정본 (§V 상태 라벨 판 v2; v1 창 규칙 깨짐 기록) | 13 §7 |
+| `docs/STATE_HEAD_2026-10-19.md` | 136 | 2026-10-19 | 정본 · 진행 중 (대조군 셋 미실행) | 13 §7 · §8 |
+| `runs/_matrix/MATRIX.md` | 75 | 2026-10-14 | 정본 (자동 생성 — 제목 09-19 · 10-14 갱신 75 줄) | 13 §7 |
+| `runs/phys2d_sup_vast_ar_state_headonly/eval/state_head_latest.md` | 33 | 2026-10-19 | 산출물 (자동 채점표 — 해석 문서 없음) | 13 §7 |
+| `runs/phys2d_sup_vast_ar_state_pft/eval/state_head_latest.md` | 33 | 2026-10-19 | 산출물 (자동 채점표 — 해석 문서 없음) | 13 §7 |
+| `vast/README.md` | 25 | 2026-10-10 | 기록 · 인프라 (반입 체크포인트; 10-13 이후 폴더 미기재) | 13 §7 |
+
+### z_vll7_training  (3 개)
+
+| 문서 | 줄 | 날짜 | 상태 | 장 |
+|---|---:|---|---|---|
+| `README.md` | 253 | 2026-10-17 | 인프라 + §6–§7 결과 (영상 타깃 predictor 48.33) | 13 §7 |
+| `data/README.md` | 10 | 2026-10-16 | 인프라 | — |
+| `tests/README.md` | 10 | 2026-10-16 | 인프라 | — |
+
+### z_pixel_decoder  (3 개)
+
+| 문서 | 줄 | 날짜 | 상태 | 장 |
+|---|---:|---|---|---|
+| `README.md` | 78 | 2026-10-21 | 인프라 (latent → 픽셀 decoder · 렌더 — predictor 수치 없음) | — |
+| `runs/vob_grav_i1_vitb_both/_superseded/README.md` | 3 | 2026-10-21 | 인프라 (latent → 픽셀 decoder · 렌더 — predictor 수치 없음) | — |
+| `runs/vob_grav_i1_vitb_both/cosmos_ar4b/_superseded/README.md` | 3 | 2026-10-21 | 인프라 (latent → 픽셀 decoder · 렌더 — predictor 수치 없음) | — |
 
