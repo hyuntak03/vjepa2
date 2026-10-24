@@ -1,5 +1,8 @@
 # z_training — frozen encoder 위에서 predictor 학습
 
+> 📥 **2026-10-24 — vast 브랜치 문서를 가져왔다.** 학습 variant 전체 기록 [`VARIANTS.md`](VARIANTS.md) · 문제와 방향 [`docs/PROBLEMS_AND_DIRECTION_2026-10-18.md`](docs/PROBLEMS_AND_DIRECTION_2026-10-18.md) · 결과 `docs/RESULTS_*.md` (09-19 ~ 10-24) · 상태 감독 [`docs/STATE_SUPERVISION_2026-10-20.md`](docs/STATE_SUPERVISION_2026-10-20.md) · 설정 결정 기록 [`../z_training_config/`](../z_training_config/README.md). 그쪽 run · `/workspace` 경로는 vast 노드 기준이다 (각 문서 머리의 출처 표시 참고).
+
+
 > **2026-09-10 결정: 릴리즈 ViT-H predictor 에서 post-FT, 데이터는 IntPhysGen v11 의 block 단위 train 절반(가능만),
 > 채점은 test 절반(가능+불가능, 10,752 쌍).** 그게 `v11_postft` 다. 대조군 `v11_scratch`. 분할은 §3.
 >
