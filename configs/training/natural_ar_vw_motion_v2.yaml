@@ -1,0 +1,20 @@
+# =============================================================================
+# AR + motion v2 — 2026-10-24, 진단 뒤 고친 판 (사용자: "진단을 통해 바꿔야 된다면 다시 학습 올려줘")
+#
+#   GPUS=8 bash z_training/tmux_train.sh natural_ar_vw_motion_v2
+#
+# v1 (natural_ar_vw_motion) 에서 바꾼 것 — 근거는 z_research/scripts/analysis/motion_diag.py · motion_where_probe.py (2026-10-24):
+#   ① 움직임 코드 d 를 encoder 와 맞춘다: SIGReg 2.0 → 0.5, 맞추기 0.5 → 2.0
+#      진단 D (1,500 클립, 보류 R² = 정답 토큰 쌍이 d 를 설명하는 몫): 0.09 → 0.47 (분산 0.97, 무너지지 않음).
+#      v1 학습 중 모듈은 −0.16 (센 attention 자로도 −0.17) — d 가 토큰에 없는 픽셀 변화를 담아 predictor 에 잡음 목표가 됐다.
+#      v1 epoch 4: 3D 합성 (학습 밖) 움직임 판독이 기준 AR epoch 4 의 절반 (다음 움직임 0.21–0.24 vs 0.47–0.53).
+#   ② predictor 경로 (출력의 다음 움직임, TF + rollout) 0.5 → 2.0 — d 가 토큰으로 설명되므로 신호를 키운다
+# 나머지 (데이터 · 구조 · 일정 · 차분 예측기 = 칸 평균 MLP · 예측 쪽은 고정 예측기 · 타깃 끊음) 는 v1 과 같다.
+# =============================================================================
+extends: natural_ar_vw_motion
+
+motion:
+  diff: block              # block (0.5 초, 6 채널) — 진단 D 에서 경계 차분 (0.25 초) 과 비교해 정함
+  w_sigreg: 0.5
+  w_fit: 2.0
+  w_pred: 2.0

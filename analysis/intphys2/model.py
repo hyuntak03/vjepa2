@@ -497,6 +497,7 @@ def build_from_config(cfg: dict, device: torch.device) -> VJEPA2Bundle:
     #   z_training/eval.sh 가 SET="model.predictor_checkpoint=<run>/latest.pt" 로 넣는다.
     # 학습 run 의 predictor 는 구조가 같아야 하므로 빠진 키를 허용하지 않는다 (strict 검사).
     pc_path = cfg.get("predictor_checkpoint")
+    enc_lora = (None, None)
     if pc_path:
         logger.info(f"predictor <- {pc_path} (model.predictor_checkpoint); encoder <- {ckpt_path}")
         pstate = _load_checkpoint(pc_path)
@@ -523,6 +524,7 @@ def build_from_config(cfg: dict, device: torch.device) -> VJEPA2Bundle:
             raise RuntimeError(f"predictor_checkpoint 모양 불일치 {len(bad)}개 (key, ckpt, model): {bad[:3]} — "
                                "protocol yaml 의 model.predictor 와 학습 run 의 predictor 구조가 다르다")
         _load_state_dict(predictor, pstate["predictor"], tag=f"predictor<-{os.path.basename(pc_path)}")
+        enc_lora = (pstate.get("encoder_lora"), pstate.get("encoder_lora_cfg"))   # 2026-10-25: kind=ar 학습이 입력 경로 encoder 에 LoRA 를 달았으면
         del pstate
     else:
         _load_state_dict(predictor, state["predictor"], tag="predictor")
@@ -588,9 +590,24 @@ def build_from_config(cfg: dict, device: torch.device) -> VJEPA2Bundle:
             if ar_target != "window":
                 raise ValueError("ar_input=video 채점은 ar_target: window (학습과 같다)")
             context_encoder = _CtxPassEncoder(target_encoder).eval()     # target_encoder = 창 전체 pass (그대로)
+        elif enc_lora[0]:
+            # 2026-10-25: 학습 (app/vjepa_frozen/train.py model.encoder_lora, kind=ar) 은 입력 경로 전용 복사본에만 LoRA 를 달고 타깃 encoder 는 얼렸다.
+            #   채점도 같게: 문맥 = 블록별 LoRA 복사본, 타깃 = 블록별 원래 target_encoder (다른 객체 → 하네스가 문맥을 따로 인코딩한다)
+            import copy as _copy
+            from app.vjepa_frozen import lora as _LR
+            _lc = enc_lora[1] or {}
+            _le = _copy.deepcopy(target_encoder)
+            _LR.apply_lora(_le, int(_lc["rank"]), float(_lc["alpha"]), _lc["targets"])
+            _LR.load_lora(_le, enc_lora[0])
+            for _p in _le.parameters():
+                _p.requires_grad_(False)
+            context_encoder = _ArBlockEncoder(_le.eval(), tubelet_size).eval()
+            target_encoder = _ArBlockEncoder(target_encoder, tubelet_size).eval()
+            encoder = target_encoder
+            logger.info(f"predictor kind=ar: 문맥 encoder = LoRA 복사본 ({_lc}), 타깃 = 얼린 target_encoder (블록별)")
         else:
             context_encoder = _ArBlockEncoder(target_encoder, tubelet_size).eval()
-        if ar_target == "block":
+        if ar_target == "block" and not enc_lora[0]:
             target_encoder = context_encoder        # 같은 객체 — IntPhys2 하네스는 이때 문맥을 타깃 forward 에서 잘라 쓴다
             encoder = target_encoder
         logger.info(f"predictor kind=ar: 문맥 = {'target_encoder 문맥 pass (영상)' if ar_input == 'video' else '블록별 target_encoder'}, "

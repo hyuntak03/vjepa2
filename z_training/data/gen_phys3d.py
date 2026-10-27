@@ -50,10 +50,15 @@ def main():
     ap.add_argument("--collect-only", action="store_true")
     ap.add_argument("--single", action="store_true", help="물체 1 개 판 (gen_phys3d_single_blender.py)")
     ap.add_argument("--single-v2", action="store_true", help="물체 1 개 v2 (gen_phys3d_single_v2_blender.py, 2026-10-21)")
+    ap.add_argument("--defer-render", action="store_true", help="multi: 라벨 워커 (CPU, --cpu-workers) 는 장면을 .blend 로 남기고 렌더 워커 (GPU 마다 --render-per) 가 렌더")
+    ap.add_argument("--render-per", type=int, default=4)
+    ap.add_argument("--multi", action="store_true", help="phys3d_multi (gen_phys3d_multi_blender.py, 2026-10-25) — 4 fps 64 장 · 문맥 끝 고정 · 가림 · 배경")
     ap.add_argument("--single-v3", action="store_true", help="물체 1 개 v3 (gen_phys3d_single_v3_blender.py, 2026-10-23) — 공중 붙잡기 없음 · 4 fps 저장 (--stride 1)")
     ap.add_argument("--stride", type=int, default=1, help="uniform 행: 학습이 몇 장마다 1 장을 보나 (v2 = 3)")
     ap.add_argument("--pin", type=int, default=1, help="CPU 워커를 코어 하나에 묶기 (taskset)")
     a = ap.parse_args()
+    if a.multi:
+        return main_multi(a)
     v3 = a.single_v3
     a.single_v2 = a.single_v2 or v3                 # v3 는 행 · 열이 v2 와 같다 (장 단위만 4 fps)
     a.single = a.single or a.single_v2
@@ -151,6 +156,115 @@ def main():
         fu.close()
     print(f"{len(good):,}/{len(res):,} 통과 → {a.out}/index.csv · boundary 행 {nb:,} (영상당 {nb / max(1, len(good)):.1f})"
           + (f" · uniform 행 {nu:,} (영상당 {nu / max(1, len(good)):.1f})" if fu else ""))
+
+
+def multi_names():
+    import re
+    return re.findall(r'@scenario\("(\w+)"', open(os.path.join(HERE, "gen_phys3d_multi_blender.py")).read())
+
+
+def main_multi(a):
+    """phys3d_multi: 작업 (시나리오, k) — C* = C_SET[k mod 5] (생성기가 k 로 층화). 워커는 GPU 마다 gpu_per 개 (렌더 OptiX, 라벨은 CPU 1 코어) + CPU 워커."""
+    import numpy as np
+    script = "gen_phys3d_multi_blender.py"
+    names = multi_names() if a.scenarios == "all" else a.scenarios.split(",")
+    clips, wdir = os.path.join(a.out, "clips"), os.path.join(a.out, "_work")
+    os.makedirs(wdir, exist_ok=True)
+    if not a.collect_only:
+        jobs = [(n, k) for k in range(a.per_scenario) for n in names]
+        jf = os.path.join(wdir, "jobs.tsv")
+        with open(jf, "w") as f:
+            for n, k in jobs:
+                f.write(f"{n}\t{k}\t{a.seed_base + k}\t0\n")
+        claims = os.path.join(wdir, "claims")
+        os.makedirs(claims, exist_ok=True)
+        done = {json.loads(l)["job"].replace("/", "_") for f in glob.glob(os.path.join(wdir, "res_*.jsonl")) for l in open(f) if l.strip()}
+        for c in os.listdir(claims):
+            if c not in done:
+                os.remove(os.path.join(claims, c))
+        spec = ([] if a.defer_render else [("cycles", g) for g in a.gpus.split(",") if g for _ in range(a.gpu_per)]) + [("cpu", "")] * a.cpu_workers
+        run = int(time.time())
+        procs, cores = [], sorted(os.sched_getaffinity(0))
+        rprocs = []
+        if a.defer_render:                         # 렌더 워커 — GPU 에 오래 산다
+            done_flag = os.path.join(wdir, "labels_done")
+            if os.path.exists(done_flag):
+                os.remove(done_flag)
+            rclaims = os.path.join(wdir, "rclaims")
+            if os.path.isdir(rclaims):            # 이어 하기: 끝나지 않은 렌더 표시는 지운다
+                for c in os.listdir(rclaims):
+                    os.remove(os.path.join(rclaims, c))
+            for j, g in enumerate([g for g in a.gpus.split(",") if g for _ in range(a.render_per)]):
+                env = dict(os.environ, CUDA_VISIBLE_DEVICES=g, OMP_NUM_THREADS="2", PYTHONHASHSEED="0")
+                cmd = ["nice", "-n", str(a.nice), BLENDER, "-t", "2", "-b", "-noaudio", "-P", os.path.join(HERE, "render_queue_blender.py"), "--",
+                       "--root", clips, "--claims", rclaims, "--done", done_flag, "--engine", "cycles"]
+                rprocs.append(subprocess.Popen(cmd, stdout=open(os.path.join(wdir, f"rlog_{j:03d}.txt"), "a"), stderr=subprocess.STDOUT, env=env))
+        for w, (eng, g) in enumerate(spec):
+            env = dict(os.environ, CUDA_VISIBLE_DEVICES=g, OMP_NUM_THREADS="1", PYTHONHASHSEED="0")
+            if a.defer_render:
+                env["PHYS3D_DEFER_RENDER"] = "1"
+            pin = ["taskset", "-c", str(cores[-1 - (w % len(cores))])] if a.pin else []
+            cmd = pin + ["nice", "-n", str(a.nice), BLENDER, "-t", "1", "-b", "-noaudio", "-P", os.path.join(HERE, script), "--",
+                         "--jobs", jf, "--claims", claims, "--results", os.path.join(wdir, f"res_{run}_{w:03d}.jsonl"), "--out", clips,
+                         "--engine", eng]
+            procs.append(subprocess.Popen(cmd, stdout=open(os.path.join(wdir, f"log_{w:03d}.txt"), "a"), stderr=subprocess.STDOUT, env=env))
+        print(f"워커 {len(spec)} (GPU {sum(e == 'cycles' for e, _ in spec)} · CPU {a.cpu_workers}), 작업 {len(jobs):,} (남은 {len(jobs) - len(done):,})", flush=True)
+        t0, total, n0 = time.time(), len(jobs), len(done)
+        while any(p.poll() is None for p in procs):
+            time.sleep(60)
+            n = sum(sum(1 for _ in open(f)) for f in glob.glob(os.path.join(wdir, "res_*.jsonl")))
+            el = time.time() - t0
+            print(f"[{n:,}/{total:,}] {el / 60:.1f} 분" + (f", 남은 ~{el / max(n - n0, 1) * (total - n) / 60:.0f} 분" if n > n0 else ""), flush=True)
+        bad = [w for w, p in enumerate(procs) if p.returncode != 0]
+        if bad:
+            print(f"⚠️ 워커 {bad} 비정상 종료 — _work/log_*.txt 확인, 같은 명령으로 이어 하기", flush=True)
+        if a.defer_render:
+            open(done_flag, "w").close()
+            while any(p.poll() is None for p in rprocs):
+                time.sleep(30)
+                left = len(glob.glob(os.path.join(clips, "*", "*_r.blend")))
+                print(f"렌더 남은 {left:,}", flush=True)
+    res = [json.loads(l) for f in sorted(glob.glob(os.path.join(wdir, "res_*.jsonl"))) for l in open(f) if l.strip()]
+    res.sort(key=lambda r: (r["name"], r["k"]))
+    for r in res:                                  # 렌더가 안 된 것 (blend 남음 · mp4 없음) 은 실패로
+        if r["ok"] and not os.path.exists(r["mp4"]):
+            r["ok"], r["why"] = False, ["render missing"]
+    good = [r for r in res if r["ok"]]
+    with open(os.path.join(a.out, "failed.tsv"), "w") as fh:
+        fh.write("name\tk\tC_star\tanchor\twhy\n")
+        fh.writelines(f"{r['name']}\t{r['k']}\t{r.get('C_star', '')}\t{r.get('anchor', '')}\t{'; '.join(r['why'])}\n" for r in res if not r["ok"])
+    with open(os.path.join(a.out, "index.csv"), "w") as fh:
+        fh.writelines(f"{r['mp4']} 0\n" for r in good)
+    bcols = ["path", "n_frames", "boundary_frame", "ctx_start", "video_frames", "event", "event_frame", "obj_role", "other", "dv", "scenario",
+             "category", "pred_min", "ctx_gate", "anchor", "C_star"]
+    mcols = ["category", "name", "k", "n_frames", "attempt", "C_star", "anchor", "anchor_asked", "want_move", "n_objects", "n_arrivals", "main_shape",
+             "occ_modes", "n_occ", "mid_occ", "bg_mode", "floor_kind", "wall_kind", "hdri", "g", "speed_scale", "n_events", "n_rows", "sec"]
+    nb = nu = 0
+    with open(os.path.join(a.out, "boundary.tsv"), "w") as fb, open(os.path.join(a.out, "uniform.tsv"), "w") as fu, \
+            open(os.path.join(a.out, "manifest.tsv"), "w") as fm:
+        fb.write("\t".join(bcols) + "\n")
+        fu.write("\t".join(bcols) + "\n")
+        fm.write("\t".join(mcols) + "\n")
+        for r in good:
+            m = json.load(open(r["mp4"][:-4] + ".json"))
+            role = [o["role"] for o in m["objects"]]
+            T = m["n_frames"]
+            for w in m["rows"]:
+                fb.write("\t".join(str(v) for v in [r["mp4"], w["end"], w["boundary"], w["ctx_start"], T, w["event"], w["event_frame"],
+                                                    role[w["obj"]], "", w["dv"], r["name"], m["category"], w.get("pred_min", 1),
+                                                    w.get("ctx_gate", 0), w.get("anchor", ""), m["C_star"]]) + "\n")
+                nb += 1
+            occ = m.get("occlusion") or []
+            e = m["env"]
+            fm.write("\t".join(str(v) for v in [m["category"], r["name"], r["k"], T, m["attempt"], m["C_star"], m["anchor"], m["anchor_asked"],
+                                                int(m["want_move"]), len(m["objects"]), m["info"].get("n_arrivals", 0), m["objects"][0]["shape"],
+                                                ",".join(o["mode"] for o in occ), len(occ), int(any(o.get("kind") == "mid_context" for o in occ)),
+                                                e.get("bg_mode", ""), e.get("floor_kind", ""), e.get("wall_kind", ""), e.get("hdri", ""),
+                                                round(e["g"], 3), round(e["speed_scale"], 3), len(m["events"]), len(m["rows"]), r.get("sec", "")]) + "\n")
+            for b in uniform_rows(T, np.random.default_rng([a.seed_base, r["k"], names.index(r["name"]) if r["name"] in names else 0, 77]), 1):
+                fu.write("\t".join(str(v) for v in [r["mp4"], T, b, 0, T, "uniform", b, "main", "", 0.0, r["name"], m["category"], 1, 0, "", m["C_star"]]) + "\n")
+                nu += 1
+    print(f"{len(good):,}/{len(res):,} 통과 → {a.out}/index.csv · boundary 행 {nb:,} (영상당 {nb / max(1, len(good)):.1f}) · uniform 행 {nu:,}")
 
 
 if __name__ == "__main__":

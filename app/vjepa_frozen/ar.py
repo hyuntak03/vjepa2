@@ -178,7 +178,7 @@ def ar_losses_video(predictor, zc: torch.Tensor, zf: torch.Tensor, S: int, C: in
 
 
 def ar_losses(predictor, h: torch.Tensor, S: int, C: int, K: int, loss_exp: float, rollout_steps: int, hint=None,
-              delta_weight: float = 0.0, aux: dict = None, tf_span: str = "all", out: dict = None):
+              delta_weight: float = 0.0, aux: dict = None, tf_span: str = "all", out: dict = None, h_in: torch.Tensor = None):
     """h (B, nb*S, D) LN 된 블록 토큰. return (loss, jloss, sloss, R). predictor 는 DDP 래퍼여도 된다 (forward 한 번).
     hint = encode_hints 의 (hx, hidx, keep) 또는 None. 주면 TF 에만 힌트를 넣고 jloss 에서 힌트 자리를 뺀다 (rollout 은 힌트 없음).
     tf_span (2026-10-15, 사용자 결정): "all" = TF 손실을 위치 0..nb-2 전부 (기존), "predict" = 예측 구간만 —
@@ -197,7 +197,9 @@ def ar_losses(predictor, h: torch.Tensor, S: int, C: int, K: int, loss_exp: floa
     if hint is not None:
         hx, hidx, keep = hint
         arg["hint"] = {"x": hx, "idx": hidx}
-    p_tf, p_ar = predictor(h, ar=arg)
+    if h_in is not None and (hint is not None or delta_weight or tf_span != "all"):
+        raise ValueError("h_in (encoder LoRA 입력) 은 hint · delta_weight · tf_span 과 아직 같이 쓰지 않는다")
+    p_tf, p_ar = predictor(h if h_in is None else h_in, ar=arg)     # 2026-10-25: h_in = LoRA 입력 경로, 타깃은 늘 h (얼린 encoder)
     if out is not None:                                       # 2026-10-19: state_head 보조 손실이 예측 출력을 쓴다 (TF 블록 1..nb-1 · rollout C..C+R-1)
         out["p_tf"], out["p_ar"] = p_tf, p_ar
     core = predictor_core(predictor)
@@ -228,7 +230,7 @@ def ar_losses(predictor, h: torch.Tensor, S: int, C: int, K: int, loss_exp: floa
 @torch.no_grad()
 def run_val_ar(vs: ValSet, tgt_enc, pred_mod, device, autocast_dtype, rank: int, ws: int,
                tubelet: int, spatial: int, context_length: int, batch_size: int, loss_exp: float,
-               ar_input: str = "block") -> Dict:
+               ar_input: str = "block", in_enc=None) -> Dict:
     """val.run_val 의 팔 C 판. 주지표 = rollout surprise, 보조 = tf surprise (res['tf'])."""
     pred_mod.eval()
     n_frames = vs.ds.n_frames
@@ -255,8 +257,9 @@ def run_val_ar(vs: ValSet, tgt_enc, pred_mod, device, autocast_dtype, rank: int,
                 tgt_tf = h[:, S: C * S].float()
             else:
                 h = encode_blocks(tgt_enc, x.to(next(tgt_enc.parameters()).dtype), tubelet)     # (n, nb*S, D)
-                p_ar = pred_mod.rollout_kv(h[:, : C * S], idx[:, : C * S], K)                    # (n, K*S, D) KV 캐시판 (값 동일)
-                p_tf = pred_mod.forward_seq(h[:, :-S], idx[:, :-S])[:, (C - 1) * S:]               # 블록 C..nb-1 예측
+                hi = h if in_enc is None else encode_blocks(in_enc, x.to(next(tgt_enc.parameters()).dtype), tubelet)   # 2026-10-25: LoRA 입력
+                p_ar = pred_mod.rollout_kv(hi[:, : C * S], idx[:, : C * S], K)                   # (n, K*S, D) KV 캐시판 (값 동일)
+                p_tf = pred_mod.forward_seq(hi[:, :-S], idx[:, :-S])[:, (C - 1) * S:]              # 블록 C..nb-1 예측
                 tgt_tf = None
         tgt = h[:, C * S:].float()
         tgt_tf = tgt if tgt_tf is None else tgt_tf

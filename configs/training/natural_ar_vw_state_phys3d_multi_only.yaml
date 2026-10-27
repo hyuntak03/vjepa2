@@ -1,0 +1,26 @@
+# =============================================================================
+# 블록 AR — **합성 phys3d_multi_v1 만으로** 처음부터 학습 (2026-10-26, 사용자 지시 "ar 인데 데이터는 synthetic 으로만 · 70 ep 동일하게")
+#
+#   GPUS=8 bash z_training/tmux_train.sh natural_ar_vw_state_phys3d_multi_only
+#
+# natural_ar_vw_state (자연 영상 AR) 와 구조 · 손실 · 일정 (70 epoch, ipe 294, WSD lr 5.2e-4, 마지막 7 epoch 감소) · token 예산이 같고,
+# 데이터만 매 step 합성 (boundary p 1.0). manifest = phys3d_multi_v1 train 의 boundary 행 (앵커 + 사건) + uniform 행
+#   (data_csv/phys3d_multi_v1/train_mix.tsv, 317,679 행, 영상 19,175 편).
+# 영상이 이미 4 fps 64 장으로 저장돼 있다 → stride 1 (자연 영상 fps4 표와 같은 시간 간격). 문맥 · 예측 장 후보도 자연 영상과 같다.
+# 예측 첫 장 = 행의 boundary_frame (rollout 이 항상 경계에서 시작).
+# 참고: phys3d_single 만으로 20 epoch 학습한 판 (natural_ar_vw_state_phys3d_only) 은 운반 0.72 · VOBench late 71.5 → 66.2 (과적합).
+# =============================================================================
+extends: natural_ar_vw_state
+
+data:
+  var_window:
+    boundary:
+      name: phys3d_multi_only
+      p: 1.0
+      manifest: ${DATA_CSV}/phys3d_multi_v1/train_mix.tsv
+      stride: 1
+      context_frames: [2, 4, 8, 16, 32]
+      predict_frames: [2, 4, 8, 16, 32]
+      min_eligible: 500
+      crop_ratio: [1.0, 1.0]
+      hflip_p: 0.5

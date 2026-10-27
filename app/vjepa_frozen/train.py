@@ -59,6 +59,51 @@ warnings.filterwarnings("ignore", message=r".*sdp_kernel.*", category=FutureWarn
 logger = get_logger(__name__, force=True)
 
 
+
+def _grad_probe(pred_mod, terms: dict):
+    """2026-10-26 (사용자 요청): predictor 파라미터로 가는 gradient 를 손실 항별로 따로 잰다 (autograd.grad, 그래프 유지, 학습 grad 에 영향 없음).
+    terms = {이름: 스칼라 손실 (가중 적용)}. return {이름: |∇|} + {cos_<이름>: cos(∇ 이름, ∇ lat)} (lat 이 있으면)."""
+    ps = [q for q in pred_mod.parameters() if q.requires_grad]
+    G = {}
+    for n, l in terms.items():
+        if not torch.is_tensor(l) or not l.requires_grad:
+            continue
+        g = torch.autograd.grad(l, ps, retain_graph=True, allow_unused=True)
+        G[n] = torch.cat([(x if x is not None else torch.zeros_like(q)).reshape(-1).float() for x, q in zip(g, ps)])
+    out = {n: float(v.norm()) for n, v in G.items()}
+    if "lat" in G:
+        for n, v in G.items():
+            if n != "lat":
+                out[f"cos_{n}"] = float(torch.nn.functional.cosine_similarity(v, G["lat"], dim=0))
+    return out
+
+
+_COMPS = ("pos", "dir", "spd", "ex")
+
+
+def _matched_head(pred_mod, parts: dict, lat, GM: dict, st: dict, probe: bool, world_size: int):
+    """2026-10-26 (사용자 결정): 고정 head 손실의 성분별 가중치를 predictor gradient 크기로 맞춘다.
+    성분 c (위치 · 방향 · 속력 · 존재/정체, 각각 TF + 굴린 합) 의 가중치 w_c = GM[c] / EMA(‖∇ c‖ / ‖∇ lat‖) — 그러면 ‖∇ (w_c · c)‖ ≈ GM[c] · ‖∇ lat‖.
+    비율은 probe step 마다 (autograd.grad) 재고 rank 평균 · EMA (GM.ema, 기본 0.9). 처음 잴 때까지는 head 손실 0.
+    return (head 손실 (가중 합), {c: w_c}, gprobe 로그 또는 None)."""
+    comps = {c: parts[f"tf_{c}"] + parts[f"ar_{c}"] for c in _COMPS if f"tf_{c}" in parts}
+    gp = None
+    if probe:
+        gp = _grad_probe(pred_mod, {"lat": lat, **comps, **parts})
+        r = torch.tensor([gp.get(c, 0.0) / max(gp["lat"], 1e-12) for c in _COMPS], device=lat.device, dtype=torch.float64)
+        if world_size > 1:
+            torch.distributed.all_reduce(r); r /= world_size
+        a = float(GM.get("ema", 0.9))
+        old = st.get("r")
+        st["r"] = r if old is None else a * old + (1 - a) * r
+    w = {c: (float(GM.get(c, 0.0)) / max(float(st["r"][i]), 1e-12) if st.get("r") is not None else 0.0) for i, c in enumerate(_COMPS)}
+    lh = sum(w[c] * comps[c] for c in comps if w[c] > 0) if any(w[c] > 0 for c in comps) else lat * 0.0
+    if probe:
+        gp.update(_grad_probe(pred_mod, {"lat": lat, "head": lh}) if lh.requires_grad else {})
+        gp.update({f"w_{c}": w[c] for c in _COMPS})
+    return lh, w, gp
+
+
 def main(args, resume_preempt=False):
     cfg = args
     folder = cfg["folder"]
@@ -195,6 +240,20 @@ def main(args, resume_preempt=False):
     # ---- 모델 ---------------------------------------------------------------------
     state = U.load_base_checkpoint(MD["checkpoint"])
     ctx_enc, tgt_enc = U.build_frozen_encoders(MD, state, device, enc_dtype, n_frames)
+    # ── model.encoder_lora (kind=ar, 2026-10-25, 사용자: "ar 에 intphys2 pft 할 때 encoder 에 lora 붙인 버전도"). main 의 app/vjepa_frozen/lora.py 이식.
+    #    AR 은 입력 · 타깃이 같은 target_encoder 라서, **입력 경로 전용 복사본** 에만 LoRA 를 단다 (타깃 encoder 는 얼린 채 — 타깃이 안 움직인다).
+    #    입력 = LN(in_enc(블록)) (LoRA, grad), 타깃 = LN(tgt_enc(블록)) (얼림). 채점기는 체크포인트의 encoder_lora 로 문맥 encoder 를 다시 만든다.
+    LORA = MD.get("encoder_lora") or None
+    lora_params, in_enc = [], None
+    if LORA:
+        if not (str((MD.get("predictor") or {}).get("kind", "oneshot")) == "ar" and str((MD.get("predictor") or {}).get("ar_input", "block")) == "block"):
+            raise ValueError("이 판의 encoder_lora 는 kind=ar + ar_input: block 전용이다 (main 의 release 판은 아직 안 옮겼다)")
+        import copy
+        from app.vjepa_frozen import lora as LR
+        in_enc = copy.deepcopy(tgt_enc)
+        lora_params = LR.apply_lora(in_enc, int(LORA.get("rank", 8)), float(LORA.get("alpha", 16)), LORA.get("targets", LR.DEFAULT_TARGETS))
+        in_enc.use_activation_checkpointing = bool(LORA.get("act_ckpt", True))
+        logger.info(f"encoder LoRA (입력 경로 복사본, 타깃 encoder 는 얼림): {in_enc.lora_info} · act_ckpt {in_enc.use_activation_checkpointing} · lr_mult {LORA.get('lr_mult', 10)}")
     # ── 동결 encoder torch.compile (2026-09-22) ─────────────────────────────────
     # 실측 B=28, 48장: eager 5.8 s -> compiled(default, dynamic) 3.2 s (1.8x). 오차는 bf16 잡음 수준
     # (eager bf16 vs fp32 6.5e-2, compiled vs fp32 4.8e-2 — compiled 가 오히려 fp32 에 가깝다).
@@ -221,6 +280,24 @@ def main(args, resume_preempt=False):
     mask_index = int(MD.get("mask_index", 0))
     arch = {"img_size": res, "patch_size": patch, "tubelet_size": tubelet, "num_frames": n_frames,
             "encoder_embed_dim": ctx_enc.embed_dim, **(MD.get("predictor") or {})}
+    # ── latent action (2026-10-24, 사용자 결정): Garrido et al. 2026 "Learning Latent Action World Models In The Wild" 이식
+    #    (app/vjepa_frozen/latent_action.py). 역동역학 z_t = g(h_t, h_{t+1}) (잡음 방식, β·KL) 로 predictor 층을 변조. DDP 는 감싼 모듈 전체를.
+    #    z = 0 이면 변조가 정확히 0 → 저장 · 학습 중 검증 · 채점은 안쪽 predictor 그대로 (= 추론 때 z = 0).
+    LA = cfg.get("latent_action") or None
+    lam_mod, lam_params = None, []
+    if LA:
+        if not (kind == "ar" and ar_input == "block") or mask_all:
+            raise ValueError("latent_action 은 kind=ar + ar_input: block 전용이다")
+        if cfg.get("state_head") or cfg.get("motion") or dyn_weight or delta_weight or HINT or tf_span != "all" or GATING:
+            raise ValueError("latent_action 은 아직 state_head · motion · dyn · delta · hint · tf_span · gating 과 같이 쓰지 않는다")
+        if str(((D.get("var_window") or {}).get("boundary") or {}).get("mix", "")) == "sum":
+            raise ValueError("latent_action 은 아직 boundary.mix=sum 과 같이 쓰지 않는다")
+        from app.vjepa_frozen import latent_action as LAM
+        lam_mod = LAM.LatentActionAR(predictor, LA, ctx_enc.embed_dim).to(device)
+        lam_params = list(lam_mod.idm.parameters()) + list(lam_mod.zmod.parameters())
+        logger.info(f"latent_action: 역동역학 {sum(q.numel() for q in lam_mod.idm.parameters()) / 1e6:.2f}M · 변조 "
+                    f"{sum(q.numel() for q in lam_mod.zmod.parameters()) / 1e6:.2f}M · z {lam_mod.z_dim} · β {LA.get('beta', 1e-4)}")
+        predictor = lam_mod                     # DDP 는 이것을 감싼다 (forward 한 번에 역동역학 · TF · rollout)
     # mask token 은 매 step 하나만 쓰이므로(나머지 9개 미사용) find_unused_parameters 가 필요하다
     if mask_all:
         predictor = _MultiMaskPredictor(predictor)
@@ -234,14 +311,46 @@ def main(args, resume_preempt=False):
     #    predictor state_dict 밖 (채점기 strict) — 체크포인트에 `state_head` 로 따로. DDP 는 predictor 만이라 head grad 는 직접 평균.
     SH = cfg.get("state_head") or None
     state_head, head_params = None, []
+    HEAD_ONLY = bool(SH and SH.get("head_only"))     # 2026-10-26: head 만 정답 토큰에서 먼저 학습하는 단계
+    GM = (SH or {}).get("grad_match") or None        # 2026-10-26: head 성분 가중치를 predictor gradient 크기로 맞춤 (_matched_head)
+    GMS = {}                                          # 그 비율의 EMA 상태
+    if GM and not ((SH or {}).get("freeze") and (SH or {}).get("grad_probe_every")):
+        raise ValueError("state_head.grad_match 는 freeze + grad_probe_every 와 같이 쓴다")
     if SH:
         if not is_ar:
             raise ValueError("state_head 는 kind=ar 전용이다")
         from app.vjepa_frozen import state_head as SHM
         state_head = SHM.build_head(SH, ctx_enc.embed_dim).to(device)        # type: attn (기본) | light (2026-10-19)
         head_params = list(state_head.parameters())
+        if SH.get("init_checkpoint"):   # 2026-10-26 (사용자 결정): 정답 토큰으로 먼저 학습해 둔 head 를 불러온다
+            state_head.load_state_dict(torch.load(SH["init_checkpoint"], map_location="cpu", weights_only=False)["state_head"])
+            logger.info(f"state_head <- {SH['init_checkpoint']}")
+        if SH.get("head_only") and SH.get("freeze"):
+            raise ValueError("state_head.head_only 와 freeze 는 같이 못 쓴다")
+        if SH.get("freeze"):            # 2026-10-26: head 고정 — optimizer · rank 평균 · 정답 토큰 head 손실에서 뺀다. predictor 만 head 손실을 받는다
+            if SH.get("fit_on") != "gt" or not SH.get("init_checkpoint"):
+                raise ValueError("state_head.freeze 는 fit_on: gt + init_checkpoint 와 같이 쓴다")
+            state_head.requires_grad_(False).eval(); head_params = []
         logger.info(f"state_head ({SH.get('type', 'attn')}): {sum(q.numel() for q in head_params) / 1e6:.2f}M params · weight {SH.get('weight', 1.0)} · "
                     f"w {SH.get('w', {})} · split {SH.get('split', {})} · lr_mult {SH.get('lr_mult', 10)}")
+    # ── motion (2026-10-24, 사용자 결정): MotionJEPA DISReg 이식 (app/vjepa_frozen/motion.py). 차분 영상 encoder + 차분 예측기 + SIGReg.
+    #    차분 예측기는 정답 토큰 쌍에서만 학습, predictor 는 고정된 차분 예측기로 자기 예측 쌍 (TF · rollout) 에 손실. 라벨 없음 → 자연 영상 step 마다.
+    #    predictor state_dict 밖 (채점기 strict) — 체크포인트에 `motion` 으로 따로. DDP 는 predictor 만이라 motion grad 는 직접 평균.
+    MO = cfg.get("motion") or None
+    motion_mod, motion_params = None, []
+    if MO:
+        if not is_ar or ar_input != "block":
+            raise ValueError("motion 은 kind=ar + ar_input: block 전용이다 (블록별 정답 토큰 쌍이 필요)")
+        if SH or dyn_weight or delta_weight or HINT or tf_span != "all":
+            raise ValueError("motion 은 아직 state_head · dyn · delta · hint · tf_span 과 같이 쓰지 않는다")
+        if str(((D.get("var_window") or {}).get("boundary") or {}).get("mix", "")) == "sum":
+            raise ValueError("motion 은 아직 boundary.mix=sum 과 같이 쓰지 않는다")
+        from app.vjepa_frozen import motion as MOM
+        motion_mod = MOM.Motion(MO, ctx_enc.embed_dim, res, patch, tubelet).to(device)
+        motion_params = list(motion_mod.parameters())
+        logger.info(f"motion: 차분 encoder {sum(q.numel() for q in motion_mod.enc.parameters()) / 1e6:.2f}M · 차분 예측기 "
+                    f"{sum(q.numel() for q in motion_mod.pred.parameters()) / 1e6:.2f}M · w_sigreg {MO.get('w_sigreg', 2.0)} · "
+                    f"w_fit {MO.get('w_fit', 0.5)} · w_pred {MO.get('w_pred', 0.5)} · split {MO.get('split', {})} · lr_mult {MO.get('lr_mult', 1.0)}")
 
     # ---- 데이터 -------------------------------------------------------------------
     VW = D.get("var_window")           # 2026-10-02: 가변 창 batch 로더 (app/vjepa_frozen/var_window.py)
@@ -297,6 +406,18 @@ def main(args, resume_preempt=False):
         optimizer.add_param_group({"params": [q for q in head_params if q.ndim > 1], "lr": float(O["lr"]), "lr_scale": _hm})
         optimizer.add_param_group({"params": [q for q in head_params if q.ndim <= 1], "lr": float(O["lr"]), "lr_scale": _hm,
                                    "WD_exclude": True, "weight_decay": 0.0})
+    if lora_params:                 # encoder LoRA 그룹: lr = 스케줄 lr × lr_mult (main 과 같은 10 배), weight decay 없음
+        optimizer.add_param_group({"params": lora_params, "lr": float(O["lr"]), "lr_scale": float(LORA.get("lr_mult", 10)),
+                                   "WD_exclude": True, "weight_decay": 0.0})
+    if lam_mod is not None:         # latent action 그룹 (역동역학 · 변조): predictor 와 같은 일정, 1-D 는 weight decay 없음
+        optimizer.add_param_group({"params": [q for q in lam_params if q.ndim > 1], "lr": float(O["lr"]), "lr_scale": float(LA.get("lr_mult", 1.0))})
+        optimizer.add_param_group({"params": [q for q in lam_params if q.ndim <= 1], "lr": float(O["lr"]), "lr_scale": float(LA.get("lr_mult", 1.0)),
+                                   "WD_exclude": True, "weight_decay": 0.0})
+    if motion_mod is not None:      # motion 그룹: lr = 스케줄 lr × lr_mult, 1-D 는 weight decay 없음
+        _mm = float(MO.get("lr_mult", 1.0))
+        optimizer.add_param_group({"params": [q for q in motion_params if q.ndim > 1], "lr": float(O["lr"]), "lr_scale": _mm})
+        optimizer.add_param_group({"params": [q for q in motion_params if q.ndim <= 1], "lr": float(O["lr"]), "lr_scale": _mm,
+                                   "WD_exclude": True, "weight_decay": 0.0})
 
     # ---- val ----------------------------------------------------------------------
     valset = None
@@ -316,6 +437,24 @@ def main(args, resume_preempt=False):
                 raise KeyError(f"{latest} 에 state_head 가 없다 — config 와 run 이 맞는지 확인")
             state_head.load_state_dict(_ck["state_head"]); del _ck
             logger.info("resume: state_head <- latest.pt")
+        if lora_params:
+            _ck = torch.load(latest, map_location="cpu", weights_only=False)
+            if "encoder_lora" not in _ck:
+                raise KeyError(f"{latest} 에 encoder_lora 가 없다 — config 와 run 이 맞는지 확인")
+            LR.load_lora(in_enc, _ck["encoder_lora"]); del _ck
+            logger.info("resume: encoder LoRA <- latest.pt")
+        if lam_mod is not None:
+            _ck = torch.load(latest, map_location="cpu", weights_only=False)
+            if "latent_action" not in _ck:
+                raise KeyError(f"{latest} 에 latent_action 이 없다 — config 와 run 이 맞는지 확인")
+            lam_mod.idm.load_state_dict(_ck["latent_action"]["idm"]); lam_mod.zmod.load_state_dict(_ck["latent_action"]["zmod"]); del _ck
+            logger.info("resume: latent_action <- latest.pt")
+        if motion_mod is not None:
+            _ck = torch.load(latest, map_location="cpu", weights_only=False)
+            if "motion" not in _ck:
+                raise KeyError(f"{latest} 에 motion 이 없다 — config 와 run 이 맞는지 확인")
+            motion_mod.load_state_dict(_ck["motion"]); del _ck
+            logger.info("resume: motion <- latest.pt")
         for _ in range(start_epoch * ipe):
             scheduler.step(); wd_scheduler.step()
     elif os.path.exists(latest):
@@ -345,7 +484,7 @@ def main(args, resume_preempt=False):
             if is_ar:
                 res = AR.run_val_ar(valset, tgt_enc, pred_mod, device, ac_dtype, rank, world_size, tubelet, spatial,
                                     int(V.get("context_length", 16)), int(V.get("batch_size", 8)), loss_exp,
-                                    ar_input=ar_input)
+                                    ar_input=ar_input, in_enc=in_enc)
             elif is_ctx_state:
                 res = AR.run_val_ctx_state(valset, ctx_enc, tgt_enc, pred_mod, device, ac_dtype, rank, world_size, tubelet,
                                            spatial, int(V.get("context_length", 16)), int(V.get("batch_size", 8)), loss_exp,
@@ -528,32 +667,71 @@ def main(args, resume_preempt=False):
                     aux.update(jloss=float(jl.detach()), sloss=float(sl.detach()), R=R, n_hint=0)
                     return float(loss.detach()), lr_now, wd_now
                 with torch.no_grad(), _ac():
-                    h = AR.encode_blocks(tgt_enc, clips.to(enc_dtype), tubelet)                # (B, nb*S, D) LN
+                    h = AR.encode_blocks(tgt_enc, clips.to(enc_dtype), tubelet)                # (B, nb*S, D) LN — 타깃 (LoRA 판에서도 얼린 encoder)
                     if HINT:                                                                   # 정해진 일정, 0 개면 cross-attn 생략
                         n_hint = AR.hint_count(step / max(1, num_epochs * ipe), HINT, spatial)
                         if n_hint:
                             # 힌트 위치 = (seed, rank, step) 전용 생성기 — rank 마다 다르고 이어 돌려도 재현된다 (2026-10-12)
                             g = torch.Generator(device=clips.device).manual_seed(int(seed) * 10**9 + rank * 10**7 + int(step))
                             hint = AR.encode_hints(tgt_enc, clips.to(enc_dtype), tubelet, spatial, n_hint, gen=g)
+                if HEAD_ONLY:   # 2026-10-26 (사용자 결정): head 먼저 — 정답 토큰 h 에서 head 만 학습. predictor 는 forward 도 안 한다
+                    lab = info.get("labels")
+                    if lab is None or scaler is not None:
+                        raise ValueError("state_head.head_only: 라벨 있는 합성 step 만 (boundary.p 1.0 · mix 없음) · bf16")
+                    with _ac():
+                        lh, hlog = SHM.gt_state_loss(state_head, h, SHM.labels_to_device(lab, device), spatial, SH.get("w") or {})
+                    lh.backward()
+                    if world_size > 1:
+                        for q in head_params:
+                            if q.grad is not None:
+                                torch.distributed.all_reduce(q.grad); q.grad.div_(world_size)
+                    aux["gn"] = float(torch.nn.utils.clip_grad_norm_(head_params, float(SH.get("clip_head") or float("inf"))))
+                    optimizer.step(); optimizer.zero_grad(set_to_none=True)
+                    aux.update(head=float(lh.detach()), hlog=hlog, jloss=float(lh.detach()), sloss=0.0, R=0, n_hint=0)
+                    return float(lh.detach()), lr_now, wd_now
                 with _ac():
                     lab = info.get("labels") if state_head is not None else None    # 2026-10-19: 합성 (phys2d_sup) step 에만 있다
-                    outs = {} if lab is not None else None
-                    loss, jl, sl, R = AR.ar_losses(predictor, h, spatial, int(info["context_blocks"]),
-                                                   int(info["predict_blocks"]), loss_exp, rollout_steps, hint=hint,
-                                                   delta_weight=delta_weight, aux=aux, tf_span=tf_span, out=outs)
+                    outs = {} if (lab is not None or motion_mod is not None) else None
+                    if lam_mod is not None:        # 2026-10-24: latent action — 정답 쌍 z 로 변조한 TF + rollout L1 + β·KL
+                        loss, jl, sl, R, aux["lam"] = LAM.lam_losses(predictor, h, spatial, int(info["context_blocks"]),
+                                                                     int(info["predict_blocks"]), loss_exp, rollout_steps, float(LA.get("beta", 1e-4)))
+                    else:
+                        h_in = AR.encode_blocks(in_enc, clips.to(enc_dtype), tubelet) if in_enc is not None else None   # 2026-10-25: LoRA 입력 (grad)
+                        loss, jl, sl, R = AR.ar_losses(predictor, h, spatial, int(info["context_blocks"]),
+                                                       int(info["predict_blocks"]), loss_exp, rollout_steps, hint=hint,
+                                                       delta_weight=delta_weight, aux=aux, tf_span=tf_span, out=outs, h_in=h_in)
+                    if motion_mod is not None:     # 2026-10-24: DISReg 이식 — ① 차분 encoder · 예측기 맞추기 ② 고정 예측기로 predictor 손실
+                        lm, mlog = MOM.motion_losses(motion_mod, clips, h, outs["p_tf"], outs["p_ar"], spatial,
+                                                     int(info["context_blocks"]), R, MO)
+                        aux["latent"] = float(loss.detach()); aux["mlog"] = mlog
+                        loss = loss + lm
                     if lab is not None:
                         if SH.get("fit_on") == "gt":     # 2026-10-24: head 는 정답 토큰에서만, predictor 는 고정 head 로 (SHM.ar_state_loss_gt)
+                            _parts = {} if (GM or (SH.get("grad_probe_every") and step % int(SH["grad_probe_every"]) == 0)) else None
                             lh, hlog = SHM.ar_state_loss_gt(state_head, h, outs["p_tf"], outs["p_ar"], SHM.labels_to_device(lab, device),
-                                                            spatial, int(info["context_blocks"]), R, SH.get("w") or {}, SH.get("split") or {})
+                                                            spatial, int(info["context_blocks"]), R, SH.get("w") or {}, SH.get("split") or {},
+                                                            fit_gt=not SH.get("freeze"), parts=_parts)
                         else:
                             lh, hlog = SHM.ar_state_loss(state_head, outs["p_tf"], outs["p_ar"], SHM.labels_to_device(lab, device),
                                                          spatial, int(info["context_blocks"]), R, SH.get("w") or {}, SH.get("split") or {})
                         aux["latent"] = float(loss.detach()); aux["head"] = float(lh.detach()); aux["hlog"] = hlog
-                        loss = loss + float(SH.get("weight", 1.0)) * lh
+                        if GM:      # 2026-10-26: 성분 가중치를 gradient 크기로 맞춘 head 손실
+                            _lh, aux["hw"], _gp = _matched_head(pred_mod, _parts, loss, GM, GMS, bool(SH.get("grad_probe_every") and step % int(SH["grad_probe_every"]) == 0), world_size)
+                            if _gp:
+                                aux["gprobe"] = _gp
+                            aux["head_m"] = float(_lh.detach())
+                            loss = loss + _lh
+                        else:
+                            if SH.get("grad_probe_every") and step % int(SH["grad_probe_every"]) == 0:
+                                _W = float(SH.get("weight", 1.0))
+                                aux["gprobe"] = _grad_probe(pred_mod, {"lat": loss, "head": _W * lh, **{k: _W * v for k, v in (locals().get("_parts") or {}).items()}})
+                            loss = loss + float(SH.get("weight", 1.0)) * lh
                 loss_nat = None
                 if MIX:     # 2026-10-20: 자연 손실은 DDP 동기화 없이 gradient 만 쌓고, 합성 손실 backward 때 합쳐서 한 번 동기화
                     if scaler is not None:
                         raise ValueError("boundary.mix=sum 은 bf16 (scaler 없음) 에서만")
+                    if SH and SH.get("grad_probe_every") and step % int(SH["grad_probe_every"]) == 0:   # 2026-10-26: 자연 영상 latent 손실의 predictor grad
+                        aux["gprobe_nat"] = {"nat": _grad_probe(pred_mod, {"lat": loss})["lat"]}
                     with (predictor.no_sync() if hasattr(predictor, "no_sync") else contextlib.nullcontext()):
                         loss.backward()
                     loss_nat = loss.detach()
@@ -568,13 +746,27 @@ def main(args, resume_preempt=False):
                         aux["syn_latent"] = float(ls.detach())
                         if lab is not None:
                             if SH.get("fit_on") == "gt":     # 2026-10-24
+                                _parts = {} if (GM or (SH.get("grad_probe_every") and step % int(SH["grad_probe_every"]) == 0)) else None
                                 lh, hlog = SHM.ar_state_loss_gt(state_head, hs, outs_s["p_tf"], outs_s["p_ar"], SHM.labels_to_device(lab, device),
-                                                                spatial, int(info_s["context_blocks"]), Rs, SH.get("w") or {}, SH.get("split") or {})
+                                                                spatial, int(info_s["context_blocks"]), Rs, SH.get("w") or {}, SH.get("split") or {},
+                                                                fit_gt=not SH.get("freeze"), parts=_parts)
                             else:
                                 lh, hlog = SHM.ar_state_loss(state_head, outs_s["p_tf"], outs_s["p_ar"], SHM.labels_to_device(lab, device),
                                                              spatial, int(info_s["context_blocks"]), Rs, SH.get("w") or {}, SH.get("split") or {})
                             aux["latent"] = float(ls.detach()); aux["head"] = float(lh.detach()); aux["hlog"] = hlog
-                            loss = loss + float(SH.get("weight", 1.0)) * lh
+                            if GM:      # 2026-10-26: 성분 가중치를 gradient 크기로 맞춘 head 손실 (기준 = 합성 latent)
+                                _lh, aux["hw"], _gp = _matched_head(pred_mod, _parts, float(BX.get("latent_weight", 1.0)) * ls, GM, GMS,
+                                                                    bool(SH.get("grad_probe_every") and step % int(SH["grad_probe_every"]) == 0), world_size)
+                                if _gp:
+                                    aux["gprobe"] = {**aux.pop("gprobe_nat", {}), **_gp}
+                                aux["head_m"] = float(_lh.detach())
+                                loss = loss + _lh
+                            else:
+                                if SH.get("grad_probe_every") and step % int(SH["grad_probe_every"]) == 0:
+                                    _W = float(SH.get("weight", 1.0))
+                                    aux["gprobe"] = {**aux.pop("gprobe_nat", {}), **_grad_probe(pred_mod, {"lat": float(BX.get("latent_weight", 1.0)) * ls, "head": _W * lh,
+                                                                                                           **{k: _W * v for k, v in (_parts or {}).items()}})}
+                                loss = loss + float(SH.get("weight", 1.0)) * lh
                 if scaler is not None:
                     scaler.scale(loss).backward()
                     scaler.unscale_(optimizer)
@@ -584,7 +776,33 @@ def main(args, resume_preempt=False):
                     for q in head_params:
                         if q.grad is not None:
                             torch.distributed.all_reduce(q.grad); q.grad.div_(world_size)
-                if head_params and SH.get("clip_separate"):   # 2026-10-19: clip 은 predictor 에만 (gn = predictor norm). head 는 state_head.clip_head (null = 안 자름)
+                if lora_params:      # 2026-10-25: encoder LoRA — DDP 는 predictor 만이라 rank 평균은 직접 (한 번에 묶어서). clip 은 predictor 와 같이
+                    _g = [q.grad if q.grad is not None else torch.zeros_like(q) for q in lora_params]
+                    if world_size > 1:
+                        _flat = torch.cat([g.reshape(-1) for g in _g])
+                        torch.distributed.all_reduce(_flat); _flat.div_(world_size)
+                        _o = 0
+                        for q, g in zip(lora_params, _g):
+                            q.grad = _flat[_o: _o + g.numel()].view_as(q).clone(); _o += g.numel()
+                    aux["lgn"] = float(torch.nn.utils.clip_grad_norm_(lora_params, float("inf")))
+                    if clip_grad:
+                        torch.nn.utils.clip_grad_norm_(list(pred_mod.parameters()) + lora_params, float(clip_grad))
+                if lam_params:       # 2026-10-24: latent action — grad 동기화는 DDP 가 한다. grad norm 은 로그만 (predictor · 역동역학/변조)
+                    aux["gn"] = float(torch.nn.utils.clip_grad_norm_(pred_mod.parameters(), float(clip_grad) if clip_grad else float("inf")))
+                    aux["lgn"] = float(torch.nn.utils.clip_grad_norm_(lam_params, float(LA.get("clip", 0)) or float("inf")))
+                if motion_params:    # 2026-10-24: motion grad — rank 평균 (한 번에 묶어서), 따로 clip, predictor grad norm 은 로그만
+                    _g = [q.grad for q in motion_params]
+                    if any(g is None for g in _g):
+                        raise RuntimeError("motion 파라미터 중 grad 가 없는 것이 있다 — rank 간 all_reduce 크기가 어긋난다")
+                    if world_size > 1:
+                        _flat = torch.cat([g.reshape(-1) for g in _g])
+                        torch.distributed.all_reduce(_flat); _flat.div_(world_size)
+                        _o = 0
+                        for g in _g:
+                            g.copy_(_flat[_o: _o + g.numel()].view_as(g)); _o += g.numel()
+                    aux["mgn"] = float(torch.nn.utils.clip_grad_norm_(motion_params, float(MO.get("clip", 1.0))))
+                    aux["gn"] = float(torch.nn.utils.clip_grad_norm_(pred_mod.parameters(), float(clip_grad) if clip_grad else float("inf")))
+                elif head_params and SH.get("clip_separate"):   # 2026-10-19: clip 은 predictor 에만 (gn = predictor norm). head 는 state_head.clip_head (null = 안 자름)
                     _gn = torch.nn.utils.clip_grad_norm_(pred_mod.parameters(), float(clip_grad) if clip_grad else float("inf"))
                     if SH.get("clip_head"):
                         torch.nn.utils.clip_grad_norm_(head_params, float(SH["clip_head"]))
@@ -768,6 +986,16 @@ def main(args, resume_preempt=False):
             it_ms = (time.time() - t_it) * 1000
             loss_meter.update(loss); it_meter.update(it_ms); gpu_meter.update(gpu_ms); data_meter.update(data_ms)
             csv_logger.log(epoch + 1, itr, loss, info["context_frames"], lr_now, it_ms, gpu_ms, data_ms)
+            if rank == 0 and (SH or {}).get("monitor_json") and ((itr % log_freq == 0) or aux.get("gprobe")):   # 2026-10-26: 모니터 값 전부 <run>/monitor.jsonl
+                _rec = {"epoch": epoch + 1, "itr": itr, "step": step, "loss": float(loss), "lr": float(lr_now), "it_ms": float(it_ms),
+                        "C": info.get("context_frames"), "K": info.get("predict_frames"), "src": str(info.get("source", info.get("dataset", "")))}
+                for _k, _v in aux.items():
+                    if isinstance(_v, dict):
+                        _rec[_k] = {a: float(b) for a, b in _v.items() if isinstance(b, (int, float))}
+                    elif isinstance(_v, (int, float)):
+                        _rec[_k] = float(_v)
+                with open(os.path.join(folder, "monitor.jsonl"), "a") as _f:
+                    _f.write(json.dumps(_rec) + "\n")
             if (itr % log_freq == 0) or (itr == ipe - 1) or not np.isfinite(loss):
                 ar_s = (" [tf %.4f ar %.4f R=%d]" % (aux["jloss"], aux["sloss"], aux["R"])) if is_seq else ""
                 if HINT:
@@ -779,6 +1007,9 @@ def main(args, resume_preempt=False):
                 if state_head is not None and aux.get("hlog") and "gt_pos_px_vis" in aux["hlog"]:   # 2026-10-24 fit_on gt: 같은 head 의 위치 오차 — 정답 토큰 / TF 예측 / 굴린 예측 (보이는 블록)
                     g_ = aux["hlog"]
                     ar_s += " posx %.1f/%.1f/%.1f" % tuple(g_.get(f"{a}_pos_px_vis", float("nan")) for a in ("gt", "tf", "ar"))
+                if HEAD_ONLY and aux.get("hlog"):                 # 2026-10-26: head 사전학습 — 출력별 (물체 존재 · 정체 / 위치 px / 방향 L1 · 속력 L1), 정답 토큰
+                    g_ = aux["hlog"]
+                    ar_s += " head ex %.3f id %.3f pos %.1fpx dir %.3f spd %.3f" % tuple(g_.get(f"gt_{k}", float("nan")) for k in ("ex_acc", "id_acc", "pos_px_vis", "dir", "spd"))
                 if state_head is not None and aux.get("hlog") and "ar_id_acc" in aux["hlog"]:
                     ar_s += " id %.3f" % aux["hlog"]["ar_id_acc"]
                 if state_head is not None and aux.get("hlog"):   # 2026-10-19: 성분 (물체 CE · 위치 · 방향 · 속력, tf/ar) · 집중도 (rollout)
@@ -788,6 +1019,23 @@ def main(args, resume_preempt=False):
                         ar_s += " conc %.1f" % g_["ar_conc"]
                 if state_head is not None and "gn" in aux:
                     ar_s += " gn %.2f" % aux["gn"]
+                if aux.get("gprobe"):                             # 2026-10-26: predictor 로 가는 grad norm — 자연 latent / 합성 latent / head (가중 적용) / 성분 · cos(·, 합성 latent)
+                    g_ = aux["gprobe"]
+                    ar_s += " gprobe nat %.3f lat %.3f head %.3f (cos %.3f)" % tuple(g_.get(k, float("nan")) for k in ("nat", "lat", "head", "cos_head"))
+                    ar_s += " " + " ".join("%s %.3f" % (k, g_[k]) for k in ("ar_pos", "ar_dir", "ar_spd", "ar_ex", "tf_pos", "tf_dir", "tf_spd", "tf_ex") if k in g_)
+                if aux.get("hw"):                                 # 2026-10-26: grad_match 성분 가중치
+                    ar_s += " hw " + " ".join("%s %.2e" % (k, v) for k, v in aux["hw"].items())
+                if lora_params and "lgn" in aux:                  # 2026-10-25: encoder LoRA grad norm (clip 전)
+                    ar_s += " lora gn %.3f" % aux["lgn"]
+                if lam_mod is not None and aux.get("lam"):        # 2026-10-24: KL · z 표준편차 · μ² · σ 평균 · grad norm (predictor / 역동역학+변조)
+                    g_ = aux["lam"]
+                    ar_s += " lam kl %.2f zstd %.3f mu2 %.3f sig %.3f gn %.2f lgn %.2f" % (
+                        g_["kl"], g_["zstd"], g_["mu2"], g_["sig"], aux.get("gn", float("nan")), aux.get("lgn", float("nan")))
+                if motion_mod is not None and aux.get("mlog"):   # 2026-10-24: 잠재 L1 · SIGReg · 맞추기 · 예측 쌍 (TF/rollout) · 멈춤 기준 · d 분산 · grad norm (predictor / motion)
+                    g_ = aux["mlog"]
+                    ar_s += " lat %.4f mo sig %.3f fit %.4f tf %.4f ar %.4f copy %.4f dvar %.3f gn %.2f mgn %.2f" % (
+                        aux.get("latent", float("nan")), g_["sig"], g_["fit"], g_["tf"], g_["ar"], g_["copy"], g_["dvar"],
+                        aux.get("gn", float("nan")), aux.get("mgn", float("nan")))
                 if delta_weight:
                     ar_s += " dl %.4f" % aux.get("dloss", 0.0)
                 if dyn_weight:
@@ -808,6 +1056,12 @@ def main(args, resume_preempt=False):
         logger.info(f"epoch {epoch + 1} avg loss {loss_meter.avg:.4f}" + (f" (tf {jl_meter.avg:.4f} ar {sl_meter.avg:.4f})" if is_seq else ""))
         if rank == 0:
             _extra = {"state_head": state_head.state_dict(), "state_head_cfg": SH} if state_head is not None else None
+            if lora_params:             # 2026-10-25: 채점기가 문맥 (입력) encoder 를 다시 만든다 (analysis/intphys2/model.py, kind=ar)
+                _extra = {**(_extra or {}), "encoder_lora": LR.lora_state_dict(in_enc), "encoder_lora_cfg": in_enc.lora_info}
+            if motion_mod is not None:
+                _extra = {**(_extra or {}), "motion": motion_mod.state_dict(), "motion_cfg": MO}
+            if lam_mod is not None:     # predictor 키는 그대로 (= z = 0 추론), 역동역학 · 변조는 따로
+                _extra = {**(_extra or {}), "latent_action": {"idm": lam_mod.idm.state_dict(), "zmod": lam_mod.zmod.state_dict()}, "latent_action_cfg": LA}
             U.save_checkpoint(latest, pred_mod, optimizer, scaler, epoch + 1, step, loss_meter.avg, cfg, arch, extra=_extra)
             if save_every > 0 and ((epoch + 1) % save_every == 0 or epoch + 1 == num_epochs):
                 U.save_checkpoint(os.path.join(folder, f"e{epoch + 1}.pt"), pred_mod, optimizer, scaler,

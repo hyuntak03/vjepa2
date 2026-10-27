@@ -20,8 +20,11 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--root", default="/workspace/dataset/training_data/phys3d_single_v1/val/clips")
 ap.add_argument("--run", nargs=2, required=True, metavar=("RUN", "CKPT"))
 ap.add_argument("--limit", type=int, default=0)
+ap.add_argument("--head", default=None, help="다른 run 의 head 를 씌운다 (z_training/runs 기준 경로, 예: phys3d_state_head_pretrain/e20.pt) — 2026-10-26")
+ap.add_argument("--memfrac", type=float, default=0.0)
 a = ap.parse_args()
 dev = torch.device("cuda")
+if a.memfrac: torch.cuda.set_per_process_memory_fraction(a.memfrac)
 S, G, C, K, ST = 256, 16, 8, 8, 3
 T = 2 * (C + K)
 MEAN = torch.tensor([0.485, 0.456, 0.406], device=dev).view(1, 3, 1, 1, 1); STD = torch.tensor([0.229, 0.224, 0.225], device=dev).view(1, 3, 1, 1, 1)
@@ -37,8 +40,9 @@ kw = dict(img_size=256, patch_size=16, tubelet_size=2, num_frames=64, embed_dim=
 pred = vit_prefix_predictor(**kw)
 pred.load_state_dict({k: v for k, v in _clean_backbone_key(ck["predictor"]).items() if not k.startswith(("hint_attn.", "dyn_head.", "recon_proj."))}, strict=True)
 pred = pred.to(dev).eval()
-head = SHM.build_head(ck["state_head_cfg"], 1280); head.load_state_dict(ck["state_head"]); head = head.to(dev).eval()
-print(f"state head {ck['state_head_cfg'].get('type')} ← {a.run[0]}:{a.run[1]} (epoch {ck.get('epoch')})", flush=True)
+_hk = torch.load(os.path.join(REPO, "z_training/runs", a.head), map_location="cpu", weights_only=False) if a.head else ck
+head = SHM.build_head(_hk["state_head_cfg"], 1280); head.load_state_dict(_hk["state_head"]); head = head.to(dev).eval()
+print(f"state head ← {a.head or a.run[0]} · predictor ← {a.run[0]}:{a.run[1]} (epoch {ck.get('epoch')})", flush=True)
 
 paths = sorted(p for p in glob.glob(os.path.join(a.root, "*", "*.mp4")) if np.load(p[:-4] + "_states.npz")["pos"].shape[0] >= 96)
 if a.limit:
@@ -79,11 +83,12 @@ for ci, path in enumerate(paths):
                     cell = cellof(pos)
                     oc = cellof(lab[C - 1][1]) if old_ok else None
                     j = int(aa[i].argmax()); top = np.array([j % G * 16 + 8, j // G * 16 + 8], np.float32)
+                    _sa = np.array([(aa[i] * (np.arange(S) % G * 16 + 8)).sum(), (aa[i] * (np.arange(S) // G * 16 + 8)).sum()], np.float32)   # 2026-10-26 soft-argmax 위치 (칸 좌표 가중평균)
                     R[rep].append((pp[i], vv[i], pos, v, aa[i][cell] * S,
                                    aa[i][oc] * S if oc is not None else np.nan,
                                    np.linalg.norm(lab[C - 1][1] - pos) if old_ok else np.nan,     # 옛 자리 ↔ 정답 거리 (px)
                                    np.linalg.norm(top - pos), np.linalg.norm(top - lab[C - 1][1]) if old_ok else np.nan,
-                                   b - C if rep in ("ro", "tf", "fut") else -1))
+                                   b - C if rep in ("ro", "tf", "fut") else -1, _sa, top))
     if ci % 50 == 0:
         print(f"{ci}/{len(paths)} clip", flush=True)
 
@@ -117,3 +122,14 @@ for rep in ("fut", "tf", "ro"):
         g = lambda k: np.nanmedian([r[k] for r in rr])
         err = np.median([np.linalg.norm(r[0] - r[2]) for r in rr])
         print(f"  {names[rep][:12]:12s} {('전체' if st_ is None else str(st_ + 1)):>4s} {err:8.1f} {g(4):7.1f} {g(5):7.1f} {g(7):10.1f} {g(8):9.1f}   {len(rr)}")
+
+
+# ---- 2026-10-26: 위치를 attention 이 가리키는 칸 좌표로 읽기 (soft-argmax, 파라미터 없음) vs 지금 선형 읽기 ----
+print("\n위치 읽기 비교 (보이는 블록, 오차 px 중앙값): 선형 (z → Linear) · soft-argmax (Σ attention × 칸 중심) · argmax 칸 중심")
+print(f"  {'토큰':30s} {'선형':>7s} {'soft-argmax':>12s} {'argmax':>8s}   | 1 칸 넘게 움직인 블록: {'선형':>6s} {'soft':>6s} {'argmax':>7s}  n")
+for rep in ("ctx", "fut", "tf", "ro"):
+    rows = R[rep]
+    e_lin = np.array([np.linalg.norm(r[0] - r[2]) for r in rows]); e_sa = np.array([np.linalg.norm(r[10] - r[2]) for r in rows]); e_am = np.array([np.linalg.norm(r[11] - r[2]) for r in rows])
+    mv = np.array([np.isfinite(r[6]) and r[6] > 16 for r in rows])
+    f = lambda e: f"{np.median(e[mv]):6.1f}" if mv.any() else "   —  "
+    print(f"  {names[rep]:30s} {np.median(e_lin):7.1f} {np.median(e_sa):12.1f} {np.median(e_am):8.1f}   | {'':22s}{f(e_lin)} {f(e_sa)} {f(e_am)}  {mv.sum()}")

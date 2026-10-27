@@ -1,0 +1,15 @@
+# =============================================================================
+# AR + motion v3 — 2026-10-24 KST 22:10, v2 에서 predictor 경로 가중치만 2.0 → 0.5
+#
+#   GPUS=8 bash z_training/tmux_train.sh natural_ar_vw_motion_v3
+#
+# v2 (SIGReg 0.5 · 맞추기 2.0 · predictor 경로 2.0) 결과 (학습 로그, epoch 6):
+#   움직임 코드는 encoder 와 맞음 (정답 쌍 오차 / d 분산 0.27), 예측 쌍도 멈춤 기준보다 낮음 (TF 0.67 · rollout 0.90, 멈춤 1.41)
+#   그러나 잠재 L1 1.38 (기준 AR 1.11 · v1 1.18) 이 epoch 3 부터 정체, VOBench late 검증 50.2 (가능 · 불가능 surprise 차이 +0.0001)
+#   predictor grad norm 3~4 (v1 의 3~4 배) — 움직임 손실이 predictor gradient 를 차지해 예측이 정답 공간을 벗어남
+# → 움직임 코드 정렬 (SIGReg 0.5 · 맞추기 2.0) 은 두고, predictor 경로를 v1 크기 (0.5) 로
+# =============================================================================
+extends: natural_ar_vw_motion_v2
+
+motion:
+  w_pred: 0.5

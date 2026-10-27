@@ -1,0 +1,23 @@
+# =============================================================================
+# AR + 잠재 행동 (latent action) — 2026-10-24, 사용자 결정 ("learning latent action in the wild 이거 구현해서 학습 진행해봐")
+#
+#   GPUS=8 bash z_training/tmux_train.sh natural_ar_vw_lam
+#
+# 원 논문: Garrido et al. 2026 (arXiv 2601.05230) — 고정 V-JEPA 2 · 4 fps · 블록 = latent 하나 · L1 · teacher forcing,
+#   역동역학 z_t = g(h_t, h_{t+1}) (128 차원, 잡음 방식 = β·KL) → world model 층마다 AdaLN-zero 식 변조 (블록별).
+# 기준 AR (natural_ar_vw_state) 과 데이터 (자연 영상만, 라벨 없음) · 가변 창 · 구조 · 일정 (70 epoch) 이 같다. 더한 것은 역동역학 · 변조뿐.
+# 추론 · 학습 중 검증 · 채점: z = 0 (변조가 정확히 0 → 저장한 predictor 를 그대로). 미래 정보는 학습 때 z 를 만드는 데만 쓴다.
+# 왜: 자연 영상에서 "옮기기" 보상이 작고 드물다 (문맥만 운반 L1 이득 0.2–0.5 %, 정답 흐름이면 1.1–1.5 %, 물체 칸 비중 0.14).
+#     학습 때 z 가 무엇이 어떻게 움직였나를 주면 모든 클립에서 옮기기가 손실을 줄인다. 출력에 판독기를 붙이지 않아 v2 · v3 의 지름길이 없다.
+# 코드 app/vjepa_frozen/latent_action.py · 단위 테스트: 0 초기화 · z=0 에서 원래 predictor 와 출력 동일, z 가 출력을 바꿈, 세 모듈 grad.
+# =============================================================================
+extends: natural_ar_vw_state
+
+latent_action:
+  z_dim: 128               # 논문 기본
+  idm_dim: 384             # 역동역학: 칸마다 [h_t, h_{t+1} − h_t] → 384 → transformer 4 층 → query 1 개 모으기 → (μ, log σ²)
+  idm_depth: 4
+  idm_heads: 6
+  beta: 1.0e-4             # 잡음 방식 KL 가중 (논문 범위 1e-6 … 5e-3, 그림 S8 의 1e-4). KL = 차원 합 · 전이 평균
+  lr_mult: 1.0
+  clip: 0                  # 0 = 안 자름 (grad norm 은 로그만)

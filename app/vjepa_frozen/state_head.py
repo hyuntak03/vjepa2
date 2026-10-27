@@ -152,7 +152,7 @@ class MeanStateHead(SingleStateHead):
                 "attn": torch.full((B, T, 1, S), 1.0 / S, device=p.device)}
 
 
-def single_losses(out: dict, lab: dict, w: dict) -> tuple:
+def single_losses(out: dict, lab: dict, w: dict, parts: dict | None = None) -> tuple:
     """SingleStateHead 손실. lab 은 48 칸 라벨 (B,T,48,…) — 장면 물체가 하나라 그 정체 칸 k 를 영상마다 뽑는다.
     물체: CE 49 지선다, 정답 = k (보였으면) / 없음 (48, 아직 안 보였거나 화면 밖). w.exist_neg = 없음 정답 가중치.
     위치 · 속도: L1, 그 블록에 상태가 있으면 (m_state — 가려져도 포함). 방향은 거의 정지면 뺀다 (m_dir)."""
@@ -174,6 +174,8 @@ def single_losses(out: dict, lab: dict, w: dict) -> tuple:
     l_dir, _ = _masked_l1(vel[..., :2], vel_t[..., :2], md)
     l_spd, _ = _masked_l1(vel[..., 2:], vel_t[..., 2:], ms)
     loss = w.get("exist", 1.0) * l_ex + w.get("pos", 1.0) * l_pos + w.get("vel", 1.0) * (l_dir + l_spd)
+    if parts is not None:           # 2026-10-26: 성분별 손실 텐서 (가중 적용) — predictor grad 측정용
+        parts.update(ex=w.get("exist", 1.0) * l_ex, pos=w.get("pos", 1.0) * l_pos, dir=w.get("vel", 1.0) * l_dir, spd=w.get("vel", 1.0) * l_spd)
     with torch.no_grad():
         err = (pos.float() - pos_t.float()).norm(dim=-1) * 256.0
         mv = ms & ~hid
@@ -293,7 +295,17 @@ def visible_only(lab: dict) -> dict:
     return out
 
 
-def ar_state_loss_gt(head, h, p_tf, p_ar, lab: dict, S: int, C: int, R: int, w: dict, split: dict):
+def gt_state_loss(head, h, lab: dict, S: int, w: dict):
+    """2026-10-26 (사용자 결정, `state_head.head_only`): head 를 정답 토큰 h (LN(target_encoder(블록)), 전 블록) 에서만 먼저 학습한다.
+    보이는 블록만 (visible_only). return (loss, 로그 gt_*)."""
+    fn = single_losses if getattr(head, "single", False) else state_losses
+    lab = visible_only(lab)
+    l, g = fn(head(h.detach(), S), slice_blocks(lab, 0, h.size(1) // S), w)
+    return l, {f"gt_{k}": v for k, v in g.items()}
+
+
+def ar_state_loss_gt(head, h, p_tf, p_ar, lab: dict, S: int, C: int, R: int, w: dict, split: dict, fit_gt: bool = True,
+                     parts: dict | None = None):
     """2026-10-24 (사용자 결정, `state_head.fit_on: gt`): head 는 **정답 토큰** h (= predictor 입력 · 채점 타깃, LN(target_encoder(블록)),
     문맥 + 미래 전 블록) 에서만 학습하고, predictor 는 **같은 head (가중치 고정, gradient 끊음)** 로 자기 예측 (TF · rollout) 에 손실을 받는다.
     → predictor 가 정답 토큰과 같은 방식으로 상태를 담아야 손실이 내려간다 (head 가 예측 쪽 코드를 따로 배우는 우회를 막는다).
@@ -301,12 +313,18 @@ def ar_state_loss_gt(head, h, p_tf, p_ar, lab: dict, S: int, C: int, R: int, w: 
     fn = single_losses if getattr(head, "single", False) else state_losses
     lab = visible_only(lab)
     nb = h.size(1) // S
-    l_gt, g_gt = fn(head(h.detach(), S), slice_blocks(lab, 0, nb), w)                       # head 만
+    with (torch.enable_grad() if fit_gt else torch.no_grad()):                              # 2026-10-26: head 고정 (freeze) 이면 로그만
+        l_gt, g_gt = fn(head(h.detach(), S), slice_blocks(lab, 0, nb), w)                   # head 만
     frozen = {n: q.detach() for n, q in head.named_parameters()}
     fc = lambda x: torch.func.functional_call(head, frozen, (x, S))                           # predictor 만
-    l_tf, g_tf = fn(fc(p_tf), slice_blocks(lab, 1, 1 + p_tf.size(1) // S), w)
-    l_ar, g_ar = fn(fc(p_ar), slice_blocks(lab, C, C + R), w)
-    loss = l_gt + split.get("tf", 1.0) * l_tf + split.get("ar", 1.0) * l_ar
+    kw_tf, kw_ar = ({"parts": {}}, {"parts": {}}) if (parts is not None and fn is single_losses) else ({}, {})
+    l_tf, g_tf = fn(fc(p_tf), slice_blocks(lab, 1, 1 + p_tf.size(1) // S), w, **kw_tf)
+    l_ar, g_ar = fn(fc(p_ar), slice_blocks(lab, C, C + R), w, **kw_ar)
+    if kw_tf:                       # 2026-10-26: 성분별 (tf + ar, split 가중) — predictor grad 측정용
+        for k in kw_tf["parts"]:
+            parts[f"tf_{k}"] = split.get("tf", 1.0) * kw_tf["parts"][k]
+            parts[f"ar_{k}"] = split.get("ar", 1.0) * kw_ar["parts"][k]
+    loss = (l_gt if fit_gt else 0.0) + split.get("tf", 1.0) * l_tf + split.get("ar", 1.0) * l_ar
     log = {f"tf_{k}": v for k, v in g_tf.items()}
     log.update({f"ar_{k}": v for k, v in g_ar.items()})
     log.update({f"gt_{k}": v for k, v in g_gt.items()})

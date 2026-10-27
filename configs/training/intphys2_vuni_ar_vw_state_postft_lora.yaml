@@ -1,0 +1,19 @@
+# =============================================================================
+# AR post-FT IntPhys2 violation-uni + **encoder LoRA** — 2026-10-25, 사용자 ("ar 에 intphys2 pft 할 때 encoder 에 lora 붙인 버전도 해줘봐")
+#
+#   GPUS=2 bash z_training/tmux_train.sh intphys2_vuni_ar_vw_state_postft_lora
+#   채점: intphys2_violation_uni_test (252 쌍, 학습 장면과 안 겹침) — LoRA 없는 판 (intphys2_vuni_ar_vw_state_postft) 은 63.5
+#
+# intphys2_vuni_ar_vw_state_postft 와 한 변수만 다르다: encoder LoRA (main 의 intphys2_postft_pair_lora 와 같은 rank 8 · alpha 16 ·
+#   qkv · proj · fc1 · fc2 · lr ×10 · activation checkpointing).
+# AR 은 입력 · 타깃이 같은 target_encoder 라서 **입력 경로 전용 복사본** 에만 LoRA (타깃 encoder 는 얼림 → 타깃이 안 움직여 무너지지 않는다).
+# 채점기 (analysis/intphys2/model.py, kind=ar) 는 체크포인트의 encoder_lora 를 읽어 문맥 encoder 만 LoRA 복사본으로 만든다.
+# =============================================================================
+extends: intphys2_vuni_ar_vw_state_postft
+model:
+  encoder_lora:
+    rank: 8
+    alpha: 16
+    targets: [qkv, proj, fc1, fc2]
+    lr_mult: 10
+    act_ckpt: true

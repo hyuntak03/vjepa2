@@ -1,0 +1,31 @@
+# =============================================================================
+# AR + motion (MotionJEPA DISReg 이식) — 2026-10-24, 사용자 결정 ("motion jepa 처럼 motion encoder 해서 diff 걸어 줘 · sigreg · encoder frozen")
+#
+#   GPUS=8 bash z_training/tmux_train.sh natural_ar_vw_motion
+#
+# 기준 AR (natural_ar_vw_state) 와 데이터 (K710 · SSv2 · HowTo100M 1 %, 라벨 없음) · 가변 창 · 구조 · 일정 (70 epoch) 이 같다. 더한 것:
+#   차분 encoder (ViT-Tiny, 픽셀 차분 영상 → d) · 차분 예측기 (정답 토큰 쌍 → d̂) · SIGReg(d)
+#   ① w_sigreg · SIGReg(d) + w_fit · MSE(DiffPred(h_b, h_{b+1}), d)          → 차분 encoder · 예측기만
+#   ② w_pred · MSE(DiffPred_고정(h_b 또는 p̂_b, p̂_{b+1}), d_끊음)  TF + rollout → predictor 만
+# 가중치는 원본 기본값 (λ_d 2 · λ_pred 0.5). SIGReg(z) 는 없다 (encoder 고정). 코드 app/vjepa_frozen/motion.py
+# 시험 · 채점은 predictor 만 (motion 모듈은 체크포인트 `motion` 키에 따로) — 미래 정보는 학습 타깃으로만 들어간다.
+# =============================================================================
+extends: natural_ar_vw_state
+
+optimization:
+  clip_grad: null          # 기준 AR 과 같게 predictor 는 안 자른다 (motion 은 motion.clip 으로 따로)
+
+motion:
+  dim: 192                 # d 차원 (원본 192)
+  enc_dim: 192             # 차분 encoder = ViT-Tiny (192 · 12 층 · 3 head), patch 16 → 256 칸, 입력 6 채널 (블록 2 장의 프레임별 차분)
+  enc_depth: 12
+  enc_heads: 3
+  proj_hidden: 2048        # CLS → Linear · BatchNorm · GELU · Linear (원본 LeWM projector)
+  pred_hidden: 512         # 차분 예측기: 칸마다 [h_b, h_{b+1} − h_b] → MLP → 칸 평균 → MLP
+  sigreg: {knots: 17, num_proj: 1024, ref_n: 128}
+  w_sigreg: 2.0            # λ_d
+  w_fit: 0.5               # λ_pred (정답 쌍)
+  w_pred: 0.5              # predictor 경로 (TF + rollout 각 1.0)
+  split: {tf: 1.0, ar: 1.0}
+  lr_mult: 1.0
+  clip: 1.0

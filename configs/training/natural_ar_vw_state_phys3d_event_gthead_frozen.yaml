@@ -1,0 +1,20 @@
+# =============================================================================
+# AR + phys3d 사건 구간 + 상태 감독 — 정답 토큰으로 **먼저 학습해 둔 head 를 고정**하고 predictor 만 head 손실을 받는다 (2026-10-26, 사용자 결정)
+#
+#   GPUS=8 bash z_training/tmux_train.sh natural_ar_vw_state_phys3d_event_gthead_frozen
+#
+# natural_ar_vw_state_phys3d_event_gthead 와 데이터 · head 구조 · 일정이 같다. 다른 점:
+#   ① head = phys3d_state_head_pretrain e20 (정답 토큰 h = LN(target_encoder(블록)) 에서만 20 epoch 먼저 학습. 검증 정답 토큰: 위치 4.5 px ·
+#      방향 cos 0.994 · 존재 96.9 % · 정체 81.3 % · 속력 L1 0.285). 학습 중 고정 (state_head.freeze)
+#   ② head 손실 가중 0.05 → 1 (사용자 결정 2026-10-26: 먼저 1 로 두고 gradient 흐름을 본다)
+#   ③ grad_probe_every: predictor 로 가는 gradient 크기를 손실 항별로 따로 (자연 latent · 합성 latent · head 전체 · 성분 tf/ar × 존재/위치/방향/속력, cos)
+#   ④ monitor_json: 로그 step 의 모니터 값 전부를 <run>/monitor.jsonl 에
+# =============================================================================
+extends: natural_ar_vw_state_phys3d_event_gthead
+
+state_head:
+  init_checkpoint: ${VJEPA2_ROOT}/z_training/runs/phys3d_state_head_pretrain/e20.pt
+  freeze: true
+  weight: 1.0
+  grad_probe_every: 20
+  monitor_json: true

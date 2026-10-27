@@ -1,0 +1,28 @@
+# =============================================================================
+# 상태 head 만 먼저 학습 — 정답 토큰 (LN(target_encoder(블록))) 에서만, predictor 는 forward 도 안 한다 (2026-10-26, 사용자 결정)
+#
+#   GPUS=8 bash z_training/tmux_train.sh phys3d_state_head_pretrain
+#
+# 다음 단계 natural_ar_vw_state_phys3d_event_gthead_frozen 이 이 run 의 latest.pt 에서 head 를 불러와 고정한다.
+# head 구조 · 손실 성분 (존재 · 위치 · 속도) 은 natural_ar_vw_state_phys3d_event_gthead 와 같다. 보이는 블록만.
+# 데이터: phys3d_single_v1 train_mix (사건 구간 + 균일 창) 만, 매 step 합성 batch (boundary p 1.0, mix 없음).
+# =============================================================================
+extends: natural_ar_vw_state_phys3d_event_gthead
+
+data:
+  var_window:
+    boundary:
+      p: 1.0
+      mix: null
+      manifest: ${DATA_CSV}/phys3d_single_v1/train_mix.tsv
+
+state_head:
+  head_only: true
+  weight: 1.0
+
+optimization:
+  epochs: 20
+  anneal_epochs: 3
+
+val:
+  every_epochs: 999

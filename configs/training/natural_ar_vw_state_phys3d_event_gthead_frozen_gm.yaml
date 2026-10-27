@@ -1,0 +1,20 @@
+# =============================================================================
+# 판독기 고정 + 성분별 gradient 크기 맞춤 (2026-10-26, 사용자 결정)
+#
+#   GPUS=8 bash z_training/tmux_train.sh natural_ar_vw_state_phys3d_event_gthead_frozen_gm
+#
+# natural_ar_vw_state_phys3d_event_gthead_frozen 과 같고 다른 점 하나: head 손실의 성분 가중치를 predictor gradient 크기로 맞춘다.
+#   성분 c (위치 · 방향 · 속력 · 존재/정체, 각각 TF + 굴린 합) 의 가중치 = 목표 배수 / EMA(‖∇ c‖ / ‖∇ 합성 latent‖), 20 step 마다 갱신 (rank 평균).
+#   → ‖∇ (가중 c)‖ ≈ 목표 배수 × ‖∇ 합성 latent‖.  목표: 위치 1 · 방향 0.5 · 존재/정체 0.5 · 속력 0 (판독기가 정답 토큰에서도 잘 못 읽어 뺌)
+# 왜: 가중치 1 (frozen run) 에서 head gradient 가 latent 의 100~170 배, 그중 위치 3 % (출력층 spectral norm 물체 13.6 vs 위치 0.18).
+#     e7 까지 VOBench margin 0.00007 (gthead 의 1/40), latent 손실 기존 AR 보다 0.06~0.09 높음, 미래 디코딩 회색 모자이크 (PSNR 13.9).
+# =============================================================================
+extends: natural_ar_vw_state_phys3d_event_gthead_frozen
+
+state_head:
+  grad_match:
+    pos: 1.0
+    dir: 0.5
+    ex: 0.5
+    spd: 0.0
+    ema: 0.9

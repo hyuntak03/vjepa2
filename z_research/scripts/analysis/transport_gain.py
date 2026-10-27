@@ -48,7 +48,23 @@ def load_pred(run, ck):
     return m.to(dev).eval()
 
 
-models = [(f"{r}:{c}", load_pred(r, c)) for r, c in a.run]
+def ablate(m, spec):
+    """2026-10-24: head 끄기 — spec "12.7,2.6" (층 1-기반 . 헤드 0-기반). 그 층 attention 의 출력 투영 입력에서 그 헤드 32 차원을 0 으로 (모든 걸음)."""
+    hd = m.predictor_blocks[0].attn.proj.in_features // m.predictor_blocks[0].attn.num_heads
+    for t in spec.split(","):
+        l, h = (int(v) for v in t.split("."))
+        def pre(mod, args, h=h):
+            x = args[0].clone(); x[..., h * hd:(h + 1) * hd] = 0
+            return (x,) + tuple(args[1:])
+        m.predictor_blocks[l - 1].attn.proj.register_forward_pre_hook(pre)
+    return m
+
+
+models = []
+for r, c in a.run:                     # RUN 에 "@12.7,2.6" 을 붙이면 그 헤드를 끈다
+    run_, _, spec = r.partition("@")
+    m_ = load_pred(run_, c)
+    models.append((f"{r}:{c}", ablate(m_, spec) if spec else m_))
 cells3 = lambda cx, cy: [y * G + x for y in range(max(0, cy - 1), min(G, cy + 2)) for x in range(max(0, cx - 1), min(G, cx + 2))]
 cell_of = lambda p: (int(np.clip(p[0] // 16, 0, G - 1)), int(np.clip(p[1] // 16, 0, G - 1)))
 yy, xx = np.divmod(np.arange(S), G)
