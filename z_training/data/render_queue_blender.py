@@ -19,6 +19,8 @@ def render_one(path, engine, res):
     bpy.ops.wm.open_mainfile(filepath=path)
     sc = bpy.context.scene
     s = int(sc["clip_start_render"])
+    ST = int(sc.get("save_stride", 3))            # v1 (multi) 3 · 192, flow 1 · 48
+    W_RAW = int(sc.get("window_render", 192))
     frames_dir = stem + "_frames"
     B.setup_render(sc, engine, res, os.path.join(frames_dir, "f"))
     # 렌더 워커는 GPU 마다 몇 개뿐이라 장면을 GPU 에 붙잡아 둬도 된다 (persistent data 끄면 장마다 다시 올려 0.8 초 / 장, 2026-10-25 실측)

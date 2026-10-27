@@ -52,6 +52,7 @@ def main():
     ap.add_argument("--single-v2", action="store_true", help="물체 1 개 v2 (gen_phys3d_single_v2_blender.py, 2026-10-21)")
     ap.add_argument("--defer-render", action="store_true", help="multi: 라벨 워커 (CPU, --cpu-workers) 는 장면을 .blend 로 남기고 렌더 워커 (GPU 마다 --render-per) 가 렌더")
     ap.add_argument("--render-per", type=int, default=4)
+    ap.add_argument("--flow", action="store_true", help="multi 의 phys3d_flow 판 (gen_phys3d_flow_blender.py, 2026-10-27) — 오래 이어지는 운동 · 시나리오 45")
     ap.add_argument("--multi", action="store_true", help="phys3d_multi (gen_phys3d_multi_blender.py, 2026-10-25) — 4 fps 64 장 · 문맥 끝 고정 · 가림 · 배경")
     ap.add_argument("--single-v3", action="store_true", help="물체 1 개 v3 (gen_phys3d_single_v3_blender.py, 2026-10-23) — 공중 붙잡기 없음 · 4 fps 저장 (--stride 1)")
     ap.add_argument("--stride", type=int, default=1, help="uniform 행: 학습이 몇 장마다 1 장을 보나 (v2 = 3)")
@@ -158,16 +159,17 @@ def main():
           + (f" · uniform 행 {nu:,} (영상당 {nu / max(1, len(good)):.1f})" if fu else ""))
 
 
-def multi_names():
+def multi_names(flow=False):
     import re
-    return re.findall(r'@scenario\("(\w+)"', open(os.path.join(HERE, "gen_phys3d_multi_blender.py")).read())
+    files = ["gen_phys3d_multi_blender.py"] + (["gen_phys3d_flow_blender.py"] if flow else [])
+    return [n for f in files for n in re.findall(r'@scenario\("(\w+)"', open(os.path.join(HERE, f)).read())]
 
 
 def main_multi(a):
     """phys3d_multi: 작업 (시나리오, k) — C* = C_SET[k mod 5] (생성기가 k 로 층화). 워커는 GPU 마다 gpu_per 개 (렌더 OptiX, 라벨은 CPU 1 코어) + CPU 워커."""
     import numpy as np
-    script = "gen_phys3d_multi_blender.py"
-    names = multi_names() if a.scenarios == "all" else a.scenarios.split(",")
+    script = "gen_phys3d_flow_blender.py" if a.flow else "gen_phys3d_multi_blender.py"
+    names = multi_names(a.flow) if a.scenarios == "all" else a.scenarios.split(",")
     clips, wdir = os.path.join(a.out, "clips"), os.path.join(a.out, "_work")
     os.makedirs(wdir, exist_ok=True)
     if not a.collect_only:
@@ -226,8 +228,8 @@ def main_multi(a):
                 print(f"렌더 남은 {left:,}", flush=True)
     res = [json.loads(l) for f in sorted(glob.glob(os.path.join(wdir, "res_*.jsonl"))) for l in open(f) if l.strip()]
     res.sort(key=lambda r: (r["name"], r["k"]))
-    for r in res:                                  # 렌더가 안 된 것 (blend 남음 · mp4 없음) 은 실패로
-        if r["ok"] and not os.path.exists(r["mp4"]):
+    for r in res:                                  # 렌더가 안 된 것 (blend 남음 · mp4 없음) 은 실패로 (라벨만 시험 PHYS3D_NORENDER=1 은 빼고)
+        if r["ok"] and not os.path.exists(r["mp4"]) and os.environ.get("PHYS3D_NORENDER") != "1":
             r["ok"], r["why"] = False, ["render missing"]
     good = [r for r in res if r["ok"]]
     with open(os.path.join(a.out, "failed.tsv"), "w") as fh:

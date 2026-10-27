@@ -30,11 +30,13 @@ def main():
         stem = os.path.join(a.root, "clips", m["name"], f"{m['name']}_{int(m['k']):05d}")
         z = np.load(stem + "_states.npz")
         C = int(m["C_star"])
-        v0 = np.linalg.norm(z["vel3d"][:, 0], axis=-1) * 4
-        va = np.linalg.norm(z["vel3d"], axis=-1) * 4
+        fps = float(json.load(open(stem + ".json"))["fps"])
+        v0 = np.linalg.norm(z["vel3d"][:, 0], axis=-1) * fps
+        va = np.linalg.norm(z["vel3d"], axis=-1) * fps
         R.append(dict(m=m, C=C, mov=float(v0[max(C - 1, 0)]) > 0.3, cstill=float((va[:C] < 0.05).all(1).mean()),
                       still=float((va < 0.05).all(1).mean()), sp=float(np.median(v0[:C])), size=float(z["size"][0]),
-                      hid=float((z["vis_frac"][:, 0] <= 0.3).mean())))
+                      hid=float((z["vis_frac"][:, 0] <= 0.3).mean()), v2d=np.diff(z["pos"][:, 0].astype(np.float64), axis=0),
+                      mvfrac=float((v0 >= 0.05).mean()), fps=fps))
     print(f"# phys3d_multi 점검 — `{a.root}`\n\n영상 {len(R):,} (실패 {len(fail):,})\n")
     print("## 1. C 별 (같아야 하는 것)\n")
     print("| C | 영상 | 실패 | event · occ_event · occ_any | 앵커 때 움직임 | 문맥 정지 | 전체 정지 | 문맥 속력 중앙 m/s | 주 물체 크기 중앙 | 안 보임 장 | 문맥 중 가림 | 들어온 물체 | open 배경 | 평균 시도 |")
@@ -72,6 +74,29 @@ def main():
     print("\n바닥: " + " · ".join(f"{k} {v}" for k, v in collections.Counter(x["m"]["floor_kind"] for x in R).most_common()))
     print("\n벽: " + " · ".join(f"{k} {v}" for k, v in collections.Counter(x["m"]["wall_kind"] for x in R).most_common()))
     print("\n주 물체 모양: " + " · ".join(f"{k} {v}" for k, v in collections.Counter(x["m"]["main_shape"] for x in R).most_common()))
+    print("\n## 4-1. 지속률 (라벨, 주 물체 화면 속도) — 원칙 A · C (DATA_DESIGN_PRINCIPLES_2026-10-26)\n")
+    print("지금 장 속도 v(t) (px / 저장 장) 중 L 초 뒤 v(t+L) 에 그대로 이어지는 몫 = (v(t+L) · v(t)) / |v(t)|², 움직이는 장 (≥ 8 px / 초) 에서 중앙값 · 아래 0 으로 자름.")
+    print("자연 영상 (광학 흐름, 0.5 초 뒤): K710 0.20 · SSv2 0.10 · HowTo 0.06. 도구 검사: 등속 1 · 멈춤 0.\n")
+    secs = (0.5, 1.0, 1.6, 2.0)                   # 1.6 초 = 예측 최대 (flow 판 8 블록 · 10 fps)
+    print("| C | " + " | ".join(f"{t:g} 초" for t in secs) + " | 주 물체 움직이는 장 | 장면 정지 장 |\n|---|" + "---:|" * (len(secs) + 2))
+    def persist(v, L, fps):
+        sp = np.linalg.norm(v, axis=-1)
+        t = np.nonzero(sp[:-L] >= 8.0 / fps)[0] if len(sp) > L else []   # 움직임 = 8 px / 초 이상
+        if len(t) == 0:
+            return []
+        return list(np.maximum(0, (v[t + L] * v[t]).sum(-1) / sp[t] ** 2))
+    for C in CS + ("all",):
+        rs = [x for x in R if C == "all" or x["C"] == C]
+        vals = {t: [] for t in secs}
+        mv = st = 0.0
+        for x in rs:
+            vel = x["v2d"]
+            for t_ in secs:
+                vals[t_] += persist(vel, int(round(t_ * x["fps"])), x["fps"])
+            mv += x["mvfrac"]
+            st += x["still"]
+        print(f"| {C} | " + " | ".join(f"{np.median(vals[t_]):.2f}" if vals[t_] else "-" for t_ in secs) +
+              f" | {100 * mv / max(len(rs), 1):.0f} % | {100 * st / max(len(rs), 1):.0f} % |")
     print("\n## 5. 실패 이유\n")
     for k, v in collections.Counter(f["why"].split(";")[0] for f in fail).most_common(10):
         print(f"- {v} × {k}")

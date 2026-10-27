@@ -165,18 +165,24 @@ def obj(rng, loc, size=None, shape=None, rot=None, friction=None, bounce=None, d
         k = 24
         ring = [(r * 0.8 * math.cos(2 * math.pi * i / k), r * 0.8 * math.sin(2 * math.pi * i / k), 0.0) for i in range(k)]
         mesh_obj("bicone", ring + [(0, 0, r), (0, 0, -r)], [(i, (i + 1) % k, k) for i in range(k)] + [((i + 1) % k, i, k + 1) for i in range(k)], loc)
+    elif shp in EXTRA_SHAPES:                     # flow 판에서 더한 모양 (2026-10-27)
+        EXTRA_SHAPES[shp](r, size, loc)
     o = bpy.context.object
     bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
     if rot is not None:
         o.rotation_euler = rot
-    if shp in ("sphere", "torus", "ellipsoid", "cylinder", "disc", "capsule", "rounded_cube"):
+    if shp in ("sphere", "torus", "ellipsoid", "cylinder", "disc", "capsule", "rounded_cube") or shp in EXTRA_SMOOTH:
         bpy.ops.object.shade_smooth()
     rgb, hue = rand_color(rng)
     pattern = int(rng.choice(3, p=[1 - P_PATTERN, P_PATTERN / 2, P_PATTERN / 2]))
     rgb2 = rand_color(rng)[0]
     pscale = float(rng.uniform(2.0, 6.0))
     o.name = f"{name}_{shp}"
-    o.data.materials.append(obj_material(o.name, rgb, rgb2, pattern, float(rng.uniform(0.2, 0.75)), pscale))
+    if OBJ_MAT_HOOK is not None:                  # flow 판: 질감 종류를 늘린다
+        mat_o, pattern = OBJ_MAT_HOOK(rng, o.name, rgb, rgb2)
+        o.data.materials.append(mat_o)
+    else:
+        o.data.materials.append(obj_material(o.name, rgb, rgb2, pattern, float(rng.uniform(0.2, 0.75)), pscale))
     bpy.ops.rigidbody.object_add(type="ACTIVE")
     rb = o.rigid_body
     rb.collision_shape = {"sphere": "SPHERE", "cube": "BOX", "cuboid": "BOX", "cone": "CONE"}.get(shp, "CONVEX_HULL")
@@ -1217,13 +1223,13 @@ def place_occlusion(mode, rng, sc, objs, lab, T, t0=None, lo=8, need_move=None):
 def blind_ok(vis, T):
     """안 보임 (vis ≤ SEEN) 연속 ≤ MAX_BLIND (3 장마다 1 장에서 잼) · 가려졌다가 끝 전에 다시 보임."""
     b = vis <= B.SEEN
-    g = b[::3]
+    g = b[::ST]                                   # 저장 장 (v1 ST 3)
     best = cur = 0
     for x in g:
         cur = cur + 1 if x else 0
         best = max(best, cur)
-    if best * 3 > MAX_BLIND:
-        return False, f"blind {best * 3}"
+    if best * ST > MAX_BLIND:
+        return False, f"blind {best * ST}"
     hid = np.nonzero(b)[0]
     if len(hid) < MIN_HIDDEN:
         return False, f"hidden {len(hid)}"
@@ -1495,6 +1501,11 @@ ANCHORS = ("event", "occ_event", "occ_any")    # 가림 둘 중 하나는 사건
 P_MID_OCC = 0.5
 
 
+EXTRA_SHAPES = {}                             # 이름 → 만드는 함수 (r, size, loc) — flow 판
+EXTRA_SMOOTH = set()
+OBJ_MAT_HOOK = None                           # (rng, name, rgb, rgb2) → (material, pattern id) — flow 판
+SCENE_HOOK = None                             # (sc, objs, info, rng, env) — 시나리오 · 배경 뒤 장면 손질 (flow 판, 2026-10-27). None = v1 그대로
+WINDOW_HOOK = None                            # (lw, objs, info, Cs, rng) → 버릴 이유 목록 — 창 검사 (flow 판). None = v1 그대로
 P_ANCHOR_MOVING = 0.8                         # 앵커 때 움직이는 물체 80 % · 멈춘 물체 20 % (모든 C 같게)
 MAX_CTX_STILL = 0.5                           # 문맥 안 장면 정지 장 비율 상한 (모든 C 같게)
 P_ARRIVE = (0.4, 0.3, 0.2, 0.1)               # 나중에 들어오는 물체 0 · 1 · 2 · 3 개
@@ -1638,6 +1649,7 @@ def save_for_render(sc, stem, s):
             o.keyframe_insert("location", frame=f)
             o.keyframe_insert("rotation_quaternion", frame=f)
     sc["clip_start_render"] = int(s)
+    sc["save_stride"], sc["window_render"] = int(ST), int(W_RAW)   # 렌더 워커가 읽는다 (flow 판은 10 fps · stride 1 · 48 장)
     tmp = stem + "_tmp.blend"
     bpy.ops.wm.save_as_mainfile(filepath=tmp, compress=True, check_existing=False)
     os.replace(tmp, stem + "_r.blend")
@@ -1670,6 +1682,8 @@ def generate2(name, k, seed, main_ident, out, n_frames=None, res=256, engine="cp
         arrivals(np.random.default_rng([seed, list(SCENARIOS).index(name), attempt, 14]), objs, info)
         if os.environ.get("PHYS3D_BG", "1") == "1":
             background(np.random.default_rng([seed, list(SCENARIOS).index(name), attempt, 13]), sc, env)
+        if SCENE_HOOK is not None:
+            SCENE_HOOK(sc, objs, info, np.random.default_rng([seed, list(SCENARIOS).index(name), attempt, 15]), env)
         sc.frame_end = PRE + N_SIM - 1
         rw = sc.rigidbody_world
         rw.point_cache.frame_start, rw.point_cache.frame_end = 1, sc.frame_end
@@ -1788,6 +1802,10 @@ def generate2(name, k, seed, main_ident, out, n_frames=None, res=256, engine="cp
         evw += [dict(e2, frame=e2["frame"] * ST) for e2 in B.events(L0) if e2["kind"] in ("occlude", "reappear")]
         evw.sort(key=lambda e2: (e2["frame"], e2["obj"]))
         why = check(lw, [e2 for e2 in evw if e2["kind"] in ("impact", "leave")], info, objs)
+        if not why and WINDOW_HOOK is not None:
+            why = WINDOW_HOOK(lw, objs, info, Cs, np.random.default_rng([seed, list(SCENARIOS).index(name), 16]))
+        if os.environ.get("PHYS3D_DEBUG") and why:
+            print("WHY", attempt, why, flush=True)
         if why:
             continue
         L = _save_sub(lab, s)
