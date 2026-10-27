@@ -1,0 +1,24 @@
+# =============================================================================
+# 블록 AR (자연 영상, 상태 되먹임) — 학습 시간 척도를 채점과 같은 fps 10 으로, 창 최대 문맥 16 블록 + 예측 8 블록 (2026-10-27, 사용자 결정)
+#
+#   GPUS=8 bash z_training/tmux_train.sh natural_ar_vw_state_fps10_c16k8
+#
+# natural_ar_vw_state 와 같고 다른 점:
+#   ① fps 4 → **시간 기준 fps 10** (data_csv/*/fps10t_table.tsv, z_training/data/build_time_fps_table.py; 로더는 장 k = 가장 가까운 원본 프레임 round((t0 + k/10)·fps))
+#      VOBench · phys3d 채점 = 30 fps 원본 3 장 간격 = 0.1 초. 지금까지 학습은 블록 0.5 초, 채점은 0.2 초였다.
+#      fps 4 에서는 48 · 64 장 창을 K710 4.7 % / 0 %, SSv2 0 % 만 채울 수 있어 긴 창이 HowTo 1 % (1.2 만 영상) 에 몰렸다. fps 10 은 K710 99 %, SSv2 43 % (48 장).
+#   ② 예측 최대 32 → 16 장 (8 블록 = 1.6 초), rollout_steps 16 → 8. 문맥 최대는 32 장 (16 블록 = 3.2 초) 그대로 → 창 최대 48 장.
+# =============================================================================
+extends: natural_ar_vw_state
+
+data:
+  var_window:
+    datasets:
+      - {name: k710, table: "${DATA_CSV}/k710_320/fps10t_table.tsv", weight: 1.0}
+      - {name: ssv2, table: "${DATA_CSV}/ssv2/fps10t_table.tsv", weight: 1.0}
+      - {name: how, table: "${DATA_CSV}/ht100m_1pct/fps10t_table.tsv", weight: 1.0}
+    context_frames: [2, 4, 8, 16, 32]
+    predict_frames: [2, 4, 8, 16]
+
+loss:
+  rollout_steps: 8

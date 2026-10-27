@@ -487,6 +487,7 @@ def build_from_config(cfg: dict, device: torch.device) -> VJEPA2Bundle:
             num_mask_tokens=int(predictor_cfg.get("num_mask_tokens", 10)),
             use_rope=use_rope, use_sdpa=True, mask_mode=kind,
             n_registers=int(predictor_cfg.get("n_registers", 0)),
+            reg_carry=str(predictor_cfg.get("reg_carry", "state")),          # 2026-10-27: ar registers 상태 넘김
             ar_feedback=str(predictor_cfg.get("ar_feedback", "output")),     # 2026-10-12: kind=ar 상태 되먹임
             gating_residual=bool(predictor_cfg.get("gating_residual", False)),   # 2026-10-17: gate 지름길
             gating_anchor=str(predictor_cfg.get("gating_anchor", "last_obs")),    # 2026-10-18: rollout anchor 규칙

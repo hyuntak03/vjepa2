@@ -40,13 +40,14 @@ class _Table:
         for ln in open(path, encoding="utf-8"):
             p, f, n, fstp, n4 = ln.rstrip("\n").split("\t")
             if int(n4) > 0:
-                rows.append((int(n4), p, int(n), int(fstp)))
+                rows.append((int(n4), p, int(n), int(fstp), int(f)))
         rows.sort(key=lambda r: r[0])
         self.name, self.weight = name, float(weight)
         self.n4 = [r[0] for r in rows]
         self.paths = [r[1] for r in rows]
         self.nframes = [r[2] for r in rows]
         self.fstp = [r[3] for r in rows]
+        self.fps = [r[4] for r in rows]                # 2026-10-27: 시간 기준 표 (fstp < 0) 에서 쓴다
 
     def first_ok(self, W: int) -> int:
         """n4 >= W 인 첫 위치. 적격 = [first_ok, len)."""
@@ -358,6 +359,15 @@ class VarWindowBatches(torch.utils.data.IterableDataset):
         import decord
         vr = decord.VideoReader(t.paths[j], num_threads=1)
         n, fstp = len(vr), t.fstp[j]
+        if fstp < 0:                                   # 2026-10-27 시간 기준 표 (build_time_fps_table.py): 장 k = 가장 가까운 원본 프레임 round((t0 + k/T)·fps)
+            T_, f_ = -fstp, float(t.fps[j])
+            dur = (W - 1) / T_                         # 창 길이 (초)
+            t_max = (n - 1) / f_ - dur
+            if t_max < 0:
+                raise ValueError(f"짧다: {t.paths[j]} n={n} 창 {dur:.2f}s")
+            t0 = rng.uniform(0.0, t_max)
+            idx = [min(n - 1, int(round((t0 + k / T_) * f_))) for k in range(W)]
+            return vr.get_batch(idx).asnumpy()
         span = (W - 1) * fstp + 1
         if n < span:                                   # 표와 실제 길이가 다르면 (헤더 오류) 버린다
             raise ValueError(f"짧다: {t.paths[j]} n={n} span={span}")

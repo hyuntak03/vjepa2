@@ -1,0 +1,20 @@
+# =============================================================================
+# 블록 AR + register 토큰 4 개, register 상태를 다음 블록으로 넘김 (2026-10-27, 사용자 결정)
+#
+#   GPUS=8 bash z_training/tmux_train.sh natural_ar_vw_state_reg4
+#
+# natural_ar_vw_state (기준 AR, 자연 영상만, 상태 되먹임) 와 같고 다른 점 하나: predictor 블록마다 register 4 개.
+#   "Vision Transformers Need Registers" (Darcet et al., ICLR 2024) 식 — 학습 register 를 패치 뒤에 붙이고 출력에서 버린다.
+#   더해서 블록 b 의 register 입력 = 학습 register + 블록 b-1 register 상태 (predictor_norm 출력, grad 유지) → 굴리는 동안 전역 상태 통로.
+#   위치: 그 블록 첫 토큰 (프레임 t, 칸 (0,0)) — AC action 토큰처럼. TF 도 블록 순서대로 (KV 캐시, 값은 블록 인과 병렬판과 같다).
+# 왜: 굴린 예측이 걸음마다 흐려지고 (정지 물체도) 움직이는 물체를 잃는다 (vanish_median.py, 2026-10-27).
+#     전역 계산 자리가 없어 패치 토큰을 저장소로 쓰는지 · 걸음 사이 전역 상태 통로가 도움이 되는지 본다.
+# sanity (src/models/rollout_predictor.py, 2026-10-27): Nr=0 은 옛 코드와 비트 동일 · rollout_kv = forward 의 p_ar · 블록 인과 ·
+#     reg 넘김 on/off 차이 · step +20 % (447 → 537 ms, B 8 C 8 K 8) · 메모리 같음.
+# =============================================================================
+extends: natural_ar_vw_state
+
+model:
+  predictor:
+    n_registers: 4
+    reg_carry: state

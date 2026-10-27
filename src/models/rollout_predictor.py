@@ -169,6 +169,7 @@ class VisionTransformerPredictorPrefix(nn.Module):
         self.tubelet_size = tubelet_size
         self.max_blocks = num_frames // tubelet_size
         self.n_registers = int(n_registers)
+        self.reg_carry = str(kwargs.get("reg_carry", "state"))      # 2026-10-27 ar registers: state (다음 블록으로 넘김) | none
         self.use_activation_checkpointing = use_activation_checkpointing
         self.init_std = init_std
 
@@ -338,6 +339,11 @@ class VisionTransformerPredictorPrefix(nn.Module):
             idx, C, R = ar["idx"], int(ar["n_ctx_blocks"]), int(ar["rollout_steps"])
             if self.gating_residual and (ar.get("starts") is not None or ar.get("dyn")):
                 raise ValueError("ar gating_residual 은 multistart · dyn 과 아직 같이 쓰지 않는다")
+            if self.n_registers:                                 # 2026-10-27: 블록마다 register, 상태를 다음 블록으로 넘긴다
+                if ar.get("starts") is not None or ar.get("dyn") or ar.get("hint") is not None:
+                    raise ValueError("ar registers 는 multistart · dyn · hint 와 아직 같이 쓰지 않는다")
+                p_tf, saved = self._ar_reg_run(x[:, :-S], idx[:, :-S], keep=C - 1)
+                return p_tf, self._ar_reg_roll(saved, idx[:, (C - 1) * S: C * S], R)
             if ar.get("starts") is not None:                     # 2026-10-14: 여러 시작점 rollout (multistart)
                 p_tf = self.forward_seq(x[:, :-S], idx[:, :-S], hint=ar.get("hint"))
                 return p_tf, self.rollout_kv_multi(x, idx, ar["starts"], ar["rollouts"])
@@ -449,6 +455,10 @@ class VisionTransformerPredictorPrefix(nn.Module):
         nb = x.size(1) // S
         if x.size(1) != nb * S:
             raise ValueError(f"forward_seq: 토큰 수 {x.size(1)} 가 블록({S}) 정렬이 아니다")
+        if self.n_registers:                                        # 2026-10-27: register 는 블록 순서대로 (KV 캐시) — 값은 병렬판과 같은 블록 인과
+            if hint is not None or return_states:
+                raise ValueError("ar registers: forward_seq 의 hint · return_states 는 아직 없다")
+            return self._ar_reg_run(x, idx)[0]
         h = self._ar_embed_obs(x)
         # 블록 0 을 '문맥 1 블록' 으로, 나머지를 인과 미래로 두면 PrefixSpec 이 그대로 블록 인과다 (flash 경로, 마스크 없음)
         spec = PrefixSpec(1, nb - 1, S, future_causal=True) if nb > 1 else None
@@ -651,12 +661,68 @@ class VisionTransformerPredictorPrefix(nn.Module):
             anchor = x_blk                                    # 관측 블록을 넣는 걸음 = 그 블록이 마지막 관측
         return self._ar_out(st, anchor), new, st
 
+    # ---------------------------------------------------------------- ar registers (2026-10-27, 사용자 결정)
+    # 블록마다 register 토큰 Nr 개를 패치 256 개 뒤에 붙인다 ("Vision Transformers Need Registers" 식, 출력에서 버림).
+    # 위치: 그 블록 첫 토큰 인덱스 (프레임 t, 칸 (0, 0)) — AC predictor 의 action 토큰처럼 시간 위치만 의미가 있다.
+    # 상태 넘기기 (reg_carry: state): 블록 b 의 register 입력 = 학습 register + 블록 b-1 의 register 상태 (predictor_norm 출력, grad 유지).
+    # 그래서 TF 도 블록 순서대로 돈다 (KV 캐시, 블록 인과는 병렬판과 같다). TF 와 rollout 이 같은 경로 · 같은 register 사슬을 쓴다.
+    def _reg_idx(self, idx_blk):
+        return idx_blk[:, :1].expand(-1, self.n_registers)
+
+    def _reg_next(self, st_reg):
+        r0 = self.registers[0].to(st_reg.dtype)
+        return r0 + st_reg if getattr(self, "reg_carry", "state") == "state" else r0.expand(st_reg.size(0), -1, -1)
+
+    def _ar_step_kv_reg(self, h_patch, idx_blk, caches, reg_in):
+        """블록 하나: predictor 공간 패치 토큰 (B, S, D) + register 입력 (B, Nr, D). return (예측 LN (B, S, out), caches, 패치 상태, register 상태)."""
+        S, Hg, Wg = self.tokens_per_block, self.grid_height, self.grid_width
+        h = torch.cat([h_patch, reg_in.to(h_patch.dtype)], dim=1)
+        ii = torch.cat([idx_blk, self._reg_idx(idx_blk)], dim=1)
+        new = []
+        for i, blk in enumerate(self.predictor_blocks):
+            h, kv = blk.forward_kv(h, ii, Hg, Wg, None if caches is None else caches[i])
+            new.append(kv)
+        st = self.predictor_norm(h)
+        return self._ar_out(st[:, :S]), new, st[:, :S], st[:, S:]
+
+    def _ar_reg_run(self, x, idx, keep=None):
+        """관측 블록들 (B, nb*S, embed_dim, LN) 을 순서대로. return (위치 b 출력 = 블록 b+1 예측 (B, nb*S, out), 블록 keep 뒤 상태 또는 None)."""
+        S = self.tokens_per_block
+        nb = x.size(1) // S
+        reg = self.registers[0].expand(x.size(0), -1, -1)
+        caches, preds, saved = None, [], None
+        for b in range(nb):
+            p, caches, stp, str_ = self._ar_step_kv_reg(self._ar_embed_obs(x[:, b * S:(b + 1) * S]), idx[:, b * S:(b + 1) * S], caches, reg)
+            reg = self._reg_next(str_)
+            preds.append(p)
+            if keep is not None and b == keep:
+                saved = (p, caches, stp, reg)
+        return torch.cat(preds, dim=1), saved
+
+    def _ar_reg_roll(self, saved, pos, n_steps):
+        """saved = 마지막 문맥 블록 뒤 (예측, caches, 패치 상태, 다음 register 입력). 상태 되먹임으로 n_steps 블록. return (B, n_steps*S, out)."""
+        if self.ar_feedback != "state":
+            raise ValueError("ar registers 는 ar_feedback: state 전용")
+        p, caches, stp, reg = saved
+        preds = [p]
+        for _ in range(1, int(n_steps)):
+            pos = pos + self.tokens_per_block
+            p, caches, stp, str_ = self._ar_step_kv_reg(stp + self.type_embed[1], pos, caches, reg)
+            reg = self._reg_next(str_)
+            preds.append(p)
+        return torch.cat(preds, dim=1)
+
     def rollout_kv(self, x_ctx, idx_ctx, n_steps, return_states=False):
         """`rollout` (ar) 의 **KV 캐시판**. ar 은 문맥까지 block-causal 이라 이미 계산한 블록의 층별 (k, v) 가
         뒤에 블록을 붙여도 안 변한다 → 문맥을 블록 하나씩 채우고 (C 번), 걸음마다 새 블록 S 토큰만 계산한다.
         값·grad 는 `rollout` 과 같다 (검증: z_training/RESULTS 참고). return (B, n_steps*S, out) LN."""
         S = self.tokens_per_block
         C = x_ctx.size(1) // S
+        if self.n_registers:                                 # 2026-10-27: register 판
+            if return_states or self.gating_residual:
+                raise ValueError("ar registers: rollout_kv 의 return_states · gating 은 아직 없다")
+            _, saved = self._ar_reg_run(x_ctx, idx_ctx, keep=C - 1)
+            return self._ar_reg_roll(saved, idx_ctx[:, -S:], int(n_steps))
         caches, p, st = None, None, None
         for b in range(C):                                   # 문맥: 블록 b 는 블록 <= b 만 본다
             p, caches, st = self._ar_step_kv(x_ctx[:, b * S:(b + 1) * S], idx_ctx[:, b * S:(b + 1) * S], caches)

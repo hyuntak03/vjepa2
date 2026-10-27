@@ -107,6 +107,8 @@ def build_predictor(m: dict, encoder_embed_dim: int, state: Optional[dict], devi
         extra["gating_anchor"] = str(pc["gating_anchor"])
     if pc.get("gating_out_ln"):                               # 출력 LN(g·A + proj(s)) (2026-10-18, ar)
         extra["gating_out_ln"] = True
+    if pc.get("reg_carry"):                                   # ar registers 상태 넘김: state | none (2026-10-27)
+        extra["reg_carry"] = str(pc["reg_carry"])
     if int(pc.get("hint_cross_dim", 0) or 0):                 # 힌트 cross-attn (2026-10-11, kind=ar 전용)
         extra["hint_cross_dim"] = int(pc["hint_cross_dim"])
         extra["hint_cross_heads"] = int(pc.get("hint_cross_heads", 4))
