@@ -237,7 +237,9 @@ class FramesIndexDataset(torch.utils.data.Dataset):
         x = self.transform(self.read_uint8(i, st))
         # VideoDataset 과 같은 구조: ([clip], label, [frame indices])
         idx = np.arange(st, st + self.n_frames * self.stride, self.stride, dtype=np.int64)
-        return [x], 0, [idx]
+        # row_label (2026-10-31, 보조 모듈 감독): 라벨 = 행 × 시작 수 + 시작 번호 → 학습 루프가 라벨 배열 (z_training/data/build_vobench_occupancy.py) 의 행으로 쓴다
+        lab = i * len(self.starts) + self.starts.index(st) if self.spec.get("row_label") else 0
+        return [x], lab, [idx]
 
 
 # ----------------------------------------------------------------------------- video_csv

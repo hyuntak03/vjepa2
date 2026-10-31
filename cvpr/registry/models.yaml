@@ -423,3 +423,11 @@ vast_aux_open:                    # 2026-10-31 rel e5 에서 + 릴리즈 predict
   base: vith
   predictor_checkpoint: ${CVPR_REPO}/z_training/runs/release_aux_perm_open/latest.pt
   predictor.kind: oneshot
+vast_aux_vob:                     # 2026-10-31 보조 모듈 + 감독 head + predictor 열기, VOBench split v2g 학습 828 clip (대조군 vith_release_vobpft_e20 과 같은 데이터), e13 에서 멈춤
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/release_aux_vob/latest.pt
+  predictor.kind: oneshot
+vast_aux_vob_heads:               # 2026-10-31 위와 같고 모듈 · cross 없이 감독 head 를 predictor 은닉 (8 번째 블록 뒤) 에 — 추론은 릴리즈 구조 그대로
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/release_aux_vob_heads/latest.pt
+  predictor.kind: oneshot

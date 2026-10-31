@@ -355,5 +355,65 @@ def s_toss_behind(rng, n):
     return [o], {}
 
 
+# ----------------------------------------------------------------------------- v2 (2026-10-31) — 영속 · 이식 원칙 (DATA_DESIGN_PRINCIPLES 1.5 부)
+# 사용자 (2026-10-31): "데이터 이렇게 만들어야될 듯 … 그릇 덮기 사건은 안해도 될 듯". PHYS3D_PERM_V2=1 일 때만 켠다 (기본 = v1 그대로).
+#   원칙 6 ① 그림자 누수: 움직이는 물체 (ACTIVE rigid body) 는 그림자를 만들지 않는다 — 가려진 동안 그림자로 자리가 보이면 계산 대신 그림자를 쓴다.
+#   원칙 6 ② 가림막 누수: 가림막은 물리가 끝난 뒤 물체 경로 위 (t* 의 투영 자리) 에만 놓여, 가림막이 있으면 곧 물체가 거기 있다는 단서다.
+#       → 미끼 가림막 1~2 개 (같은 종류 · 같은 움직임) 를 경로와 무관한 자리 · 시각에 둔다. 주 물체의 보임 (저장 장) 을 바꾸면 버린다.
+#   원칙 7 late 다양성: 앵커 가림의 P_STAY 는 창 끝까지 다시 안 나타나는 것 (multi 의 P_STAY).
+#   물체 크기: 카메라를 당긴다 (PHYS3D_LENS, run 스크립트가 넣는다 — 라벨 투영도 같은 카메라라 맞다).
+V2 = os.environ.get("PHYS3D_PERM_V2") == "1"
+P_DECOY = 0.7
+if V2:
+    M.P_STAY = float(os.environ.get("PHYS3D_P_STAY", 0.6))
+    _save_v1 = M.save_for_render
+
+    def save_for_render_v2(sc, stem, s):
+        for ob in bpy.data.objects:
+            if ob.rigid_body is not None and ob.rigid_body.type == "ACTIVE":
+                ob.visible_shadow = False
+        return _save_v1(sc, stem, s)
+
+    M.save_for_render = save_for_render_v2
+
+    def decoys(sc, objs, lab, s, Cs, rng, res, info):
+        info["n_decoy"] = 0
+        if rng.random() >= P_DECOY:
+            return objs
+        cam = sc.camera
+        g0 = M.fast_label(sc, objs, res, range(s, s + M.W_RAW, M.ST), [0])["vis_frac"][s:s + M.W_RAW:M.ST, 0] <= B.SEEN
+        for _ in range(int(rng.integers(1, 3))):
+            for _try in range(6):
+                t = int(rng.integers(s, s + M.W_RAW))
+                y, z = (float(v) for v in lab["pos3d"][t, 0, 1:])
+                x = float(rng.uniform(-2.0, 2.0))
+                c = B.world_to_camera_view(sc, cam, M.Vector((x, y, z)))
+                if not (0.1 < c.x < 0.9 and 0.1 < c.y < 0.9 and c.z > 0):
+                    continue
+                fake = dict(pos3d=np.tile(np.array([x, y, z])[None, None], (M.N_SIM, 1, 1)), inframe_frac=np.ones((M.N_SIM, 1)),
+                            vel3d=np.zeros((M.N_SIM, 1, 3)))
+                mode = str(rng.choice(M.OCC_MODES))
+                r = M.place_occlusion(mode, rng, sc, objs, fake, M.N_SIM, t0=t, need_move=None)
+                if r is None:
+                    continue
+                made, front, desc = r
+                g1 = M.fast_label(sc, objs + front, res, range(s, s + M.W_RAW, M.ST), [0])["vis_frac"][s:s + M.W_RAW:M.ST, 0] <= B.SEEN
+                if (g1 != g0).any():                          # 주 물체 보임이 바뀌면 미끼가 아니다
+                    for ob in made + front:
+                        bpy.data.objects.remove(ob, do_unlink=True)
+                    continue
+                for f in front:
+                    f["role"] = "front"
+                objs = objs + front
+                for ob in made:
+                    ob["decoy"] = 1
+                info["n_decoy"] += 1
+                info.setdefault("decoy_modes", []).append(desc.get("mode", mode))
+                break
+        return objs
+
+    M.PRE_FINAL_HOOK = decoys
+
+
 if __name__ == "__main__":
     B.main()

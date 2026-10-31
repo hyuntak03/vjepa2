@@ -675,3 +675,33 @@ real_bench_quads:                 # 2026-10-31 vast. 실제 영상 영속 4 중�
   plausible_column: plausible
   type_column: condition            # occlusion / containment / out_of_frame
   engine: wma
+vobench_v1_split_v2_test:   # 2026-10-31 vast. VOBench split v2 test (전체 720 쌍) — split v2 학습 (vobench_split2g_train) 과 block 겹침 0. VOBench 로 학습한 모델의 held-out
+  raw_frames: 96
+  cache_tag: vobench_v1_split_v2_test
+  root: ${CVPR_DATA_CSV}/vobench_v1_split_v2
+  index_csv: index_test.csv
+  frames_root: ${CVPR_VOBENCH}
+  frames_pattern: '{file_name}/{frame:06d}.png'
+  frames_start: 0
+  frames_stride: 3
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: condition
+  engine: wma
+vobench_v1_split_v2_test_late:   # 2026-10-31 vast. VOBench split v2 test (late 만 216 쌍) — split v2 학습 (vobench_split2g_train) 과 block 겹침 0. VOBench 로 학습한 모델의 held-out
+  raw_frames: 96
+  cache_tag: vobench_v1_split_v2_test_late
+  root: ${CVPR_DATA_CSV}/vobench_v1_split_v2
+  index_csv: index_test_late.csv
+  frames_root: ${CVPR_VOBENCH}
+  frames_pattern: '{file_name}/{frame:06d}.png'
+  frames_start: 0
+  frames_stride: 3
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: condition
+  engine: wma

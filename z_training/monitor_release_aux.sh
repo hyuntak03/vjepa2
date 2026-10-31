@@ -124,13 +124,13 @@ def val(run):
     if os.path.exists(p):
         for l in open(p):
             d = json.loads(l); v = d.get("val")
-            if v and v.get("n_pair") == 432:
+            if v and v.get("n_pair"):
                 bt = v.get("by_type", {}); g = lambda k: next((100 * x["acc"] for t, x in bt.items() if k in t), float("nan"))
                 out[d["epoch"]] = (100 * v["acc"], g("permanence"), g("shape"), g("color"), v["margin"])
     p = os.path.join(RR, run, "train.log")           # 학습 전 val (e0) 은 metrics.jsonl 에 안 남는다 → train.log 에서 (종류별 값은 없다)
     if os.path.exists(p):
         for l in open(p, errors="ignore"):
-            m = re.search(r"\[epoch (\d+)\] val acc ([\d.]+)% \(n_pair 432.*?margin ([+-][\d.]+)", l)
+            m = re.search(r"\[epoch (\d+)\] val acc ([\d.]+)% \(n_pair \d+.*?margin ([+-][\d.]+)", l)
             if m and int(m.group(1)) not in out:
                 out[int(m.group(1))] = (float(m.group(2)), float("nan"), float("nan"), float("nan"), float(m.group(3)))
     return out
@@ -148,7 +148,7 @@ if G:
 else:
     print("   아직 없음 (epoch 1 끝에 기록)")
 V = val(RUN)
-head(f"VOBench late val  {DIM}(432 쌍 · in-loop 감시용, 정식 수치는 z_training/eval.sh · e0 = 학습 전 릴리즈){X}")
+head(f"학습 중 val ({cfg.get('val', {}).get('dataset', '?')})  {DIM}(in-loop 감시용, 정식 수치는 cvpr/eval/testbed/run.sh · e0 = 학습 전){X}")
 if V:
     print(f"   {pad('epoch', 7)} {pad('전체', 26)} {pad('영속', 6, True)} {pad('모양', 6, True)} {pad('색', 6, True)} {pad('margin', 9, True)}")
     print(f"   {GRY}{'─' * 64}{X}")

@@ -17,22 +17,21 @@ ap.add_argument("--ref", default="vith")
 ap.add_argument("--new", required=True)
 ap.add_argument("--index", default=None, help="기본: data_csv/<ds>/index.csv")
 ap.add_argument("--group", default="condition")
+ap.add_argument("--task", default="testbed", help="cvpr/results/eval/<task> (intphys1_late 등)")
 a = ap.parse_args()
-R = os.path.join(REPO, "cvpr/results/eval/testbed")
+R = os.path.join(REPO, "cvpr/results/eval", a.task)
 S = {m: json.load(open(os.path.join(R, f"{a.ds}_{m}", "per_block.json")))["per_video_surprise"] for m in (a.ref, a.new)}
 rows = list(csv.DictReader(open(a.index or os.path.join(REPO, "data_csv", a.ds, "index.csv"))))
 by = {}
-for r in rows:
-    by.setdefault(r["block_id"], {})[r["variant"]] = r
-pairs = []                                                   # (방향, 그룹, ref 맞음, new 맞음, ref 차, new 차)
-for b, d in by.items():
-    for dirn, pos, imp in (("A", "pos_a", "imp_ab"), ("B", "pos_b", "imp_ba")):
-        if pos not in d or imp not in d: continue
-        vp, vi = d[pos]["video_id"], d[imp]["video_id"]
-        if vp not in S[a.ref] or vp not in S[a.new]: continue
-        m0, m1 = S[a.ref][vi] - S[a.ref][vp], S[a.new][vi] - S[a.new][vp]
-        pairs.append((dirn, d[pos].get(a.group, ""), m0 > 0, m1 > 0, m0, m1))
-
+for r in rows:                                               # 짝 = (block, pair_id) 안의 가능 1 · 불가능 1 (VOBench · real_bench: pair_id A/B, IntPhys1 1/2, IntPhys2 1)
+    by.setdefault((r["block_id"], r.get("pair_id", "")), {}).setdefault(str(r.get("plausible", "")), r)
+pairs = []                                                   # (방향 = pair_id, 그룹, ref 맞음, new 맞음, ref 차, new 차)
+for (b, pid), d in by.items():
+    if "1" not in d or "0" not in d: continue
+    vp, vi = d["1"]["video_id"], d["0"]["video_id"]
+    if vp not in S[a.ref] or vp not in S[a.new] or vi not in S[a.ref] or vi not in S[a.new]: continue
+    m0, m1 = S[a.ref][vi] - S[a.ref][vp], S[a.new][vi] - S[a.new][vp]
+    pairs.append((pid, d["1"].get(a.group, ""), m0 > 0, m1 > 0, m0, m1))
 
 def line(name, pp):
     n = len(pp)
@@ -45,8 +44,10 @@ def line(name, pp):
 
 print(f"{a.ds}: {a.ref} vs {a.new} (같은 쌍 비교)")
 line("전체", pairs)
-for dirn in ("A", "B"):
-    line(f"방향 {dirn}", [p for p in pairs if p[0] == dirn])
+dirs = sorted({p[0] for p in pairs})
+if len(dirs) > 1:
+    for dirn in dirs:
+        line(f"방향 {dirn}", [p for p in pairs if p[0] == dirn])
 for g in sorted({p[1] for p in pairs}):
-    for dirn in ("A", "B"):
-        line(f"{g} · {dirn}", [p for p in pairs if p[1] == g and p[0] == dirn])
+    for dirn in dirs:
+        line(f"{g}" + (f" · {dirn}" if len(dirs) > 1 else ""), [p for p in pairs if p[1] == g and p[0] == dirn])

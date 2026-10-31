@@ -1,0 +1,18 @@
+# =============================================================================
+# **보조 head 만** (모듈 · cross 없음) — VOBench 학습 (2026-10-31, 사용자: "보조 head 로 강제로 release predictor 가 배울 수 있도록, 추론 때 모듈 없이")
+#
+#   GPUS=8 bash z_training/tmux_train.sh release_aux_vob_heads
+#   watch -c -n 10 bash z_training/monitor_release_aux.sh release_aux_vob_heads
+#
+# release_aux_vob 와 데이터 · 라벨 · lr · 일정 · 손실 가중이 같고, 보조 모듈과 cross 만 뺐다:
+#   칸 분류 (배경 / 보이는 물체 / 가려진 물체) · 이동량 head 를 **predictor 은닉 (8 번째 블록 뒤, 384) 의 미래 토큰** 에 붙인다
+#   → predictor 가 "이 칸의 물체가 미래 어디에 있나" 를 스스로 계산해야 한다. 출력 칸 분류 head (p 위) 는 그대로.
+#   추론 = 릴리즈 구조 그대로 (head 는 학습 때만, 실측 출력 차이 0).
+# 세 모델 비교 (같은 828 clip): 대조군 vith_release_vobpft_e20 (head 없음) · 이것 (head) · release_aux_vob (head + 모듈)
+# =============================================================================
+extends: release_aux_vob
+
+model:
+  aux:
+    no_module: true
+    head_layer: 7                 # 0 부터 센 블록 번호 — 8 번째 블록 뒤 (12 층 중)

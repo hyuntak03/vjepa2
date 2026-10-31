@@ -21,6 +21,9 @@ sup.disp (2026-10-31, 상대 표현): 기억 m 위 선형 head (1280 → 2) — 
 train_pred (2026-10-31, 사용자 "당연히 predictor 는 열어야지"): 릴리즈 predictor 도 학습 (학습률은 train.py 가 pred_lr_mult 로 낮춘다).
 sup.p_weight: predictor **출력** p 위 칸 분류 head (1280 → 3) — 미래 칸마다 보이는 물체 / 가려진 물체를 p 에서 읽을 수 있어야 한다
   (재등장 칸에 물체를 실제로 그리라는 압력. 기억 m 의 head 와 별개).
+no_module (2026-10-31, 사용자: "보조 head 로 강제로 release predictor 가 배울 수 있도록 — 추론 때 모듈이 없게"): 보조 모듈 · cross 를 짓지 않고
+  칸 분류 · 이동량 head 를 **predictor 자신의 은닉** (head_layer 번째 블록 뒤, 384) 의 미래 토큰에 붙인다. predictor 가 물체 자리 · 이동을 스스로
+  계산하게 강제하고, 추론은 릴리즈 구조 그대로 (head 는 학습 때만). forward 출력은 릴리즈 predictor 와 비트 단위로 같은 계산이다.
 """
 import torch
 import torch.nn as nn
@@ -73,17 +76,24 @@ class AuxRelease(nn.Module):
         self.train_pred = bool(cfg.get("train_pred", False))
         for p in self.pred.parameters():
             p.requires_grad_(self.train_pred)
-        self.aux = _build_predictor(img_size=img_size, patch_size=patch, tubelet_size=tubelet, num_frames=num_frames,
-                                    encoder_embed_dim=embed_dim, predictor_embed_dim=int(cfg.get("dim", 256)),
-                                    predictor_depth=int(cfg.get("depth", 4)), predictor_num_heads=int(cfg.get("heads", 4)),
-                                    num_mask_tokens=1, use_rope=True, uniform_power=False, use_sdpa=True,
-                                    extra={"use_activation_checkpointing": False, "zero_init_mask_tokens": False})
         pd = self.pred.predictor_embed.out_features
-        self.layers = [int(i) for i in cfg.get("layers", [3, 7, 11])]   # 0 부터 센 블록 번호 (그 블록 뒤에 끼운다)
-        self.cross = nn.ModuleDict({str(i): AuxCross(pd, embed_dim, int(cfg.get("cross_heads", 6)), img_size // patch) for i in self.layers})
+        self.no_module = bool(cfg.get("no_module", False))
+        if self.no_module:                                       # 모듈 · cross 없음. head 는 predictor 은닉 (pd) 위
+            self.aux, self.layers, self.cross = None, [], nn.ModuleDict()
+            self.head_layer = int(cfg.get("head_layer", 7))      # 0 부터 센 블록 번호 (그 블록 뒤 은닉)
+            hdim = pd
+        else:
+            self.aux = _build_predictor(img_size=img_size, patch_size=patch, tubelet_size=tubelet, num_frames=num_frames,
+                                        encoder_embed_dim=embed_dim, predictor_embed_dim=int(cfg.get("dim", 256)),
+                                        predictor_depth=int(cfg.get("depth", 4)), predictor_num_heads=int(cfg.get("heads", 4)),
+                                        num_mask_tokens=1, use_rope=True, uniform_power=False, use_sdpa=True,
+                                        extra={"use_activation_checkpointing": False, "zero_init_mask_tokens": False})
+            self.layers = [int(i) for i in cfg.get("layers", [3, 7, 11])]   # 0 부터 센 블록 번호 (그 블록 뒤에 끼운다)
+            self.cross = nn.ModuleDict({str(i): AuxCross(pd, embed_dim, int(cfg.get("cross_heads", 6)), img_size // patch) for i in self.layers})
+            hdim = embed_dim
         sup = cfg.get("sup") or {}
-        self.occ_head = nn.Linear(embed_dim, 3) if sup else None   # 미래 칸: 배경 / 보이는 물체 / 가려진 물체
-        self.disp_head = nn.Linear(embed_dim, 2) if sup.get("disp_labels") else None   # 미래 칸: 그 칸의 문맥 물체 이동량 (dx, dy)
+        self.occ_head = nn.Linear(hdim, 3) if sup else None   # 미래 칸: 배경 / 보이는 물체 / 가려진 물체
+        self.disp_head = nn.Linear(hdim, 2) if sup.get("disp_labels") else None   # 미래 칸: 그 칸의 문맥 물체 이동량 (dx, dy)
         self.p_occ_head = nn.Linear(embed_dim, 3) if sup.get("p_weight") else None   # predictor 출력 p 의 미래 칸 분류
         self.last_occ = self.last_disp = None
 
@@ -100,9 +110,11 @@ class AuxRelease(nn.Module):
         P = self.pred
         mx = masks_x[0] if isinstance(masks_x, list) else masks_x
         my = masks_y[0] if isinstance(masks_y, list) else masks_y
-        m = self.aux(x, mx, my, mask_index=0)                    # (B, Nt, embed_dim), masks_y 순서
-        self.last_occ = self.occ_head(m) if self.occ_head is not None else None   # (B, Nt, 3), masks_y 순서
-        self.last_disp = self.disp_head(m) if self.disp_head is not None else None  # (B, Nt, 2), 칸 단위
+        self.last_occ = self.last_disp = None
+        if self.aux is not None:
+            m = self.aux(x, mx, my, mask_index=0)                # (B, Nt, embed_dim), masks_y 순서
+            self.last_occ = self.occ_head(m) if self.occ_head is not None else None   # (B, Nt, 3), masks_y 순서
+            self.last_disp = self.disp_head(m) if self.disp_head is not None else None  # (B, Nt, 2), 칸 단위
         B = x.size(0)
         h = P.predictor_embed(x); n_ctx = h.size(1)
         pt = P.mask_tokens[mask_index % P.num_mask_tokens].repeat(B, P.num_patches, 1)
@@ -114,13 +126,19 @@ class AuxRelease(nn.Module):
         g = lambda t, idx: torch.gather(t, 1, idx.unsqueeze(-1).expand(-1, -1, t.size(-1)))
         h = g(h, order)
         idx_t = torch.nonzero(order >= n_ctx)[:, 1].view(B, -1)  # 정렬된 열에서 미래 토큰 자리 (행마다 오름차순)
-        m_s = g(m, torch.gather(order, 1, idx_t) - n_ctx)       # 그 자리의 기억
+        inv = torch.gather(order, 1, idx_t) - n_ctx              # 정렬된 미래 열 → masks_y 안의 번호
+        m_s = g(m, inv) if self.aux is not None else None        # 그 자리의 기억
         pos_t = torch.gather(masks, 1, idx_t)
         for i, blk in enumerate(P.predictor_blocks):
             h = blk(h, mask=masks, attn_mask=None)
             if str(i) in self.cross:
                 ht = g(h, idx_t)
                 h = h.scatter(1, idx_t.unsqueeze(-1).expand(-1, -1, h.size(-1)), ht + self.cross[str(i)](ht, m_s, pos_t))
+            if self.no_module and i == self.head_layer and self.occ_head is not None:   # predictor 은닉의 미래 토큰 → masks_y 순서로
+                ht = g(h, idx_t)
+                to_my = lambda z: torch.empty_like(z).scatter_(1, inv.unsqueeze(-1).expand_as(z), z)
+                self.last_occ = to_my(self.occ_head(ht))
+                self.last_disp = to_my(self.disp_head(ht)) if self.disp_head is not None else None
         h = P.predictor_norm(h)
         h = g(h, torch.argsort(order, dim=1))[:, n_ctx:]
         out = P.predictor_proj(h)

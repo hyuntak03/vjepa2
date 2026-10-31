@@ -802,3 +802,41 @@ pair_column: pair_id
 variant_column: variant
 plausible_column: plausible
 type_column: condition
+
+## vobench_v1_split_v2_test
+
+VOBench split v2 test 전체 (360 block × 4 arm = 1,440 clip, 720 쌍) (2026-10-31 등록). **split v2 학습 쪽 (vobench_split2g_train, VOBench post-FT 들의 학습 데이터) 과 block 겹침 0.**
+⚠️ vobench_v1_late (432 쌍) 는 그 학습 split 과 216 block 중 108 개가 겹친다 — VOBench 로 학습한 모델의 held-out 수치는 이쪽으로.
+
+raw_frames: 96
+cache_tag: vobench_v1_split_v2_test
+root: ${DATA_CSV}/vobench_v1_split_v2
+index_csv: index_test.csv
+frames_root: /workspace/dataset/benchmarks/VOBench_v1
+frames_pattern: "{file_name}/{frame:06d}.png"
+frames_start: 0
+frames_stride: 3
+block_column: block_id
+pair_column: pair_id
+variant_column: variant
+plausible_column: plausible
+type_column: condition
+
+## vobench_v1_split_v2_test_late
+
+VOBench split v2 test 중 occlusion=late 만 (108 block, 216 쌍) — 학습 중 val 용 (2026-10-31 등록). **split v2 학습 쪽 (vobench_split2g_train, VOBench post-FT 들의 학습 데이터) 과 block 겹침 0.**
+⚠️ vobench_v1_late (432 쌍) 는 그 학습 split 과 216 block 중 108 개가 겹친다 — VOBench 로 학습한 모델의 held-out 수치는 이쪽으로.
+
+raw_frames: 96
+cache_tag: vobench_v1_split_v2_test_late
+root: ${DATA_CSV}/vobench_v1_split_v2
+index_csv: index_test_late.csv
+frames_root: /workspace/dataset/benchmarks/VOBench_v1
+frames_pattern: "{file_name}/{frame:06d}.png"
+frames_start: 0
+frames_stride: 3
+block_column: block_id
+pair_column: pair_id
+variant_column: variant
+plausible_column: plausible
+type_column: condition

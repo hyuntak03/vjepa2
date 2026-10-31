@@ -130,7 +130,7 @@ def room(rng):
     cam_x = float(rng.uniform(-0.6, 0.6))
     bpy.ops.object.camera_add(location=(cam_x, -6.0, float(rng.uniform(1.6, 2.4))))
     cam = bpy.context.object
-    cam.data.lens = 29
+    cam.data.lens = float(os.environ.get("PHYS3D_LENS", 29))   # 2026-10-31: perm v2 는 당겨서 물체를 키운다 (기본 29 = 예전)
     d = Vector((0, 0, 1.7)) - cam.location
     cam.rotation_euler = d.to_track_quat("-Z", "Y").to_euler()
     sc.camera = cam
@@ -694,7 +694,8 @@ def setup_render(sc, engine, res, out_png):
         sc.cycles.samples = CPU_SAMPLES
         sc.cycles.use_adaptive_sampling = True
         sc.cycles.use_denoising = True
-        sc.cycles.denoiser = "OPTIX"
+        # 2026-10-31: CPU 렌더 (OIDN) 와 섞어 만들 때 같은 잡음 제거로 — PHYS3D_GPU_DENOISER=OPENIMAGEDENOISE (GPU 에서 돈다). 기본은 예전처럼 OPTIX
+        sc.cycles.denoiser = os.environ.get("PHYS3D_GPU_DENOISER", "OPTIX")
         sc.cycles.max_bounces = 3
         sc.cycles.diffuse_bounces = 2
         sc.cycles.glossy_bounces = 1

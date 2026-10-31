@@ -52,6 +52,9 @@ def main():
     ap.add_argument("--single-v2", action="store_true", help="물체 1 개 v2 (gen_phys3d_single_v2_blender.py, 2026-10-21)")
     ap.add_argument("--defer-render", action="store_true", help="multi: 라벨 워커 (CPU, --cpu-workers) 는 장면을 .blend 로 남기고 렌더 워커 (GPU 마다 --render-per) 가 렌더")
     ap.add_argument("--render-per", type=int, default=4)
+    ap.add_argument("--cpu-render", type=int, default=0,
+                    help="defer-render: CPU 렌더 워커 수 (Cycles CPU 1 스레드). GPU 렌더 워커와 같은 대기열을 비운다 — 학습이 GPU 를 쓸 때도 돈다 (2026-10-31)")
+    ap.add_argument("--render-nice", type=int, default=15, help="CPU 렌더 워커 nice (라벨 워커보다 낮은 우선순위 — 라벨이 대기열을 채우고 남는 코어를 렌더가 쓴다)")
     ap.add_argument("--flow", action="store_true", help="multi 의 phys3d_flow 판 (gen_phys3d_flow_blender.py, 2026-10-27) — 오래 이어지는 운동 · 시나리오 45")
     ap.add_argument("--perm", action="store_true", help="multi 의 phys3d_perm 판 (gen_phys3d_perm_blender.py, 2026-10-30) — 물체 영속 · 4 fps 32 장 · 가림 5 종")
     ap.add_argument("--multi", action="store_true", help="phys3d_multi (gen_phys3d_multi_blender.py, 2026-10-25) — 4 fps 64 장 · 문맥 끝 고정 · 가림 · 배경")
@@ -202,6 +205,14 @@ def main_multi(a):
                 cmd = ["nice", "-n", str(a.nice), BLENDER, "-t", "2", "-b", "-noaudio", "-P", os.path.join(HERE, "render_queue_blender.py"), "--",
                        "--root", clips, "--claims", rclaims, "--done", done_flag, "--engine", "cycles"]
                 rprocs.append(subprocess.Popen(cmd, stdout=open(os.path.join(wdir, f"rlog_{j:03d}.txt"), "a"), stderr=subprocess.STDOUT, env=env))
+            # 2026-10-31: CPU 렌더 워커 — GPU 를 학습과 나눠 쓰면 GPU 렌더가 시간 나눠 쓰기로 20 배 느려진다 (장당 0.02 → 1 초 실측).
+            #   CPU 렌더는 코어당 편 119 초 (워커 64 개 20 편/분 실측). 같은 claims 대기열을 GPU 워커와 함께 비운다
+            for j in range(a.cpu_render):
+                env = dict(os.environ, CUDA_VISIBLE_DEVICES="", OMP_NUM_THREADS="1", PYTHONHASHSEED="0")
+                cmd = ["nice", "-n", str(a.render_nice), BLENDER, "-t", "1", "-b", "-noaudio", "-P", os.path.join(HERE, "render_queue_blender.py"), "--",
+                       "--root", clips, "--claims", rclaims, "--done", done_flag, "--engine", "cpu"]
+                rprocs.append(subprocess.Popen(cmd, stdout=open(os.path.join(wdir, f"rlog_cpu_{j:03d}.txt"), "a"), stderr=subprocess.STDOUT, env=env))
+            print(f"렌더 워커: GPU {len(rprocs) - a.cpu_render} · CPU {a.cpu_render}", flush=True)
         for w, (eng, g) in enumerate(spec):
             env = dict(os.environ, CUDA_VISIBLE_DEVICES=g, OMP_NUM_THREADS="1", PYTHONHASHSEED="0")
             if a.defer_render:

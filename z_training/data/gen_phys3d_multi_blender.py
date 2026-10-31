@@ -1499,6 +1499,8 @@ W_RAW = T_SAVE * ST                           # 192
 N_SIM = 330                                   # 렌더 장 (27.5 초) — 앵커가 3 C* ~ N_SIM − (W_RAW − 3 C*) 사이에 와야 한다
 ANCHORS = ("event", "occ_event", "occ_any")    # 가림 둘 중 하나는 사건 근처 (사용자 "절반은 사건 근처")
 P_MID_OCC = 0.5
+P_STAY = 0.0                                  # 2026-10-31 (perm v2): 앵커 가림 중 이 비율은 창 끝까지 다시 안 나타나는 것을 받는다 (원칙 7). 0 = 예전 그대로
+PRE_FINAL_HOOK = None                         # 2026-10-31 (perm v2): (sc, objs, lab, s, Cs, rng, res, info) → objs — 마지막 라벨 전에 장면을 더한다 (미끼 가림막). None = 예전 그대로
 
 
 EXTRA_SHAPES = {}                             # 이름 → 만드는 함수 (r, size, loc) — flow 판
@@ -1736,15 +1738,17 @@ def generate2(name, k, seed, main_ident, out, n_frames=None, res=256, engine="cp
                     for ob in made + front:
                         bpy.data.objects.remove(ob, do_unlink=True)
                     continue
-                r0, r1 = max(0, tc - MAX_BLIND - 3 * ST), min(N_SIM, tc + MAX_BLIND + 3 * ST)
+                stay = P_STAY > 0 and e is None and ra.random() < P_STAY   # 끝까지 안 나타나는 가림 (원칙 7, 2026-10-31)
+                r0, r1 = max(0, tc - MAX_BLIND - 3 * ST), min(N_SIM, tc + (W_RAW if stay else MAX_BLIND + 3 * ST))
                 lab2 = fast_label(sc, objs + front, res, range(r0, r1), [0])
-                runs = [(a, b) for a, b in _runs(lab2["vis_frac"][:, 0] <= B.SEEN) if b - a >= ST and a > r0 and b < r1]
+                runs = [(a, b) for a, b in _runs(lab2["vis_frac"][:, 0] <= B.SEEN) if b - a >= ST and a > r0 and (b < r1 or stay)]
                 hit = [(a, b) for a, b in runs if a <= tc < b]
                 good = False
                 if hit:
                     h0, h1 = hit[0]
                     s0 = h0 - ST * (Cs - 1)                         # 가려지기 시작하는 장 = 저장 장 C* − 1 (문맥 마지막 장)
-                    good = (s0 >= 0 and s0 + W_RAW <= N_SIM and h1 - h0 <= MAX_BLIND and h1 < s0 + W_RAW - 2 * ST
+                    good = (s0 >= 0 and s0 + W_RAW <= N_SIM
+                            and ((h1 >= s0 + W_RAW) if stay else (h1 - h0 <= MAX_BLIND and h1 < s0 + W_RAW - 2 * ST))
                             and (e is None or (e["frame"] - h0 >= ST and h1 - e["frame"] >= ST)))
                     if good:                                         # 3 장마다 1 장에서도: C* − 2 는 보이고 C* − 1 은 안 보임
                         g = lab2["vis_frac"][s0:s0 + W_RAW:ST, 0] <= B.SEEN
@@ -1755,7 +1759,8 @@ def generate2(name, k, seed, main_ident, out, n_frames=None, res=256, engine="cp
                         f["role"] = "front"
                     d0.update(kind="anchor", hidden=[int(h0 - s0), int(h1 - s0)])
                     occ_desc.append(d0)
-                    reap = Cs - 1 + -(-(h1 - h0) // ST)          # 다시 보이는 첫 저장 장
+                    reap = T_SAVE if stay else Cs - 1 + -(-(h1 - h0) // ST)   # 다시 보이는 첫 저장 장 (끝까지 안 나타나면 T_SAVE)
+                    d0.update(stay=bool(stay))
                     anchor_row = dict(event="occlude" if e is None else f"occlude_{e['kind']}", event_frame=Cs - 1, obj=0,
                                       dv=round(float(e["dv"]), 3) if e else 0.0, pred_min=int(reap - Cs + 1))
                     ok = True
@@ -1797,6 +1802,8 @@ def generate2(name, k, seed, main_ident, out, n_frames=None, res=256, engine="cp
         if sv.mean() > MAX_CTX_STILL:
             why = [f"context still {sv.mean():.2f}"]
             continue
+        if PRE_FINAL_HOOK is not None:
+            objs = PRE_FINAL_HOOK(sc, objs, lab, s, Cs, ra, res, info) or objs
         lab = fast_label(sc, objs, res, range(s, s + W_RAW, ST), range(len(objs)))   # 마지막: 저장할 64 장 · 모든 물체 (보임 ray 는 저장 장만)
         lw = {k2: (v[s:s + W_RAW] if v.shape[:1] == (N_SIM,) else v) for k2, v in lab.items()}
         evw = [dict(e2, frame=e2["frame"] - s) for e2 in B.events(lab) if s <= e2["frame"] < s + W_RAW and e2["kind"] in ("impact", "leave")]

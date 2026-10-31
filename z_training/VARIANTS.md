@@ -217,6 +217,12 @@ predictor : AR 그대로 (block-causal, 상태 되먹임)
 - EK100 subset 묶음 평가 (6 팔): action 31.1–31.7 로 거의 같다. 시트 다섯 행 기입. 시트의 main 기계 값 (33.1) 과 1.5 차이는 기계 · 평가 목록 차이일 수 있다
 - 정본 `z_training/docs/EK100_SUBSET_2026-10-30.md`
 
+### 5-11. 보조 모듈 · 보조 head 로 영속 (10-30 ~ 31) ✅ — 구조로는 안 넘어간다
+- 릴리즈 predictor 위 보조 모듈 (폭 256 · 4 층) + cross 3 개 → 감독 (칸 분류 · 이동량) → predictor 열기 → VOBench 학습 → 모듈 없이 보조 head 만 (`release_aux_perm{,_sup,_rel,_open}` · `release_aux_vob{,_heads}`)
+- VOBench 828 편 학습 세 판 (대조군 post-FT · 모듈 · head 만): VOBench held-out 91.7 · 90.7 · 87.4 (릴리즈 75.7) / IntPhys1 late 73.9 · 73.9 · 71.1 (68.3) / IntPhys2 late 52.8 · 55.0 · 53.2 (54.6) / real_bench 45.0 · 50.0 · 45.0 (47.5) → 구조는 이식을 돕지 않는다, 데이터가 문제
+- 데이터 v2 (phys3d_perm_v2: 그림자 끔 · 미끼 가림막 · 끝까지 안 나타나는 가림 · 렌즈 45 mm) 생성 중, 생성 속도 개선 (CPU 렌더 워커 · GPU 당 워커 늘림 · 바로 mp4)
+- 정본 `z_training/docs/AUX_PERMANENCE_2026-10-31.md`
+
 ## 6. 채점 정의 (표의 숫자가 무엇인가)
 
 | 지표 | 정의 | 계산 위치 |

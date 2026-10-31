@@ -279,7 +279,7 @@ def main(args, resume_preempt=False):
         from app.vjepa_frozen.aux_memory import AuxRelease
         predictor = AuxRelease(predictor, dict(MD["aux"]), ctx_enc.embed_dim, res, int(MD.get("patch_size", 16)),
                                int(MD.get("tubelet_size", 2)), n_frames).to(device)
-        logger.info(f"aux: 모듈 {U.count_parameters(predictor.aux)/1e6:.2f}M + cross {U.count_parameters(predictor.cross)/1e6:.2f}M "
+        logger.info(f"aux: 모듈 {(U.count_parameters(predictor.aux) if predictor.aux is not None else 0)/1e6:.2f}M + cross {U.count_parameters(predictor.cross)/1e6:.2f}M "
                     f"(층 {predictor.layers}), 릴리즈 predictor {'학습' if predictor.train_pred else '고정'} {U.count_parameters(predictor.pred, trainable_only=False)/1e6:.2f}M")
         if MD["aux"].get("init"):   # 2026-10-31: 앞 run 의 모듈 · cross · head 에서 시작 (새 head 는 비어 있어도 된다)
             _ck = torch.load(MD["aux"]["init"], map_location="cpu", weights_only=False)

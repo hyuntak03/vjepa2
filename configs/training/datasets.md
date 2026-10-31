@@ -410,6 +410,22 @@ frames_start: 0
 frames_stride: 3
 frames_start_choices: [0, 1, 2]
 
+## vobench_split2g_train_row
+
+**vobench_split2g_train 과 같은 828 clip, 라벨 = 행 × 3 + 시작 번호** (2026-10-31, 보조 모듈 감독 `model.aux.sup`).
+학습 루프가 이 번호로 `${DATA_CSV}/vobench_v1_split_v2g/{occ,disp}_train.npy` 를 찾는다 (`z_training/data/build_vobench_occupancy.py`).
+⚠️ 좌우 반전은 `data.aug.hflip_p: 0` 으로 끄고 `model.aux.sup.hflip_p` 로 GPU 에서 라벨과 함께 한다.
+
+type: frames_index
+root: ${DATA_CSV}/vobench_v1_split_v2g
+index_csv: index_train.csv
+frames_root: /workspace/dataset/benchmarks/VOBench_v1
+frames_pattern: "{file_name}/{frame:06d}.png"
+frames_start: 0
+frames_stride: 3
+frames_start_choices: [0, 1, 2]
+row_label: true
+
 ## intphys2_vuni_train
 
 **IntPhys2 Main violation-uni 의 train 장면 절반, 가능 영상만** — 248 clip / 124 장면 (2026-10-22, 사용자: release · AR 을 이 규칙으로 post-FT).

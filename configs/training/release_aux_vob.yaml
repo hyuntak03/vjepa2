@@ -1,0 +1,54 @@
+# =============================================================================
+# 보조 기억 모듈 (release_aux_perm_open 과 같은 구조) 을 **VOBench 로 학습** (2026-10-31, 사용자: "일단은 지금 모듈 구조 그대로 하고 VOBench 로 학습해보자")
+#
+#   GPUS=8 bash z_training/tmux_train.sh release_aux_vob
+#   watch -c -n 10 bash z_training/monitor_release_aux.sh release_aux_vob
+#
+# 왜: phys3d_perm 은 재등장의 latent 보상이 작다 (정답 운반 − 지우기 +4.7 %, VOBench +22 %) — predictor 를 열어도 VOBench 영속 A 가 그대로 (약 20 %).
+#     VOBench 로 압력을 주고, 모듈이 다른 벤치 (real_bench · IntPhys1 · IntPhys2 · phys3d_perm val) 로의 이식을 돕는지 본다.
+# 대조군: vith_release_vobpft_e20 (같은 828 clip · 문맥 16 · 20 epoch · predictor 최대 lr 5e-5, 모듈 없음). 차이는 모듈 + 감독 head 뿐이 되게 맞췄다:
+#     predictor 최대 lr = 3e-4 × 0.1667 = 5e-5 · 전역 배치 32 (8 GPU × 4, 대조군 4 GPU × 8) · 문맥 16 장 고정 · hflip 0.5 (GPU 에서 라벨과 함께).
+#     다른 점: 일정이 WSD (warmup 1 → 상수 → 마지막 10 epoch 선형 감소; 대조군은 cosine) — WarmupCosineSchedule 이 lr_scale 을 무시해서.
+# 모듈: 처음부터 (phys3d 로 배운 모듈을 이어 받지 않는다 — 대조군과 같은 데이터만 보게).
+# 라벨: data_csv/vobench_v1_split_v2g/{occ,disp}_train.npy (z_training/data/build_vobench_occupancy.py). 행 = index 행 × 3 + 시작 번호
+# val: VOBench split v2 test 의 late 만 (108 block, 216 쌍, 학습과 겹침 0). ⚠️ 이전 run 들의 in-loop val (vobench_v1_late 432 쌍) 은 이 학습 split 과 108 block 이 겹친다
+# =============================================================================
+extends: release_aux_perm_open
+
+meta:
+  save_every_freq: 5
+
+model:
+  aux:
+    init: null
+    pred_lr_mult: 0.1667
+    sup:
+      labels: ${DATA_CSV}/vobench_v1_split_v2g/occ_train.npy
+      disp_labels: ${DATA_CSV}/vobench_v1_split_v2g/disp_train.npy
+      ctx: [16]
+
+data:
+  batch_size: 4                 # rank 당 × 8 GPU = 32 (대조군과 같다) → 828 / 32 = 25 step / epoch
+  num_workers: 4
+  datasets:
+    - {name: vobench_split2g_train_row, weight: 1.0}
+  aug:
+    hflip_p: 0.0
+    random_resized_crop: null
+
+mask:
+  - type: temporal_prefix
+    context_frames: [16]
+    weight: 1.0
+
+optimization:
+  epochs: 20
+  anneal_epochs: 10
+  lr: 3.0e-4
+  start_lr: 1.0e-5
+  final_lr: 1.0e-6
+  warmup: 1
+
+val:
+  dataset: vobench_v1_split_v2_test_late
+  every_epochs: 2
