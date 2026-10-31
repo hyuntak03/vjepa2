@@ -1,0 +1,98 @@
+# BlenderTrack v1ns — v1 에서 옆으로 움직이는 판 (slide) 만 뺀 판 (2026-11-01, 사용자 결정).
+#   학습 가림 종류 = 제자리 판 + 제자리에서 여닫는 판 (trapdoor). 움직이는 가림막은 전이 시험 축 (cleverer overtake · moving_occluder) 으로 남긴다.
+#   여닫는 판은 남긴다: 물체가 서 있을 때 가려졌다 다시 보이는 장면은 여닫는 판으로만 생긴다 (사용자).
+#   나머지 분포 · 렌더 · 검사는 v1.yaml 과 같다. seed 를 바꿔 v1 과 장면이 겹치지 않는다.
+#   bash z_research/scripts/data/blender_track/pipeline.sh z_research/scripts/data/blender_track/configs/v1ns.yaml
+name: v1ns
+out: /data/hyuntak/project/2026/2027_cvpr/nfs_cache/blender_track/v1_noslide     # NFS. clips/<id>.mp4 · labels/<id>.npz · specs/<id>.json
+fps: 20                       # 보폭 2 = 10 fps (VOBench), 1 = 20 fps, 3 = 6.7 fps
+seconds: 8                    # 160 장
+size: 256
+
+splits:                       # seed 가 다르면 장면이 겹치지 않는다
+  train: {seed: 20, n: 20000}
+  val:   {seed: 21, n: 1000}
+  ood:                        # 범위 밖: 더 빠름 · 처음 보는 모양 (diamond) · 더 가파른 경사
+    seed: 22
+    n: 1000
+    overrides:
+      motion.speed_frac: [0.45, 0.65]
+      objects.shapes: [diamond]
+      motion.ramp_deg: [20, 28]
+  smoke: {seed: 29, n: 24}
+
+camera: {h: [1.2, 2.6], pitch: [-14, -2], lens: [18, 32]}
+
+objects:
+  shapes: [sphere, cube, cone, cylinder, torus, pyramid, capsule]   # diamond 은 ood 전용
+  px: [18, 56]                # 출발 깊이에서 화면 지름
+  min_px_median: 18
+  min_px: 11
+  shadows: false              # 물체 그림자 (가려진 물체 자리 누수 차단)
+  n_distractor_p: [0.45, 0.40, 0.15]
+  n_clutter_p: [0.4, 0.3, 0.2, 0.1]
+
+motion:
+  kinds: {slide: 0.14, roll: 0.12, friction: 0.30, ramp: 0.12, toss: 0.17, wall: 0.07, static: 0.10}   # v1ns: 움직이는 판이 없어 서 있는 · 멈추는 물체가 설계에서 자주 버려져 static · friction 을 올림 (v1: friction .26 · static .05)
+  speed_frac: [0.10, 0.45]    # 화면 폭 / 초
+  heading_deg: [-35, 35]      # 가로 기준, 깊이 성분
+  heading_wide_p: 0.2
+  heading_wide_deg: [-70, 70]
+  spin_p: 0.3
+  spin_deg_s: [-120, 120]
+  friction_mu: [0.05, 0.4]
+  ramp_deg: [6, 20]
+  ramp_max_height: 4.0        # m
+  toss_vz: [2.5, 6.5]         # m/s
+  restitution: [0.35, 0.7]
+  in_frame_min: 0.5
+
+occluders:
+  n_on_path_p: [0.05, 0.30, 0.40, 0.25]   # target 경로 위 가림막 0–3 개
+  width: [0.4, 3.0]           # m, 숨는 구간과 무관
+  height_over_obj: [1.05, 1.8]
+  gap: [0.6, 2.5]             # 경로 앞 거리
+  trapdoor_p: 0.5            # v1ns: 0.4 → 0.5 (서 있는 물체가 가려졌다 다시 보이는 장면은 여닫는 판으로만 생긴다)
+  trapdoor_lead_s: [0.0, 0.6]
+  trapdoor_lag_s: [0.0, 0.6]
+  n_extra_p: [0.4, 0.35, 0.25]            # target 과 무관한 판
+  # 옆으로 움직이는 판 (mode slide, 10-31 재렌더에서 추가). 판은 서 있는 채로 가로로 움직이고, 경로 위 판이면 target 을 지나며 가린다
+  slide_p: 0.0               # 경로 위 판 중 움직이는 판 비율 (나머지는 제자리 · trapdoor)
+  slide_same_p: 0.65          # 움직이는 판 중 target 과 같은 방향 비율 (나머지 = 반대 방향, 마주 옴). 같은 방향은 숨는 시간이 길어 거절이 잦아 높게
+  slide_pass_below_frac: 0.02 # target 의 (판 깊이에서 본) 가로 속도가 이보다 느리면 '서 있음' 으로 보고 판이 지나간다
+  slide_pass_keep_p: 0.35     # 그 '서 있음' 시각을 받아들이는 확률 (나머지는 다른 시각을 다시 뽑아 같은 · 반대 방향을 늘린다)
+  slide_ratio_fast: [1.6, 3.0]   # 같은 방향: 판 속도 / target 가로 속도 — 판이 target 을 따라잡음 (반)
+  slide_ratio_slow: [0.15, 0.6]  # 같은 방향: target 이 판을 따라잡음 (반)
+  slide_ratio_opp: [0.4, 2.0]    # 반대 방향
+  slide_speed_frac: [0.06, 0.6]  # 판 속도 범위 (그 깊이의 화면 폭 / 초). target 이 이보다 느리면 판이 지나가는 장면
+  extra_slide_p: 0.0          # target 과 무관한 판 중 움직이는 판 비율 (움직이는 판 = 늘 target 을 가린다는 단서 차단)
+
+target:
+  min_visible_frac: 0.45
+  max_hidden_run_s: 2.5
+  min_hidden_run_s: 0.1       # 경로 위 판은 한 번은 target 을 다 가려야 한다 (길이는 기하로 정해진다)
+
+render:
+  samples: 8
+  denoise: true
+  jpeg_quality: 95            # 렌더 → JPEG (메모리 디스크) → clip 하나 = mp4 하나
+  crf: 17
+  gop: 8                      # 키프레임 간격 (임의 프레임 읽기 속도)
+  gpus_per_node: 8
+  workers_per_gpu: 3          # 10-31: 2 → 3 (작업자 2 개일 때 GPU 사용률 40–80 %)
+  threads: 3
+  nodes: [vll2, vll4, vll6]   # claim 모드: 노드마다 job 하나, 남은 clip 을 잠금 파일로 나눠 가진다 (job 이 늦게 떠도 된다)
+  node_gpus: [2, 6, 6]
+  claim: true
+
+checks:                       # 렌더 전 검사 (설계만, CPU). 하나라도 어기면 파이프라인이 멈춘다
+  n_designs: 2000
+  strides: [1, 2, 3]          # 학습 창 보폭 (렌더 프레임 단위)
+  clips_with_late_min: 0.5    # 보폭 2 에서 late 창을 가진 clip 비율
+  distinct_late_paths_per_clip_min: 1.0   # 서로 다른 late 미래 경로 수 / 설계 clip 수 (보폭 2).
+                                          # 10-31: 1.2 → 1.0. 첫 v1 은 구르는 공의 중심이 회전 버그로 휘청거려 경로가 부풀었다
+                                          # (3,360 경로 · 등속 외삽 오차 15.3 px). 고친 설계는 2,187 경로 · 5.4 px (2,000 설계)
+  trapdoor_timing_r2_max: 0.6 # 다시 나타나는 시각을 trapdoor 눕는 시각으로 설명하는 정도 (누수)
+  kind_min_frac: 0.02         # 운동 종류마다 최소 비율 (거절로 사라지지 않았나)
+  slide_event_min_frac: 0.0  # 경로 위 판 중 움직이는 판 최소 비율 (10-31)
+  slide_rel_min_frac: 0.0    # 움직이는 경로 위 판 중 같은 방향 · 반대 방향 각각 최소 비율 (target 이 서 있어 판이 지나가는 경우는 보고만)

@@ -36,6 +36,9 @@ class BlenderTrackDataset(torch.utils.data.Dataset):
     def __init__(self, spec: dict, n_frames: int, transform):
         m = np.load(spec["meta"], allow_pickle=False)
         self.root = str(spec.get("root") or m["root"])
+        # v1 (2026-10-31): clip 하나 = mp4 하나 (<root>/<id>.mp4), 라벨 <labels_root>/<id>.npz. v0 = 프레임 폴더 (<root>/<id>/rgb/*.png · labels.npz)
+        self.layout = str(m["layout"]) if "layout" in m.files else "png"
+        self.labels_root = str(spec.get("labels_root") or (m["labels_root"] if "labels_root" in m.files else ""))
         self.clips: List[str] = [str(c) for c in m["clip"]]
         self.vis = m["vis"].astype(np.float32)            # (N, T) target 보이는 비율, 화면 밖 = nan
         self.T = int(self.vis.shape[1])
@@ -53,12 +56,17 @@ class BlenderTrackDataset(torch.utils.data.Dataset):
         return int(i)
 
     def read(self, c: int, idx: np.ndarray) -> torch.Tensor:
+        if self.layout == "mp4":
+            import decord
+            vr = decord.VideoReader(os.path.join(self.root, f"{self.clips[c]}.mp4"), num_threads=1)
+            return torch.from_numpy(vr.get_batch([int(f) for f in idx]).asnumpy())
         from PIL import Image
         d = os.path.join(self.root, self.clips[c], "rgb")
         return torch.from_numpy(np.stack([np.asarray(Image.open(f"{d}/{int(f):04d}.png").convert("RGB")) for f in idx]))
 
     def labels(self, c: int, idx: np.ndarray, flip: bool, tub: int = 2) -> Dict[str, torch.Tensor]:
-        z = np.load(os.path.join(self.root, self.clips[c], "labels.npz"))
+        z = np.load(os.path.join(self.labels_root, f"{self.clips[c]}.npz") if self.layout == "mp4"
+                    else os.path.join(self.root, self.clips[c], "labels.npz"))
         n = len(idx); nb = n // tub
         am = np.unpackbits(z["amodal"][idx, 0], axis=-1).astype(np.float32)          # (n, 64, 64)
         occ = am.reshape(nb, tub, G, L // G, G, L // G).mean((1, 3, 5))                 # (nb, 16, 16)
@@ -82,6 +90,7 @@ class BlenderTrackCollator:
         self.strides = [int(x) for x in cfg.get("strides", [2, 3, 4])]
         self.ctx = [int(x) for x in cfg.get("context_frames", [8, 12, 16, 20, 24])]
         self.p_late = float(cfg.get("late_p", 0.5))
+        self.p_stay = float(cfg.get("late_stay_p", 0.0))   # late 창 중 미래 끝까지 다시 안 나타나는 창의 몫 (v1, 기본 0 = v0 동작)
         hid_vis, seen_vis = float(cfg.get("hid_vis", 0.1)), float(cfg.get("seen_vis", 0.5))
         for C in self.ctx:
             if C % self.tub or not (0 < C < self.n):
@@ -92,17 +101,21 @@ class BlenderTrackCollator:
         on = ~np.isnan(ds.vis)
         vis = np.nan_to_num(ds.vis, nan=0.0)
         hid, seen = on & (vis < hid_vis), on & (vis >= seen_vis)
-        self.cand, msg = {}, []
+        self.cand, self.cand_stay, msg = {}, {}, []
         for s in self.strides:
             span = (self.n - 1) * s + 1
             J = np.arange(ds.T - span + 1)[:, None] + s * np.arange(self.n)[None]     # (O, n)
             H, S = hid[:, J], seen[:, J]                                               # (N, O, n)
             for C in self.ctx:
-                ok = H[:, :, C - 1] & S[:, :, :C - 1].any(-1) & S[:, :, C:].any(-1)   # (N, O)
+                base = H[:, :, C - 1] & S[:, :, :C - 1].any(-1)
+                ok = base & S[:, :, C:].any(-1)                                        # (N, O) 다시 나타남
                 cl = np.nonzero(ok.any(1))[0]
                 self.cand[(s, C)] = (cl, [np.nonzero(ok[c])[0] for c in cl])
-                msg.append(f"s{s}C{C}:{len(cl)}")
-        logger.info(f"[blender_track] late 후보 clip 수 (보폭 s, 문맥 C 샘플) {' '.join(msg)} · late_p {self.p_late}")
+                stay = base & ~S[:, :, C:].any(-1)                                     # 미래 끝까지 안 나타남
+                cs = np.nonzero(stay.any(1))[0]
+                self.cand_stay[(s, C)] = (cs, [np.nonzero(stay[c])[0] for c in cs])
+                msg.append(f"s{s}C{C}:{len(cl)}/{len(cs)}")
+        logger.info(f"[blender_track] late 후보 clip 수 (보폭 s, 문맥 C 샘플) 다시 나타남/안 나타남 {' '.join(msg)} · late_p {self.p_late} · stay {self.p_stay}")
 
     def __call__(self, batch):
         s, C = random.choice(self.strides), random.choice(self.ctx)
@@ -111,7 +124,9 @@ class BlenderTrackCollator:
         xs, labs, n_late = [], [], 0
         for i in batch:
             if len(cl) and random.random() < self.p_late:
-                k = random.randrange(len(cl)); c = int(cl[k]); o = int(random.choice(offs[k])); n_late += 1
+                ccl, coffs = (self.cand_stay[(s, C)] if (self.p_stay > 0 and len(self.cand_stay[(s, C)][0])
+                                                          and random.random() < self.p_stay) else (cl, offs))
+                k = random.randrange(len(ccl)); c = int(ccl[k]); o = int(random.choice(coffs[k])); n_late += 1
             else:
                 c = int(i); o = random.randint(0, self.ds.T - span)
             idx = o + s * np.arange(self.n)

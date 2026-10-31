@@ -1,0 +1,15 @@
+# 무엇을 바꿨나: 학습셋을 BlenderTrack v1 (옆으로 움직이는 판 없음, 10,154 clip, 20 fps) 로, 창 간격을 20 fps 에 맞춰 1 · 2 · 3 (20 · 10 · 6.7 fps).
+# 왜: v1 은 정해진 시간표 · 끝 자리 · 경로가 없다 — 데이터만 고쳐도 전이가 생기나 (L1 만, 대조군). 2026-11-01 사용자 요청.
+# 비교: 릴리즈 · VOBench PFT (외부 벤치 + 속도 sweep), 이후 같은 seed · step 의 v1 팔 (압력 B · C · D).
+#   NODE=vll2 LAB_PY=/data/hyuntak/anaconda3/envs/vjepa2/bin/python bash predictor_lab/train.sh lab_v1_base
+extends: lab_base
+
+data:
+  blender_track:
+    strides: [1, 2, 3]                 # v1 은 20 fps: 1 = 20 · 2 = 10 (VOBench) · 3 = 6.7 fps
+optimization:
+  epochs: 5                            # 10,154 clip / 32 = 317 step × 5 = 1,585 step (v0 팔 1,500 step 과 비슷)
+
+lab:
+  sheet_name: "V-JEPA2 w/ BlenderTrack v1 (static occluder)"
+  predictor_type: "future mask latent prediction"

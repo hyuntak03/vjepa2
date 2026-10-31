@@ -6,6 +6,8 @@
 
 한 분석에 폴더 하나다. 폴더마다 README 가 왜 → 어떻게 → 결과 → 해석 → 재현 순서로 쓰여 있다.
 
+**문제 지도 (최신):** [`PROBLEM_MAP_2026-10-31.md`](PROBLEM_MAP_2026-10-31.md) — 지금 문제를 층별로 (정보 · 정체 · 자리 · 개입 · 학습 · 전이 · 채점), binding 은 증상이고 뿌리 후보는 "어디가 마지막 관측에 묶임" (2026-10-31).
+
 **종합 정리:** [`SUMMARY_visible_late_pft_transfer.md`](SUMMARY_visible_late_pft_transfer.md) — visible vs late · PFT 가 바꾸는 것 · 이식이 안 되는 이유 (①② + 이식 조사 R1–R4 를 묶음, 2026-10-31).
 
 | 폴더 | 무엇 | 한 줄 결과 | 상태 |
@@ -15,6 +17,7 @@
 | [`04_rubric_office/`](04_rubric_office/README.md) | 실제 영상 (TCOW Rubric Office 2×2, 20 영상) 을 violation 시점 앞뒤 16 장으로 채점 | 전체 52–58 % (우연 · 복사와 구분 안 됨). 사라짐 25–30 % · 생겨남 75–95 % — 합성 late 와 같은 방향. VOBench 학습 판도 같음 | 20 영상, 창 두 가지 |
 | [`02_map_inject/`](02_map_inject/README.md) | 공간 지도 (마지막으로 보인 물체 토큰 → 추정 미래 자리) 를 p 에 넣는 학습 전 상한 시험 | 참 자리면 63 %, 추정 운동이면 25–30 % (릴리즈 8 · 복사 57) → 병목은 운동 외삽 | VOBench_v1 판, 사전 판정 "중간" |
 | [`06_blender_track/`](06_blender_track/README.md) | 경로를 외울 수 없는 학습셋 — 눈높이 Blender 렌더, 연속 무작위 궤적 · 가림 사건 · 64×64 amodal/visible 라벨 | late 미래 경로 21 (VOBench) → ~5,750 (설계 2,000, 보폭 3), late 창 clip 68 %, GPU 8 장 clip 당 ~1 초, 투영 오차 0.000 px | 본 렌더 중 (학습 4,000 + 검증 400) |
+| [`07_clevrer_perm/`](07_clevrer_perm/README.md) | CLEVRER 영속성 v1 (장면 396, 쌍 792) — 릴리즈 · VOBench PFT · 복사 | 릴리즈 59.2 → VOBench PFT 82.3 % (사라짐 18 → 65, 복사 29). **다른 생성기로 옮겨진 첫 사례.** overtake 만 17.8 (복사 44) | 2026-10-31 |
 
 ## 폴더 지도
 

@@ -140,7 +140,10 @@ class Scene:
         # 재질 풀 (clip 마다 값만 바꾼다)
         self.obj_mats = [self._obj_mat(f"obj{i}") for i in range(10)]
         self.pan_mats = [self._panel_mat(f"pan{i}") for i in range(6)]
+        self.prop_mats = [self._panel_mat(f"prop{i}") for i in range(4)]     # v1: 경사로 · 벽 소품
         self.live = []
+        self.props = []
+        self.track_fn = None        # v1 (gen_design.tracks): 물체마다 (pos, yaw[, R]) · 판마다 각도. None = v0 design.all_tracks
 
     # ------------------------------------------------------------ 재질 · 메시
     def _tex_mat(self, name, kind):
@@ -312,6 +315,7 @@ class Scene:
             b.inputs["Metallic"].default_value = o["metal"]
             ob.material_slots[0].material = mat
             ob.scale = (o["s"],) * 3
+            ob.visible_shadow = bool(spec.get("shadows", True))     # v1: 그림자 끔 (가려진 물체 자리 누수)
             self.objs.append(ob)
         self.pans = []
         for j, p in enumerate(spec["panels"]):
@@ -341,19 +345,40 @@ class Scene:
             ob.location = (p["x"], p["y"], 0.0)
             ob.scale = (p["w"], p["th"], p["h"])
             self.pans.append(ob)
-        self.tracks, self.pan_ang = D.all_tracks(spec)
+        self.props = []
+        for j, pr in enumerate(spec.get("props", [])):          # v1: 경사로 판 · 벽 (바닥면 중심 원점 상자)
+            ob = bpy.data.objects.new(f"prop{j}_{pr.get('role', '')}", self.cube)
+            scn.collection.objects.link(ob)
+            ob.material_slots[0].link = "OBJECT"
+            mat = self.prop_mats[j % len(self.prop_mats)]
+            r = next(n for n in mat.node_tree.nodes if n.bl_idname == "ShaderNodeValToRGB")
+            r.color_ramp.elements[0].color = (*[0.7 * x for x in pr["color"]], 1)
+            r.color_ramp.elements[1].color = (*pr["color"], 1)
+            r.inputs["Fac"].default_value = 1.0
+            ob.material_slots[0].material = mat
+            ob.location, ob.rotation_euler, ob.scale = tuple(pr["loc"]), tuple(pr["rot"]), tuple(pr["scale"])
+            self.props.append(ob)
+        res = (self.track_fn or D.all_tracks)(spec)
+        self.tracks, self.pan_ang = res[0], res[1]
+        self.pan_x = res[2] if len(res) > 2 else None              # v1 (10-31): 옆으로 움직이는 판의 프레임별 x. v0 는 None (고정)
 
     def teardown(self):
-        for ob in self.objs + self.pans:
+        for ob in self.objs + self.pans + self.props:
             self.bpy.data.objects.remove(ob, do_unlink=True)
-        self.objs, self.pans = [], []
+        self.objs, self.pans, self.props = [], [], []
 
     def set_frame(self, f):
-        for ob, (pos, yaw) in zip(self.objs, self.tracks):
-            ob.location = tuple(pos[f])
-            ob.rotation_euler = (0.0, 0.0, float(yaw[f]))
-        for ob, ang in zip(self.pans, self.pan_ang):
+        from mathutils import Matrix
+        for ob, tr in zip(self.objs, self.tracks):
+            ob.location = tuple(tr[0][f])
+            if len(tr) > 2 and tr[2] is not None:                # v1: 회전 행렬 (구르기 · 경사)
+                ob.rotation_euler = Matrix(tr[2][f].tolist()).to_euler()
+            else:
+                ob.rotation_euler = (0.0, 0.0, float(tr[1][f]))
+        for j, (ob, ang) in enumerate(zip(self.pans, self.pan_ang)):
             ob.rotation_euler = (float(-ang[f]), 0.0, 0.0)     # 설계 −π/2 (카메라 쪽 누움) = Blender x 축 +π/2
+            if getattr(self, "pan_x", None) is not None:
+                ob.location.x = float(self.pan_x[j][f])
         self.bpy.context.view_layer.update()
 
     def labels(self, f, K, spec):
@@ -365,12 +390,16 @@ class Scene:
         out = []
         for k in range(K):
             ob, o = self.objs[k], spec["objects"][k]
-            pos, yaw = self.tracks[k][0][f], self.tracks[k][1][f]
-            cz, sz = math.cos(yaw), math.sin(yaw)
-            Rz = np.array([[cz, -sz, 0], [sz, cz, 0], [0, 0, 1]])
+            tr = self.tracks[k]
+            pos, yaw = tr[0][f], tr[1][f]
+            if len(tr) > 2 and tr[2] is not None:
+                Rz = np.asarray(tr[2][f], float)
+            else:
+                cz, sz = math.cos(yaw), math.sin(yaw)
+                Rz = np.array([[cz, -sz, 0], [sz, cz, 0], [0, 0, 1]])
             vw = (self.verts[o["shape"]] * o["s"]) @ Rz.T + pos
             u, v, d = cam.to_px(vw)
-            ctr = pos + np.array([0, 0, 0.5 * o["s"] * D.DIMS[o["shape"]][2]])
+            ctr = pos + Rz @ np.array([0, 0, 0.5 * o["s"] * D.DIMS[o["shape"]][2]])
             cu, cv, cd = cam.to_px(ctr[None])
             am = np.zeros((L, L), bool)
             vi = np.zeros((L, L), bool)
