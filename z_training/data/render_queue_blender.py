@@ -34,7 +34,8 @@ def render_one(path, engine, res):
         B.setup_render(sc, "cpu", res, os.path.join(frames_dir, "f"))
         sc.frame_start, sc.frame_end, sc.frame_step = B.PRE + s, B.PRE + s + W_RAW - 1, ST
         bpy.ops.render.render(animation=True)
-    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-framerate", f"{B.FPS / ST:g}", "-pattern_type", "glob",
+    fps = sc.render.fps / ST                      # 장면에 저장된 fps (flow 10 · multi 12) — B.FPS 는 이 프로세스의 기본값 (12) 이라 틀린다
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-framerate", f"{fps:g}", "-pattern_type", "glob",
                     "-i", os.path.join(frames_dir, "f*.png"), "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "18", stem + ".mp4"], check=True)
     shutil.rmtree(frames_dir)
     os.remove(path)

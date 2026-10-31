@@ -1,0 +1,29 @@
+# =============================================================================
+# 보조 기억 모듈 (상대 표현 감독) + **릴리즈 predictor 열기** + predictor 출력 칸 감독 (2026-10-31, 사용자: "당연히 predictor 는 열어야지")
+#
+#   GPUS=8 bash z_training/tmux_train.sh release_aux_perm_open
+#   watch -c -n 10 bash z_training/monitor_release_aux.sh release_aux_perm_open
+#
+# 왜: release_aux_perm_rel (predictor 고정) 의 모듈 이동량은 VOBench 로 넘어간다 (EPE 2.75 vs 0 이동 3.99, 방향 cos 0.85,
+#     z_analysis/results/aux_occ_generalization/release_aux_perm_rel_e3_vobench.json) 그런데 VOBench 채점은 그대로 (61.7 → 58.8).
+#     고정 predictor 는 받은 정보로 물체를 옮겨 그리는 법을 배울 수 없다.
+# 무엇: (1) 릴리즈 predictor 를 연다 — 학습률 × 0.1 (최대 3e-5, 릴리즈 post-FT 5e-5 와 비슷).
+#       (2) predictor **출력** p 위 칸 분류 head (배경 / 보이는 물체 / 가려진 물체, CE) — 재등장 칸에 물체를 실제로 그리라는 압력.
+#           latent L1 만으로는 phys3d_perm 의 재등장 보상이 작다 (정답 운반 − 지우기 +4.7 %, VOBench +22 %).
+#       (3) 모듈 · cross · 기억 head 는 release_aux_perm_rel e5 에서 이어 받는다 (이동량이 넘어가는 것을 확인한 모듈).
+# 손실: latent L1 + 0.3 × 기억 칸 CE + 0.3 × 기억 이동량 L1 + 0.3 × 출력 칸 CE
+# 일정: WSD (warmup 1 → 상수 → 마지막 10 epoch 선형 감소) — WarmupCosineSchedule 은 param group 의 lr_scale 을 무시해서 predictor 배율을 못 건다
+# 판정: VOBench late (in-loop) · VOBench 이동량 · 칸 채점 · 정식 VOBench / IntPhys1 / IntPhys2. phys3d 안의 손실로 판정하지 않는다 (post-FT 는 도메인 안에서만 오른 전례)
+# =============================================================================
+extends: release_aux_perm_rel
+
+model:
+  aux:
+    train_pred: true
+    pred_lr_mult: 0.1             # ★ 미검증
+    init: ${VJEPA2_ROOT}/z_training/runs/release_aux_perm_rel/e5.pt
+    sup:
+      p_weight: 0.3               # 출력 칸 CE. ★ 미검증
+
+optimization:
+  anneal_epochs: 10

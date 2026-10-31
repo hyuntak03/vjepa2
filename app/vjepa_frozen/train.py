@@ -154,10 +154,14 @@ def main(args, resume_preempt=False):
     #   (영상), 정답 = 같은 encoder 전체 pass (창, ar_target: window). TF 는 문맥 자리만, 예측 구간은 rollout 만 (ar_losses_video)
     ar_input = str((MD.get("predictor") or {}).get("ar_input", "block"))
     ar_target = str((MD.get("predictor") or {}).get("ar_target", "block"))
-    if ar_input not in ("block", "video") or ar_target not in ("block", "window"):
-        raise ValueError(f"model.predictor.ar_input 는 block | video, ar_target 은 block | window: {ar_input!r} {ar_target!r}")
+    # 2026-10-28: video_ctx = 문맥만 영상으로 (target_encoder 문맥 pass, 미래 안 봄), 정답은 블록별 — ar_oneshot 전용 (되먹임이 없어 입력 · 출력 공간이 달라도 된다)
+    AR_ONESHOT = bool((MD.get("predictor") or {}).get("ar_oneshot", False))
+    if ar_input not in ("block", "video", "video_ctx") or ar_target not in ("block", "window"):
+        raise ValueError(f"model.predictor.ar_input 는 block | video | video_ctx, ar_target 은 block | window: {ar_input!r} {ar_target!r}")
+    if ar_input == "video_ctx" and not (is_ar and AR_ONESHOT):
+        raise ValueError("ar_input=video_ctx 는 kind=ar + ar_oneshot 전용 (ar_target: block = 블록별 정답 | window = 전체 영상 pass 정답)")
     AR_VIDEO = is_ar and ar_input == "video"
-    if is_ar and (ar_input == "video") != (ar_target == "window"):
+    if is_ar and ar_input != "video_ctx" and (ar_input == "video") != (ar_target == "window"):
         raise ValueError("kind=ar 학습은 (ar_input, ar_target) = (block, block) | (video, window) 만 받는다")
     if AR_VIDEO and (GATING or HINT or dyn_weight or delta_weight or tf_span != "all"):
         raise ValueError("ar_input=video 는 gating · hint · dyn · delta · tf_span 과 같이 쓰지 않는다 "
@@ -269,6 +273,33 @@ def main(args, resume_preempt=False):
         _msg = predictor.load_state_dict(_ck["predictor"], strict=True)
         logger.info(f"predictor init <- {MD['predictor_init_checkpoint']} (epoch {_ck.get('epoch')}, {_msg})")
         del _ck
+    if MD.get("aux"):   # 2026-10-30 보조 기억 모듈 (app/vjepa_frozen/aux_memory.py): 릴리즈 predictor 고정, 모듈 · cross · gate 만 학습
+        if kind != "oneshot" or not MD.get("load_predictor"):
+            raise ValueError("model.aux 는 kind=oneshot + load_predictor (릴리즈 predictor 고정) 전용이다")
+        from app.vjepa_frozen.aux_memory import AuxRelease
+        predictor = AuxRelease(predictor, dict(MD["aux"]), ctx_enc.embed_dim, res, int(MD.get("patch_size", 16)),
+                               int(MD.get("tubelet_size", 2)), n_frames).to(device)
+        logger.info(f"aux: 모듈 {U.count_parameters(predictor.aux)/1e6:.2f}M + cross {U.count_parameters(predictor.cross)/1e6:.2f}M "
+                    f"(층 {predictor.layers}), 릴리즈 predictor {'학습' if predictor.train_pred else '고정'} {U.count_parameters(predictor.pred, trainable_only=False)/1e6:.2f}M")
+        if MD["aux"].get("init"):   # 2026-10-31: 앞 run 의 모듈 · cross · head 에서 시작 (새 head 는 비어 있어도 된다)
+            _ck = torch.load(MD["aux"]["init"], map_location="cpu", weights_only=False)
+            _msg = predictor.load_state_dict(_ck["predictor"], strict=False)
+            if _msg.unexpected_keys or any(not k.startswith("p_occ_head") for k in _msg.missing_keys):
+                raise KeyError(f"aux.init 키가 안 맞는다: missing {_msg.missing_keys[:5]} unexpected {_msg.unexpected_keys[:5]}")
+            logger.info(f"aux.init <- {MD['aux']['init']} (epoch {_ck.get('epoch')}, 새로 짓는 키 {_msg.missing_keys})"); del _ck
+    # 2026-10-31 model.aux.sup: 기억 m 위 head 로 미래 칸 (배경 / 보이는 물체 / 가려진 물체) CE. 라벨 = z_training/data/build_perm_occupancy.py
+    #   (행 = csv 둘째 열 → TrainCollator(with_rows) → info["row"]). 좌우 반전은 라벨도 같이 뒤집어야 해서 로더가 아니라 GPU 에서 한다.
+    AUXSUP = (MD.get("aux") or {}).get("sup") or None
+    if AUXSUP:
+        if float((D.get("aug") or {}).get("hflip_p", 0.0)) > 0:
+            raise ValueError("model.aux.sup 은 data.aug.hflip_p: 0 이어야 한다 (반전은 aux.sup.hflip_p 로 GPU 에서 라벨과 함께)")
+        OCC = np.load(AUXSUP["labels"], mmap_mode="r")                      # (N, len(ctx), 16, 256) int8
+        OCC_CTX = [int(c) for c in AUXSUP.get("ctx", [10, 12, 14, 16])]
+        OCC_W = torch.tensor([float(w) for w in AUXSUP.get("class_weight", [1.0, 4.0, 10.0])], device=device)
+        logger.info(f"aux.sup: 라벨 {AUXSUP['labels']} {OCC.shape} · 가중 {float(AUXSUP.get('weight', 1.0))} · 클래스 가중 {OCC_W.tolist()} · hflip {AUXSUP.get('hflip_p', 0.5)}")
+        DISP = np.load(AUXSUP["disp_labels"], mmap_mode="r") if AUXSUP.get("disp_labels") else None   # (N, len(ctx), 16, 256, 2) int8, 1/4 칸, −128 = 없음
+        if DISP is not None:
+            logger.info(f"aux.sup.disp: 이동량 라벨 {AUXSUP['disp_labels']} {DISP.shape} · 가중 {float(AUXSUP.get('disp_weight', 1.0))}")
     # mask_mode: sample(기본) = step 마다 스펙 하나 / all = 릴리즈 사전학습처럼 스펙 전부, 손실 평균
     mask_all = str(cfg.get("mask_mode", "sample")) == "all"
     if mask_all and (kind in ("ar", "ctx_ar", "ctx_state") or D.get("window_grid")):
@@ -280,6 +311,8 @@ def main(args, resume_preempt=False):
     mask_index = int(MD.get("mask_index", 0))
     arch = {"img_size": res, "patch_size": patch, "tubelet_size": tubelet, "num_frames": n_frames,
             "encoder_embed_dim": ctx_enc.embed_dim, **(MD.get("predictor") or {})}
+    if MD.get("aux"):
+        arch["aux"] = dict(MD["aux"])                            # 2026-10-30: 채점기가 AuxRelease 로 다시 짓도록
     # ── latent action (2026-10-24, 사용자 결정): Garrido et al. 2026 "Learning Latent Action World Models In The Wild" 이식
     #    (app/vjepa_frozen/latent_action.py). 역동역학 z_t = g(h_t, h_{t+1}) (잡음 방식, β·KL) 로 predictor 층을 변조. DDP 는 감싼 모듈 전체를.
     #    z = 0 이면 변조가 정확히 0 → 저장 · 학습 중 검증 · 채점은 안쪽 predictor 그대로 (= 추론 때 z = 0).
@@ -365,7 +398,7 @@ def main(args, resume_preempt=False):
         collator = WindowGridCollator(grid, sampler_masks, dataset.transform)
         logger.info(f"window_grid: {grid.describe()} | raw_span {grid.raw_span} jitter {grid.jitter}")
     else:
-        collator = TrainCollator(None)          # 마스크는 아래 루프가 step 당 한 번 만든다
+        collator = TrainCollator(None, with_rows=bool((MD.get("aux") or {}).get("sup")))   # 마스크는 아래 루프가 step 당 한 번 만든다
     _restore_affinity('before build_loader')   # DataLoader worker 가 여기서 mask 를 상속한다
     if VW:
         # 로더는 resume 뒤에 만든다 (start_step 이 필요하다). ipe 는 config 로 고정해야 한다
@@ -401,6 +434,17 @@ def main(args, resume_preempt=False):
         eps=float(O.get("eps", 1e-8)), use_scaler=use_scaler, is_anneal=bool(O.get("is_anneal", False)),
         anneal_epochs=float(O.get("anneal_epochs", 0)))
     clip_grad = O.get("clip_grad")
+    if MD.get("aux") and MD["aux"].get("train_pred"):   # 2026-10-31: 열린 릴리즈 predictor 는 따로 낮은 학습률 (lr_scale = pred_lr_mult)
+        if not float(O.get("anneal_epochs", 0)) > 0:
+            raise ValueError("model.aux.train_pred 는 optimization.anneal_epochs > 0 (WSDSchedule) 이 필요하다 — WarmupCosineSchedule 은 lr_scale 을 무시한다")
+        _pid = {id(q) for q in pred_mod.pred.parameters()}
+        for g in optimizer.param_groups:
+            g["params"] = [q for q in g["params"] if id(q) not in _pid]
+        _pm = float(MD["aux"].get("pred_lr_mult", 0.1))
+        optimizer.add_param_group({"params": [q for q in pred_mod.pred.parameters() if q.ndim > 1], "lr": float(O["lr"]), "lr_scale": _pm})
+        optimizer.add_param_group({"params": [q for q in pred_mod.pred.parameters() if q.ndim <= 1], "lr": float(O["lr"]), "lr_scale": _pm,
+                                   "WD_exclude": True, "weight_decay": 0.0})
+        logger.info(f"aux.train_pred: 릴리즈 predictor {sum(q.numel() for q in pred_mod.pred.parameters())/1e6:.2f}M 학습, lr × {_pm}")
     if state_head is not None:      # head 그룹: lr = 스케줄 lr × lr_mult (WSDSchedule 의 lr_scale), 1-D 는 weight decay 없음
         _hm = float(SH.get("lr_mult", 10))
         optimizer.add_param_group({"params": [q for q in head_params if q.ndim > 1], "lr": float(O["lr"]), "lr_scale": _hm})
@@ -484,7 +528,7 @@ def main(args, resume_preempt=False):
             if is_ar:
                 res = AR.run_val_ar(valset, tgt_enc, pred_mod, device, ac_dtype, rank, world_size, tubelet, spatial,
                                     int(V.get("context_length", 16)), int(V.get("batch_size", 8)), loss_exp,
-                                    ar_input=ar_input, in_enc=in_enc)
+                                    ar_input=ar_input, in_enc=in_enc, ar_target=ar_target)
             elif is_ctx_state:
                 res = AR.run_val_ctx_state(valset, ctx_enc, tgt_enc, pred_mod, device, ac_dtype, rank, world_size, tubelet,
                                            spatial, int(V.get("context_length", 16)), int(V.get("batch_size", 8)), loss_exp,
@@ -559,6 +603,7 @@ def main(args, resume_preempt=False):
                     sampler.set_epoch(epoch + 1)
                     loader_it = iter(loader)
                     clips, m_enc, m_pred, info = next(loader_it)
+            occ_rows = info.pop("row") if (not VW and isinstance(info, dict) and "row" in info) else None   # model.aux.sup
             if VW:
                 pass
             elif m_enc is None and mask_all:       # 릴리즈 사전학습: 스펙 전부 (창 = n_frames 전체, 자르지 않는다)
@@ -584,6 +629,10 @@ def main(args, resume_preempt=False):
                     clips = clips[:, :, o * tubelet: (o + n_blk) * tubelet]
                     info = {**info, "win_blocks": n_blk, "win_offset": o}
             clips = normalize_clips(clips.to(device, non_blocking=True))   # uint8 전송 -> GPU 정규화
+            occ_flip = None
+            if AUXSUP and float(AUXSUP.get("hflip_p", 0.5)) > 0:      # 2026-10-31: 반전을 라벨과 함께 (샘플마다)
+                occ_flip = torch.rand(clips.size(0), device=device) < float(AUXSUP.get("hflip_p", 0.5))
+                clips = torch.where(occ_flip.view(-1, 1, 1, 1, 1), clips.flip(-1), clips)
             if MIX:                                                          # 2026-10-20: 보조 합성 batch (mix=sum)
                 clips_s, info_s = next(syn_it)
                 clips_s = normalize_clips(clips_s.to(device, non_blocking=True))
@@ -697,6 +746,13 @@ def main(args, resume_preempt=False):
                                                                      int(info["predict_blocks"]), loss_exp, rollout_steps, float(LA.get("beta", 1e-4)))
                     else:
                         h_in = AR.encode_blocks(in_enc, clips.to(enc_dtype), tubelet) if in_enc is not None else None   # 2026-10-25: LoRA 입력 (grad)
+                        if ar_input == "video_ctx":       # 2026-10-28: 문맥 = 영상 한 번 (문맥 블록 토큰만 넣음 = 미래 안 봄), 뒤 자리는 안 쓰므로 정답으로 채움
+                            with torch.no_grad():
+                                if ar_target == "window":  # 정답 = 클립 전체 영상 pass (LN), 손실은 예측 자리만 (ar_losses 가 h[:, C*S:] 만 쓴다)
+                                    zc, h = AR.encode_video_ctx_full(tgt_enc, clips.to(enc_dtype), int(info["context_blocks"]), spatial)
+                                else:
+                                    zc = AR.encode_video_ctx(tgt_enc, clips.to(enc_dtype), int(info["context_blocks"]), spatial)
+                            h_in = torch.cat([zc.to(h.dtype), h[:, zc.size(1):]], 1)
                         loss, jl, sl, R = AR.ar_losses(predictor, h, spatial, int(info["context_blocks"]),
                                                        int(info["predict_blocks"]), loss_exp, rollout_steps, hint=hint,
                                                        delta_weight=delta_weight, aux=aux, tf_span=tf_span, out=outs, h_in=h_in)
@@ -962,8 +1018,49 @@ def main(args, resume_preempt=False):
                         h = torch.nn.functional.layer_norm(h, (h.size(-1),))       # affine-free, target 에만
                     z = ctx_enc(xe, masks=[m_enc])                                    # context 토큰만 (B, K, D)
                 with _ac():
-                    p = predictor(z, m_enc, m_pred, mask_index=int(info.get("mask_index", mask_index)))   # (B, M, D); block3d 는 스펙별 mask token
+                    if AUXSUP:                                                        # 칸 logits 도 forward 출력으로 (DDP)
+                        p, auxo = predictor(z, m_enc, m_pred, mask_index=int(info.get("mask_index", mask_index)), return_occ=True)
+                        occ_lg = auxo["occ"]
+                    else:
+                        p = predictor(z, m_enc, m_pred, mask_index=int(info.get("mask_index", mask_index)))   # (B, M, D); block3d 는 스펙별 mask token
                 loss = (p.float() - h.float()).abs().pow(loss_exp).mean() / loss_exp
+                if AUXSUP:   # 2026-10-31 보조 모듈 물체 칸 감독 (temporal_prefix: 미래 = 문맥 뒤 블록 전부, m 순서 = 블록 · 칸)
+                    C_ = int(info["context_frames"])
+                    lab = torch.from_numpy(np.ascontiguousarray(OCC[occ_rows.numpy(), OCC_CTX.index(C_), C_ // tubelet:])).to(device).long()
+                    if occ_flip is not None:
+                        lab = torch.where(occ_flip.view(-1, 1, 1), lab.view(lab.size(0), lab.size(1), 16, 16).flip(-1).flatten(2), lab)
+                    lab = lab.flatten(1)                                              # (B, M)
+                    lg = occ_lg.float()                                              # (B, M, 3)
+                    ce = torch.nn.functional.cross_entropy(lg.flatten(0, 1), lab.flatten(), weight=OCC_W, ignore_index=-1)
+                    loss_lat = loss
+                    loss = loss + float(AUXSUP.get("weight", 1.0)) * ce
+                    if DISP is not None:   # 2026-10-31 상대 표현: 칸의 문맥 물체 이동량 (칸 단위) L1, 라벨 있는 칸만
+                        dl = torch.from_numpy(np.ascontiguousarray(DISP[occ_rows.numpy(), OCC_CTX.index(C_), C_ // tubelet:])).to(device)   # (B, T, 256, 2) int8
+                        dv = dl[..., 0] != -128
+                        dt = dl.float() / 4.0
+                        if occ_flip is not None:   # 반전: 칸 열을 뒤집고 dx 부호를 바꾼다
+                            fl = occ_flip.view(-1, 1, 1)
+                            dv = torch.where(fl, dv.view(dv.size(0), dv.size(1), 16, 16).flip(-1).flatten(2), dv)
+                            dtf = dt.view(dt.size(0), dt.size(1), 16, 16, 2).flip(-2).flatten(2, 3) * torch.tensor([-1.0, 1.0], device=device)
+                            dt = torch.where(fl.unsqueeze(-1), dtf, dt)
+                        dv, dt = dv.flatten(1), dt.flatten(1, 2)                         # (B, M), (B, M, 2)
+                        dp = auxo["disp"].float()
+                        dloss = (dp[dv] - dt[dv]).abs().mean() if dv.any() else dp.sum() * 0.0
+                        loss = loss + float(AUXSUP.get("disp_weight", 1.0)) * dloss
+                        with torch.no_grad():
+                            aux.update(disp=float(dloss.detach()), disp0=float(dt[dv].abs().mean()) if dv.any() else float("nan"))
+                    if auxo.get("p_occ") is not None:   # 2026-10-31: predictor 출력 p 의 칸 분류 (재등장 칸에 물체를 그리라는 압력)
+                        plg = auxo["p_occ"].float()
+                        pce = torch.nn.functional.cross_entropy(plg.flatten(0, 1), lab.flatten(), weight=OCC_W, ignore_index=-1)
+                        loss = loss + float(AUXSUP.get("p_weight", 0.3)) * pce
+                        with torch.no_grad():
+                            ppr = plg.argmax(-1)
+                            aux.update(p_ce=float(pce.detach()), **{f"p_r{k}": float((ppr[lab == k] == k).float().mean()) if (lab == k).any() else float("nan") for k in (1, 2)})
+                    with torch.no_grad():
+                        pr = lg.argmax(-1)
+                        aux.update(latent=float(loss_lat.detach()), occ_ce=float(ce.detach()),
+                                   **{f"occ_r{k}": float((pr[lab == k] == k).float().mean()) if (lab == k).any() else float("nan") for k in (1, 2)},
+                                   **{f"occ_p{k}": float((lab[pr == k] == k).float().mean()) if (pr == k).any() else float("nan") for k in (1, 2)})
                 if scaler is not None:
                     scaler.scale(loss).backward()
                     scaler.unscale_(optimizer)
@@ -1023,6 +1120,8 @@ def main(args, resume_preempt=False):
                     g_ = aux["gprobe"]
                     ar_s += " gprobe nat %.3f lat %.3f head %.3f (cos %.3f)" % tuple(g_.get(k, float("nan")) for k in ("nat", "lat", "head", "cos_head"))
                     ar_s += " " + " ".join("%s %.3f" % (k, g_[k]) for k in ("ar_pos", "ar_dir", "ar_spd", "ar_ex", "tf_pos", "tf_dir", "tf_spd", "tf_ex") if k in g_)
+                if "unc_b_tf" in aux:                             # 2026-10-28 ar_unc: 토큰별 Laplace 척도 평균 (TF / 굴림), jloss · sloss 칸은 L1
+                    ar_s += " b %.3f/%.3f" % (aux["unc_b_tf"], aux["unc_b_ar"])
                 if aux.get("hw"):                                 # 2026-10-26: grad_match 성분 가중치
                     ar_s += " hw " + " ".join("%s %.2e" % (k, v) for k, v in aux["hw"].items())
                 if lora_params and "lgn" in aux:                  # 2026-10-25: encoder LoRA grad norm (clip 전)
@@ -1043,6 +1142,13 @@ def main(args, resume_preempt=False):
                 if GATING:     # 2026-10-17: rollout gate — 평균 · 움직이는 칸 (|정답−A| 상위 25 %) · 정지 칸 (하위 25 %) · 첫/마지막 걸음 · >0.95 비율
                     ar_s += " gate %.3f mov %.3f sta %.3f k1 %.3f kR %.3f >.95 %.2f" % tuple(
                         aux.get(k, float("nan")) for k in ("gate", "gate_mov", "gate_sta", "gate_k1", "gate_kR", "gate_hi"))
+                if "occ_ce" in aux:   # 2026-10-31 aux.sup: latent L1 · 칸 CE · 보이는 물체 / 가려진 물체 재현율 · 정밀도
+                    ar_s += " lat %.4f occ %.4f vis R %.2f P %.2f hid R %.2f P %.2f" % (
+                        aux["latent"], aux["occ_ce"], aux["occ_r1"], aux["occ_p1"], aux["occ_r2"], aux["occ_p2"])
+                    if "disp" in aux:   # 이동량 L1 (칸) · 0 이동 예측의 L1 (기준)
+                        ar_s += " disp %.3f (0이동 %.3f)" % (aux["disp"], aux["disp0"])
+                    if "p_ce" in aux:   # predictor 출력 p 의 칸 분류 CE · 보이는 / 가려진 물체 칸 재현율
+                        ar_s += " pocc %.3f pvis R %.2f phid R %.2f" % (aux["p_ce"], aux["p_r1"], aux["p_r2"])
                 if CTX_HOLE:   # 2026-10-16: 이 step 의 구멍 비율 (문맥 토큰 중) · 가려진 문맥 토큰 복원 손실 (구멍 없는 step 은 0)
                     ar_s += " hole %.2f rec %.4f" % (aux.pop("hole_frac", 0.0), aux.pop("rloss", 0.0))
                 logger.info("[%d, %5d] loss %.4f (avg %.4f)%s | mask %s C=%s | lr %.2e wd %.2e | mem %.1fG | iter %.0f ms gpu %.0f ms data %.0f ms"
@@ -1075,6 +1181,8 @@ def main(args, resume_preempt=False):
                        "val": res, "time": time.strftime("%Y-%m-%d %H:%M:%S")}
                 if is_seq:
                     rec.update(train_jloss=jl_meter.avg, train_sloss=sl_meter.avg)
+                if hasattr(pred_mod, "gates"):
+                    rec["aux_gates"] = pred_mod.gates()                 # 2026-10-30 보조 모듈 gate (0 이면 릴리즈 그대로)
                 f.write(json.dumps(rec) + "\n")
         if torch.distributed.is_available() and torch.distributed.is_initialized():
             torch.distributed.barrier()

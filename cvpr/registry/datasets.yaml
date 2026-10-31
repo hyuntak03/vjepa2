@@ -660,3 +660,18 @@ intphys2_violation_uni_test:      # 2026-10-22 위 세트의 장면 단위 test 
   plausible_column: plausible
   type_column: block_type
   engine: wma
+real_bench_quads:                 # 2026-10-31 vast. 실제 영상 영속 4 중항 (TCOW Rubric Office, 20 영상 × 4 = 80 clip, 40 matched pair). 위반 지점 t_splice 앞 [0, t_splice) 균등 16 장 + 뒤 [t_splice, 끝) 균등 16 장 = 32 장 (문맥 · 미래 간격이 다르다, index 의 ctx_step / fut_step). 640x480 을 256x256 으로 늘임 (자르지 않음). pair A = present vs vanish (문맥 원본) · B = absent vs appear (문맥 지운 영상), 문맥 PNG 바이트 동일 (context_integrity.json)
+  raw_frames: 32
+  cache_tag: real_bench_quads
+  root: ${CVPR_DATA_CSV}/real_bench_quads   # z_research/scripts/data/build_real_bench_quads.py
+  index_csv: index.csv
+  frames_root: ${CVPR_BENCH_SRC}/real_bench/rubric_office_quads_c16f16
+  frames_pattern: '{file_name}/{frame:06d}.png'
+  frames_start: 0
+  frames_stride: 1
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: condition            # occlusion / containment / out_of_frame
+  engine: wma

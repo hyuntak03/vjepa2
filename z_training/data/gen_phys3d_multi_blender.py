@@ -1022,7 +1022,7 @@ B.sample_points = sample_points
 def check(lab, ev, info, objs):
     why = []
     p = lab["pos"]
-    if np.linalg.norm(p[:, 0].max(0) - p[:, 0].min(0)) < 25:
+    if np.linalg.norm(p[:, 0].max(0) - p[:, 0].min(0)) < 25 and not info.get("active_any"):   # flow: 계속 들어오는 장면은 장면 전체로 본다
         why.append("main barely moves")
     out = lab["inframe_frac"] < 0.5
     if info.get("enter_from_top"):                # 화면 위 밖에서 떨어져 들어오는 것 — 처음 들어온 뒤만 센다
@@ -1504,6 +1504,7 @@ P_MID_OCC = 0.5
 EXTRA_SHAPES = {}                             # 이름 → 만드는 함수 (r, size, loc) — flow 판
 EXTRA_SMOOTH = set()
 OBJ_MAT_HOOK = None                           # (rng, name, rgb, rgb2) → (material, pattern id) — flow 판
+ANCHOR_POLICY = None                          # (rk, Cs) → 앵커 종류 — flow 판 (앵커 늘 32 장, 세 종류 고르게). None = v1 규칙
 SCENE_HOOK = None                             # (sc, objs, info, rng, env) — 시나리오 · 배경 뒤 장면 손질 (flow 판, 2026-10-27). None = v1 그대로
 WINDOW_HOOK = None                            # (lw, objs, info, Cs, rng) → 버릴 이유 목록 — 창 검사 (flow 판). None = v1 그대로
 P_ANCHOR_MOVING = 0.8                         # 앵커 때 움직이는 물체 80 % · 멈춘 물체 20 % (모든 C 같게)
@@ -1665,7 +1666,8 @@ def generate2(name, k, seed, main_ident, out, n_frames=None, res=256, engine="cp
     want_move = bool(rk.random() < P_ANCHOR_MOVING)   # 앵커 때 주 물체가 움직이는가 — 모든 C 에 같은 비율
     # C* ≤ 4: 사건 · 사건 가림 · 그냥 가림 1/3 씩. C* ≥ 8: 문맥 끝은 가림 (사건 가림 · 그냥 가림 반반) — 충돌 같은 사건은 문맥 안에서 먼저 일어나도 된다
     # (사용자 2026-10-25 "충돌 같은 건 이전에 일어나도 되는데 context 8, 16, 32 에선 가려지는 걸 넣던가"). 사건 가림을 못 하면 그냥 가림으로 (기록)
-    anchor = str(os.environ.get("PHYS3D_ANCHOR") or (rk.choice(ANCHORS) if Cs <= 4 else rk.choice(ANCHORS[1:])))
+    anchor = str(os.environ.get("PHYS3D_ANCHOR") or (ANCHOR_POLICY(rk, Cs) if ANCHOR_POLICY is not None else
+                                                     rk.choice(ANCHORS) if Cs <= 4 else rk.choice(ANCHORS[1:])))
     anchor_asked = anchor
     why = []
     for attempt in range(max_attempts):

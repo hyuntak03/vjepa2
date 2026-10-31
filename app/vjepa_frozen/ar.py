@@ -159,6 +159,12 @@ def encode_video_ctx_full(enc, clips: torch.Tensor, C: int, S: int):
     return F.layer_norm(zc, (zc.size(-1),)), F.layer_norm(zf, (zf.size(-1),))
 
 
+def encode_video_ctx(enc, clips: torch.Tensor, C: int, S: int):
+    """2026-10-28 ar_input=video_ctx: 문맥 pass 만 (문맥 C 블록 토큰만 encoder 에 넣는다 = 미래 안 봄), affine 없는 LN. return (B, C*S, D)."""
+    zc = enc(clips, masks=[block_indices(clips.size(0), C, S, clips.device)])
+    return F.layer_norm(zc, (zc.size(-1),))
+
+
 def ar_losses_video(predictor, zc: torch.Tensor, zf: torch.Tensor, S: int, C: int, K: int, loss_exp: float,
                     rollout_steps: int, aux: dict = None):
     """ar_input=video · ar_target=window (2026-10-18). 입력 = 문맥 pass 영상 토큰 zc, 정답 = 전체 pass 영상 토큰 zf.
@@ -199,9 +205,27 @@ def ar_losses(predictor, h: torch.Tensor, S: int, C: int, K: int, loss_exp: floa
         arg["hint"] = {"x": hx, "idx": hidx}
     if h_in is not None and (hint is not None or delta_weight or tf_span != "all"):
         raise ValueError("h_in (encoder LoRA 입력) 은 hint · delta_weight · tf_span 과 아직 같이 쓰지 않는다")
-    p_tf, p_ar = predictor(h if h_in is None else h_in, ar=arg)     # 2026-10-25: h_in = LoRA 입력 경로, 타깃은 늘 h (얼린 encoder)
+    _o = predictor(h if h_in is None else h_in, ar=arg)       # 2026-10-25: h_in = LoRA 입력 경로, 타깃은 늘 h (얼린 encoder)
+    p_tf, p_ar = _o[0], _o[1]                                 # 2026-10-28 ar_unc 면 (p_tf, p_ar, log b_tf, log b_ar)
+    if p_tf is None:                                          # 2026-10-28 ar_oneshot: 미래 R 블록 한 번에, 손실 = 그 L1 하나 (TF 없음)
+        sloss = l1(p_ar, h[:, C * S: (C + R) * S], loss_exp)
+        if out is not None:
+            out["p_tf"], out["p_ar"] = None, p_ar
+        return sloss, sloss.detach(), sloss, R
     if out is not None:                                       # 2026-10-19: state_head 보조 손실이 예측 출력을 쓴다 (TF 블록 1..nb-1 · rollout C..C+R-1)
         out["p_tf"], out["p_ar"] = p_tf, p_ar
+    core = predictor_core(predictor)
+    if getattr(core, "ar_unc", False):                        # 2026-10-28: 토큰별 Laplace 음의 로그우도 (차원 평균 |y−μ| / b + log b), 모니터용 jloss · sloss 는 L1
+        if hint is not None or delta_weight or tf_span != "all" or loss_exp != 1.0:
+            raise ValueError("ar_unc 는 hint · delta_weight · tf_span · loss_exp≠1 과 아직 같이 쓰지 않는다")
+        lb_tf, lb_ar = _o[2], _o[3]
+        d_tf = (p_tf.float() - h[:, S:].float()).abs().mean(-1)
+        d_ar = (p_ar.float() - h[:, C * S: (C + R) * S].float()).abs().mean(-1)
+        nll = lambda d, lb: (d * torch.exp(-lb.float()) + lb.float()).mean()
+        loss = nll(d_tf, lb_tf) + nll(d_ar, lb_ar)
+        if aux is not None:
+            aux["unc_b_tf"] = float(torch.exp(lb_tf.detach().float()).mean()); aux["unc_b_ar"] = float(torch.exp(lb_ar.detach().float()).mean())
+        return loss, d_tf.mean().detach(), d_ar.mean().detach(), R
     core = predictor_core(predictor)
     if aux is not None and getattr(core, "gating_residual", False) and core._gate_roll is not None:   # 2026-10-17 ar gating 모니터
         g, A = core._gate_roll
@@ -230,7 +254,7 @@ def ar_losses(predictor, h: torch.Tensor, S: int, C: int, K: int, loss_exp: floa
 @torch.no_grad()
 def run_val_ar(vs: ValSet, tgt_enc, pred_mod, device, autocast_dtype, rank: int, ws: int,
                tubelet: int, spatial: int, context_length: int, batch_size: int, loss_exp: float,
-               ar_input: str = "block", in_enc=None) -> Dict:
+               ar_input: str = "block", in_enc=None, ar_target: str = "block") -> Dict:
     """val.run_val 의 팔 C 판. 주지표 = rollout surprise, 보조 = tf surprise (res['tf'])."""
     pred_mod.eval()
     n_frames = vs.ds.n_frames
@@ -250,7 +274,16 @@ def run_val_ar(vs: ValSet, tgt_enc, pred_mod, device, autocast_dtype, rank: int,
         n = len(chunk)
         with ac:
             idx = block_indices(n, nb, S, device)
-            if ar_input == "video":                          # 2026-10-18: 입력 = 문맥 pass, 정답 = 전체 pass (창). 보조 tf = 문맥 자리 TF
+            if ar_input == "video_ctx":                      # 2026-10-28: 문맥 = 영상 문맥 pass, 정답 = 블록별 (ar_oneshot)
+                xx = x.to(next(tgt_enc.parameters()).dtype)
+                if ar_target == "window":                    # 정답 = 전체 영상 pass
+                    zc, h = encode_video_ctx_full(tgt_enc, xx, C, S)
+                else:
+                    zc = encode_video_ctx(tgt_enc, xx, C, S)
+                    h = encode_blocks(tgt_enc, xx, tubelet)
+                p_ar = pred_mod.rollout_kv(zc, idx[:, : C * S], K)
+                p_tf, tgt_tf = p_ar, None
+            elif ar_input == "video":                          # 2026-10-18: 입력 = 문맥 pass, 정답 = 전체 pass (창). 보조 tf = 문맥 자리 TF
                 zc, h = encode_video_ctx_full(tgt_enc, x.to(next(tgt_enc.parameters()).dtype), C, S)
                 p_ar = pred_mod.rollout_kv(zc, idx[:, : C * S], K)
                 p_tf = pred_mod.forward_seq(zc[:, :-S], idx[:, : (C - 1) * S])
@@ -259,7 +292,8 @@ def run_val_ar(vs: ValSet, tgt_enc, pred_mod, device, autocast_dtype, rank: int,
                 h = encode_blocks(tgt_enc, x.to(next(tgt_enc.parameters()).dtype), tubelet)     # (n, nb*S, D)
                 hi = h if in_enc is None else encode_blocks(in_enc, x.to(next(tgt_enc.parameters()).dtype), tubelet)   # 2026-10-25: LoRA 입력
                 p_ar = pred_mod.rollout_kv(hi[:, : C * S], idx[:, : C * S], K)                   # (n, K*S, D) KV 캐시판 (값 동일)
-                p_tf = pred_mod.forward_seq(hi[:, :-S], idx[:, :-S])[:, (C - 1) * S:]              # 블록 C..nb-1 예측
+                p_tf = p_ar if getattr(predictor_core(pred_mod), "ar_oneshot", False) else \
+                    pred_mod.forward_seq(hi[:, :-S], idx[:, :-S])[:, (C - 1) * S:]              # 블록 C..nb-1 예측 (oneshot 은 TF 없음 → 같은 값)
                 tgt_tf = None
         tgt = h[:, C * S:].float()
         tgt_tf = tgt if tgt_tf is None else tgt_tf

@@ -1,0 +1,17 @@
+# =============================================================================
+# 한 번에 예측 (ar_oneshot) + 문맥을 영상으로 (2026-10-28, 사용자 결정: "block 이 아니라 video 로 context, 어차피 full bidirection")
+#
+#   GPUS=8 bash z_training/tmux_train.sh natural_ar_vw_state_oneshot_vidctx
+#
+# natural_ar_vw_state_oneshot (fps 4, 블록 문맥) 과 같고 다른 점 하나: 문맥 입력 = target_encoder 문맥 pass
+#   (문맥 C 블록 토큰만 encoder 에 한 번에 넣는다 = 미래 안 봄, affine 없는 LN, app/vjepa_frozen/ar.py encode_video_ctx).
+#   정답 = 클립 전체를 target_encoder 에 한 번에 넣은 영상 토큰 (LN), 손실은 예측 자리 (미래 K 블록) 만 (사용자 결정 2026-10-28).
+#   ⚠️ 정답 정의가 기준 AR (블록별) 과 달라 latent 손실 · val surprise 값은 직접 비교하지 않는다 — 판별 정답률로 비교.
+# 근거: 블록 입력 vs 영상 입력에서 첫 걸음 운반 0.29 vs 0.59 (CTXT_VS_BLOCK_MECHANISM_2026-10-21).
+# =============================================================================
+extends: natural_ar_vw_state_oneshot
+
+model:
+  predictor:
+    ar_input: video_ctx
+    ar_target: window

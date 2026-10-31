@@ -37,6 +37,8 @@ def main():
                       still=float((va < 0.05).all(1).mean()), sp=float(np.median(v0[:C])), size=float(z["size"][0]),
                       hid=float((z["vis_frac"][:, 0] <= 0.3).mean()), v2d=np.diff(z["pos"][:, 0].astype(np.float64), axis=0),
                       mvfrac=float((v0 >= 0.05).mean()), fps=fps))
+    global CS
+    CS = tuple(sorted({x["C"] for x in R}))         # perm 판은 C* ∈ {12..20}
     print(f"# phys3d_multi 점검 — `{a.root}`\n\n영상 {len(R):,} (실패 {len(fail):,})\n")
     print("## 1. C 별 (같아야 하는 것)\n")
     print("| C | 영상 | 실패 | event · occ_event · occ_any | 앵커 때 움직임 | 문맥 정지 | 전체 정지 | 문맥 속력 중앙 m/s | 주 물체 크기 중앙 | 안 보임 장 | 문맥 중 가림 | 들어온 물체 | open 배경 | 평균 시도 |")

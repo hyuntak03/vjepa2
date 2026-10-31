@@ -212,6 +212,11 @@ predictor : AR 그대로 (block-causal, 상태 되먹임)
 
 ---
 
+### 5-10. 릴리즈 predictor + 사전학습 레시피 이어 학습 · EK100 subset 빈 칸 (10-29 ~ 30) ✅
+- `release_postft_pretrain` (oneshot): 릴리즈 predictor 에서 시작, V-JEPA 2 사전학습 레시피 그대로 (short 8 × 0.15 + long 2 × 0.7 매 step, 16 장 fps 4, K710 · SSv2 · HowTo 1 % = 1 : 1 : 1), lr 5e-5 WSD, 70 epoch. 학습 중 VOBench late 61.6 (학습 전) → 59.5
+- EK100 subset 묶음 평가 (6 팔): action 31.1–31.7 로 거의 같다. 시트 다섯 행 기입. 시트의 main 기계 값 (33.1) 과 1.5 차이는 기계 · 평가 목록 차이일 수 있다
+- 정본 `z_training/docs/EK100_SUBSET_2026-10-30.md`
+
 ## 6. 채점 정의 (표의 숫자가 무엇인가)
 
 | 지표 | 정의 | 계산 위치 |

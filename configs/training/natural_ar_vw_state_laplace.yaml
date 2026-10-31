@@ -1,0 +1,18 @@
+# =============================================================================
+# 기본 블록 AR (fps 4, natural_ar_vw_state) + 토큰별 Laplace 척도 (불확실성) 손실 (2026-10-28, 사용자 결정)
+#
+#   GPUS=8 bash z_training/tmux_train.sh natural_ar_vw_state_laplace
+#
+# natural_ar_vw_state 와 같고 다른 점 하나 (model.predictor.ar_unc):
+#   predictor 가 μ (블록 토큰 예측, 기존과 같음) 와 함께 토큰별 log b 를 낸다 (unc_head = Linear(384 → 1), 상태 = predictor_norm 출력).
+#   손실 = TF · 굴림 각각 평균 [ (차원 평균 |정답 − μ|) / b + log b ]  (Laplace 음의 로그우도, 토큰 하나에 척도 하나).
+#   시작 b = 0.55 (학습 초 토큰 L1 크기), unc_head 기울기 0 → 처음엔 L1 / 0.55 + 상수 = 기존 손실의 상수배.
+# ⚠️ 관문 3: μ 의 최적은 그대로 (차원별 중앙값). 바뀌는 것은 학습 가중 (b 큰 토큰은 덜) 과, 채점에 쓸 b (|y − μ| / b) 가 생기는 것.
+#   채점 · val 은 μ 만 쓴다 (rollout_kv). b 를 쓰는 surprise 는 따로 만든다.
+# sanity (CPU): 시작 손실 = 2 × (L1/0.55 + log 0.55) (일치) · μ 는 ar_unc 없는 같은 가중치와 같음 · unc_head 에 grad.
+# =============================================================================
+extends: natural_ar_vw_state
+
+model:
+  predictor:
+    ar_unc: true

@@ -1,0 +1,15 @@
+# =============================================================================
+# fps 4 기준 블록 AR (natural_ar_vw_state) 과 모든 게 같고, 미래를 굴리지 않고 한 번에 낸다 (2026-10-28, 사용자 결정)
+#
+#   GPUS=8 bash z_training/tmux_train.sh natural_ar_vw_state_oneshot
+#
+# 같은 것: 데이터 (K710 · SSv2 · HowTo 1 %, fps 4, 1:1:1) · 창 (문맥 · 예측 ∈ {2,4,8,16,32} 장) · 블록별 입력 · 블록별 정답 (LN(target_encoder)) ·
+#   출력 LN · L1 · 일정 (70 epoch, WSD) · val (VOBench late) — 기준 비교 대상 = natural_ar_vw_state (같은 설정, 굴림 + TF).
+# 다른 것 (model.predictor.ar_oneshot): 문맥 C 블록 + 미래 K 블록 자리 mask token (RoPE 절대 위치) 을 한 번에, attention 전부 양방향,
+#   손실 = 미래 K 블록 L1 하나 (TF 없음, 되먹임 없음). R = min(K, rollout_steps 16) = K.
+# =============================================================================
+extends: natural_ar_vw_state
+
+model:
+  predictor:
+    ar_oneshot: true

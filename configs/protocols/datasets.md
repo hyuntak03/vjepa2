@@ -780,3 +780,25 @@ variant_column: variant
 plausible_column: plausible
 type_column: condition
 
+## real_bench_quads
+
+실제 영상 물체 영속 4 중항 (2026-10-31) — `/workspace/dataset/benchmarks/real_bench/rubric_office_quads` (TCOW Rubric Office, 20 영상 × 4 = 80 clip, 40 matched pair).
+위반 지점 `t_splice` (대상이 완전히 숨은 구간의 가운데) 앞 `[0, t_splice)` 에서 균등 16 장 → 문맥, 뒤 `[t_splice, 끝)` 에서 균등 16 장 → 미래 (32 장 PNG).
+⚠️ 문맥과 미래의 시간 간격이 다르다 (index 의 `ctx_step` / `fut_step`, 원본 장 단위). 640x480 을 256x256 으로 늘인다 (자르지 않음).
+pair A = possible_present vs impossible_vanish (문맥 원본), B = possible_absent vs impossible_appear (문맥 = 대상을 지운 영상) — 문맥 PNG 바이트 동일.
+만드는 법 `z_research/scripts/data/build_real_bench_quads.py`. `quality` 열 = README 의 inpainting 품질 (weak 2 영상은 따로 볼 것).
+첫 채점 (2026-10-31, `cvpr/eval/testbed/run.sh real_bench_quads <모델>`, c16t32): 릴리즈 vith **47.5** (A 계속 있음 vs 사라짐 25 / B 없음 vs 생겨남 70) · vast_aux_sup 50.0 (30 / 70) · vast_aux_rel_e5 45.0 (25 / 65). n = 40 쌍 (SE ≈ 8pt). A/B 비대칭 = 미래에 물체가 있으면 surprise 가 큰 외형 편향 (v11 vanish 100 / 0 과 같은 꼴).
+
+raw_frames: 32
+cache_tag: real_bench_quads
+root: ${DATA_CSV}/real_bench_quads
+index_csv: index.csv
+frames_root: /workspace/dataset/benchmarks/real_bench/rubric_office_quads_c16f16
+frames_pattern: "{file_name}/{frame:06d}.png"
+frames_start: 0
+frames_stride: 1
+block_column: block_id
+pair_column: pair_id
+variant_column: variant
+plausible_column: plausible
+type_column: condition

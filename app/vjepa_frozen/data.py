@@ -556,14 +556,15 @@ class WindowGridCollator:
 class TrainCollator:
     """DataLoader collate_fn. worker 안에서 마스크를 뽑는다 (block3d 의 step 카운터가 공유 Value 라 그래도 된다)."""
 
-    def __init__(self, mask_sampler: Optional[MaskSampler] = None):
+    def __init__(self, mask_sampler: Optional[MaskSampler] = None, with_rows: bool = False):
         # None 이면 마스크를 **학습 루프가** 만든다 (rank 동기화. MaskSampler docstring 참고).
         self.mask_sampler = mask_sampler
+        self.with_rows = with_rows   # 2026-10-31: csv 둘째 열 (라벨) = 행 번호 → info["row"] 로 넘긴다 (보조 모듈 물체 칸 감독, model.aux.sup)
 
     def __call__(self, batch):
         clips = torch.stack([b[0][0] for b in batch])            # (B, 3, T, H, W)
         if self.mask_sampler is None:
-            return clips, None, None, None
+            return clips, None, None, ({"row": torch.tensor([int(b[1]) for b in batch])} if self.with_rows else None)
         enc, pred, info = self.mask_sampler(len(batch))
         return clips, enc, pred, info
 

@@ -1,0 +1,51 @@
+# =============================================================================
+# 고정 릴리즈 predictor + 보조 기억 모듈 (B 안) — phys3d_perm_v1 로, 라벨 없이 (2026-10-30, 사용자 "ㅇㅇ 하고 학습까지 바로 해봐")
+#
+#   GPUS=8 bash z_training/tmux_train.sh release_aux_perm
+#   watch -c -n 10 bash z_training/monitor_release_aux.sh
+#
+# 구조 (app/vjepa_frozen/aux_memory.py):
+#   보조 모듈 = 릴리즈 predictor 와 같은 클래스를 작게 (폭 256 · 4 층 · 4 head · 마스크 토큰 1) — 문맥 토큰 → 미래 칸마다 기억 벡터 (1280)
+#   릴리즈 predictor (고정) 의 4 · 8 · 12 번째 블록 뒤에서 미래 토큰만 그 기억을 cross-attention (6 head, 3 축 RoPE) 으로 읽고, gate (0 시작) 를 곱해 더한다
+#   → 학습 전에는 릴리즈와 같다 (실측 최대 차이 0 · 문맥 10 장 1e-5). 학습 = 모듈 + cross + gate 7.7 M, 릴리즈 22.3 M 고정
+# 손실: 릴리즈와 같은 미래 토큰 latent L1 (앞 C 장 문맥 → 뒤 32−C 장, 정답 = LN(target encoder)). 라벨 없음
+# 역사 압력: C ∈ {10, 12, 14, 16} 장 — 문맥 끝 블록 0~3 개를 무작위로 뺀다 (마지막 블록 복사만으로는 손실이 안 줄게)
+# 데이터: phys3d_perm_v1 (4 fps 32 장, 앵커 가림이 문맥 끝 근처). 운반 상한 (z_analysis/results/transport_upper_bound/perm.json):
+#   재등장 칸에서 정답 운반 − 지우기 = +4.7 % (VOBench +22, phys3d_multi +2.0) — 압력은 주로 재등장 장면
+# 평가: 학습 중 VOBench late 432 쌍 (처음 보는 생성기). 정식 = VOBench · IntPhys1 · IntPhys2 (late occ 포함)
+# =============================================================================
+extends: frozen_predictor_postft
+
+meta:
+  save_every_freq: 5
+
+model:
+  aux:
+    dim: 256
+    depth: 4
+    heads: 4
+    layers: [3, 7, 11]          # 0 부터 센 릴리즈 블록 번호 (그 뒤에 cross)
+    cross_heads: 6
+
+data:
+  batch_size: 8                 # rank 당 × 8 GPU = 64 → 22,673 / 64 = 354 step / epoch
+  num_workers: 6
+  datasets:
+    - {name: phys3d_perm_v1, weight: 1.0}
+  aug:
+    hflip_p: 0.5
+    random_resized_crop: null   # 합성 장면 · 물체가 작다
+
+mask:
+  - type: temporal_prefix
+    context_frames: [10, 12, 14, 16]
+    weight: 1.0
+
+optimization:
+  epochs: 20                    # 20 × 354 ≈ 7,100 step
+  lr: 3.0e-4                    # 새로 짓는 모듈이라 post-FT lr (5e-5) 보다 높게. ★ 미검증
+  start_lr: 1.0e-5
+  final_lr: 1.0e-6
+  warmup: 1
+  weight_decay: 0.04
+  final_weight_decay: 0.04

@@ -396,3 +396,30 @@ vast_ek100_i2pft:                 # 2026-10-23 EK100 cap16metric — 사용자: 
     predictor_checkpoint: ${CVPR_REPO}/z_training/runs/natural_ar_vw_state_phys2d_single/latest.pt
   - name: ar_vast_phys3d_sup
     predictor_checkpoint: ${CVPR_REPO}/z_training/runs/natural_ar_vw_state_phys3d_event/latest.pt
+vast_ek100_fill1029:              # 2026-10-29 사용자: 시트 "EK100 subset" 빈 칸 채우기 (release_postft_pretrain 학습이 끝난 뒤). 8 GPU × 12 = 96 (cap16b96)
+  base: vith                      #   이 기계에 체크포인트가 있는 행만. 릴리즈형 (kind oneshot · arch 없음) 과 LoRA 입력 경로는 group 모듈 2026-10-29 추가분
+  predictor_group:
+  - name: rel_i2vupft             # 시트 "V-JEPA2 w/ IntPhys2 (violation 16/16)"
+    predictor_checkpoint: ${CVPR_REPO}/z_training/runs/intphys2_vuni_release_postft/latest.pt
+  - name: tube_cd64               # 시트 "Predictor tublet" (tube 기준선 16 장 63 ep + 64 장 cooldown 7 ep)
+    predictor_checkpoint: ${CVPR_REPO}/z_training/runs/k710_ssv2_how_ep70_cooldown64/latest.pt
+  - name: rel_pretrain_pft        # 새 run: 릴리즈 predictor + 사전학습 레시피 이어 학습 (시트에 아직 행 없음)
+    predictor_checkpoint: ${CVPR_REPO}/z_training/runs/release_postft_pretrain/latest.pt
+  - name: ar_gres                 # 시트 "AR predictor w/ residual gating"
+    predictor_checkpoint: ${CVPR_REPO}/z_training/runs/natural_ar_vw_state_gres/latest.pt
+  - name: ar_phys3d_only          # 시트 "AR predictor w/ phys3d" (synthetic only, 20 epoch)
+    predictor_checkpoint: ${CVPR_REPO}/z_training/runs/natural_ar_vw_state_phys3d_only/latest.pt
+  - name: ar_i2vupft_lora         # 시트 "AR predictor w/ IntPhys2 (violation 16/16)" LoRA 행 — 입력 경로 encoder 에 LoRA
+    predictor_checkpoint: ${CVPR_REPO}/z_training/runs/intphys2_vuni_ar_vw_state_postft_lora/latest.pt
+vast_aux_sup:                     # 2026-10-31 릴리즈 predictor 고정 + 보조 기억 모듈 + 절대 칸 감독 (phys3d_perm_v1, e9 에서 멈춤). analysis/intphys2/model.py 가 ckpt arch.aux 로 AuxRelease 를 짓는다
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/release_aux_perm_sup/latest.pt
+  predictor.kind: oneshot
+vast_aux_rel_e5:                  # 2026-10-31 위 + 이동량 (상대 표현) 감독, predictor 고정, e5
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/release_aux_perm_rel/e5.pt
+  predictor.kind: oneshot
+vast_aux_open:                    # 2026-10-31 rel e5 에서 + 릴리즈 predictor 열기 (lr × 0.1) + 출력 칸 감독, 10 ep
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/release_aux_perm_open/latest.pt
+  predictor.kind: oneshot

@@ -487,7 +487,9 @@ def build_from_config(cfg: dict, device: torch.device) -> VJEPA2Bundle:
             num_mask_tokens=int(predictor_cfg.get("num_mask_tokens", 10)),
             use_rope=use_rope, use_sdpa=True, mask_mode=kind,
             n_registers=int(predictor_cfg.get("n_registers", 0)),
-            reg_carry=str(predictor_cfg.get("reg_carry", "state")),          # 2026-10-27: ar registers 상태 넘김
+            reg_carry=str(predictor_cfg.get("reg_carry", "state")),
+            ar_oneshot=bool(predictor_cfg.get("ar_oneshot", False)),
+            ar_unc=bool(predictor_cfg.get("ar_unc", False)),                  # 2026-10-28: 토큰별 Laplace 척도 head (채점은 μ 만)          # 2026-10-28: kind=ar 한 번에 예측          # 2026-10-27: ar registers 상태 넘김
             ar_feedback=str(predictor_cfg.get("ar_feedback", "output")),     # 2026-10-12: kind=ar 상태 되먹임
             gating_residual=bool(predictor_cfg.get("gating_residual", False)),   # 2026-10-17: gate 지름길
             gating_anchor=str(predictor_cfg.get("gating_anchor", "last_obs")),    # 2026-10-18: rollout anchor 규칙
@@ -512,6 +514,13 @@ def build_from_config(cfg: dict, device: torch.device) -> VJEPA2Bundle:
                 psd.pop(k)
             pstate["predictor"] = psd
             logger.info(f"predictor_checkpoint: 힌트 cross-attn 가중치 {len(hint_keys)}개는 채점에 안 쓴다 (버림)")
+        _aux = (pstate.get("arch") or {}).get("aux")
+        if _aux:   # 2026-10-31: 보조 기억 모듈 run (app/vjepa_frozen/aux_memory.py) — 릴리즈 구조 predictor 를 감싸 같은 forward 로 채점 (학습 head 는 안 쓴다)
+            if kind != "oneshot":
+                raise ValueError(f"보조 모듈 체크포인트는 kind=oneshot 이어야 한다 (지금 {kind})")
+            from app.vjepa_frozen.aux_memory import AuxRelease
+            predictor = AuxRelease(predictor, dict(_aux), encoder.embed_dim, img_size, patch_size, tubelet_size, num_frames)
+            logger.info(f"predictor_checkpoint: 보조 모듈 (층 {predictor.layers}, gate {[round(float(v), 4) for v in (pstate['predictor'][f'cross.{i}.gate'] for i in predictor.layers)]})")
         msd = predictor.state_dict()
         missing = sorted(set(msd) - set(psd))
         if missing:

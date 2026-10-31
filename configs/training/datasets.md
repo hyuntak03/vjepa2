@@ -424,3 +424,26 @@ frames_pattern: "{file_name}/{frame:06d}.png"
 frames_start: 0
 frames_stride: 1
 raw_frames: 32
+
+## phys3d_perm_v1
+
+**phys3d_perm v1 학습 쪽 (물체 영속 3D 합성, 4 fps · 32 장 = 8 초, 22,673 편)** — 다른 세션이 2026-10-30 에 만든 세트 (`z_training/docs/PHYS3D_PERM_DATASET_2026-10-30.md`).
+모든 영상에 앵커 가림 (C* ∈ {12..20}) 이 있어 문맥 16 장으로 자르면 가림이 문맥 끝 4 장 전 ~ 미래 4 장 안에서 시작한다. 목록 = 생성기의 `train/index.csv` 그대로 (`<mp4> 0`).
+영상이 정확히 32 장이라 `n_frames: 32` · `frame_step: 1` 이면 늘 영상 전체 (시작 0). 라벨 (`*_states.npz`) 은 이 로더가 읽지 않는다 (2026-10-30 보조 모듈 학습, 라벨 없음).
+
+type: video_csv
+csv: ${DATA_CSV}/phys3d_perm_v1/train.csv
+frame_step: 1
+filter_short_videos: true
+
+## phys3d_perm_v1_occ
+
+**phys3d_perm_v1 과 같은 영상, 둘째 열 = 행 번호** (2026-10-31, 보조 모듈 물체 칸 감독 `model.aux.sup`). 학습 루프가 행 번호로
+`${DATA_CSV}/phys3d_perm_v1/occ_train.npy` (행 × 문맥 {10,12,14,16} × 16 블록 × 256 칸, 배경 0 / 보이는 물체 1 / 가려진 물체 2 / 무시 −1) 를 찾는다.
+만드는 법 `z_training/data/build_perm_occupancy.py --split train`. ⚠️ 좌우 반전은 `data.aug.hflip_p: 0` 으로 끄고 `model.aux.sup.hflip_p` 로 GPU 에서 라벨과 함께 한다.
+
+type: video_csv
+csv: ${DATA_CSV}/phys3d_perm_v1/train_occ.csv
+frame_step: 1
+filter_short_videos: true
+

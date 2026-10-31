@@ -1,0 +1,23 @@
+# =============================================================================
+# 고정 릴리즈 predictor + 보조 기억 모듈 + **상대 표현 감독 (이동량)** (2026-10-31, 사용자: "상대 표현 괜찮은데" → "그냥 멈추고 다시 올리셈")
+#
+#   GPUS=8 bash z_training/tmux_train.sh release_aux_perm_rel
+#   watch -c -n 10 bash z_training/monitor_release_aux.sh release_aux_perm_rel
+#
+# 왜: release_aux_perm_sup (절대 칸 분류만) 은 phys3d 안에서는 물체를 따라가지만 (움직이는 물체 IoU 52 vs 문맥 끝 그대로 34)
+#     VOBench 에서는 문맥 끝 그대로 수준 (21 vs 20) — 장면 내용으로 자리를 외운다 (z_analysis/results/aux_occ_generalization).
+#     반면 문맥 토큰의 속도 선형 probe 는 phys3d → VOBench 로 방향 cos 0.96 으로 넘어간다 (velocity_probe_cross_generator).
+# 무엇: 모듈 기억 m 위 이동량 head — 미래 블록 t 의 칸 (r, c) 에서, 문맥에서 그 칸에 마지막으로 보였던 물체가 블록 t 까지 움직인 양 (dx, dy, 칸).
+#     가려져 있어도 라벨이 있다 (영속). 칸에 묶인 상대량이라 평행이동에 불변 — 장면 배치로 외울 수 없고, 속도 × 시간에 가깝다.
+#     칸 분류 CE 는 가중을 낮춰 같이 둔다. 손실 = latent L1 + 0.3 × 칸 CE + 0.3 × 이동량 L1 (라벨 있는 칸만, 전체 미래 칸의 7.5 %)
+# 라벨: data_csv/phys3d_perm_v1/disp_train.npy (z_training/data/build_perm_occupancy.py --disp). 학습 때만.
+# 판정: VOBench 칸 채점 · 이동량 오차 (기준선 대비, z_research/scripts/analysis/aux_occ_generalization.py) → VOBench late · IntPhys 채점
+# =============================================================================
+extends: release_aux_perm_sup
+
+model:
+  aux:
+    sup:
+      weight: 0.3                 # 칸 CE. ★ 미검증
+      disp_labels: ${DATA_CSV}/phys3d_perm_v1/disp_train.npy
+      disp_weight: 0.3            # 이동량 L1 (칸). 0 이동 예측의 L1 ≈ 2–3 칸. ★ 미검증

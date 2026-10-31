@@ -85,6 +85,8 @@ def build_predictor(m: dict, encoder_embed_dim: int, state: Optional[dict], devi
                     num_frames: int) -> nn.Module:
     """predictor (fp32 마스터 가중치). state 가 있으면 릴리즈 predictor 를 통째로 로드한다 (post-FT)."""
     pc = dict(m.get("predictor") or {})
+    # 2026-10-29: predictor 창 (위치 격자) 을 학습 창보다 크게 — val 창이 더 길 때 (예: 학습 16 장 · VOBench val 32 장). 키가 있을 때만
+    num_frames = int(pc.get("num_frames", num_frames))
     extra = {"use_activation_checkpointing": bool(pc.get("use_activation_checkpointing", False)),
              "zero_init_mask_tokens": bool(pc.get("zero_init_mask_tokens", True))}
     # ── kind: oneshot(기본, 릴리즈 위상 = 팔 A) | prefix(prefix 마스크 = 팔 B) | causal ──
@@ -107,6 +109,10 @@ def build_predictor(m: dict, encoder_embed_dim: int, state: Optional[dict], devi
         extra["gating_anchor"] = str(pc["gating_anchor"])
     if pc.get("gating_out_ln"):                               # 출력 LN(g·A + proj(s)) (2026-10-18, ar)
         extra["gating_out_ln"] = True
+    if pc.get("ar_unc"):                                      # 토큰별 Laplace 척도 (2026-10-28)
+        extra["ar_unc"] = True
+    if pc.get("ar_oneshot"):                                  # kind=ar 인데 미래 K 블록 한 번에 (2026-10-28)
+        extra["ar_oneshot"] = True
     if pc.get("reg_carry"):                                   # ar registers 상태 넘김: state | none (2026-10-27)
         extra["reg_carry"] = str(pc["reg_carry"])
     if int(pc.get("hint_cross_dim", 0) or 0):                 # 힌트 cross-attn (2026-10-11, kind=ar 전용)

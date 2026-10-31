@@ -170,6 +170,8 @@ class VisionTransformerPredictorPrefix(nn.Module):
         self.max_blocks = num_frames // tubelet_size
         self.n_registers = int(n_registers)
         self.reg_carry = str(kwargs.get("reg_carry", "state"))      # 2026-10-27 ar registers: state (다음 블록으로 넘김) | none
+        self.ar_oneshot = bool(kwargs.get("ar_oneshot", False))     # 2026-10-28 kind=ar 인데 미래 K 블록을 한 번에 (굴리지 않음)
+        self.ar_unc = bool(kwargs.get("ar_unc", False))             # 2026-10-28 토큰별 Laplace 척도 b (log b = unc_head(상태)), 손실 = |y−μ|/b + log b
         self.use_activation_checkpointing = use_activation_checkpointing
         self.init_std = init_std
 
@@ -206,6 +208,8 @@ class VisionTransformerPredictorPrefix(nn.Module):
             for i in range(depth)])
         self.predictor_norm = norm_layer(predictor_embed_dim)
         self.predictor_proj = nn.Linear(predictor_embed_dim, out_embed_dim or embed_dim, bias=True)
+        if bool(kwargs.get("ar_unc", False)):             # 2026-10-28: 토큰별 log b (Laplace 척도). 시작 b = 0.55 (학습 초 토큰 L1 크기), 기울기 0
+            self.unc_head = nn.Linear(predictor_embed_dim, 1, bias=True)
         # 움직임 크기 헤드 (2026-10-14, mask_mode=ar 전용): 이웃 상태 차 |s_{t+1}-s_t| → 토큰별 스칼라. 꺼져 있으면 안 만든다
         self.dyn_head = nn.Linear(predictor_embed_dim, 1) if bool(kwargs.get("dyn_head", False)) else None
         # 문맥 복원 전용 머리 (2026-10-16, ctx_state + ctx_hole): 마지막 문맥 자리 상태는 "다음 블록 예측" 을 맡으므로
@@ -267,6 +271,8 @@ class VisionTransformerPredictorPrefix(nn.Module):
         if self.gating_residual:                                   # _init_weights 뒤에 덮는다 → 시작 시 ŷ = A
             nn.init.zeros_(self.keep_gate.weight); nn.init.constant_(self.keep_gate.bias, 2.0)
             nn.init.zeros_(self.predictor_proj.weight); nn.init.zeros_(self.predictor_proj.bias)
+        if getattr(self, "unc_head", None) is not None:   # 2026-10-28: log b 시작 = log 0.55, 기울기 0
+            nn.init.zeros_(self.unc_head.weight); nn.init.constant_(self.unc_head.bias, float(torch.log(torch.tensor(0.55))))
 
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
@@ -339,6 +345,10 @@ class VisionTransformerPredictorPrefix(nn.Module):
             idx, C, R = ar["idx"], int(ar["n_ctx_blocks"]), int(ar["rollout_steps"])
             if self.gating_residual and (ar.get("starts") is not None or ar.get("dyn")):
                 raise ValueError("ar gating_residual 은 multistart · dyn 과 아직 같이 쓰지 않는다")
+            if self.ar_oneshot:                                  # 2026-10-28: 문맥 C 블록 → 미래 R 블록 한 번에. (None, p) 를 돌려준다 (TF 없음)
+                if ar.get("starts") is not None or ar.get("dyn") or ar.get("hint") is not None or self.n_registers:
+                    raise ValueError("ar_oneshot 은 multistart · dyn · hint · registers 와 같이 쓰지 않는다")
+                return None, self._ar_oneshot(x[:, : C * S], idx[:, : C * S], R)
             if self.n_registers:                                 # 2026-10-27: 블록마다 register, 상태를 다음 블록으로 넘긴다
                 if ar.get("starts") is not None or ar.get("dyn") or ar.get("hint") is not None:
                     raise ValueError("ar registers 는 multistart · dyn · hint 와 아직 같이 쓰지 않는다")
@@ -355,6 +365,13 @@ class VisionTransformerPredictorPrefix(nn.Module):
                 def dyn(st):                                     # (B, n*S, D) → (B, (n-1)*S) 이웃 블록 쌍
                     return self.dyn_head((st[:, S:] - st[:, :-S]).abs()).squeeze(-1)
                 return p_tf, p_ar, dyn(s_tf), (dyn(s_ar) if R > 1 else None)
+            if self.ar_unc:                                      # 2026-10-28: μ 와 함께 토큰별 log b — (p_tf, p_ar) 를 돌려주고 log b 는 self._unc 에
+                if ar.get("hint") is not None or self.gating_residual or self.n_registers:
+                    raise ValueError("ar_unc 는 hint · gating · registers 와 아직 같이 쓰지 않는다")
+                p_tf, s_tf = self.forward_seq(x[:, :-S], idx[:, :-S], return_states=True)
+                p_ar, s_ar = self.rollout_kv(x[:, : C * S], idx[:, : C * S], R, return_states=True)
+                # log b 를 forward 출력으로 돌려준다 — DDP (find_unused_parameters) 가 unc_head 를 "안 쓰임" 으로 보지 않게
+                return p_tf, p_ar, self.unc_head(s_tf).squeeze(-1), self.unc_head(s_ar).squeeze(-1)   # (B, N_tf) · (B, R*S)
             p_tf = self.forward_seq(x[:, :-S], idx[:, :-S], hint=ar.get("hint"))   # 힌트는 TF 에만. rollout 은 힌트 없음
             if getattr(self, "ar_kv_rollout", True):          # 2026-10-11: KV 캐시판 (값·grad 동일, 긴 K 에서 빠르다)
                 p_ar = self.rollout_kv(x[:, : C * S], idx[:, : C * S], R)
@@ -661,6 +678,19 @@ class VisionTransformerPredictorPrefix(nn.Module):
             anchor = x_blk                                    # 관측 블록을 넣는 걸음 = 그 블록이 마지막 관측
         return self._ar_out(st, anchor), new, st
 
+    # ---------------------------------------------------------------- ar oneshot (2026-10-28, 사용자 결정)
+    # 블록 AR 과 같은 입력 (블록별 LN(target_encoder) 를 predictor_embed + type[0]) · 같은 RoPE 위치 · 같은 출력 LN.
+    # 다른 점: 미래 K 블록 자리에 mask token (같은 학습 토큰 하나, 위치는 RoPE 의 절대 토큰 인덱스로) 을 놓고 한 번에 낸다. 자기 예측을 되먹이지 않는다.
+    # attention: 전부 양방향 (문맥 ↔ 문맥, 미래 query ↔ 문맥 · 다른 미래 query). 마스크 없음 → flash.
+    def _ar_oneshot(self, x_ctx, idx_ctx, K):
+        S = self.tokens_per_block
+        B, N = x_ctx.shape[:2]
+        h_ctx = self._ar_embed_obs(x_ctx)
+        q = self.mask_tokens[0].to(h_ctx.dtype).expand(B, int(K) * S, -1)
+        idx_q = idx_ctx[:, -1:] + 1 + torch.arange(int(K) * S, device=idx_ctx.device)[None]
+        h = self._run_blocks(torch.cat([h_ctx, q], 1), torch.cat([idx_ctx, idx_q], 1), None)
+        return self._ar_out(self.predictor_norm(h[:, N:]))
+
     # ---------------------------------------------------------------- ar registers (2026-10-27, 사용자 결정)
     # 블록마다 register 토큰 Nr 개를 패치 256 개 뒤에 붙인다 ("Vision Transformers Need Registers" 식, 출력에서 버림).
     # 위치: 그 블록 첫 토큰 인덱스 (프레임 t, 칸 (0, 0)) — AC predictor 의 action 토큰처럼 시간 위치만 의미가 있다.
@@ -718,6 +748,10 @@ class VisionTransformerPredictorPrefix(nn.Module):
         값·grad 는 `rollout` 과 같다 (검증: z_training/RESULTS 참고). return (B, n_steps*S, out) LN."""
         S = self.tokens_per_block
         C = x_ctx.size(1) // S
+        if self.ar_oneshot:                                  # 2026-10-28: 한 번에 (채점 · val 이 rollout_kv 를 부르므로 같은 이름으로)
+            if return_states:
+                raise ValueError("ar_oneshot: return_states 없음")
+            return self._ar_oneshot(x_ctx, idx_ctx, int(n_steps))
         if self.n_registers:                                 # 2026-10-27: register 판
             if return_states or self.gating_residual:
                 raise ValueError("ar registers: rollout_kv 의 return_states · gating 은 아직 없다")

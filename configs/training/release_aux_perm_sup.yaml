@@ -1,0 +1,30 @@
+# =============================================================================
+# 고정 릴리즈 predictor + 보조 기억 모듈 + **물체 칸 감독** (2026-10-31, 사용자: "모듈한테 context 보고 물체 놓아져야될 칸 supervision 주면서 일반화 되도록")
+#
+#   GPUS=8 bash z_training/tmux_train.sh release_aux_perm_sup
+#   watch -c -n 10 bash z_training/monitor_release_aux.sh release_aux_perm_sup
+#
+# 왜: release_aux_perm (라벨 없음) 은 손실을 3 % 줄였지만 칸 종류와 무관하게 고른 보정이었다 — 재등장 칸 +2.75 % < 배경 +3.33 %
+#     (z_analysis/results/aux_perm_indomain). latent 손실만으로는 모듈이 가려진 물체를 담을 압력이 없다.
+# 무엇: 모듈 출력 (미래 칸마다 기억 m, 1280) 위 선형 head → 미래 칸마다 배경 / 보이는 물체 / 가려진 물체 (문맥에서 본 물체만, CE).
+#     기억 m 이 "문맥만 보고 물체가 미래 어느 칸에 있을지 (가려져 있어도)" 를 담게 강제한다. 릴리즈 predictor 는 그 m 을 cross 로 읽는다.
+#     손실 = latent L1 (그대로) + weight × CE. 문맥에서 못 본 물체가 새로 들어오는 칸은 무시 (문맥으로는 알 수 없다).
+# 라벨: data_csv/phys3d_perm_v1/occ_train.npy (z_training/data/build_perm_occupancy.py). 학습 때만 쓰고 채점은 안 쓴다.
+# 평가: 학습 중 VOBench late 432 쌍. 끝나면 (1) phys3d_perm val 칸 재현율 (2) VOBench 라벨로 칸 재현율 (처음 보는 생성기 = 일반화) (3) 정식 채점
+# =============================================================================
+extends: release_aux_perm
+
+model:
+  aux:
+    sup:
+      labels: ${DATA_CSV}/phys3d_perm_v1/occ_train.npy
+      ctx: [10, 12, 14, 16]       # 라벨 둘째 축 순서 = mask.context_frames
+      weight: 1.0                 # ★ 미검증. CE 초기 ~1.1 vs latent L1 ~0.6
+      class_weight: [1.0, 4.0, 10.0]   # 미래 칸 비율 배경 92.5 % / 보임 4.7 % / 가려짐 0.86 %. ★ 미검증
+      hflip_p: 0.5                # 로더 반전 대신 (라벨과 함께 뒤집는다)
+
+data:
+  datasets:
+    - {name: phys3d_perm_v1_occ, weight: 1.0}
+  aug:
+    hflip_p: 0.0

@@ -1,0 +1,25 @@
+# =============================================================================
+# fps 10 블록 AR 을 phys3d_flow_v1 (3D 합성, 오래 이어지는 운동) **만으로** 70 epoch (2026-10-28, 사용자 결정)
+#
+#   GPUS=8 bash z_training/tmux_train.sh phys3d_flow_only_ar_fps10
+#
+# natural_ar_vw_state_fps10_c16k8 과 같은 것: predictor (상태 되먹임 블록 AR) · 손실 (TF + 굴림 L1) · 창 (문맥 ≤ 32 장 = 16 블록 · 예측 ≤ 16 장 = 8 블록) ·
+#   rollout 8 · 일정 (70 epoch × 294 step, WSD) · val (VOBench late).
+# 다른 것: 데이터 = phys3d_flow_v1 train 만 (매 step 합성, boundary p 1.0). 영상은 원래 10 fps · 48 장 → stride 1 = 0.1 초 간격 (실제 영상 fps 10 판과 같은 시간 척도).
+#   행 = boundary.tsv (사건 · 가림 앵커 32 장) + uniform.tsv (균일 경계) = data_csv/phys3d_flow_v1/train_mix.tsv (274,816 행).
+# 데이터: z_training/docs/PHYS3D_FLOW_DATASET_2026-10-27.md — 지속률 0.5 초 0.82 (자연 영상 0.06–0.20), 시나리오 45, 모양 30, HDRI 400.
+# =============================================================================
+extends: natural_ar_vw_state_fps10_c16k8
+
+data:
+  var_window:
+    boundary:
+      name: phys3d_flow_v1
+      p: 1.0
+      manifest: ${DATA_CSV}/phys3d_flow_v1/train_mix.tsv
+      stride: 1
+      context_frames: [2, 4, 8, 16, 32]
+      predict_frames: [2, 4, 8, 16]
+      min_eligible: 500
+      crop_ratio: [1.0, 1.0]
+      hflip_p: 0.5

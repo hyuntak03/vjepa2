@@ -165,8 +165,22 @@ def init_module(
         from src.models.rollout_predictor import vit_prefix_predictor
         _pst = torch.load(str(pred_ckpt_path), map_location="cpu", weights_only=False)
         _arch = _pst.get("arch") or {}
+    if pred_ckpt_path and _arch.get("kind") in (None, "oneshot"):
+        # 2026-10-29: 릴리즈형 predictor (z_training kind=oneshot · arch 가 없는 옛 post-FT) — 릴리즈와 같은 클래스라
+        #   아래 기본 경로처럼 짓고 가중치만 이 체크포인트의 predictor 로 (strict). EK100 동작은 기본 (mask token) 경로와 같다.
+        if _pst.get("encoder_lora"):
+            raise RuntimeError(f"릴리즈형 predictor + encoder LoRA 는 아직 안 된다 ({pred_ckpt_path})")
+        predictor = vit_pred.__dict__[prd_model_name](
+            img_size=(img_h, img_w), embed_dim=encoder.embed_dim, patch_size=encoder.patch_size,
+            tubelet_size=encoder.tubelet_size, out_embed_dim=prd_out_embed_dim, **prd_kwargs)
+        _sd = {k.replace("module.", "").replace("backbone.", ""): v for k, v in _pst["predictor"].items()}
+        msg = predictor.load_state_dict(_sd, strict=True)
+        predictor.ek_kind = "default"
+        logger.info(f"predictor <- {pred_ckpt_path} (릴리즈형 kind={_arch.get('kind')}, epoch {_pst.get('epoch')}): {msg}")
+        del _pst, _sd
+    elif pred_ckpt_path:
         if _arch.get("kind") != "ar":
-            raise RuntimeError(f"vast group 모듈은 kind=ar 체크포인트만 ({pred_ckpt_path}: kind={_arch.get('kind')})")
+            raise RuntimeError(f"vast group 모듈은 kind=ar · oneshot 체크포인트만 ({pred_ckpt_path}: kind={_arch.get('kind')})")
         _kw = dict(img_size=img_h, patch_size=encoder.patch_size, tubelet_size=encoder.tubelet_size,
                    num_frames=int(_arch.get("num_frames", 64)), embed_dim=encoder.embed_dim,
                    predictor_embed_dim=int(_arch.get("embed_dim", 384)), depth=int(_arch.get("depth", 12)),
@@ -188,6 +202,20 @@ def init_module(
         predictor.ek_kind = "ar"
         logger.info(f"predictor <- {pred_ckpt_path} (kind ar, ar_feedback {predictor.ar_feedback}, "
                     f"gating {getattr(predictor, 'gating_residual', False)}, epoch {_pst.get('epoch')}): {msg}")
+        if _pst.get("encoder_lora"):
+            # 2026-10-29: 학습 (model.encoder_lora, kind=ar) 은 **입력 경로** (블록별 문맥 인코딩) 복사본에만 LoRA 를 달았다.
+            #   채점기 (analysis/intphys2/model.py) 와 같게 target encoder 를 복사해 같은 자리에 다시 붙인다. probe 의 encoder 몫 (x_full) 은
+            #   group 이 나눠 쓰는 원래 encoder 그대로 — 이 팔의 블록 인코딩 (hb) 만 따로 계산한다 (forward 의 ar 분기).
+            import copy as _copy
+            from app.vjepa_frozen import lora as _LR
+            _lc = _pst.get("encoder_lora_cfg") or {}
+            _le = _copy.deepcopy(encoder)
+            _LR.apply_lora(_le, int(_lc["rank"]), float(_lc["alpha"]), _lc["targets"])
+            _LR.load_lora(_le, _pst["encoder_lora"])
+            for _p in _le.parameters():
+                _p.requires_grad_(False)
+            predictor.ek_lora_encoder = [_le.eval()]          # 리스트로 감싼다 — predictor 의 하위 모듈로 등록되면 state_dict 와 옵티마이저에 섞인다
+            logger.info(f"입력 경로 encoder = LoRA 복사본 ({_lc})")
         del _pst, _sd
     else:
         predictor = vit_pred.__dict__[prd_model_name](
@@ -388,10 +416,16 @@ class AnticipativeWrapper(torch.nn.Module):
             #   probe 입력의 encoder 부분 (x_accumulate) 은 원래대로 (창 전체 인코딩) 두고 predictor 부분만 바꾼다. 출력 공간은 블록별 LN(h).
             from app.vjepa_frozen.ar import encode_blocks, block_indices
             n_pred_blk = int(self.num_output_frames // self.tubelet_size)
+            _le = getattr(self.predictor, "ek_lora_encoder", None)                              # 2026-10-29: LoRA 입력 경로 (이 팔만)
+            if _le is not None:
+                _p0 = next(self.encoder.parameters())
+                if next(_le[0].parameters()).device != _p0.device:
+                    _le[0].to(device=_p0.device, dtype=_p0.dtype)
+            _enc_in = self.encoder if _le is None else _le[0]
             def _hb():
                 with torch.autocast("cuda", dtype=torch.bfloat16):
-                    return encode_blocks(self.encoder, x_raw, self.tubelet_size)               # (B, nb*S, D) LN
-            hb = self._shared("hb", _hb)
+                    return encode_blocks(_enc_in, x_raw, self.tubelet_size)                    # (B, nb*S, D) LN
+            hb = self._shared("hb" if _le is None else f"hb_lora_{id(_le[0])}", _hb)
             S = self.tokens_per_tubelet; nb = hb.size(1) // S
             steps = anticipation_steps.to(torch.int64) + n_pred_blk                            # (B,)
             x_pred = torch.empty(B, n_pred_blk * S, hb.size(-1), device=x.device, dtype=hb.dtype)

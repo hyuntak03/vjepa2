@@ -36,7 +36,12 @@ B.FPS, B.SUBSTEPS = 10, 12
 M.ST, M.T_SAVE = 1, 48
 M.W_RAW = M.T_SAVE * M.ST
 M.MAX_BLIND = 30                              # 장 (3 초)
-M.SPEED_RANGE = (1.0, 3.0)
+# ⚠️ 정정 2026-10-27 (사용자 "ledge 가 평면에서 좀 운동하다가 떨어지는 게 아니라 그냥 바로 떨어지고 좀 어색한 게 많은 거 같은데 … 물리적으로 좀 생각해봐"):
+#   속도 1~3 배 · 바닥 마찰 0.05~0.5 · 물체 마찰 × 0.3~1 · 벽 반발 0.8~0.97 · 중력 2~16 이 겹쳐 얼음 위 고무공처럼 보였고, 영상마다 C* 에 앵커를 둬 C* 가 작으면
+#   사건 0.2 초 전에 영상이 시작됐다 (train ledge_fall 300 편: 57 % 는 영상 시작 전에 이미 떨어짐, 나머지 중앙 0.4 초). → 아래 값으로 되돌리고 앵커는 늘 32 번째 장.
+M.SPEED_RANGE = (1.0, 2.2)                    # 사용자 "시원시원하게" — 재질은 보통으로 두고 속도만 조금 높게 (시간을 맞추는 시나리오는 이 배율을 나눠 둔다)
+M.G_RANGE = (4.0, 12.0)
+M.C_SET = (32,)                               # 앵커 = 저장 장 32 (문맥 최대 32 장 = 16 블록). 로더가 C ∈ {2..32} 를 고르면 문맥은 늘 앵커 바로 앞에서 끝난다
 M.N_SIM = 360                                 # 36 초
 M.P_ARRIVE = (0.25, 0.3, 0.25, 0.2)
 P_ALLOW_STOP = 0.15
@@ -333,23 +338,15 @@ M.background = background
 
 # ----------------------------------------------------------------------------- 운동을 길게 · 시원하게
 def scene_hook(sc, objs, info, rng, env):
+    """재질다운 물리 — 바닥 · 벽 · 물체 마찰 · 반발은 방 (B.room) 과 시나리오가 정한 보통 값 그대로. 얼음 바닥은 그런 시나리오 (info["ice"]) 만.
+    오래 가는 운동은 미끄럼이 아니라 구조로 (구르는 물체 · 경사 · 둔덕 · 진자 · 반원통 · 계속 들어오는 물체)."""
     ob = bpy.data.objects
-    fl = float(loguni(rng, 0.05, 0.5))
-    for nm in ("floor", "floor_r", "pit_bottom"):
-        if nm in ob and ob[nm].rigid_body:
-            ob[nm].rigid_body.friction = fl
-            ob[nm].rigid_body.restitution = float(rng.uniform(0.3, 0.7))
-    for nm in ("left", "right", "back"):
-        if ob[nm].rigid_body:
-            ob[nm].rigid_body.restitution = float(rng.uniform(0.8, 0.97))   # Bullet 은 두 반발을 곱한다 — 0.6~0.95 로는 몇 번 튕기면 힘이 빠졌다
-    k = float(rng.uniform(0.3, 1.0))
-    for o in objs:
-        if o.rigid_body is not None and o.rigid_body.type == "ACTIVE":
-            o.rigid_body.friction *= k
-            o.rigid_body.linear_damping = o.rigid_body.angular_damping = float(rng.uniform(0.0, 0.02))
-            o.rigid_body.restitution = max(o.rigid_body.restitution, float(rng.uniform(0.4, 0.85)))
+    if info.get("ice"):
+        for nm in ("floor", "floor_r"):
+            if nm in ob and ob[nm].rigid_body:
+                ob[nm].rigid_body.friction = float(rng.uniform(0.0, 0.03))
     info["allow_stop"] = bool(rng.random() < P_ALLOW_STOP)
-    env.update(floor_friction=round(fl, 3), obj_friction_scale=round(k, 3), allow_stop=info["allow_stop"])
+    env.update(floor_friction=round(ob["floor"].rigid_body.friction, 3), allow_stop=info["allow_stop"])
 
 
 def window_hook(lw, objs, info, Cs, rng):
@@ -361,7 +358,9 @@ def window_hook(lw, objs, info, Cs, rng):
     main_mv = v[:, 0] >= STILL_V
     px = np.linalg.norm(np.diff(lw["pos"][::st_][:, 0], axis=0), axis=-1) * fps_s   # px / 초
     why = []
-    if info.get("allow_stop"):
+    if info.get("active_any"):                    # 계속 들어오는 · 쌓이는 장면 — 주 물체 대신 장면 안 아무 물체나 움직이면 된다
+        main_mv = ~still
+    if info.get("allow_stop") or info.get("stop_scene"):
         if still.mean() > 0.35:
             why.append(f"stop clip still {still.mean():.2f}")
         if still[:max(Cs - 1, 0)].any():
@@ -376,19 +375,138 @@ def window_hook(lw, objs, info, Cs, rng):
     return why
 
 
-M.SCENE_HOOK = scene_hook
+# ----------------------------------------------------------------------------- 깊이 (사용자 2026-10-27 "물체의 움직임 궤적 depth 도 다양하게")
+Y_MIN, Y_MAX = -1.0, 2.3                      # 물체 길 (y). 가림막 −1.3 · 앞 물체 길 −2.3 보다 늘 뒤, 뒷벽 2.5 앞
+P_VY = 0.7                                    # 초속도에 앞뒤 (y) 성분을 줄 확률
+_launch_flow = M.launch
+
+
+def launch_depth(o, v, at=PRE - 2):
+    """초속도에 앞뒤 성분 — 수평 속력의 ±35 % (P_VY 확률). 진자처럼 묶인 물체는 launch 를 안 부른다."""
+    rng = STATE_D["rng"]
+    v = list(v)
+    if rng is not None and rng.random() < P_VY:
+        vh = math.hypot(v[0], v[2]) if abs(v[1]) < 1e-6 else abs(v[1])
+        v[1] += float(rng.uniform(-0.35, 0.35)) * max(vh, 0.5)
+    return _launch_flow(o, tuple(v), at)
+
+
+STATE_D = {"rng": None}
+M.launch = launch_depth
+launch = launch_depth
+_gen2 = M.generate2
+
+
+def generate_depth(name, k, seed, *a, **kw):
+    STATE_D["rng"] = np.random.default_rng([seed, 17])
+    return _gen2(name, k, seed, *a, **kw)
+
+
+B.generate = generate_depth
+
+
+def _constrained():
+    out = set()
+    for o in bpy.data.objects:
+        c = o.rigid_body_constraint
+        if c is not None:
+            out.update(x.name for x in (c.object1, c.object2) if x is not None)
+    return out
+
+
+def depth_hook(sc, objs, info, rng, env):
+    """유리벽을 넓히고 (y −1.0 ~ 2.3), 구조물 (passive, 깊이 ≤ 1.7 m, y 가운데 ≈ 0) 을 그 깊이로 늘리고, 묶이지 않은 물체의 출발 깊이를 바꾼다."""
+    ob = bpy.data.objects
+    ob["glass_front"].location.y = Y_MIN - 0.1
+    ob["glass_back"].location.y = Y_MAX + 0.1
+    skip = {"floor", "floor_r", "pit_bottom", "back", "left", "right", "glass_front", "glass_back"}
+    for o in list(ob):
+        if o.name in skip or o.type != "MESH" or o.rigid_body is None or o.rigid_body.type != "PASSIVE":
+            continue
+        ys = [v.co.y for v in o.data.vertices]
+        lo, hi = min(ys), max(ys)
+        wy = o.matrix_world.translation.y
+        if not (1.2 <= hi - lo <= 1.7 and abs(wy + (lo + hi) / 2) < 0.3) or o.rotation_euler.x != 0:
+            continue                                   # 다리 · 못 · 보 같은 얇은 것 · 돌린 원기둥은 그대로
+        for v in o.data.vertices:                      # 로컬 y [lo, hi] → 세계 y [Y_MIN, Y_MAX]
+            v.co.y = (Y_MIN - wy) + (v.co.y - lo) / (hi - lo) * (Y_MAX - Y_MIN)
+        o.data.update()
+    cons = _constrained()
+    same = info.get("require_impact") == "objects"     # 서로 부딪혀야 하는 장면은 같은 깊이로 옮긴다 (따로 옮기면 비껴간다)
+    dy0 = float(rng.uniform(-0.6, 1.4))
+    for o in objs:
+        if o.rigid_body is None or o.rigid_body.type != "ACTIVE" or o.name in cons:
+            continue
+        dy = dy0 if same else float(rng.uniform(-0.6, 1.4))
+        fc = o.animation_data.action.fcurves if o.animation_data and o.animation_data.action else []
+        for c in fc:                                   # launch 의 키프레임 (location y) 도 같이 옮긴다
+            if c.data_path == "location" and c.array_index == 1:
+                for kp in c.keyframe_points:
+                    kp.co.y += dy
+                    kp.handle_left.y += dy
+                    kp.handle_right.y += dy
+        o.location.y += dy
+    env["depth_range"] = [Y_MIN, Y_MAX]
+
+
+def scene_and_depth(sc, objs, info, rng, env):
+    scene_hook(sc, objs, info, rng, env)
+    depth_hook(sc, objs, info, rng, env)
+
+
+M.SCENE_HOOK = scene_and_depth
+
+
+def anchor_policy(rk, Cs):
+    """앵커 늘 32 장 — 사건 (보임) · 사건 가림 · 그냥 가림 1/3 씩 (못 하면 그냥 가림, meta anchor_asked 에 원래 뜻)."""
+    return str(rk.choice(M.ANCHORS))
+
+
+M.ANCHOR_POLICY = anchor_policy
+
+
+def _ledge(rng, h_rng, with_shelf):
+    """탁자 위를 3.4~6 초 굴러 · 미끄러져 간 뒤 끝에서 떨어진다 (속도를 거리 ÷ 시간으로 맞춘다 — 앵커 32 장 앞이 탁자 위 운동이 되게)."""
+    d = float(rng.choice([-1, 1]))
+    h, w = float(rng.uniform(*h_rng)), float(rng.uniform(3.2, 4.6))
+    cx = -d * (ROOM_X - w / 2)
+    block("table", cx, w, h, rng, bounce=0.3)
+    edge = cx + d * w / 2
+    roll = rng.random() < 0.6
+    o = obj(rng, (cx - d * (w / 2 - 0.5), 0, h + 1), size=-0.55, shape=str(rng.choice(ROLLERS)) if roll else None,
+            friction=float(rng.uniform(0.05, 0.4)) if roll else float(rng.uniform(0.0, 0.02)), bounce=float(rng.uniform(0.2, 0.5)))
+    place_on(o, h)
+    dist = abs(edge - o.location.x)
+    t_edge = float(rng.uniform(3.4, 6.0))
+    v = dist / t_edge / M.STATE["speed"]          # launch 가 속도 배율을 곱한다 — 시간을 맞추려고 나눠 둔다
+    launch(o, (d * v, 0, 0))
+    objs = [o]
+    info = {"t_edge": round(t_edge, 2)}
+    if with_shelf:
+        sw = float(rng.uniform(1.2, 2.0))
+        M.shelf("shelf", edge + d * (sw / 2 + float(rng.uniform(0.0, 0.4))), float(rng.uniform(0.8, max(0.9, h - 1.0))), sw, rng,
+                tilt=float(rng.uniform(-0.15, 0.15)))
+    return objs, info
+
+
+M.SCENARIOS["ledge_fall"] = ("gravity", "탁자 위를 3.4~6 초 굴러 · 미끄러져 가다 끝에서 떨어짐 (속도를 시간에 맞춤) — 탁자 높이 · 길이 무작위",
+                             lambda rng, n: _ledge(rng, (0.9, 2.2), False))
+M.SCENARIOS["ledge_to_shelf"] = ("solidity", "탁자 위를 3.4~6 초 가다 끝에서 떨어져 아래 선반에 걸림 · 다시 떨어짐",
+                                 lambda rng, n: _ledge(rng, (2.4, 3.2), True))
 M.WINDOW_HOOK = window_hook
 scenario = M.scenario
 
 
 # ----------------------------------------------------------------------------- 새 시나리오 12 (오래 가는 운동)
 def _pegs(rng, rows, x0, x1, z0, dz, r, m):
+    """못 판: 바닥에 선 판 (y 1.0) + 판에서 앞으로 나온 짧은 못. ⚠️ 정정 2026-10-27 — 못을 뒷벽까지 길게 뽑으니 원근으로 방사형 막대처럼 보였다."""
+    box("peg_board", (0, 1.05, (z0 + 0.4) / 2), (2 * ROOM_X, 0.1, z0 + 0.4), m)
     k = 0
     for j in range(rows):
         xs = np.arange(x0 + (j % 2) * 0.45, x1, 0.9)
         for x in xs:
-            bpy.ops.mesh.primitive_cylinder_add(radius=r, depth=B.ROOM_Y + 0.9, vertices=16,
-                                                location=(float(x), (B.ROOM_Y - 0.9) / 2, z0 - j * dz), rotation=(math.pi / 2, 0, 0))
+            bpy.ops.mesh.primitive_cylinder_add(radius=r, depth=1.9, vertices=16,
+                                                location=(float(x), 0.05, z0 - j * dz), rotation=(math.pi / 2, 0, 0))
             o = bpy.context.object
             o.name = f"peg{k}"
             o.data.materials.append(m)
@@ -450,7 +568,7 @@ def s_curling(rng, n):
                 bounce=float(rng.uniform(0.6, 0.9)))
         place_on(o, 0)
         objs.append(o)
-    return objs, {"require_impact": "objects", "floor_ice": True}
+    return objs, {"require_impact": "objects", "ice": True}
 
 
 @scenario("bounce_ball", "gravity", "반발 큰 공 1~3 개가 바닥 · 벽에서 계속 튕김 — 높이가 천천히 준다")
@@ -639,6 +757,76 @@ def s_shuttle(rng, n):
         place_on(o, h)
         objs.append(o)
     return objs, {}
+
+
+# ----------------------------------------------------------------------------- 금방 멈추던 시나리오 고치기 (2026-10-27 시험: tower_collapse 0 / 10 · block_stack 2 · shelf_catch 3 · container 3 · seesaw 5)
+def _stream(rng, objs, info, xs, n, dt, size=-0.5, shape=None, t0=None):
+    """화면 위 밖 (z 6.5) 에서 기다리던 물체가 dt 간격으로 차례로 놓여 떨어진다 — 장면이 끝까지 살아 있게. 놓는 장은 unpred."""
+    t = int(rng.integers(0, 10)) if t0 is None else t0
+    for i in range(n):
+        x = float(rng.uniform(*xs))
+        o = obj(rng, (x, 0, 6.5 + 1.1 * i), size=size,   # 기다리는 높이를 물체마다 달리 (같은 자리에 겹쳐 기다리다 놓이면 튕겨 나갔다) shape=shape if shape is None or isinstance(shape, str) else str(rng.choice(shape)),
+                rot=tuple(rng.uniform(0, 3.14, 3)), name="drop")
+        if t > 0:
+            B.launch(o, (float(rng.uniform(-0.5, 0.5)), 0, 0), at=PRE - 2 + t)
+            info.setdefault("unpred", []).append(t - 2)
+        objs.append(o)
+        t += int(rng.uniform(*dt) * B.FPS)
+        if t >= M.N_SIM - 20:
+            break
+    info["active_any"] = True
+    info["enter_from_top"] = True
+
+
+def _wrap(name, extra):
+    cat, desc, fn = M.SCENARIOS[name]
+    def f(rng, n):
+        objs, info = fn(rng, n)
+        extra(rng, objs, info)
+        return objs, info
+    M.SCENARIOS[name] = (cat, desc + " · (flow) 계속 들어오는 물체", f)
+
+
+def _tower_aimed(rng, n):
+    """버티는 탑 (어긋남 작게) 을 바닥에서 굴러온 물체가 3.4~5 초 뒤에 친다 — 그 전 문맥 = 굴러오는 운동."""
+    d = float(rng.choice([-1, 1]))
+    x = float(rng.uniform(-0.6, 0.6)) * d
+    z, objs = 0.0, []
+    for i in range(int(rng.integers(3, 7))):
+        o = obj(rng, (x, 0, z + 1), size=-0.5, shape=str(rng.choice(("cube", "cuboid", "rounded_cube", "plank", "can"))),
+                friction=float(rng.uniform(0.5, 0.9)), bounce=0.05)
+        o.rotation_euler = (0, 0, 0)
+        place_on(o, z)
+        bpy.context.view_layer.update()
+        z = max((o.matrix_world @ v.co).z for v in o.data.vertices)
+        x += d * float(rng.uniform(0.0, 0.12)) * o.dimensions.x
+        objs.append(o)
+    sh = obj(rng, (-d * 2.9, 0, 1), size=-0.6, shape="sphere", friction=0.05, density=float(rng.uniform(2.0, 4.0)))
+    place_on(sh, 0)
+    t_hit = float(rng.uniform(3.4, 5.0))
+    launch(sh, (d * abs(objs[0].location.x - sh.location.x) / t_hit / M.STATE["speed"] * 1.05, 0, 0))
+    return [sh] + objs[::-1], {"require_impact": "objects", "t_hit": round(t_hit, 2)}
+
+
+M.SCENARIOS["tower_collapse"] = ("collision", "블록 탑 3~6 층을 바닥에서 굴러온 무거운 공이 3.4~5 초 뒤에 쳐서 무너뜨림", _tower_aimed)
+def _block_stack_stream(rng, n):
+    """블록 6~10 개가 0.6~1.4 초 간격으로 화면 위에서 한 자리 (± 0.15 m) 로 떨어져 쌓인다 — 어긋나면 미끄러지거나 무너짐, 끝까지 들어온다.
+    (원래 판은 5.6~12 m 에 세워 둔 블록이 한꺼번에 떨어져 기다리던 물체와 부딪혀 튕겨 나갔다 — 1 / 10 통과)"""
+    x = float(rng.uniform(-1.2, 1.2))
+    objs, info = [], {"require_impact": "objects"}
+    _stream(rng, objs, info, (x - 0.15, x + 0.15), int(rng.integers(6, 11)), (0.6, 1.4), shape=M.STACK_SHAPES, t0=0)
+    for o in objs:
+        o.rigid_body.friction, o.rigid_body.restitution = float(rng.uniform(0.4, 0.9)), float(rng.uniform(0.0, 0.2))
+    return objs, info
+
+
+M.SCENARIOS["block_stack"] = ("collision", "블록 6~10 개가 0.6~1.4 초 간격으로 한 자리에 떨어져 쌓임 — 어긋나면 미끄러지거나 무너짐", _block_stack_stream)
+_wrap("shelf_catch", lambda rng, objs, info: (_stream(rng, objs, info, (-2.2, 2.2), 7, (0.8, 1.6), t0=int(rng.integers(8, 20))), info.pop("require_rest_above", None)))
+_wrap("container", lambda rng, objs, info: _stream(rng, objs, info, (-1.5, 1.5), 7, (0.7, 1.5), t0=int(rng.integers(8, 20))))
+_wrap("seesaw", lambda rng, objs, info: _stream(rng, objs, info, (-1.0, 1.0), 6, (1.0, 2.0), size=-0.55, t0=int(rng.integers(15, 30))))
+M.SCENARIOS["moving_platform"] = ("motion", "수레 왕복 (cart_shuttle 과 같은 장치, 한 번 서고 끝나면 장면이 멈춰 flow 판에서는 왕복으로)", s_shuttle)
+_wrap("stack_topple", lambda rng, objs, info: _stream(rng, objs, info, (-2.0, 2.0), 5, (1.0, 2.0), t0=int(rng.integers(20, 40))))
+_wrap("flat_decel", lambda rng, objs, info: info.update(stop_scene=True))   # 멈춤이 이 장면의 결과 (멈춤 허용 판정)
 
 
 if __name__ == "__main__":
