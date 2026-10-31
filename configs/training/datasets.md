@@ -316,6 +316,32 @@ frames_start: 0
 frames_stride: 3
 frames_start_choices: [0, 1, 2]
 
+## blender_track_v0_train
+
+**BlenderTrack v0 학습 4,000 clip (seed 0)** (2026-10-31, z_analysis/release/06_blender_track) — 눈높이 Blender 렌더, 연속 무작위 궤적 · 가림 사건,
+30 fps × 180 장 · 256². type `blender_track` = clip 번호만 내고 창 · 읽기 · 라벨은 `app/vjepa_frozen/blender_track_data.py` 의 수집기 (data.blender_track 노브).
+메타는 `z_training/data/build_blender_track_index.py` (clip 이름 + target 보이는 비율). 검증 400 clip (seed 1) 은 `val_meta.npz`.
+
+type: blender_track
+meta: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/blender_track_v0/train_meta.npz
+
+## vobench_v2_split_train
+
+**VOBench_v2 궤적 묶음 단위 train 절반의 가능 변이 + 물체 궤적 라벨** (2026-10-31, z_analysis/release binding 학습) — 2,160 clip.
+`z_training/data/build_vobench_v2_split_index.py`: 묶음 = (objset, 배경, 운동, 가림, k) — VOBench 의 궤적 · 가림막을 정하는 다섯 —
+(objset, 가림, k) 층마다 seed 0 으로 절반. **test 와 공유 궤적 0.** 짝인 test 는 `data_csv/vobench_v2_split/index_test.csv` (1,080 block, 네 변이).
+type `frames_index_track` = frames_index + 블록 폴더의 `label.json` 궤적 (app/vjepa_frozen/where_head.py). 라벨을 안 쓰는 팔도 같은 type 으로 읽어
+데이터 순서를 맞춘다.
+
+type: frames_index_track
+root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/vobench_v2_split
+index_csv: index_train.csv
+frames_root: /data2/local_datasets/world/Benchmark/VOBench_v2
+frames_pattern: "{file_name}/{frame:06d}.png"
+frames_start: 0
+frames_stride: 3
+frames_start_choices: [0, 1, 2]
+
 ## vobench_split2g_train
 
 **VOBench split v2 train (720) + VOBench gravity train 의 가능 'pos' (108) = 828 clip** (2026-10-15, 사용자: PFT 에 gravity 포함).

@@ -1,0 +1,8 @@
+# BlenderTrack 팔 B2: B1 + 공간 점유 head (predictor 마지막 층 토큰마다 target amodal 점유 비율, 선형, BCE 양성 가중 5, × 1.0, head lr × 10).
+#   NODE=<노드> GPUS=2 bash z_training/sbatch.sh btrack_v0_b2
+extends: btrack_v0_b1
+
+where_head:
+  occ_weight: 1.0
+  occ_pos_weight: 5.0
+  lr_mult: 10

@@ -696,6 +696,7 @@ v8 의 정보손실/정렬손실 분해, 2D 대조는 `z_research/previous/IntPh
 | **`z_research/previous/TrainingEffects/`** | **학습한 모델 비교** — post-FT predictor 4 · Ariel · jongseo 사전학습 8 을 v11 · IntPhys 1 점수 + 복사 기준선 + 네 능력 (영속 · 지속 · 전이 · 읽기) 로. `README.md` 가 시작점 (2026-09-25 개설) | 부분 |
 | **`z_research/previous/v11_realistic/`** | **실물 메시로 다시 렌더한 v11 (vanish) + 선반 낙하 (gravity)** surprise 채점. `README.md` 가 시작점 (2026-10-06 개설) | 부분 |
 | **`z_research/previous/OcclusionStats/`** | **벤치마크의 가림 통계** — 가려진 시간 × 가려진 동안 움직이나. IntPhys 1 dev 완료: 이동 물체 0.2 초 (skip-2 로 1–3 장) · 정지 물체만 5 초. `README.md` 가 시작점 (2026-09-26 개설) | 부분 |
+| **`predictor_lab/`** | **아이디어 → BlenderTrack 학습 → 네 벤치 (VOBench late · IntPhys 1 · IntPhys 1 late occ · Rubric) → 기준 모델과 한 표** (2026-10-31). 경로는 `paths.env` 한 파일. `README.md` · `CLAUDE.md` 가 시작점 | ✅ |
 | `z_AC_training/` | V-JEPA 2-AC (action-conditioned predictor, DROID) 학습 파악·하네스 (2026-09-19 개설, 아직 실행 없음). `README.md` 가 시작점 | ✅ (runs/ 제외) |
 | `z_research/IntPhysGen{V8,V10}/`, `IntPhys/` | 아카이브 | 부분 |
 | `z_research/<셋>/Archive/*.md` | 분석 문서. **파일명에 날짜** `TOPIC_YYYY-MM-DD.md` | ✅ |

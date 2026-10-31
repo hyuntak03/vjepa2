@@ -9,6 +9,8 @@
   intphys2_late             — IntPhys 2 Main, **사람 라벨 위반 시작 d 앞을 문맥** (cvpr/eval/intphys2_late). 문맥 16 = linspace(0, d−1), 미래 16 = linspace(d, n−1).
                               프레임은 build.py 가 뽑아 둔 PNG 32 장 (0 … 31) — 영상마다 번호가 다르므로 **idx 는 0..31 고정**이다.
 
+2026-10-25 추가: wall — RollOut_v2 wall 392 쌍 (문맥 = 벽으로 굴러감, 미래 = 벽에서 멈춤 · 벽 통과). 속도 7 단계마다 하나.
+
 클립마다 `idx` (읽을 프레임 번호 32 개) 와 `pattern` (폴더 뒤에 붙는 틀) 을 같이 준다 — 세트마다 다르다.
 decoder val 여부 `dec_val` 은 학습 때와 같은 해시 (`train.py` 의 `isval(split_tag + "/" + row[split_key])`) 로 다시 계산한다.
 ⚠️ IntPhys 2 의 split_tag 는 vast 학습본의 경로 문자열 (`/workspace/…/Main/metadata.csv`) 이고 key 는 `SceneIndex` 다 —
@@ -86,6 +88,20 @@ def pick_clips(set_, n, root, val_frac, only=None):
         futs = lambda r: [(r["variant"], r["video_id"])] + [(q["variant"], q["video_id"]) for q in pair[(r["block_id"], r["pair_id"])] if q["plausible"] == "0"]
         key = lambda r: r["block_id"].lstrip("s").split("_")[0]        # "s154_0" -> "154" (= SceneIndex)
 
+    elif set_ == "wall":                         # RollOut_v2 wall (2026-10-25, 사용자: "RollOut 에서 wall 있잖아. pixel decoder 로 시각화")
+        # 문맥 16 장 = 벽으로 굴러감 · 미래 첫 장 (원본 48) 에 벽에 닿는다 → 가능 = 벽에서 멈춤 (stop) · 불가능 = 벽을 지나 계속 감 (pass)
+        # 프레임은 vll5 로컬 (RollOut_v2/Images/wall/roll/<video_id>) 에서 고른 클립만 NFS runs/_frames/RollOut_v2_wall/v<속도>_a<가속>/<video_id> 로 복사해 쓴다
+        # decoder 는 RollOut 을 학습하지 않았다 → 전부 decoder 학습 밖 (dec_val 0). 정답 latent 행이 이 세트에서의 decoder 상한이다
+        idxf, root_, tag = "data_csv/rollout_v2/index.csv", os.path.join(FRAMES, "RollOut_v2_wall"), None
+        isval = lambda key: False
+        allr = [r for r in csv.DictReader(open(os.path.join(REPO, idxf))) if r["scenario"] == "wall"]
+        imp = {r["block_id"]: r for r in allr if r["plausible"] == "0"}
+        rows = [r for r in allr if r["plausible"] == "1"]
+        grp = lambda r: (int(r["primary"]),)                              # 벽에 닿는 속도 7 단계마다 하나씩
+        cell = lambda r: f"v{r['primary']}_a{r['secondary']}"
+        futs = lambda r: [("stop", f"{cell(r)}/{r['video_id']}"), ("pass", f"{cell(r)}/{imp[r['block_id']]['video_id']}")]
+        key = lambda r: r["source_block"]
+
     else:                                        # VOBench 가림 조건 — late · early · mid · visible, late_static · late_moving
         occ, mot = (set_.split("_", 1) + [None])[:2] if set_.startswith("late_") else (set_, None)
         idxf, root_, tag = "data_csv/vobench_v1_split_v2/index_test.csv", root, "data_csv/vobench_v1/index.csv"
@@ -106,7 +122,7 @@ def pick_clips(set_, n, root, val_frac, only=None):
     if not rows:
         raise SystemExit(f"set '{set_}' 에 해당하는 행이 없다 ({idxf})")
     rng = random.Random(0); rng.shuffle(rows)
-    rows.sort(key=lambda r: not isval(tag + "/" + key(r)))
+    rows.sort(key=lambda r: not isval(f"{tag}/{key(r)}"))
     return [{"name": futs(r)[0][1], "futures": [(lab, os.path.join(root_, f)) for lab, f in futs(r)],
-             "dec_val": isval(tag + "/" + key(r)), "idx": idx, "pattern": pattern}
+             "dec_val": isval(f"{tag}/{key(r)}"), "idx": idx, "pattern": pattern}
             for r in _spread(rows, grp, n)]

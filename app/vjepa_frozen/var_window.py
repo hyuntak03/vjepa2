@@ -46,13 +46,14 @@ class _Table:
         for ln in open(path, encoding="utf-8"):
             p, f, n, fstp, n4 = ln.rstrip("\n").split("\t")
             if int(n4) > 0:
-                rows.append((int(n4), p, int(n), int(fstp)))
+                rows.append((int(n4), p, int(n), int(fstp), int(f)))
         rows.sort(key=lambda r: r[0])
         self.name, self.weight = name, float(weight)
         self.n4 = [r[0] for r in rows]
         self.paths = [r[1] for r in rows]
         self.nframes = [r[2] for r in rows]
         self.fstp = [r[3] for r in rows]
+        self.fps = [r[4] for r in rows]                # 2026-10-27 (vast 245b255 이식): 시간 기준 표 (fstp < 0) 에서 쓴다
 
     def first_ok(self, W: int) -> int:
         """n4 >= W 인 첫 위치. 적격 = [first_ok, len)."""
@@ -253,6 +254,18 @@ class VarWindowBatches(torch.utils.data.IterableDataset):
         import decord
         vr = decord.VideoReader(t.paths[j], num_threads=1)
         n, fstp = len(vr), t.fstp[j]
+        if fstp < 0:                                   # 2026-10-27 시간 기준 표 (build_time_fps_table.py): 장 k = 가장 가까운 원본 프레임 round((t0 + k/T)·fps)
+            T_, f_ = -fstp, float(t.fps[j])
+            n_t = int((n - 1) / f_ * T_) + 1           # 전역 시간 격자 장 수 (flow 캐시 build_flow_cache.py 와 같은 정의)
+            if n_t < W:
+                raise ValueError(f"짧다: {t.paths[j]} n={n} 창 {(W - 1) / T_:.2f}s")
+            if self.snap_start:                        # flow 캐시와 맞춘다: 시작을 1/T 초 격자 위 장 j0 에.
+                j0 = rng.randint(0, n_t - W)           #   ⚠️ 식을 build_flow_cache.read_fps4 와 **똑같이** 쓴다 — (j0/T + k/T)·f 는 .5 경계에서 반올림이 갈린다
+                idx = [min(n - 1, int(round((j0 + k) / T_ * f_))) for k in range(W)]
+            else:                                      # vast 판과 같다: 연속 시작
+                t0 = rng.uniform(0.0, (n_t - W) / T_); j0 = -1
+                idx = [min(n - 1, int(round((t0 + k / T_) * f_))) for k in range(W)]
+            return vr.get_batch(idx).asnumpy(), j0
         span = (W - 1) * fstp + 1
         if n < span:                                   # 표와 실제 길이가 다르면 (헤더 오류) 버린다
             raise ValueError(f"짧다: {t.paths[j]} n={n} span={span}")

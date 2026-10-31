@@ -126,7 +126,9 @@ for mi, name in enumerate(MODELS):
             yp = decode(p)
             labs = [lab for lab, _ in c["futures"]]
             rec = {"space": space, "psnr": {lab: psnr(yp, rr) for lab, rr in zip(labs, real)},
-                   "surprise": {lab: float((p - h).abs().mean()) for lab, h in zip(labs, hf)}}
+                   "surprise": {lab: float((p - h).abs().mean()) for lab, h in zip(labs, hf)},
+                   # 2026-10-25: 미래 슬롯마다 토큰 사이 표준편차 (채널 평균) — p 가 슬롯이 갈수록 평평해지는지 (decoder 가 배경만 그리는 이유 후보), 정답 latent 와 비교
+                   "spatial_std": {"p": p.view(-1, S, p.size(-1)).std(1).mean(-1).tolist(), "h": hf[0].view(-1, S, hf[0].size(-1)).std(1).mean(-1).tolist()}}
             if mi == 0 or space not in RES[s_][k].get("gt_latent", {}):                         # 정답 latent 상한은 공간마다 한 번
                 yg = decode(hf[0])
                 RES[s_][k].setdefault("gt_latent", {})[space] = psnr(yg, real[0])

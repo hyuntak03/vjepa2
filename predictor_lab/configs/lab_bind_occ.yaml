@@ -1,0 +1,12 @@
+# predictor_lab 팔: lab_bind + 공간 점유 head (predictor 마지막 층 토큰마다 target amodal 점유 비율을 선형으로, BCE 양성 가중 5).
+#   bash predictor_lab/train.sh lab_bind_occ
+extends: lab_bind
+
+where_head:
+  occ_weight: 1.0
+  occ_pos_weight: 5.0
+  lr_mult: 10                          # head lr = predictor lr × 10
+
+lab:                                   # predictor_lab/table.py 가 시트 행에 쓰는 이름 · 종류
+  sheet_name: "V-JEPA2 w/ BlenderTrack + binding + occ head"
+  predictor_type: "future mask latent prediction"

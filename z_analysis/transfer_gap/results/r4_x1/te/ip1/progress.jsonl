@@ -1,0 +1,2 @@
+{"event": "start", "rank": 0, "world": 1, "n": 360, "load_s": 42.1, "device": "cuda:0", "gpu": "NVIDIA GeForce RTX 3090", "time": "2026-10-30 15:43:09"}
+{"event": "end", "rank": 0, "n": 360, "loop_s": 150.0, "s_per_clip": 0.4167, "s_per_clip_steady": 0.3892, "peak_mem_gb": 6.96, "time": "2026-10-30 15:45:39"}

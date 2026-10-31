@@ -19,6 +19,7 @@ data/           인덱스·데이터 준비
   build_rollout2_index.py     RollOut_v2 인덱스 — 라벨은 metadata 가 아니라 plan 에서 (검증 15항목)
   build_probe_imp_index.py    불가능 변이를 probing 대상으로 여는 인덱스
   build_vobench_asym.py       VOBench_v1 asymmetry 판: late 클립 창을 k 샘플 밀어 가림이 문맥 끝에서 끝나게 (프레임 심볼릭 링크 · 불가능 arm 문맥 = 가능 arm 링크) + 문맥 무결성 -> data_csv/vobench_v1_asymmetry (2026-10-10)
+  blender_track/              BlenderTrack 학습셋 (눈높이 Blender, 연속 무작위 궤적 · 가림 사건 · amodal/visible 라벨): design.py (numpy 설계) · render.py (bpy 5.0.1 Cycles, env blender) · check_design.py (렌더 전 검사) · run_render.sh (sbatch). 문서 z_analysis/release/06_blender_track (2026-10-31)
   build_vobench_gravity_index.py  VOBench_v1 gravity metadata.csv -> index.csv (block = 과거 하나 + 미래 여럿, pair_id = block, condition = objset/law/cell) + block 안 모든 arm f0–47 무결성 감사 -> data_csv/vobench_v1_gravity (2026-10-10)
   build_vobench_index.py      VOBench_v1 metadata.csv -> 표준 index.csv (+ 요인 열, condition = objset/violation/occlusion) + 문맥 무결성 전수 감사 -> data_csv/vobench_v1 (2026-10-10)
   build_intphysgen_index.py   IntPhysGen 렌더 metadata.csv -> 표준 index.csv (v11 열 + sym_k) + 문맥 무결성 전수 감사 (v11_realistic · ledge, 2026-10-06)
@@ -36,6 +37,7 @@ figures/        논문 그림. 전부 산출물에서 재계산해 summary.json 
                             표에 없는 이름은 최상위에 떨어진다 — 새 그림이 눈에 띄라고 일부러
   gif_vobench_token_surprise.py  VOBench_v1 토큰별 Δ 를 불가능 영상 위에, 왼쪽 V-JEPA 2 릴리즈 · 오른쪽 Ariel AR (late k=2 전형 쌍 3 개, 모델별 눈금, 물체 자리 흰 원) -> z_research/VOBench_v1/ariel_ar_ep40/surprise/figures/token_surprise_vs_vjepa2/ (2026-10-11)
   gif_token_surprise.py     토큰별 surprise 차 Δ 를 원본 위에 겹친 GIF + 물체/배경 기여 표 -> z_research/v11_realistic/figures/token_surprise/ (2026-10-07)
+  plot_blender_track_sheet.py  BlenderTrack 확인 시트 (clip × 프레임 + target amodal/visible 윤곽) -> z_analysis/release/06_blender_track/figures/ (2026-10-31)
   plot_vobench_probe.py     VOBench_v1 튜블릿 정체 probe 그림 2 장 (fig_probe_transfer · fig_probe_by_t), 유효 4 run 평균 + 범위 -> z_research/VOBench_v1/vjepa2/probing/figures/ (2026-10-10)
   plot_vobench.py           VOBench_v1 그림 4 장 (fig_timing · fig_k · fig_late_motion · fig_permanence_context), 행 = primitive · realistic 따로. --model vjepa2|dino_foresight. vobench_tables.py 의 load·stat 재사용, tables_<모델>.json 대조 assert -> z_research/VOBench_v1/<모델>/surprise/figures/ (2026-10-10)
   plot_vobench_gravity.py   VOBench_v1 gravity 탐색용 그림 (fig_arc_choice · sliding 창이 있으면 fig_arc_sliding), tables.json 만 읽는다 -> z_research/VOBench_v1/vjepa2/gravity/figures/ (2026-10-10)

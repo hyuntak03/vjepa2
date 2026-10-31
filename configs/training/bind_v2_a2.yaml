@@ -1,0 +1,10 @@
+# binding 학습 팔 A2: L1 + binding + 운동 head (predictor 마지막 층 문맥 토큰 → c₀ · v · a → 블록 1–16 궤적 = c₀ + vτ + ½aτ², SmoothL1 칸 + 있음 BCE).
+#   pos_weight 0.1: 궤적 SmoothL1 이 초반 1–2 (칸) 라 L1 (~0.48) 과 같은 자릿수가 되게. head lr ×10.
+#   NODE=vll5 GPUS=2 bash z_training/sbatch.sh bind_v2_a2
+extends: bind_v2_a0
+
+where_head:
+  bind_weight: 1.0
+  bind_radius: 1
+  pos_weight: 0.1
+  lr_mult: 10

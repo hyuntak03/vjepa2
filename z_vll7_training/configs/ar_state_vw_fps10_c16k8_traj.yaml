@@ -1,0 +1,38 @@
+# =============================================================================
+# ar_state_vw_fps10_c16k8 + 궤적 (optical flow) 보조 손실 — fps 10 flow 캐시 (2026-10-27)
+#
+#   DRYRUN=1 bash z_vll7_training/train.sh ar_state_vw_fps10_c16k8_traj
+#
+# flow 캐시: z_training/data/run_flow_cache_fps10t.sh → /data/hyuntak/flow_cache/vll7_{k400_320,ssv2}_fps10t/s{0..3}
+#   (RAFT-large 12 iter · 256 px · 전후 일관성 · 32×32 — fps 4 판과 같은 설정, 간격만 0.25 → 0.1 초). fps 4 캐시는 지웠다.
+# snap_start 가 시작을 0.1 초 격자 위 장 j0 에 맞춰 캐시의 쌍 j 와 같은 프레임을 쓴다 (var_window._read, fstp < 0 분기).
+# 지평선은 장 단위라 fps 4 판과 **시간이 다르다**: 라벨 [1, 2, 4, 8] 장 = 0.1 · 0.2 · 0.4 · 0.8 초 (fps 4 판 0.25 – 2 초),
+#   감독 [2, 4, 8] = 1 · 2 · 4 블록. head 설정은 ar_vw_traj (쌍의 차, 2026-10-22) 그대로.
+# ⚠️ 라벨 한계는 z_research/FlowLabels/README.md — fps 4 라벨의 85 % 가 전역 (카메라) 운동이었다. fps 10 에서 다시 재야 한다.
+# =============================================================================
+extends: ar_state_vw_fps10_c16k8
+
+data:
+  num_workers: 14
+  var_window:
+    snap_start: true
+    flow:
+      grid: 16
+      patch: 16
+      horizons: [1, 2, 4, 8]
+      roots:
+        k400: ["/data/hyuntak/flow_cache/vll7_k400_320_fps10t/s0", "/data/hyuntak/flow_cache/vll7_k400_320_fps10t/s1",
+               "/data/hyuntak/flow_cache/vll7_k400_320_fps10t/s2", "/data/hyuntak/flow_cache/vll7_k400_320_fps10t/s3"]
+        ssv2: ["/data/hyuntak/flow_cache/vll7_ssv2_fps10t/s0", "/data/hyuntak/flow_cache/vll7_ssv2_fps10t/s1",
+               "/data/hyuntak/flow_cache/vll7_ssv2_fps10t/s2", "/data/hyuntak/flow_cache/vll7_ssv2_fps10t/s3"]
+
+flow_head:
+  input: diff
+  supervise: [2, 4, 8]
+  hidden: 0
+  weight: 0.1
+  split: {tf: 1.0, ar: 1.0}
+  norm: auto
+  lr_mult: 10
+  clip_separate: true
+  clip_head: 1.0

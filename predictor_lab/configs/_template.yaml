@@ -1,0 +1,30 @@
+# 새 아이디어 config 틀 — 복사해서 이름을 바꾼다 (밑줄로 시작하면 목록에서 숨는다).
+#   cp predictor_lab/configs/_template.yaml predictor_lab/configs/<아이디어>.yaml
+#   bash predictor_lab/train.sh <아이디어>  →  bash predictor_lab/eval.sh <아이디어>  →  python predictor_lab/table.py <아이디어>
+# 적은 키만 부모 (lab_base) 를 덮는다. dict 는 재귀 병합, list 는 통째로 교체, null 은 키 삭제.
+extends: lab_base
+
+# ---- 데이터 노브 ----
+# data:
+#   blender_track: {strides: [3], context_frames: [16], late_p: 0.8}
+
+# ---- 손실 노브 (where_head) ----
+# where_head:
+#   bind_weight: 1.0       # 참 미래 target 자리 토큰 L1 가중
+#   bind_radius: 1
+#   occ_weight: 1.0        # 공간 점유 head
+#   occ_pos_weight: 5.0
+#   pos_weight: 0.1        # 운동 head (문맥 → c0 · v · a 궤적). 문맥 8 블록 고정 전제라 context_frames: [16] 과 같이 쓴다
+#   lr_mult: 10
+
+# ---- 최적화 ----
+# optimization: {epochs: 12, lr: 5.0e-5}
+# meta: {seed: 1}
+
+# ---- 새 손실 · 새 head 를 코드로 넣을 때 ----
+# 1. app/vjepa_frozen/where_head.py 에 항을 쓴다 (where_losses 안, cfg 키로 켜고 끈다. 라벨 = info["labels"]: pos · hid · occ · present)
+# 2. head 가 있으면 build_heads / WhereHeads 에 붙인다 (optimizer · DDP 평균 · 저장은 train.py 가 이미 한다)
+# 3. 여기 where_head: 에 새 키를 적는다
+
+# ---- 시트 행 이름 (predictor_lab/table.py) ----
+# lab: {sheet_name: "V-JEPA2 w/ BlenderTrack + <아이디어>", predictor_type: "future mask latent prediction"}

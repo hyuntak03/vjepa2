@@ -1,0 +1,4 @@
+{"event": "start", "rank": 2, "world": 4, "n": 180, "load_s": 34.4, "device": "cuda:2", "gpu": "NVIDIA GeForce RTX 3090", "time": "2026-10-30 15:16:26"}
+{"event": "start", "rank": 1, "world": 4, "n": 180, "load_s": 35.1, "device": "cuda:1", "gpu": "NVIDIA GeForce RTX 3090", "time": "2026-10-30 15:16:27"}
+{"event": "start", "rank": 0, "world": 4, "n": 180, "load_s": 35.2, "device": "cuda:0", "gpu": "NVIDIA GeForce RTX 3090", "time": "2026-10-30 15:16:27"}
+{"event": "start", "rank": 3, "world": 4, "n": 180, "load_s": 35.5, "device": "cuda:3", "gpu": "NVIDIA GeForce RTX 3090", "time": "2026-10-30 15:16:27"}

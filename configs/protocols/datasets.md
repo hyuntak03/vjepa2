@@ -977,6 +977,27 @@ variant_column: variant
 plausible_column: plausible
 type_column: condition
 
+## vobench_v2_test_lv
+
+**VOBench_v2 궤적 묶음 단위 test 절반의 late + visible** (2026-10-31, z_analysis/release binding 학습 평가) — 432 block × 4 변이 = 1,728 clip (864 matched 쌍).
+`z_training/data/build_vobench_v2_split_index.py` (묶음 = objset · 배경 · 운동 · 가림 · k, train 과 공유 궤적 0) 의 `index_test.csv` 에서 occlusion ∈ {late, visible} 만.
+짝 train = `configs/training/datasets.md ## vobench_v2_split_train`. vll5 로컬 원본.
+
+raw_frames: 96
+cache_tag: vobench_v2_test_lv
+results_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_analysis/release/03_binding_train/eval
+root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/vobench_v2_split
+index_csv: index_test_lv.csv
+frames_root: /data2/local_datasets/world/Benchmark/VOBench_v2
+frames_pattern: "{file_name}/{frame:06d}.png"
+frames_start: 0
+frames_stride: 3
+block_column: block_id
+pair_column: pair_id
+variant_column: variant
+plausible_column: plausible
+type_column: condition
+
 ## vobench_v1_late
 
 VOBench (UE 5.4 TestBed) 의 **occlusion=late 만** — 216 block × 4 arm = 864 clip, **432 matched pair** (vast 909f1b3 이식, 2026-10-19).

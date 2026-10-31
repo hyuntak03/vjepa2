@@ -198,6 +198,29 @@ def main(args, resume_preempt=False):
                     f"입력 {FIN} · 지평선 라벨 {FHZ} 장 · 감독 {FSUP} 장 (= 간격 {[h // tubelet for h in FSUP]} 블록) · "
                     f"weight {FH.get('weight', 1.0)} · split {FH.get('split', {})} · lr_mult {FH.get('lr_mult', 10)}")
     HCFG = SH or FH or {}        # head 공통 노브 (lr_mult · clip_separate · clip_head · freeze_predictor)
+    # ── where_head (2026-10-31, 사용자 결정, z_analysis/release): 기본 train_step (릴리즈 post-FT) 에 binding 항 + 운동 head.
+    #    binding = 참 미래 물체 자리 3×3 의 |p − LN(h)| 를 L1 에 λ 배로 더함 · 운동 head = predictor 마지막 층 문맥 토큰 → c₀ · v · a
+    #    → 16 블록 궤적 (SmoothL1, 칸) + 있음 BCE. 라벨은 data.datasets[].type = frames_index_track (VOBench 궤적).
+    #    {bind_weight: 1.0, bind_radius: 1, pos_weight: 0.0, lr_mult: 10}. head 는 predictor state_dict 밖 (`where_head` 로 저장).
+    WH = cfg.get("where_head") or None
+    where_head, where_hook, WHM = None, None, None
+    if WH:
+        if is_seq or LORA or SH or FH:
+            raise ValueError("where_head 는 기본 train_step (kind oneshot, LoRA · state_head · flow_head 없이) 전용")
+        from app.vjepa_frozen import where_head as WHM
+        if float(WH.get("occ_weight", 0.0)) > 0:
+            # 2026-10-31 (06_blender_track): 공간 점유 head (토큰마다 target amodal 점유 비율) — 운동 head 와 한 모듈로 묶는다
+            where_head = WHM.build_heads(WH, int((MD.get("predictor") or {}).get("embed_dim", 384))).to(device)
+            where_hook = WHM.CtxStateHook(pred_mod)
+            head_params = head_params + list(where_head.parameters())
+        elif float(WH.get("pos_weight", 0.0)) > 0:
+            where_head = WHM.MotionHead(dim_in=int((MD.get("predictor") or {}).get("embed_dim", 384)),
+                                        n_ctx_blocks=int(WH.get("n_ctx_blocks", 8))).to(device)
+            where_hook = WHM.CtxStateHook(pred_mod)
+            head_params = head_params + list(where_head.parameters())
+        logger.info(f"where_head: bind_weight {WH.get('bind_weight', 0.0)} · radius {WH.get('bind_radius', 1)} · pos_weight {WH.get('pos_weight', 0.0)}"
+                    + f" · occ_weight {WH.get('occ_weight', 0.0)}"
+                    + (f" · heads {sum(q.numel() for q in where_head.parameters()) / 1e6:.2f}M (lr x{WH.get('lr_mult', 10)})" if where_head is not None else ""))
 
     # ---- 데이터 -------------------------------------------------------------------
     # 샘플링 두 갈래 (2026-10-16)
@@ -227,6 +250,12 @@ def main(args, resume_preempt=False):
         logger.info(f"window_grid: {grid.describe()} | raw_span {grid.raw_span} jitter {grid.jitter}")
     elif is_pusht:
         collator = PushTCollator()              # (clips, None, None, {actions, proprio, state, ...})
+    elif type(dataset.datasets[0]).__name__ == "BlenderTrackDataset":
+        # 2026-10-31 (z_analysis/release/06_blender_track): 배치마다 (보폭, 문맥) · 샘플마다 late 창 과표집 · 라벨 (data.blender_track)
+        from app.vjepa_frozen.blender_track_data import BlenderTrackCollator
+        if sync_masks:
+            raise ValueError("blender_track 은 meta.sync_masks 와 같이 못 쓴다 (수집기가 마스크를 만든다)")
+        collator = BlenderTrackCollator(dataset.datasets[0], sampler_masks, D.get("blender_track") or {}, tubelet)
     else:
         collator = TrainCollator(None if sync_masks else sampler_masks)
     if is_ar and not sync_masks and not VW:
@@ -275,6 +304,12 @@ def main(args, resume_preempt=False):
                                    "lr": float(O["lr"]), "head_lr_mult": _hm})
         optimizer.add_param_group({"params": [q for n, q in state_head.named_parameters() if q.ndim <= 1],
                                    "WD_exclude": True, "weight_decay": 0.0, "lr": float(O["lr"]), "head_lr_mult": _hm})
+    if where_head is not None:
+        _wm = float(WH.get("lr_mult", 10))
+        optimizer.add_param_group({"params": [q for n, q in where_head.named_parameters() if q.ndim > 1],
+                                   "lr": float(O["lr"]), "head_lr_mult": _wm})
+        optimizer.add_param_group({"params": [q for n, q in where_head.named_parameters() if q.ndim <= 1],
+                                   "WD_exclude": True, "weight_decay": 0.0, "lr": float(O["lr"]), "head_lr_mult": _wm})
     if flow_head is not None:
         _fm = float(FH.get("lr_mult", 10))
         optimizer.add_param_group({"params": [q for n, q in flow_head.named_parameters() if q.ndim > 1],
@@ -317,6 +352,10 @@ def main(args, resume_preempt=False):
             _ck = torch.load(latest, map_location="cpu", weights_only=False)
             flow_head.load_state_dict(_ck["flow_head"]); del _ck
             logger.info("resume: flow_head <- latest.pt")
+        if where_head is not None:
+            _ck = torch.load(latest, map_location="cpu", weights_only=False)
+            where_head.load_state_dict(_ck["where_head"]); del _ck
+            logger.info("resume: where_head <- latest.pt")
         for _ in range(start_epoch * ipe):
             scheduler.step(); wd_scheduler.step()
     elif os.path.exists(latest):
@@ -669,6 +708,8 @@ def main(args, resume_preempt=False):
                 for g in optimizer.param_groups:                                      # LoRA 그룹 lr = 스케줄 lr × lr_mult
                     if "lora_lr_mult" in g:
                         g["lr"] = lr_now * g["lora_lr_mult"]
+                    elif "head_lr_mult" in g:                                         # where_head
+                        g["lr"] = lr_now * g["head_lr_mult"]
                 with torch.no_grad(), _ac():
                     xe = clips.to(enc_dtype)
                     h = tgt_enc(xe)                                                   # (B, N, D)
@@ -683,6 +724,20 @@ def main(args, resume_preempt=False):
                 with _ac():
                     p = predictor(z, m_enc, m_pred, mask_index=mask_index)            # (B, M, D)
                 loss = (p.float() - h.float()).abs().pow(loss_exp).mean() / loss_exp
+                if WH:
+                    wl = info.get("labels") if isinstance(info, dict) else None
+                    if wl is None:
+                        raise ValueError("where_head 인데 배치에 라벨이 없다 — data.datasets[].type 이 frames_index_track 이어야 한다")
+                    wl = {k: v.to(device, non_blocking=True) for k, v in wl.items()}
+                    n_ctx = m_enc.size(1)
+                    if n_ctx % spatial or int(m_enc[0, -1]) != n_ctx - 1:
+                        raise ValueError("where_head 는 문맥 = 앞쪽 연속 블록 (temporal_prefix) 마스크 전제")
+                    ctx_states = where_hook.out[:, :n_ctx] if where_hook is not None else None
+                    with _ac():
+                        lw, wlog = WHM.where_losses(where_head, ctx_states, p, h, wl, n_ctx // spatial, loss_exp, WH,
+                                                    all_states=where_hook.out if where_hook is not None else None)
+                    aux["latent"] = float(loss.detach()); aux["wlog"] = wlog
+                    loss = loss + lw
                 if scaler is not None:
                     scaler.scale(loss).backward()
                     scaler.unscale_(optimizer)
@@ -692,8 +747,13 @@ def main(args, resume_preempt=False):
                     for q in lora_params:
                         if q.grad is not None:
                             torch.distributed.all_reduce(q.grad); q.grad.div_(world_size)
+                if where_head is not None and world_size > 1:                         # 운동 head 도 DDP 밖 → 직접 평균
+                    for q in where_head.parameters():
+                        if q.grad is not None:
+                            torch.distributed.all_reduce(q.grad); q.grad.div_(world_size)
                 if clip_grad:
-                    torch.nn.utils.clip_grad_norm_(list(pred_mod.parameters()) + lora_params, float(clip_grad))
+                    torch.nn.utils.clip_grad_norm_(list(pred_mod.parameters()) + lora_params
+                                                   + (list(where_head.parameters()) if where_head is not None else []), float(clip_grad))
                 if scaler is not None:
                     scaler.step(optimizer); scaler.update()
                 else:
@@ -714,6 +774,10 @@ def main(args, resume_preempt=False):
                         head_meters.setdefault(k_, AverageMeter()).update(v_)
             if "hlog" in aux:
                 for k_, v_ in [("latent", aux["latent"]), ("head", aux["head"])] + list(aux["hlog"].items()):
+                    if np.isfinite(v_):
+                        head_meters.setdefault(k_, AverageMeter()).update(v_)
+            if "wlog" in aux:            # where_head (2026-10-31)
+                for k_, v_ in [("latent", aux["latent"])] + list(aux["wlog"].items()):
                     if np.isfinite(v_):
                         head_meters.setdefault(k_, AverageMeter()).update(v_)
             if "syn_latent" in aux:      # mix=sum: 자연 · 합성 latent 를 따로 남긴다 (metrics.jsonl 의 train_head)
@@ -740,6 +804,8 @@ def main(args, resume_preempt=False):
                                 hl["tf_spd"], hl["ar_spd"], hl["ar_pos_px_vis"], hl["ar_pos_px_hid"]))
                     if "ar_id_acc" in hl:        # 2026-10-19 (vast 167db20) single head: 49 지선다 정체 정확도 + attention 집중도
                         ar_s += " id %.3f conc %.1f" % (hl["ar_id_acc"], hl.get("ar_conc", float("nan")))
+                if "wlog" in aux:
+                    ar_s += " [latent %.4f " % aux["latent"] + " ".join("%s %.4f" % (k_, v_) for k_, v_ in aux["wlog"].items()) + "]"
                 if "syn_latent" in aux:   # mix=sum: 자연 batch 손실 (상태 없음) vs 합성 batch latent
                     ar_s += " | nat %.4f syn %.4f" % (aux["nat_latent"], aux["syn_latent"])
                 if "gn" in aux:
@@ -759,6 +825,8 @@ def main(args, resume_preempt=False):
                 _extra = {**(_extra or {}), "state_head": state_head.state_dict(), "state_head_cfg": SH}
             if flow_head is not None:
                 _extra = {**(_extra or {}), "flow_head": flow_head.state_dict(), "flow_head_cfg": FH}
+            if WH:
+                _extra = {**(_extra or {}), "where_head_cfg": WH, **({"where_head": where_head.state_dict()} if where_head is not None else {})}
             U.save_checkpoint(latest, predictor, optimizer, scaler, epoch + 1, step, loss_meter.avg, cfg, arch, extra=_extra)
             if save_every > 0 and ((epoch + 1) % save_every == 0 or epoch + 1 == num_epochs):
                 U.save_checkpoint(os.path.join(folder, f"e{epoch + 1}.pt"), predictor, optimizer, scaler,

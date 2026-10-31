@@ -1,0 +1,27 @@
+# =============================================================================
+# transfer_gap R4 [X2] 진단 PFT — T0 기준 재현 (seed 0), 2026-10-30
+#
+#   NODE=vll3 GPUS=4 CPUS_PER_GPU=8 MEM_PER_GPU=40G TIME=0-03:00:00 bash z_training/sbatch.sh tg4_t0_s0
+#
+# vobench_release_postft_g (VOBench split v2 train + gravity train 828 clip, 30 epoch, rank batch 8 × 4 GPU = 32) 와
+# **과제 · lr · epoch · 증강 · 데이터 · 전역 배치가 같다.** 다른 것은 셋뿐이다 (다른 노드에서 돌리려고):
+#   (1) 하드웨어: vll3 RTX 3090 × 4 (원 run 은 vll5 4 장)
+#   (2) 프레임: VOBench 256² NFS 사본 (z_pixel_decoder/runs/_frames/VOBench_v1_256full, 학습 로더와 같은 커널로 미리 줄임;
+#       원 run 은 /data2 의 512² 원본을 로더가 줄임 → uint8 반올림 ≤ 0.5/255 차이)
+#   (3) in-loop val (IntPhys 1 dev 60 쌍) 은 같은 파일의 NFS 바이트 사본 (tg4_IntPhys1_dev_*)
+# 이 run 과 원 run 의 차 = 하드웨어 · 사본 차 + 학습 잡음. tg4_t0_s1 (seed 1) 과의 차 = 학습 잡음.
+# =============================================================================
+extends: vobench_release_postft_g
+
+meta:
+  seed: 0
+
+data:
+  datasets:
+    - {name: vobench_split2g_train, weight: 1.0,
+       frames_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_pixel_decoder/runs/_frames/VOBench_v1_256full}
+
+val:
+  data:
+    root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_pixel_decoder/runs/_frames/tg4_IntPhys1_dev_videos
+    frames_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_pixel_decoder/runs/_frames/tg4_IntPhys1_dev_frame_png

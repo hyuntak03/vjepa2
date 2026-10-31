@@ -1,0 +1,8 @@
+{"event": "start", "rank": 0, "world": 4, "n": 90, "load_s": 56.5, "device": "cuda:0", "gpu": "NVIDIA GeForce RTX 3090", "time": "2026-10-30 15:11:39"}
+{"event": "start", "rank": 1, "world": 4, "n": 90, "load_s": 56.5, "device": "cuda:1", "gpu": "NVIDIA GeForce RTX 3090", "time": "2026-10-30 15:11:39"}
+{"event": "start", "rank": 3, "world": 4, "n": 90, "load_s": 56.5, "device": "cuda:3", "gpu": "NVIDIA GeForce RTX 3090", "time": "2026-10-30 15:11:39"}
+{"event": "start", "rank": 2, "world": 4, "n": 90, "load_s": 56.5, "device": "cuda:2", "gpu": "NVIDIA GeForce RTX 3090", "time": "2026-10-30 15:11:39"}
+{"event": "end", "rank": 1, "n": 90, "loop_s": 43.5, "s_per_clip": 0.4835, "s_per_clip_steady": 0.269, "peak_mem_gb": 6.16, "time": "2026-10-30 15:12:23"}
+{"event": "end", "rank": 2, "n": 90, "loop_s": 43.7, "s_per_clip": 0.4861, "s_per_clip_steady": 0.2691, "peak_mem_gb": 6.16, "time": "2026-10-30 15:12:23"}
+{"event": "end", "rank": 0, "n": 90, "loop_s": 44.0, "s_per_clip": 0.4887, "s_per_clip_steady": 0.2728, "peak_mem_gb": 6.16, "time": "2026-10-30 15:12:23"}
+{"event": "end", "rank": 3, "n": 90, "loop_s": 44.0, "s_per_clip": 0.4887, "s_per_clip_steady": 0.2759, "peak_mem_gb": 6.16, "time": "2026-10-30 15:12:23"}

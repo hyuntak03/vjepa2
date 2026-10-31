@@ -1,0 +1,4 @@
+{"event": "start", "rank": 0, "world": 2, "n": 720, "load_s": 40.2, "device": "cuda:0", "gpu": "NVIDIA GeForce RTX 4090", "time": "2026-10-31 07:03:52"}
+{"event": "start", "rank": 1, "world": 2, "n": 720, "load_s": 40.2, "device": "cuda:1", "gpu": "NVIDIA GeForce RTX 4090", "time": "2026-10-31 07:03:52"}
+{"event": "end", "rank": 1, "n": 720, "loop_s": 128.2, "s_per_clip": 0.178, "s_per_clip_steady": 0.1633, "peak_mem_gb": 6.54, "time": "2026-10-31 07:06:00"}
+{"event": "end", "rank": 0, "n": 720, "loop_s": 128.7, "s_per_clip": 0.1788, "s_per_clip_steady": 0.164, "peak_mem_gb": 6.54, "time": "2026-10-31 07:06:00"}

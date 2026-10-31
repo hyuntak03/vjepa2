@@ -1,0 +1,25 @@
+# =============================================================================
+# transfer_gap R4 [X2] 진단 PFT — T2 생성기 섞은 PFT (2026-10-30). tg4_t0_s0 에서 **"학습 생성기" 한 축** 만 바꾼다.
+#   NODE=vll3 GPUS=4 CPUS_PER_GPU=8 MEM_PER_GPU=40G TIME=0-03:00:00 bash z_training/sbatch.sh tg4_t2_genmix
+#
+# 왜: R2 E26 — v11 PFT 는 VOBench 로 안 옮겨지고, VOBench PFT 의 v11 이득은 끝 자리가 우연히 가까워서일 수 있다 (R3).
+#     두 생성기를 반반 보면 세 번째 생성기 (IntPhys 1 · 2) 의 late 영속으로 옮겨지나.
+# 바꾸는 것: VOBench split v2 train + gravity (828 clip, 256² 사본) 반 + v11 split train 부분집합 반
+#   (가능 변이 828 clip = block 414, (조건 × 위반) 36 칸 층화, seed 0; data_csv/transfer_gap_r4_v11/index_train_sub828.csv,
+#    프레임은 vll5 로컬 원본의 NFS **바이트 사본** tg4_IntPhysGen_v11, 288 px → 로더가 256 으로 줄임 — v11_postft 와 같은 경로).
+# 학습량은 T0 와 같다: optimization.ipe 25 × 30 epoch = 750 step (VOBench 는 T0 의 절반만 본다 — 같은 예산에서 섞기).
+# ⚠️ v11 split test (가림 사라짐) 는 이 run 에게 같은 생성기다 — 전이 시험은 IntPhys 1 · 2 · v11_realistic 로 읽는다.
+# =============================================================================
+extends: tg4_t0_s0
+
+data:
+  datasets:
+    - {name: vobench_split2g_train, weight: 0.5,
+       frames_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_pixel_decoder/runs/_frames/VOBench_v1_256full}
+    - {type: frames_index, weight: 0.5,
+       root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/transfer_gap_r4_v11, index_csv: index_train_sub828.csv,
+       frames_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_pixel_decoder/runs/_frames/tg4_IntPhysGen_v11,
+       frames_pattern: '{file_name}/{frame:06d}.png', frames_start: 0, frames_stride: 3, frames_start_choices: [0, 3, 6]}
+
+optimization:
+  ipe: 25

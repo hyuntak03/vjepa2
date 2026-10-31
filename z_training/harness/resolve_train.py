@@ -142,7 +142,7 @@ def main():
             spec["name"] = name
         else:
             spec = item
-        if a.limit and spec.get("type") == "frames_index":
+        if a.limit and spec.get("type") in ("frames_index", "frames_index_track", "blender_track"):
             spec["limit"] = int(a.limit)
         out.append(spec)
     vw = cfg["data"].get("var_window")
@@ -324,8 +324,17 @@ def main():
             die(f"window_grid n_frames 최대 {max(c['n_frames'] for c in gs.cells)} > data.n_frames {n}")
         grid["_resolved"] = gs.describe()
     for i, spec in enumerate(d["datasets"]):
-        if spec.get("type") == "frames_index":
+        if spec.get("type") in ("frames_index", "frames_index_track"):     # _track (2026-10-31): + VOBench 궤적 라벨 (label.json)
             check_frames(spec, f"data.datasets[{i}]({spec.get('name', '?')})")
+            for k in META_KEYS:
+                spec.pop(k, None)
+        elif spec.get("type") == "blender_track":
+            # 2026-10-31 (z_analysis/release/06_blender_track): 메타 npz (z_training/data/build_blender_track_index.py) + clip 폴더
+            _xp(spec, "meta")
+            if not os.path.isfile(spec["meta"]):
+                die(f"data.datasets[{i}].meta 가 없다 -> {spec['meta']} (build_blender_track_index.py 를 먼저)")
+            if (d.get("aug") or {}).get("random_resized_crop"):
+                die("blender_track 은 data.aug.random_resized_crop 과 같이 못 쓴다 (라벨이 256² 원본 좌표)")
             for k in META_KEYS:
                 spec.pop(k, None)
         elif spec.get("type") == "video_csv":
@@ -376,7 +385,7 @@ def main():
                 if not os.path.exists(os.path.join(spec["root"], sub)):
                     die(f"data.datasets[{i}] (pusht) 에 {sub} 가 없다 -> {spec['root']}")
         else:
-            die(f"data.datasets[{i}].type={spec.get('type')!r}; frames_index | video_csv | video_window | phys2d_sup | pusht | wall")
+            die(f"data.datasets[{i}].type={spec.get('type')!r}; frames_index | frames_index_track | blender_track | video_csv | video_window | phys2d_sup | pusht | wall")
     if cfg.get("val"):
         # ⚠️ 2026-10-18: encoder·predictor 는 **data.n_frames 로** 지어진다 (app/vjepa_frozen/utils.py
         #    build_encoders / build_predictor 의 num_frames). val 창이 그보다 길면 토큰 인덱스가 격자를 넘어

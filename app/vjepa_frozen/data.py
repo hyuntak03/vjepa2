@@ -440,6 +440,19 @@ def build_dataset(cfg_data: dict, n_frames: int, resolution: int) -> WeightedCon
             if grid:
                 raise ValueError("data.window_grid 는 video_window 와 같이 못 쓴다 (창은 인덱스가 이미 정했다)")
             dsets.append(VideoWindowDataset(s, n_frames, tf))
+        elif t == "frames_index_track":
+            # 2026-10-31 (z_analysis/release binding 학습): frames_index + VOBench 물체 궤적 라벨 (app/vjepa_frozen/where_head.py).
+            #   좌우 반전 · 자르기는 transform 이 정하고 같은 값으로 라벨을 옮긴다 (return_params).
+            if grid:
+                raise ValueError("data.window_grid 는 frames_index_track 과 같이 못 쓴다")
+            from app.vjepa_frozen.where_head import TrackFramesDataset
+            dsets.append(TrackFramesDataset(s, n_frames, tf))
+        elif t == "blender_track":
+            # 2026-10-31 (z_analysis/release/06_blender_track): clip 번호만 내고, 창 · 읽기 · 라벨은 BlenderTrackCollator (train.py 가 고른다).
+            if grid or len(specs) > 1:
+                raise ValueError("blender_track 은 혼자 쓴다 (window_grid · 다른 데이터셋과 섞기 없음)")
+            from app.vjepa_frozen.blender_track_data import BlenderTrackDataset
+            dsets.append(BlenderTrackDataset(s, n_frames, tf))
         elif t == "phys2d_sup":
             if grid:
                 raise ValueError("data.window_grid 는 phys2d_sup 와 같이 못 쓴다")
@@ -456,9 +469,9 @@ def build_dataset(cfg_data: dict, n_frames: int, resolution: int) -> WeightedCon
                                       subset_frac=float(s.get("subset_frac", 1.0)), subset_seed=int(s.get("subset_seed", 0)),
                                       virtual_len=int(s.get("virtual_len", 0))))
         else:
-            raise ValueError(f"data.datasets[].type={t!r}; frames_index | video_csv | video_window | phys2d_sup | pusht | wall")
+            raise ValueError(f"data.datasets[].type={t!r}; frames_index | frames_index_track | video_csv | video_window | phys2d_sup | pusht | wall")
         weights.append(s.get("weight"))
-    has_lab = [isinstance(d, Phys2DSupDataset) for d in dsets]
+    has_lab = [isinstance(d, Phys2DSupDataset) or type(d).__name__ in ("TrackFramesDataset", "BlenderTrackDataset") for d in dsets]
     if any(has_lab) and not all(has_lab):
         raise ValueError("phys2d_sup (라벨 있음) 와 다른 데이터셋을 섞을 수 없다 (collate 가 라벨을 한꺼번에 쌓는다)")
     use_w = any(w is not None for w in weights)
@@ -662,9 +675,12 @@ class TrainCollator:
     def __call__(self, batch):
         clips = torch.stack([b[0][0] for b in batch])            # (B, 3, T, H, W)
         if len(batch[0]) > 3:                                    # phys2d_sup 상태 라벨 (2026-10-19) — info 자리로 넘긴다
-            if self.mask_sampler is not None:
-                raise ValueError("phys2d_sup 라벨은 meta.sync_masks 경로에서만 넘긴다")
-            return clips, None, None, {"labels": {k: torch.stack([b[3][k] for b in batch]) for k in batch[0][3]}}
+            labels = {k: torch.stack([b[3][k] for b in batch]) for k in batch[0][3]}
+            if self.mask_sampler is None:
+                return clips, None, None, {"labels": labels}
+            # 2026-10-31 (frames_index_track): worker 안 마스크 경로에서도 라벨을 info 에 함께 싣는다 (기본 train_step 용)
+            enc, pred, info = self.mask_sampler(len(batch))
+            return clips, enc, pred, {**info, "labels": labels}
         if self.mask_sampler is None:
             return clips, None, None, None
         enc, pred, info = self.mask_sampler(len(batch))
@@ -678,7 +694,9 @@ def build_loader(dataset: WeightedConcat, collator, batch_size: int, rank: int, 
     # 워커가 디코드에서 멈출 때 침묵 대신 RuntimeError. 기본값 2 / 0 = torch 기본 (기존 동작).
     if dataset.sample_weights is not None:
         from src.datasets.utils.weighted_sampler import DistributedWeightedSampler
-        sampler = DistributedWeightedSampler(dataset, num_replicas=world_size, rank=rank, shuffle=True)
+        # 2026-10-31: seed 를 넘긴다 (이전엔 빠져 있어 meta.seed 를 바꿔도 데이터 순서가 늘 seed 0 이었다 — transfer_gap R4 검토).
+        #   seed 0 run 은 전과 같다 (기본값 0).
+        sampler = DistributedWeightedSampler(dataset, num_replicas=world_size, rank=rank, shuffle=True, seed=seed)
     else:
         sampler = torch.utils.data.distributed.DistributedSampler(
             dataset, num_replicas=world_size, rank=rank, shuffle=True, seed=seed)

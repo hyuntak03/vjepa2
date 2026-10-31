@@ -1,0 +1,6 @@
+{"event": "start", "rank": 2, "world": 3, "n": 240, "load_s": 40.1, "device": "cuda:2", "gpu": "NVIDIA GeForce RTX 3090", "time": "2026-10-30 17:48:34"}
+{"event": "start", "rank": 0, "world": 3, "n": 240, "load_s": 36.6, "device": "cuda:0", "gpu": "NVIDIA GeForce RTX 3090", "time": "2026-10-30 17:48:34"}
+{"event": "start", "rank": 1, "world": 3, "n": 240, "load_s": 37.6, "device": "cuda:1", "gpu": "NVIDIA GeForce RTX 3090", "time": "2026-10-30 17:48:35"}
+{"event": "end", "rank": 1, "n": 240, "loop_s": 83.3, "s_per_clip": 0.3471, "s_per_clip_steady": 0.3251, "peak_mem_gb": 6.49, "time": "2026-10-30 17:49:58"}
+{"event": "end", "rank": 2, "n": 240, "loop_s": 87.0, "s_per_clip": 0.3626, "s_per_clip_steady": 0.337, "peak_mem_gb": 6.49, "time": "2026-10-30 17:50:01"}
+{"event": "end", "rank": 0, "n": 240, "loop_s": 88.6, "s_per_clip": 0.3691, "s_per_clip_steady": 0.3471, "peak_mem_gb": 6.49, "time": "2026-10-30 17:50:03"}

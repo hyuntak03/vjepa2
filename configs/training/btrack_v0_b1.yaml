@@ -1,0 +1,8 @@
+# BlenderTrack 팔 B1: L1 + binding 항 (참 미래 물체 자리 3×3 의 L1 × 1.0). 나머지는 btrack_v0_b0 과 같다.
+#   NODE=<노드> GPUS=2 bash z_training/sbatch.sh btrack_v0_b1
+extends: btrack_v0_b0
+
+where_head:
+  bind_weight: 1.0
+  bind_radius: 1
+  pos_weight: 0.0

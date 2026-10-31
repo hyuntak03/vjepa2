@@ -1,0 +1,33 @@
+# =============================================================================
+# BlenderTrack 학습 (2026-10-31, 사용자 결정, z_analysis/release/06_blender_track) — 팔 B0: 표준 L1 만 (대조)
+#
+#   NODE=<노드> GPUS=2 bash z_training/sbatch.sh btrack_v0_b0
+#
+# 세 팔 (b0 · b1 · b2) 은 데이터 · 순서 · step · lr · 증강 · 전역 배치가 같고 손실만 다르다 (binding 학습 a0 · a1 과 같은 꼴).
+#   데이터: blender_track_v0_train (연속 무작위 궤적 4,000 clip). 창: 배치마다 보폭 2–4 (30 fps 프레임) · 문맥 4–12 블록 (나머지가 미래),
+#           샘플마다 50 % 는 late 창 (문맥 끝 target 가림 · 앞에서 보임 · 미래에서 다시 보임).
+#   step : rank batch 16 × 2 GPU = 32, 12 epoch = 1,500 step
+#   손실 : b0 = L1 · b1 = L1 + binding (참 미래 물체 자리 3×3) · b2 = b1 + 공간 점유 head (토큰마다 target amodal 점유 비율)
+# 평가: 다른 생성기 — VOBench_v2 late (처음 보는 경로 포함) · v11 · IntPhys 1 · 2 late · Rubric 실제 영상 (binding 학습과 같은 열).
+# =============================================================================
+extends: vobench_release_postft
+
+meta:
+  seed: 0
+  save_every_freq: -1
+
+data:
+  batch_size: 16
+  num_workers: 12
+  datasets:
+    - {name: blender_track_v0_train}
+  blender_track:
+    strides: [2, 3, 4]
+    context_frames: [8, 12, 16, 20, 24]
+    late_p: 0.5
+
+optimization:
+  epochs: 12
+
+# 학습 중 IntPhys 1 dev val 은 끈다 — 그 데이터가 vll5 로컬 (/local_datasets) 에만 있고, 평가는 학습 뒤 한 번 통과 채점기로 한다
+val: null

@@ -1,0 +1,28 @@
+# predictor_lab 기본 팔: 릴리즈 V-JEPA 2 ViT-H predictor 를 BlenderTrack 으로 post-FT, 손실 = 표준 L1 만 (대조군).
+#   bash predictor_lab/train.sh lab_base
+# 데이터 경로는 train.sh 가 paths.env 에서 data.datasets 로 넣는다. 새 아이디어는 이 파일을 extends 하고 바뀐 키만 적는다.
+extends: vobench_release_postft        # configs/training/ — encoder 고정 · 릴리즈 predictor 에서 출발 · lr 5e-5 · hflip 0.5
+
+meta:
+  seed: 0
+  save_every_freq: -1                  # latest.pt 만
+
+data:
+  batch_size: 16                       # GPU 당. GPU 2 장 → 전역 32
+  num_workers: 12
+  datasets: []                         # train.sh 가 채운다
+  blender_track:                       # 창 고르기 (app/vjepa_frozen/blender_track_data.py)
+    strides: [2, 3, 4]                 # 30 fps 프레임 간격, 배치마다 하나
+    context_frames: [8, 12, 16, 20, 24]  # 문맥 샘플 수 (= 4–12 블록), 배치마다 하나. 창 32 샘플 중 나머지가 미래
+    late_p: 0.5                        # 샘플마다 late 창 (문맥 끝 target 가림 · 앞에서 보임 · 미래에서 다시 보임) 확률
+    hid_vis: 0.1                       # "가려짐" = 보이는 비율 < 0.1
+    seen_vis: 0.5                      # "보임" = 보이는 비율 ≥ 0.5
+
+optimization:
+  epochs: 12                           # 4,000 clip / 32 = 125 step × 12 = 1,500 step (vll6 RTX 3090 2 장 ~75 분)
+
+val: null                              # 학습 중 검증 없음 — 평가는 predictor_lab/eval.sh
+
+lab:                                   # predictor_lab/table.py 가 시트 행에 쓰는 이름 · 종류
+  sheet_name: "V-JEPA2 w/ BlenderTrack"
+  predictor_type: "future mask latent prediction"

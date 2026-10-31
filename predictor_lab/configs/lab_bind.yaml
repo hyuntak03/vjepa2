@@ -1,0 +1,12 @@
+# predictor_lab 팔: L1 + binding 항 (참 미래 target 자리 3×3 토큰의 L1 을 λ = 1.0 배로 더함).
+#   bash predictor_lab/train.sh lab_bind
+extends: lab_base
+
+where_head:                            # app/vjepa_frozen/where_head.py
+  bind_weight: 1.0
+  bind_radius: 1                       # 중심 칸 ± 1 = 3×3
+  pos_weight: 0.0
+
+lab:                                   # predictor_lab/table.py 가 시트 행에 쓰는 이름 · 종류
+  sheet_name: "V-JEPA2 w/ BlenderTrack + binding"
+  predictor_type: "future mask latent prediction"

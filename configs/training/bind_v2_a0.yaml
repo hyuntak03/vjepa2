@@ -1,0 +1,25 @@
+# =============================================================================
+# binding 학습 (2026-10-31, 사용자 결정, z_analysis/release) — 팔 A0: 표준 L1 만 (= VOBench_v2 로 한 PFT, 대조)
+#
+#   NODE=vll5 GPUS=2 bash z_training/sbatch.sh bind_v2_a0
+#
+# 세 팔 (a0 · a1 · a2) 은 데이터 · 순서 · step · lr · 증강 · 전역 배치가 같고 손실만 다르다.
+#   데이터: vobench_v2_split_train (VOBench_v2 궤적 묶음 train 절반의 가능 변이 2,160 clip, 궤적 라벨 동봉)
+#   step : rank batch 16 × 2 GPU = 32, 11 epoch ≈ 740 step (원 PFT vobench_release_postft_g 의 750 step 과 맞춤)
+#   손실 : a0 = L1 · a1 = L1 + binding (참 미래 물체 자리 3×3 의 L1 × 1.0) · a2 = a1 + 운동 head (문맥 → c₀ · v · a → 16 블록 궤적)
+# 평가: VOBench_v2 test (궤적 묶음 반대쪽) late · visible 블록 판독 (z 판독기 → p 이식) · 사라짐 A/B + 복사 Δ · IntPhys late.
+# =============================================================================
+extends: vobench_release_postft
+
+meta:
+  seed: 0
+  save_every_freq: -1
+
+data:
+  batch_size: 16
+  num_workers: 6
+  datasets:
+    - {name: vobench_v2_split_train, weight: 1.0}
+
+optimization:
+  epochs: 11

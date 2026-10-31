@@ -60,6 +60,13 @@ sbatch -w vll2 --export=ALL,SETS="late" z_pixel_decoder/render.sbatch          #
 | `compare` | — | 모든 모델 한 장 `compare_grid.png` + `summary.json` |
 | `cosmos_ar4b` | Cosmos-Predict1-4B | 생성형 비교 (`render_cosmos.py` · `cosmos.sbatch`, 환경 cosmos-predict1). 문맥 raw 30–46 (9 장, stride 2) → 미래 48–94 (24 장), pillarbox 640×1024, diffusion decoder · guardrail 끔, seed 0. GIF = 영상 \| Cosmos \| tokenizer enc→dec |
 
+**wall 세트 (2026-10-25)** — RollOut_v2 wall (문맥 = 벽으로 굴러감, 미래 = 벽에서 멈춤 `stop` · 벽 통과 `pass`), 속도 7 단계마다 1 쌍.
+프레임은 vll5 로컬에만 있어 고른 쌍만 `runs/_frames/RollOut_v2_wall/` 로 복사했다 (`clips.py` 의 wall 분기 주석). 산출 `<모델>/wall/` · `compare/wall/`.
+⚠️ decoder 는 RollOut 을 학습하지 않았다 — 정답 latent 행 PSNR 15–19 dB (복사 29–38 dB), **미래 장면에 벽 기둥이 안 그려지고 배경이 VOBench 풍으로 바뀐다.** 물체 색 · 자리만 읽을 수 있다.
+```bash
+sbatch --exclude=vll5 --mem-per-gpu=24G --time=0-00:40:00 --job-name=pixdec_wall --export=ALL,SETS="wall",ARGS="--n 7" z_pixel_decoder/render.sbatch
+```
+
 옛 `renders/` · `renders_ar/` 는 `_superseded/` 로 내렸다.
 ⚠️ LoRA 판 (`vith_pft_ip2pair_lora`) 은 아직 안 된다 — 문맥 encoder 에 LoRA 를 붙이는 경로가 이 스크립트에 없다.
 

@@ -1,0 +1,8 @@
+# binding 학습 팔 A1: L1 + binding 항 (참 미래 물체 자리 3×3 의 L1 × 1.0). 나머지는 bind_v2_a0 과 같다.
+#   NODE=vll5 GPUS=2 bash z_training/sbatch.sh bind_v2_a1
+extends: bind_v2_a0
+
+where_head:
+  bind_weight: 1.0
+  bind_radius: 1
+  pos_weight: 0.0

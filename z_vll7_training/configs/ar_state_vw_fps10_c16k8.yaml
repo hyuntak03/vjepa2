@@ -1,0 +1,31 @@
+# =============================================================================
+# 블록 AR (상태 되먹임) — vll7 K400 + SSv2, **시간 기준 fps 10**, 창 최대 문맥 16 블록 + 예측 8 블록 (2026-10-27)
+#
+#   DRYRUN=1 bash z_vll7_training/train.sh ar_state_vw_fps10_c16k8
+#
+# vast `configs/training/natural_ar_vw_state_fps10_c16k8.yaml` (245b255) 의 vll7 판. ar_state_vw 와 다른 점:
+#   ① 표 fps4 → fps10t (data_csv/vll7_{k400_320,ssv2}/fps10t_table.tsv, z_training/data/build_time_fps_table.py).
+#      fstp = -10 이면 로더 (var_window._read) 가 장 k = 가장 가까운 원본 프레임 round((t0 + k/10)·fps) 로 읽는다.
+#      VOBench · phys3d 채점 간격 (0.1 초) 과 같다. SSv2 원본은 12 fps 라 원본 간격 1 · 2 장이 섞인다 (평균 0.1 초).
+#   ② 문맥 2–32 장 · 예측 2–16 장 (8 블록 = 1.6 초), rollout 8. 창 최대 48 장.
+#      48 장 창을 채우는 영상: K400 98.2 % · SSv2 20.9 % (fps 4 에서는 둘 다 0 %).
+#   vast 와 다른 점: 데이터 K400 + SSv2 (vast = K710 + SSv2 + HowTo 1:1:1) — 한 변수 대조가 아니다.
+# =============================================================================
+extends: ar_state_vw
+
+data:
+  var_window:
+    datasets:
+      - {name: k400, table: "${DATA_CSV}/vll7_k400_320/fps10t_table.tsv", weight: 1.0}
+      - {name: ssv2, table: "${DATA_CSV}/vll7_ssv2/fps10t_table.tsv",     weight: 1.0, min_eligible: 20000}
+    context_frames: [2, 4, 8, 16, 32]
+    predict_frames: [2, 4, 8, 16]
+
+mask:                        # 자리표시 (var_window 가 정한다)
+  - type: prefix_window
+    context_blocks: [1, 2, 4, 8, 16]
+    predict_blocks: [1, 2, 4, 8]
+    weight: 1.0
+
+loss:
+  rollout_steps: 8

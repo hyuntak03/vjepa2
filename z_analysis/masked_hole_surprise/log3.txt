@@ -1,0 +1,12 @@
+/data/hyuntak/anaconda3/envs/vjepa2_bw/lib/python3.12/site-packages/timm/models/layers/__init__.py:49: FutureWarning: Importing from timm.models.layers is deprecated, please import via timm.layers
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.layers", FutureWarning)
+/data/hyuntak/anaconda3/envs/vjepa2_bw/lib/python3.12/contextlib.py:105: FutureWarning: `torch.backends.cuda.sdp_kernel()` is deprecated. In the future, this context manager will be removed. Please see `torch.nn.attention.sdpa_kernel()` for the new context manager, with updated signature.
+  self.gen = func(*args, **kwds)
+shard 3: 0/360
+shard 3: 50/360
+shard 3: 100/360
+shard 3: 150/360
+shard 3: 200/360
+shard 3: 250/360
+shard 3: 300/360
+shard 3: 350/360

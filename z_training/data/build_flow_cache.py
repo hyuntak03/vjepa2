@@ -81,10 +81,11 @@ def build_model(arch, device):
 
 
 DECODE_SWAP = None     # (from, to) 경로 치환 — 색인은 원래 경로를 쓰고 디코드만 다른 사본에서
+FUSE_FB = False        # 2026-10-27: --fuse-fb
 DECODE_SIZE = 0        # > 0 이면 decord 가 디코드하면서 바로 (size, size) 로 리사이즈한다
 
 
-def read_fps4(path, n_frames, fstp):
+def read_fps4(path, n_frames, fstp, fps=0, n_t=0):
     """영상의 fps 4 프레임 전부를 **uint8 원본 크기** (n4, H, W, 3) 로. 리사이즈는 GPU 에서 한다.
     ⚠️ 2026-10-22 정정: 예전 판은 여기서 (n4, 3, 256, 256) float32 (영상당 34 MB) 를 만들었다.
        앞서 읽는 큐와 합쳐져 프로세스마다 RSS 50 GB 를 넘겼다 (실측). uint8 원본은 영상당 ~18 MB 이고
@@ -94,7 +95,11 @@ def read_fps4(path, n_frames, fstp):
     kw = {"width": DECODE_SIZE, "height": DECODE_SIZE} if DECODE_SIZE > 0 else {}
     vr = decord.VideoReader(q, num_threads=1, **kw)
     n = min(len(vr), int(n_frames))
-    idx = list(range(0, n, int(fstp)))
+    if int(fstp) < 0:                                   # 2026-10-27 시간 기준 표 (build_time_fps_table.py, fstp = -T):
+        T_ = -int(fstp)                                 #   장 k = 가장 가까운 원본 프레임 round(k / T · fps) — var_window._read 의 snap 판과 같은 격자
+        idx = [min(n - 1, int(round(k / T_ * fps))) for k in range(int(n_t))]
+    else:
+        idx = list(range(0, n, int(fstp)))
     if len(idx) < 2:
         raise ValueError("프레임 2장 미만")
     a = vr.get_batch(idx).asnumpy()                                         # (n4, H, W, 3) uint8
@@ -118,12 +123,18 @@ def flow_for_clip(model, x, G, iters, consistency, device, chunk, alpha, beta):
         b = x[s + 1:s + 1 + chunk]
         a, b = a[:b.shape[0]], b
         with torch.autocast("cuda", torch.bfloat16):
-            f = model(a, b, num_flow_updates=iters)[-1].float()              # (n, 2, R, R) 픽셀
-            if consistency == "fb":
-                fb = model(b, a, num_flow_updates=iters)[-1].float()
+            if consistency == "fb" and FUSE_FB:                              # 2026-10-27: 정 · 역방향을 batch 하나로 (같은 계산, 큰 batch)
+                n = a.shape[0]
+                ff = model(torch.cat([a, b]), torch.cat([b, a]), num_flow_updates=iters)[-1].float()
+                f, fb = ff[:n], ff[n:]
                 v = fb_valid(f, fb, alpha, beta)
             else:
-                v = torch.ones_like(f[:, :1])
+                f = model(a, b, num_flow_updates=iters)[-1].float()          # (n, 2, R, R) 픽셀
+                if consistency == "fb":
+                    fb = model(b, a, num_flow_updates=iters)[-1].float()
+                    v = fb_valid(f, fb, alpha, beta)
+                else:
+                    v = torch.ones_like(f[:, :1])
         fg, vg = pool(f, v, G)
         outs_f.append((fg / R).cpu())                                        # /R = /W_orig (정사각 리사이즈라 성립)
         outs_v.append(vg[:, 0].cpu())
@@ -146,6 +157,8 @@ def main():
     ap.add_argument("--shard", type=int, default=0, help="이 shard 번호")
     ap.add_argument("--num-shards", type=int, default=1)
     ap.add_argument("--device", default="cuda:0")
+    ap.add_argument("--fuse-fb", action="store_true", help="정 · 역방향 RAFT 를 batch 하나로 (2026-10-27)")
+    ap.add_argument("--compile", action="store_true", help="torch.compile (2026-10-27)")
     ap.add_argument("--limit", type=int, default=0, help="앞 N 편만 (벤치마크용)")
     # 2026-10-22: 이미 돌던 shard 를 **버리지 않고** 남은 꼬리만 여러 프로세스로 나눠 끝내려고 더했다.
     #   같은 출력 dir 에 memmap 을 r+ 로 열고 **자기 구간 행만** 쓴다 (구간이 겹치지 않으면 안전하다).
@@ -162,7 +175,8 @@ def main():
     ap.add_argument("--bench", action="store_true", help="쓰지 않고 처리량만 잰다")
     args = ap.parse_args()
 
-    global DECODE_SWAP, DECODE_SIZE
+    global DECODE_SWAP, DECODE_SIZE, FUSE_FB
+    FUSE_FB = bool(args.fuse_fb)
     if args.decode_swap:
         DECODE_SWAP = tuple(args.decode_swap.split(":", 1))
     DECODE_SIZE = int(args.decode_size)
@@ -171,7 +185,7 @@ def main():
     for ln in open(args.table, encoding="utf-8"):
         p, fps, n, fstp, n4 = ln.rstrip("\n").split("\t")
         if int(n4) >= 2:
-            rows.append((p, int(n), int(fstp), int(n4)))
+            rows.append((p, int(n), int(fstp), int(n4), int(fps)))
     if args.limit:
         rows = rows[:args.limit]
     rows = rows[args.shard::args.num_shards]
@@ -187,6 +201,8 @@ def main():
         print(f"  구간 [{lo_i:,}, {hi_i:,}) 만 처리 ({hi_i - lo_i:,} 편)", flush=True)
 
     model = build_model(args.arch, args.device)
+    if args.compile:                                                         # 2026-10-27
+        model = torch.compile(model, dynamic=True)
     if not args.bench:
         os.makedirs(args.out, exist_ok=True)
         if args.append:
@@ -199,7 +215,7 @@ def main():
             mv = np.lib.format.open_memmap(f"{args.out}/valid.u8", mode="w+", dtype=np.uint8, shape=(P, G, G))
     if not args.bench and not args.append:
         with open(f"{args.out}/index.tsv", "w", encoding="utf-8") as fh:
-            for i, (p, n, fstp, n4) in enumerate(rows):
+            for i, (p, n, fstp, n4, _fps) in enumerate(rows):
                 fh.write(f"{p}\t{n4}\t{off[i]}\t{n4 - 1}\n")
         json.dump({"grid": G, "res": args.res, "arch": args.arch, "iters": args.iters,
                    "consistency": args.consistency, "alpha": args.alpha, "beta": args.beta,
@@ -246,7 +262,7 @@ def main():
 
 def _safe_read(r):
     try:
-        return read_fps4(r[0], r[1], r[2])
+        return read_fps4(r[0], r[1], r[2], r[4], r[3])
     except Exception:
         return None
 
@@ -258,3 +274,5 @@ if __name__ == "__main__":
 #   python z_training/data/build_flow_cache.py --table data_csv/vll7_k400_320/fps4_table.tsv \
 #          --out /data/hyuntak/flow_cache/vll7_k400_320 --grid 32 --device cuda:0 --num-shards 4 --shard 0
 #   (--bench --limit 60 으로 먼저 처리량만 잰다)
+#   fps 10 시간 기준 (2026-10-27): --table data_csv/vll7_k400_320/fps10t_table.tsv --out /data/hyuntak/flow_cache/vll7_k400_320_fps10t/s<i>
+#     (표 = z_training/data/build_time_fps_table.py). 학습 로더는 snap_start 로 시작을 0.1 초 격자에 맞춘다

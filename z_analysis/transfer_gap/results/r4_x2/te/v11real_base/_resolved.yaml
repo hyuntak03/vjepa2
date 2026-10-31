@@ -1,0 +1,49 @@
+eval_name: world_model_analysis
+data:
+  root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/transfer_gap_r4_v11real
+  index_csv: index_occ.csv
+  frames_root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/z_pixel_decoder/runs/_frames/tg4_IntPhysGen_v11_realistic
+  frames_pattern: '{file_name}/{frame:06d}.png'
+  frames_start: 0
+  frames_stride: 3
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: condition
+  resolution: 256
+  split: null
+  n_frames: 32
+model:
+  arch_name: vit_huge
+  checkpoint: /data/hyuntak/project/2026/2027_cvpr/vjepa2/checkpoint/models--facebook--vjepa2-vith-fpc64-256/snapshots/b5eac8703e3efdc1547fbb6ddfbeb133dc0bdee5/original/model.pth
+  img_size: 256
+  patch_size: 16
+  tubelet_size: 2
+  use_rope: true
+  uniform_power: false
+  dual_encoder: true
+  context_encoder_key: encoder
+  target_encoder_key: target_encoder
+  predictor:
+    embed_dim: 384
+    depth: 12
+    num_heads: 12
+    num_mask_tokens: 10
+  dtype: float32
+  autocast: float16
+  window_size: 32
+surprise:
+  distance: l1
+  loss_exp: 1.0
+  target_layer_norm: true
+  mask_index: 0
+  batch_size: 16
+  decode_workers: 8
+  context_length: 16
+scoring:
+  pairing: matched
+  breakdown:
+  - block_type
+tag: v11_realistic_vith
+output_dir: /data/hyuntak/project/2026/2027_cvpr/vjepa2/cvpr/results/eval/testbed/v11_realistic_vith

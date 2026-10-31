@@ -105,3 +105,6 @@ paper_lab/_scratch/*
 
 # 2026-10-10 에 세트들이 z_research/previous/ 로 내려가 위의 z_research/*/exp_results/ 가 안 맞게 됐다
 z_research/previous/*/exp_results/
+
+
+*.npy
