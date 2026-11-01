@@ -431,3 +431,27 @@ vast_aux_vob_heads:               # 2026-10-31 위와 같고 모듈 · cross 없
   base: vith
   predictor_checkpoint: ${CVPR_REPO}/z_training/runs/release_aux_vob_heads/latest.pt
   predictor.kind: oneshot
+vast_permwrop_B:                  # 2026-10-31 permanence_wrop B — 릴리즈 predictor post-FT, SSv2 만, 4,000 step × 64 (configs/training/permanence_wrop_B.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/permanence_wrop_B/latest.pt
+  predictor.kind: oneshot
+vast_permwrop_C:                  # 2026-10-31 permanence_wrop C — 위와 같고 SSv2 50 % + WROP 가림 두 계열 50 % (그릇 계열 뺌)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/permanence_wrop_C/latest.pt
+  predictor.kind: oneshot
+vast_permwrop_D:                  # 2026-10-31 permanence_wrop D — 위와 같고 SSv2 50 % + WROP 비영속 세 계열 50 % (같은 엔진 대조군)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/permanence_wrop_D/latest.pt
+  predictor.kind: oneshot
+vast_imgseg_ctrl:                 # 2026-10-31 imagine-seg 공정 비교 ① 대조군 — 릴리즈 predictor post-FT, phys3d_perm_v1, 점유 손실 가중 0 (configs/training/imagine_seg_v1_ctrl.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/imagine_seg_v1_ctrl/latest.pt
+  predictor.kind: oneshot
+vast_imgseg_head:                 # ② 6 번째 블록 뒤 은닉에 점유 head (학습 때만, 추론 = 릴리즈 구조)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/imagine_seg_v1_head/latest.pt
+  predictor.kind: oneshot
+vast_imgseg_inpath:               # ③ 점유 추측을 은닉에 ŝ · e_mask 로 더해 뒤 블록이 쓴다 (추론에도 남음, 자기 추측)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/imagine_seg_v1_inpath/latest.pt
+  predictor.kind: oneshot

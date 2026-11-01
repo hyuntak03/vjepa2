@@ -26,7 +26,7 @@ import numpy as np
 from concurrent.futures import ProcessPoolExecutor
 
 REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
-ROOT = "/workspace/dataset/training_data/phys3d_perm_v1"
+ROOT = "/workspace/dataset/training_data/phys3d_perm_v1"   # --root 로 바꾼다 (v2: phys3d_perm_v2)
 CTX = (10, 12, 14, 16)
 NF, G, TUB = 32, 16, 2
 
@@ -87,24 +87,39 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--split", required=True, choices=["train", "val"])
     ap.add_argument("--disp", action="store_true", help="이동량 라벨 disp_{split}.npy 만 만든다")
+    ap.add_argument("--root", default=ROOT, help="생성 세트 폴더 (기본 phys3d_perm_v1)")
+    ap.add_argument("--out", default=None, help="data_csv 아래 폴더 (기본 = root 이름)")
+    ap.add_argument("--from-clips", action="store_true",
+                    help="index.csv 대신 지금까지 렌더된 clips/*/*.mp4 (states · json 있는 것) 로 — 생성이 끝나기 전에 학습을 시작할 때 (2026-10-31)")
+    ap.add_argument("--keep-list", action="store_true", help="이미 있는 {split}_occ.csv 목록을 그대로 쓴다 (--disp 를 따로 돌릴 때)")
     a = ap.parse_args()
-    if a.disp:
+    ROOT = a.root
+    od = os.path.join(REPO, "data_csv", a.out or os.path.basename(ROOT.rstrip("/")))
+    os.makedirs(od, exist_ok=True)
+    keep = os.path.join(od, f"{a.split}_occ.csv")
+    if a.keep_list and os.path.exists(keep):            # 칸 · 이동량을 같은 목록으로 (생성 중이면 사이에 클립이 늘어 행이 어긋난다, 2026-10-31 실측)
+        paths = [ln.split()[0] for ln in open(keep) if ln.strip()]
+    elif a.from_clips:
+        import glob as _g
+        paths = sorted(p for p in _g.glob(f"{ROOT}/{a.split}/clips/*/*.mp4")
+                       if os.path.exists(p[:-4] + "_states.npz") and os.path.exists(p[:-4] + ".json"))
+    else:
         paths = [ln.split()[0] for ln in open(f"{ROOT}/{a.split}/index.csv") if ln.strip()]
+    if not (a.keep_list and os.path.exists(keep)):
+        with open(keep, "w") as f:                          # 행 번호 = 라벨 배열의 행 (둘 다 이 목록 순서)
+            f.writelines(f"{p} {i}\n" for i, p in enumerate(paths))
+    if a.disp:
         with ProcessPoolExecutor(32) as ex:
             Dl = np.stack(list(ex.map(displacements, paths, chunksize=64)))
-        np.save(os.path.join(REPO, "data_csv/phys3d_perm_v1", f"disp_{a.split}.npy"), Dl)
+        np.save(os.path.join(od, f"disp_{a.split}.npy"), Dl)
         fut = np.concatenate([Dl[:, ci, C // TUB:].reshape(-1, 2) for ci, C in enumerate(CTX)])
         ok = fut[:, 0] != -128; mag = np.hypot(*(fut[ok].astype(float) / 4).T)
         print(f"{a.split}: {Dl.shape} · 미래 칸 중 라벨 {100 * ok.mean():.2f} % · 이동 (칸) 중앙 {np.median(mag):.2f} p90 {np.percentile(mag, 90):.2f} · "
               f"0 이동 {100 * (mag == 0).mean():.1f} % · 잘림 {100 * (np.abs(fut[ok]) == 127).any(1).mean():.2f} %")
         sys.exit()
-    paths = [ln.split()[0] for ln in open(f"{ROOT}/{a.split}/index.csv") if ln.strip()]
     with ProcessPoolExecutor(32) as ex:
         L = np.stack(list(ex.map(labels, paths, chunksize=64)))
-    od = os.path.join(REPO, "data_csv/phys3d_perm_v1")
     np.save(os.path.join(od, f"occ_{a.split}.npy"), L)
-    with open(os.path.join(od, f"{a.split}_occ.csv"), "w") as f:
-        f.writelines(f"{p} {i}\n" for i, p in enumerate(paths))
     fut = np.concatenate([L[:, ci, C // TUB:].ravel() for ci, C in enumerate(CTX)])
     print(f"{a.split}: {len(paths)} clip → {L.shape} · 미래 칸 비율 " +
           " · ".join(f"{n} {100 * (fut == k).mean():.2f} %" for k, n in ((0, "배경"), (1, "보임"), (2, "가려짐"), (-1, "무시"))))

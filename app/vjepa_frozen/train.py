@@ -300,6 +300,12 @@ def main(args, resume_preempt=False):
         DISP = np.load(AUXSUP["disp_labels"], mmap_mode="r") if AUXSUP.get("disp_labels") else None   # (N, len(ctx), 16, 256, 2) int8, 1/4 칸, −128 = 없음
         if DISP is not None:
             logger.info(f"aux.sup.disp: 이동량 라벨 {AUXSUP['disp_labels']} {DISP.shape} · 가중 {float(AUXSUP.get('disp_weight', 1.0))}")
+    # 2026-10-31 imagine-seg: sup.binary = 점유 1 출력 (BCE + dice), aux.inpath = 점유 추측을 경로에 (scheduled sampling: 정답 확률 1 → 0, ss_end 비율에서 0)
+    OCC_BIN = bool((AUXSUP or {}).get("binary", False))
+    INPATH = (MD.get("aux") or {}).get("inpath") or None
+    if OCC_BIN and AUXSUP.get("p_weight"):
+        raise ValueError("model.aux.sup.binary 와 p_weight (출력 3 클래스 head) 는 같이 쓰지 않는다")
+    _p_gt = lambda st: max(0.0, 1.0 - st / max(1.0, float(INPATH.get("ss_end", 0.75)) * num_epochs * ipe)) if INPATH else 0.0
     # mask_mode: sample(기본) = step 마다 스펙 하나 / all = 릴리즈 사전학습처럼 스펙 전부, 손실 평균
     mask_all = str(cfg.get("mask_mode", "sample")) == "all"
     if mask_all and (kind in ("ar", "ctx_ar", "ctx_state") or D.get("window_grid")):
@@ -1017,21 +1023,29 @@ def main(args, resume_preempt=False):
                     if target_ln:
                         h = torch.nn.functional.layer_norm(h, (h.size(-1),))       # affine-free, target 에만
                     z = ctx_enc(xe, masks=[m_enc])                                    # context 토큰만 (B, K, D)
-                with _ac():
-                    if AUXSUP:                                                        # 칸 logits 도 forward 출력으로 (DDP)
-                        p, auxo = predictor(z, m_enc, m_pred, mask_index=int(info.get("mask_index", mask_index)), return_occ=True)
-                        occ_lg = auxo["occ"]
-                    else:
-                        p = predictor(z, m_enc, m_pred, mask_index=int(info.get("mask_index", mask_index)))   # (B, M, D); block3d 는 스펙별 mask token
-                loss = (p.float() - h.float()).abs().pow(loss_exp).mean() / loss_exp
-                if AUXSUP:   # 2026-10-31 보조 모듈 물체 칸 감독 (temporal_prefix: 미래 = 문맥 뒤 블록 전부, m 순서 = 블록 · 칸)
+                if AUXSUP:   # 2026-10-31 보조 모듈 물체 칸 감독 (temporal_prefix: 미래 = 문맥 뒤 블록 전부, m 순서 = 블록 · 칸). forward 전에 (inpath 가 정답을 받는다)
                     C_ = int(info["context_frames"])
                     lab = torch.from_numpy(np.ascontiguousarray(OCC[occ_rows.numpy(), OCC_CTX.index(C_), C_ // tubelet:])).to(device).long()
                     if occ_flip is not None:
                         lab = torch.where(occ_flip.view(-1, 1, 1), lab.view(lab.size(0), lab.size(1), 16, 16).flip(-1).flatten(2), lab)
                     lab = lab.flatten(1)                                              # (B, M)
-                    lg = occ_lg.float()                                              # (B, M, 3)
-                    ce = torch.nn.functional.cross_entropy(lg.flatten(0, 1), lab.flatten(), weight=OCC_W, ignore_index=-1)
+                with _ac():
+                    if AUXSUP:                                                        # 칸 logits 도 forward 출력으로 (DDP)
+                        _kw = dict(occ_gt=torch.where(lab < 0, -1, (lab >= 1).long()), p_gt=_p_gt(step)) if INPATH else {}
+                        p, auxo = predictor(z, m_enc, m_pred, mask_index=int(info.get("mask_index", mask_index)), return_occ=True, **_kw)
+                        occ_lg = auxo["occ"]
+                    else:
+                        p = predictor(z, m_enc, m_pred, mask_index=int(info.get("mask_index", mask_index)))   # (B, M, D); block3d 는 스펙별 mask token
+                loss = (p.float() - h.float()).abs().pow(loss_exp).mean() / loss_exp
+                if AUXSUP:
+                    lg = occ_lg.float()                                              # (B, M, 3) — binary 는 (B, M, 1)
+                    if OCC_BIN:   # 점유 = 보이는 물체 ∪ 가려진 물체, 모르는 칸 (−1) 은 뺀다. BCE + dice (imagine-seg 계획 §4.2)
+                        _v, _y, _l = lab >= 0, (lab >= 1).float(), lg.squeeze(-1)
+                        _bce = torch.nn.functional.binary_cross_entropy_with_logits(_l[_v], _y[_v])
+                        _ps, _yv = torch.sigmoid(_l) * _v, _y * _v
+                        ce = _bce + 1.0 - (2.0 * (_ps * _yv).sum() + 1.0) / (_ps.sum() + _yv.sum() + 1.0)
+                    else:
+                        ce = torch.nn.functional.cross_entropy(lg.flatten(0, 1), lab.flatten(), weight=OCC_W, ignore_index=-1)
                     loss_lat = loss
                     loss = loss + float(AUXSUP.get("weight", 1.0)) * ce
                     if DISP is not None:   # 2026-10-31 상대 표현: 칸의 문맥 물체 이동량 (칸 단위) L1, 라벨 있는 칸만
@@ -1057,10 +1071,16 @@ def main(args, resume_preempt=False):
                             ppr = plg.argmax(-1)
                             aux.update(p_ce=float(pce.detach()), **{f"p_r{k}": float((ppr[lab == k] == k).float().mean()) if (lab == k).any() else float("nan") for k in (1, 2)})
                     with torch.no_grad():
-                        pr = lg.argmax(-1)
+                        # binary: 점유로 맞힌 칸은 정답 클래스를 맞힌 것으로 센다 → occ_r1 = 보이는 물체 재현율, occ_r2 = 가려진 물체 재현율
+                        pr = torch.where(lg.squeeze(-1) > 0, lab.clamp(min=1), 0) if OCC_BIN else lg.argmax(-1)
+                        if INPATH:
+                            aux.update(p_gt=_p_gt(step))
                         aux.update(latent=float(loss_lat.detach()), occ_ce=float(ce.detach()),
                                    **{f"occ_r{k}": float((pr[lab == k] == k).float().mean()) if (lab == k).any() else float("nan") for k in (1, 2)},
                                    **{f"occ_p{k}": float((lab[pr == k] == k).float().mean()) if (pr == k).any() else float("nan") for k in (1, 2)})
+                        if OCC_BIN:   # binary 는 클래스별 정밀도가 정의되지 않는다 → occ_p1 = 점유 정밀도 (양성 예측 중 물체 칸), occ_p2 = 없음
+                            _pos = (lg.squeeze(-1) > 0) & (lab >= 0)
+                            aux.update(occ_p1=float((lab[_pos] >= 1).float().mean()) if _pos.any() else float("nan"), occ_p2=float("nan"))
                 if scaler is not None:
                     scaler.scale(loss).backward()
                     scaler.unscale_(optimizer)

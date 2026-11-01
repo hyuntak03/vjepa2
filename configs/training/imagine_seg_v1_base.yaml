@@ -1,0 +1,36 @@
+# =============================================================================
+# imagine-seg 공정 비교 — 공통 바탕 (2026-10-31, 사용자: "phys3d_perm_v1 으로 일단 진행", head 판과 공정 비교)
+#   계획: new_idea/imagine-seg/PLAN_2026-10-31.md · 비교 설계: new_idea/imagine-seg/FAIR_COMPARISON_V1_2026-10-31.md
+#
+# 세 판이 이것을 그대로 쓰고 한 가지만 바꾼다:
+#   imagine_seg_v1_ctrl   : 점유 손실 가중 0 (= post-train 만. head 는 계산되지만 기울기 0)
+#   imagine_seg_v1_head   : 점유 head 를 6 번째 블록 뒤 은닉에 (학습 때만, 추론 = 릴리즈 구조)
+#   imagine_seg_v1_inpath : 같은 head 의 추측 ŝ 를 은닉에 ŝ · e_mask 로 더해 뒤 6 블록이 쓴다 (scheduled sampling)
+#
+# 같게 맞춘 것: 시작점 (릴리즈 predictor) · 데이터 (phys3d_perm_v1 22,673 편, 문맥 {10,12,14,16} 장) · 라벨 · head 층 ·
+#   손실 (BCE + dice, 계획 §4.2) · 가중 · 학습률 (predictor 5e-5, head 3e-4) · 일정 · epoch · 배치 64 · 반전 0.5 · 검증.
+# 라벨: 점유 = 보이는 물체 ∪ 가려진 물체 (상자 칸, z_training/data/build_perm_occupancy.py), 문맥에서 못 본 물체 칸은 무시.
+#   ⚠️ 계획의 amodal mask (물체 모양) 가 아니라 상자 칸이다. 미래 칸 비율: 보임 4.7 % · 가려짐 0.86 %.
+# =============================================================================
+extends: release_aux_perm_sup
+
+meta:
+  save_every_freq: 5
+
+model:
+  aux:
+    no_module: true
+    head_layer: 5                 # 0 부터 센 블록 번호 — 6 번째 블록 뒤 (12 층의 절반, 계획 §3.2 L_split)
+    train_pred: true
+    pred_lr_mult: 0.1667          # predictor 최대 lr = 3e-4 × 0.1667 = 5e-5 (계획 §4.4 범위의 위 끝, VOBench head 판과 같다)
+    sup:
+      binary: true                # 점유 1 출력, BCE + dice
+      weight: 1.0                 # 계획 §4.2 λ 시작값. ★ 미검증
+
+optimization:
+  epochs: 20                      # 354 step / epoch × 20 = 7,080 step
+  anneal_epochs: 10               # WSD: warmup 1 → 상수 → 마지막 10 epoch 선형 감소 (열린 predictor 의 lr 배율을 쓰려면 필요)
+
+val:
+  dataset: vobench_v1_split_v2_test_late   # 학습 중 생성기 밖 감시 (VOBench held-out late 216 쌍, 학습과 겹침 0)
+  every_epochs: 2

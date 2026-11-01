@@ -1,0 +1,40 @@
+# =============================================================================
+# **보조 head 판 (모듈 없음) × phys3d_perm_v2** (2026-10-31, 사용자: "데이터 이렇게 만들어야될 듯 … 일단 지금 학습 올리던가")
+#
+#   python z_training/data/build_perm_occupancy.py --root /workspace/dataset/training_data/phys3d_perm_v2 --split train --from-clips
+#   python z_training/data/build_perm_occupancy.py --root /workspace/dataset/training_data/phys3d_perm_v2 --split train --from-clips --disp
+#   GPUS=8 bash z_training/tmux_train.sh release_aux_perm_v2_heads
+#   watch -c -n 10 bash z_training/monitor_release_aux.sh release_aux_perm_v2_heads
+#
+# 왜: VOBench 로 학습한 세 판 (post-FT · 모듈 · head) 이 모두 실제 영상 · IntPhys2 로 안 넘어갔다 — 구조가 아니라 데이터 문제 (AUX_PERMANENCE_2026-10-31.md §5).
+#     v2 데이터 (그림자 끔 · 미끼 가림막 · 끝까지 안 나타나는 가림 · 큰 물체) 로 같은 보조 head 판을 학습해 이식이 생기는지 본다.
+# 구조: release_aux_vob_heads 와 같다 — 릴리즈 predictor 열기 (최대 lr 5e-5) + predictor 은닉 (8 번째 블록 뒤) 의 칸 분류 · 이동량 head + 출력 칸 분류 head.
+#     추론 = 릴리즈 구조 그대로.
+# 과제: 문맥 {10, 12, 14, 16} 장 → 나머지 미래 (phys3d_perm 판들과 같다). 판정: VOBench held-out · real_bench · IntPhys1 · 2 late (같은 쌍 비교).
+# =============================================================================
+extends: release_aux_vob_heads
+
+model:
+  aux:
+    sup:
+      labels: ${DATA_CSV}/phys3d_perm_v2/occ_train.npy
+      disp_labels: ${DATA_CSV}/phys3d_perm_v2/disp_train.npy
+      ctx: [10, 12, 14, 16]
+
+data:
+  batch_size: 8                 # rank 당 × 8 GPU = 64
+  num_workers: 6
+  datasets:
+    - {name: phys3d_perm_v2_occ, weight: 1.0}
+  aug:
+    hflip_p: 0.0
+    random_resized_crop: null
+
+mask:
+  - type: temporal_prefix
+    context_frames: [10, 12, 14, 16]
+    weight: 1.0
+
+optimization:
+  epochs: 20
+  anneal_epochs: 10

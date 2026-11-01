@@ -1,0 +1,3 @@
+# imagine-seg 공정 비교 ② 보조 head — 6 번째 블록 뒤 은닉에 점유 head (학습 때만, 추론 = 릴리즈 구조). 바탕: imagine_seg_v1_base.yaml
+#   GPUS=8 bash z_training/tmux_train.sh imagine_seg_v1_head
+extends: imagine_seg_v1_base

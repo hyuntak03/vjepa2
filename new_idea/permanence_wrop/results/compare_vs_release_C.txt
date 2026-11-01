@@ -1,0 +1,84 @@
+=== vobench_v1_split_v2_test
+vobench_v1_split_v2_test: vith vs vast_permwrop_C (같은 쌍 비교)
+  전체                                 n  720 | vith  75.7 → vast_permwrop_C  79.7 ( +4.0) | 틀림→맞음  53 · 맞음→틀림  24 · p 0.001
+  방향 A                               n  360 | vith  68.3 → vast_permwrop_C  77.2 ( +8.9) | 틀림→맞음  39 · 맞음→틀림   7 · p 0.000
+  방향 B                               n  360 | vith  83.1 → vast_permwrop_C  82.2 ( -0.8) | 틀림→맞음  14 · 맞음→틀림  17 · p 0.590
+  primitive/color/early · A          n   18 | vith  66.7 → vast_permwrop_C  66.7 ( +0.0) | 틀림→맞음   1 · 맞음→틀림   1 · p 1.000
+  primitive/color/early · B          n   18 | vith  83.3 → vast_permwrop_C  83.3 ( +0.0) | 틀림→맞음   1 · 맞음→틀림   1 · p 1.000
+  primitive/color/late · A           n   18 | vith  77.8 → vast_permwrop_C  72.2 ( -5.6) | 틀림→맞음   0 · 맞음→틀림   1 · p 0.317
+  primitive/color/late · B           n   18 | vith  55.6 → vast_permwrop_C  38.9 (-16.7) | 틀림→맞음   0 · 맞음→틀림   3 · p 0.083
+  primitive/color/mid · A            n   18 | vith  44.4 → vast_permwrop_C  61.1 (+16.7) | 틀림→맞음   3 · 맞음→틀림   0 · p 0.083
+  primitive/color/mid · B            n   18 | vith  55.6 → vast_permwrop_C  55.6 ( +0.0) | 틀림→맞음   1 · 맞음→틀림   1 · p 1.000
+  primitive/color/visible · A        n    6 | vith  83.3 → vast_permwrop_C  83.3 ( +0.0) | 틀림→맞음   0 · 맞음→틀림   0 · p 1.000
+  primitive/color/visible · B        n    6 | vith  66.7 → vast_permwrop_C  83.3 (+16.7) | 틀림→맞음   1 · 맞음→틀림   0 · p 0.317
+  primitive/permanence/early · A     n   18 | vith  94.4 → vast_permwrop_C 100.0 ( +5.6) | 틀림→맞음   1 · 맞음→틀림   0 · p 0.317
+  primitive/permanence/early · B     n   18 | vith 100.0 → vast_permwrop_C  83.3 (-16.7) | 틀림→맞음   0 · 맞음→틀림   3 · p 0.083
+  primitive/permanence/late · A      n   18 | vith  16.7 → vast_permwrop_C  50.0 (+33.3) | 틀림→맞음   6 · 맞음→틀림   0 · p 0.014
+  primitive/permanence/late · B      n   18 | vith  88.9 → vast_permwrop_C  83.3 ( -5.6) | 틀림→맞음   1 · 맞음→틀림   2 · p 0.564
+  primitive/permanence/mid · A       n   18 | vith  94.4 → vast_permwrop_C 100.0 ( +5.6) | 틀림→맞음   1 · 맞음→틀림   0 · p 0.317
+  primitive/permanence/mid · B       n   18 | vith 100.0 → vast_permwrop_C 100.0 ( +0.0) | 틀림→맞음   0 · 맞음→틀림   0 · p 1.000
+  primitive/permanence/visible · A   n    6 | vith 100.0 → vast_permwrop_C 100.0 ( +0.0) | 틀림→맞음   0 · 맞음→틀림   0 · p 1.000
+  primitive/permanence/visible · B   n    6 | vith 100.0 → vast_permwrop_C 100.0 ( +0.0) | 틀림→맞음   0 · 맞음→틀림   0 · p 1.000
+  primitive/shape/early · A          n   18 | vith  72.2 → vast_permwrop_C  88.9 (+16.7) | 틀림→맞음   4 · 맞음→틀림   1 · p 0.180
+  primitive/shape/early · B          n   18 | vith  61.1 → vast_permwrop_C  77.8 (+16.7) | 틀림→맞음   3 · 맞음→틀림   0 · p 0.083
+  primitive/shape/late · A           n   18 | vith  38.9 → vast_permwrop_C  50.0 (+11.1) | 틀림→맞음   3 · 맞음→틀림   1 · p 0.317
+  primitive/shape/late · B           n   18 | vith  77.8 → vast_permwrop_C  66.7 (-11.1) | 틀림→맞음   0 · 맞음→틀림   2 · p 0.157
+  primitive/shape/mid · A            n   18 | vith  55.6 → vast_permwrop_C  77.8 (+22.2) | 틀림→맞음   4 · 맞음→틀림   0 · p 0.046
+  primitive/shape/mid · B            n   18 | vith  66.7 → vast_permwrop_C  77.8 (+11.1) | 틀림→맞음   3 · 맞음→틀림   1 · p 0.317
+  primitive/shape/visible · A        n    6 | vith  66.7 → vast_permwrop_C  66.7 ( +0.0) | 틀림→맞음   0 · 맞음→틀림   0 · p 1.000
+  primitive/shape/visible · B        n    6 | vith  66.7 → vast_permwrop_C  83.3 (+16.7) | 틀림→맞음   1 · 맞음→틀림   0 · p 0.317
+  realistic/color/early · A          n   18 | vith  72.2 → vast_permwrop_C  72.2 ( +0.0) | 틀림→맞음   0 · 맞음→틀림   0 · p 1.000
+  realistic/color/early · B          n   18 | vith  72.2 → vast_permwrop_C  77.8 ( +5.6) | 틀림→맞음   2 · 맞음→틀림   1 · p 0.564
+  realistic/color/late · A           n   18 | vith  50.0 → vast_permwrop_C  61.1 (+11.1) | 틀림→맞음   2 · 맞음→틀림   0 · p 0.157
+  realistic/color/late · B           n   18 | vith  88.9 → vast_permwrop_C  83.3 ( -5.6) | 틀림→맞음   0 · 맞음→틀림   1 · p 0.317
+  realistic/color/mid · A            n   18 | vith  83.3 → vast_permwrop_C  77.8 ( -5.6) | 틀림→맞음   1 · 맞음→틀림   2 · p 0.564
+  realistic/color/mid · B            n   18 | vith  83.3 → vast_permwrop_C  88.9 ( +5.6) | 틀림→맞음   1 · 맞음→틀림   0 · p 0.317
+  realistic/color/visible · A        n    6 | vith 100.0 → vast_permwrop_C 100.0 ( +0.0) | 틀림→맞음   0 · 맞음→틀림   0 · p 1.000
+  realistic/color/visible · B        n    6 | vith 100.0 → vast_permwrop_C  83.3 (-16.7) | 틀림→맞음   0 · 맞음→틀림   1 · p 0.317
+  realistic/permanence/early · A     n   18 | vith  88.9 → vast_permwrop_C 100.0 (+11.1) | 틀림→맞음   2 · 맞음→틀림   0 · p 0.157
+  realistic/permanence/early · B     n   18 | vith 100.0 → vast_permwrop_C 100.0 ( +0.0) | 틀림→맞음   0 · 맞음→틀림   0 · p 1.000
+  realistic/permanence/late · A      n   18 | vith  11.1 → vast_permwrop_C  33.3 (+22.2) | 틀림→맞음   4 · 맞음→틀림   0 · p 0.046
+  realistic/permanence/late · B      n   18 | vith 100.0 → vast_permwrop_C 100.0 ( +0.0) | 틀림→맞음   0 · 맞음→틀림   0 · p 1.000
+  realistic/permanence/mid · A       n   18 | vith  77.8 → vast_permwrop_C 100.0 (+22.2) | 틀림→맞음   4 · 맞음→틀림   0 · p 0.046
+  realistic/permanence/mid · B       n   18 | vith 100.0 → vast_permwrop_C 100.0 ( +0.0) | 틀림→맞음   0 · 맞음→틀림   0 · p 1.000
+  realistic/permanence/visible · A   n    6 | vith 100.0 → vast_permwrop_C 100.0 ( +0.0) | 틀림→맞음   0 · 맞음→틀림   0 · p 1.000
+  realistic/permanence/visible · B   n    6 | vith 100.0 → vast_permwrop_C 100.0 ( +0.0) | 틀림→맞음   0 · 맞음→틀림   0 · p 1.000
+  realistic/shape/early · A          n   18 | vith  88.9 → vast_permwrop_C 100.0 (+11.1) | 틀림→맞음   2 · 맞음→틀림   0 · p 0.157
+  realistic/shape/early · B          n   18 | vith  88.9 → vast_permwrop_C  88.9 ( +0.0) | 틀림→맞음   0 · 맞음→틀림   0 · p 1.000
+  realistic/shape/late · A           n   18 | vith  72.2 → vast_permwrop_C  72.2 ( +0.0) | 틀림→맞음   1 · 맞음→틀림   1 · p 1.000
+  realistic/shape/late · B           n   18 | vith  72.2 → vast_permwrop_C  66.7 ( -5.6) | 틀림→맞음   0 · 맞음→틀림   1 · p 0.317
+  realistic/shape/mid · A            n   18 | vith  77.8 → vast_permwrop_C  77.8 ( +0.0) | 틀림→맞음   0 · 맞음→틀림   0 · p 1.000
+  realistic/shape/mid · B            n   18 | vith  88.9 → vast_permwrop_C  88.9 ( +0.0) | 틀림→맞음   0 · 맞음→틀림   0 · p 1.000
+  realistic/shape/visible · A        n    6 | vith 100.0 → vast_permwrop_C 100.0 ( +0.0) | 틀림→맞음   0 · 맞음→틀림   0 · p 1.000
+  realistic/shape/visible · B        n    6 | vith 100.0 → vast_permwrop_C 100.0 ( +0.0) | 틀림→맞음   0 · 맞음→틀림   0 · p 1.000
+=== real_bench_quads
+real_bench_quads: vith vs vast_permwrop_C (같은 쌍 비교)
+  전체                                 n   40 | vith  47.5 → vast_permwrop_C  42.5 ( -5.0) | 틀림→맞음   1 · 맞음→틀림   3 · p 0.317
+  방향 A                               n   20 | vith  25.0 → vast_permwrop_C  20.0 ( -5.0) | 틀림→맞음   1 · 맞음→틀림   2 · p 0.564
+  방향 B                               n   20 | vith  70.0 → vast_permwrop_C  65.0 ( -5.0) | 틀림→맞음   0 · 맞음→틀림   1 · p 0.317
+  containment · A                    n   10 | vith  40.0 → vast_permwrop_C  30.0 (-10.0) | 틀림→맞음   1 · 맞음→틀림   2 · p 0.564
+  containment · B                    n   10 | vith  50.0 → vast_permwrop_C  40.0 (-10.0) | 틀림→맞음   0 · 맞음→틀림   1 · p 0.317
+  occlusion · A                      n    9 | vith  11.1 → vast_permwrop_C  11.1 ( +0.0) | 틀림→맞음   0 · 맞음→틀림   0 · p 1.000
+  occlusion · B                      n    9 | vith  88.9 → vast_permwrop_C  88.9 ( +0.0) | 틀림→맞음   0 · 맞음→틀림   0 · p 1.000
+  out_of_frame · A                   n    1 | vith   0.0 → vast_permwrop_C   0.0 ( +0.0) | 틀림→맞음   0 · 맞음→틀림   0 · p 1.000
+  out_of_frame · B                   n    1 | vith 100.0 → vast_permwrop_C 100.0 ( +0.0) | 틀림→맞음   0 · 맞음→틀림   0 · p 1.000
+=== intphys1_late_uni
+intphys1_late_uni: vith vs vast_permwrop_C (같은 쌍 비교)
+  전체                                 n  180 | vith  68.3 → vast_permwrop_C  72.2 ( +3.9) | 틀림→맞음  16 · 맞음→틀림   9 · p 0.162
+  방향 1                               n   90 | vith  63.3 → vast_permwrop_C  73.3 (+10.0) | 틀림→맞음  11 · 맞음→틀림   2 · p 0.013
+  방향 2                               n   90 | vith  73.3 → vast_permwrop_C  71.1 ( -2.2) | 틀림→맞음   5 · 맞음→틀림   7 · p 0.564
+  moving/occluded · 1                n   30 | vith  40.0 → vast_permwrop_C  53.3 (+13.3) | 틀림→맞음   4 · 맞음→틀림   0 · p 0.046
+  moving/occluded · 2                n   30 | vith  70.0 → vast_permwrop_C  60.0 (-10.0) | 틀림→맞음   1 · 맞음→틀림   4 · p 0.180
+  moving/visible · 1                 n   30 | vith  70.0 → vast_permwrop_C  76.7 ( +6.7) | 틀림→맞음   4 · 맞음→틀림   2 · p 0.414
+  moving/visible · 2                 n   30 | vith  76.7 → vast_permwrop_C  80.0 ( +3.3) | 틀림→맞음   2 · 맞음→틀림   1 · p 0.564
+  static/occluded · 1                n   15 | vith  66.7 → vast_permwrop_C  80.0 (+13.3) | 틀림→맞음   2 · 맞음→틀림   0 · p 0.157
+  static/occluded · 2                n   15 | vith  53.3 → vast_permwrop_C  66.7 (+13.3) | 틀림→맞음   2 · 맞음→틀림   0 · p 0.157
+  static/visible · 1                 n   15 | vith  93.3 → vast_permwrop_C 100.0 ( +6.7) | 틀림→맞음   1 · 맞음→틀림   0 · p 0.317
+  static/visible · 2                 n   15 | vith  93.3 → vast_permwrop_C  80.0 (-13.3) | 틀림→맞음   0 · 맞음→틀림   2 · p 0.157
+=== intphys2_violation_uni
+intphys2_violation_uni: vith vs vast_permwrop_C (같은 쌍 비교)
+  전체                                 n  500 | vith  54.6 → vast_permwrop_C  53.6 ( -1.0) | 틀림→맞음  60 · 맞음→틀림  65 · p 0.655
+  continuity                         n  120 | vith  56.7 → vast_permwrop_C  54.2 ( -2.5) | 틀림→맞음  16 · 맞음→틀림  19 · p 0.612
+  immutability                       n  118 | vith  52.5 → vast_permwrop_C  54.2 ( +1.7) | 틀림→맞음  24 · 맞음→틀림  22 · p 0.768
+  permanence                         n  120 | vith  58.3 → vast_permwrop_C  55.0 ( -3.3) | 틀림→맞음  12 · 맞음→틀림  16 · p 0.450
+  solidity                           n  142 | vith  51.4 → vast_permwrop_C  51.4 ( +0.0) | 틀림→맞음   8 · 맞음→틀림   8 · p 1.000

@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>물체 영속 학습 1차 결과</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=Noto+Serif+KR:wght@600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+/* 계획: 연구 보고서 한 장. 위에서 아래로 질문 → 방법 → 데이터 예시 → 결과 → 확실한 것.
+   색은 의미에만 쓴다: 모델 네 개 (C 만 강조색), 가능 = 초록, 불가능 = 주황. */
+:root {
+  --bg: #f4f6f8;
+  --surface: #ffffff;
+  --ink: #161a1f;
+  --muted: #5a636e;
+  --line: #dce1e6;
+  --accent: #2a78d6;
+  --ok: #138a60;
+  --bad: #d4571f;
+  --mA: #9aa2ab;
+  --mB: #56677d;
+  --mC: #2a78d6;
+  --mD: #8a68b8;
+  --track: #e9edf1;
+  --font-display: "Noto Serif KR", "Nanum Myeongjo", serif;
+  --font-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --font-num: "IBM Plex Mono", ui-monospace, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12161b; --surface: #1a2027; --ink: #e8ecf0; --muted: #9aa5b1; --line: #2c343d;
+    --accent: #5aa0f0; --ok: #3cc98f; --bad: #f08a55;
+    --mA: #6f7883; --mB: #8396ad; --mC: #5aa0f0; --mD: #a98bd6; --track: #262e37;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #12161b; --surface: #1a2027; --ink: #e8ecf0; --muted: #9aa5b1; --line: #2c343d;
+  --accent: #5aa0f0; --ok: #3cc98f; --bad: #f08a55;
+  --mA: #6f7883; --mB: #8396ad; --mC: #5aa0f0; --mD: #a98bd6; --track: #262e37;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font-family: var(--font-body); font-size: 16.5px; line-height: 1.7;
+  word-break: keep-all; overflow-wrap: anywhere;
+}
+main { max-width: 980px; margin: 0 auto; padding: 40px 20px 72px; display: grid; gap: 44px; }
+h1, h2 { font-family: var(--font-display); text-wrap: balance; line-height: 1.3; margin: 0; }
+h1 { font-size: clamp(1.7rem, 4vw, 2.35rem); }
+h2 { font-size: 1.45rem; }
+h3 { font-size: 1.08rem; margin: 0; font-weight: 600; }
+p { margin: 0; }
+.prose { max-width: 68ch; display: grid; gap: 10px; }
+.muted { color: var(--muted); }
+.num { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+section { display: grid; gap: 18px; }
+.sec-no { font-family: var(--font-num); color: var(--muted); font-size: .85rem; letter-spacing: .04em; }
+ul.tight { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; }
+
+/* 머리 */
+header { display: grid; gap: 14px; }
+.eyebrow { font-size: .88rem; color: var(--muted); }
+.summary {
+  background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--accent);
+  border-radius: 10px; padding: 18px 20px; display: grid; gap: 10px;
+}
+.summary div { display: grid; grid-template-columns: 4.2em 1fr; gap: 12px; }
+.summary dt { font-weight: 700; color: var(--muted); }
+.summary dd { margin: 0; }
+
+/* 용어 상자 */
+.terms { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.term { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 4px; }
+.term b { font-size: 1rem; }
+
+/* 채점 흐름 */
+.flow { display: grid; grid-template-columns: 1fr auto 1fr auto 1.3fr; align-items: center; gap: 10px; }
+.flow .box { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; text-align: center; font-size: .95rem; }
+.flow .arrow { color: var(--muted); font-size: 1.3rem; }
+.flow .two { display: grid; gap: 8px; }
+.flow .two .box { text-align: left; }
+.rule { background: var(--surface); border: 1px dashed var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 6px; }
+
+/* 모델 표 */
+.models { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.models th, .models td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.models th { font-size: .88rem; color: var(--muted); font-weight: 600; }
+.models tr:last-child td { border-bottom: 0; }
+.tag { display: inline-grid; place-items: center; min-width: 1.9em; height: 1.9em; border-radius: 6px; color: #fff; font-weight: 700; font-family: var(--font-num); }
+.tA { background: var(--mA); } .tB { background: var(--mB); } .tC { background: var(--mC); } .tD { background: var(--mD); }
+.table-wrap { overflow-x: auto; }
+
+/* 데이터 예시 */
+.ds { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px; display: grid; gap: 12px; }
+.ds-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px; }
+.ds-head .count { font-size: .9rem; color: var(--muted); }
+.ds p.desc { max-width: 72ch; }
+.strip { display: grid; gap: 4px; }
+.strip img { width: 100%; height: auto; display: block; border-radius: 4px; }
+.lab { font-size: .82rem; color: var(--muted); font-weight: 500; }
+.lab.ok { color: var(--ok); font-weight: 700; }
+.lab.bad { color: var(--bad); font-weight: 700; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; align-items: start; }
+.pair .ctx { grid-row: span 2; align-self: center; }
+.cap { font-size: .92rem; color: var(--muted); }
+.group-title { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.chip { font-size: .8rem; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+.chip.c { border-color: var(--mC); color: var(--mC); }
+.chip.d { border-color: var(--mD); color: var(--mD); }
+.chip.all { border-color: var(--mB); color: var(--mB); }
+.ex-row { display: grid; gap: 6px; }
+.ex-row + .ex-row { border-top: 1px solid var(--line); padding-top: 12px; }
+.duo { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; }
+
+/* 결과 막대 */
+.charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.chart { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; display: grid; gap: 10px; align-content: start; }
+.chart.key { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.chart-head { display: grid; gap: 2px; }
+.chart-head .sub { font-size: .86rem; color: var(--muted); }
+.bars { display: grid; gap: 7px; }
+.bar { display: grid; grid-template-columns: 4.6em 1fr 3em; align-items: center; gap: 8px; font-size: .9rem; }
+.bar .name { color: var(--muted); white-space: nowrap; }
+.track { position: relative; height: 16px; background: var(--track); border-radius: 4px; }
+.fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; }
+.fA { background: var(--mA); } .fB { background: var(--mB); } .fC { background: var(--mC); } .fD { background: var(--mD); }
+.chance { position: absolute; left: 50%; top: -4px; bottom: -4px; border-left: 2px dashed var(--ink); opacity: .45; }
+.bar .val { text-align: right; font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+.bar.hl .val, .bar.hl .name { color: var(--ink); font-weight: 700; }
+.verdict { font-size: .9rem; border-top: 1px solid var(--line); padding-top: 9px; display: grid; gap: 3px; }
+.pill { display: inline-block; font-size: .78rem; font-weight: 700; padding: 1px 8px; border-radius: 999px; margin-right: 6px; }
+.pill.yes { background: color-mix(in srgb, var(--ok) 16%, transparent); color: var(--ok); }
+.pill.no { background: var(--track); color: var(--muted); }
+.legend { font-size: .86rem; color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px 18px; }
+
+/* 결론 */
+.facts { display: grid; gap: 12px; }
+.fact { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; grid-template-columns: 2em 1fr; gap: 10px; }
+.fact .n { font-family: var(--font-num); color: var(--accent); font-weight: 700; }
+.fact.limit .n { color: var(--muted); }
+footer { font-size: .85rem; color: var(--muted); display: grid; gap: 6px; border-top: 1px solid var(--line); padding-top: 18px; }
+footer code { font-family: var(--font-num); font-size: .82rem; }
+
+@media (max-width: 680px) {
+  .flow { grid-template-columns: 1fr; }
+  .flow .arrow { transform: rotate(90deg); justify-self: center; }
+  .pair, .duo { grid-template-columns: 1fr; }
+  .pair .ctx { grid-row: auto; }
+  .summary div { grid-template-columns: 1fr; gap: 2px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+<main>
+
+<header>
+  <div class="eyebrow">V-JEPA 2 물체 영속 실험 · 1차 결과 · 2026-11-01</div>
+  <h1>가림 영상을 더 보여 주면,<br>AI 는 가려진 물체를 기억할까</h1>
+  <dl class="summary">
+    <div><dt>질문</dt><dd>물체가 가려졌다 다시 나오는 영상을 영상 예측 AI 에 더 학습시키면, "가려져도 물체는 그대로 있다" 를 더 잘 알게 되나?</dd></div>
+    <div><dt>답</dt><dd><b>학습에 안 쓴 합성 시험 (VOBench) 에서는 확실히 좋아졌다.</b> 장면이 복잡한 공개 시험 (IntPhys2) 과 실제 촬영 영상에서는 좋아지지 않았다.</dd></div>
+    <div><dt>다음</dt><dd>같은 학습을 두 번 더 돌려 결과가 반복되는지 확인하고, 복잡한 장면에서 왜 안 되는지를 학습 없이 먼저 쪼개 본다.</dd></div>
+  </dl>
+</header>
+
+<section>
+  <div class="sec-no">1 · 무엇을 알고 싶었나</div>
+  <h2>가려진 물체를 "없어졌다" 고 보는 문제</h2>
+  <div class="prose">
+    <p><b>물체 영속</b>은 물체가 가려져 안 보여도 그 자리에 계속 있다는 것을 아는 능력이다. 사람은 아기 때 배운다.</p>
+    <p><b>V-JEPA 2</b> 는 Meta 가 공개한 영상 예측 AI 다. 영상 앞부분을 보고 뒷부분이 어떨지 예측한다. 픽셀을 그리지 않고, 영상을 요약한 내부 표현을 예측한다.</p>
+    <p>이 모델은 물체가 가림막 뒤로 들어가는 순간에 영상이 끊기면 대개 <b>"물체가 사라진 미래" 를 더 자연스럽다고 본다.</b> 그런 칸에서 원래 모델의 정답률은 <span class="num">14 %</span> 다 (아래 결과 ②).</p>
+    <p>그래서 물었다. 가림 장면이 많은 영상으로 더 학습시키면 나아지나? 그리고 학습 때 못 본 종류의 영상에서도 나아지나?</p>
+  </div>
+</section>
+
+<section>
+  <div class="sec-no">2 · 어떻게 재나</div>
+  <h2>"놀람" 점수로 가능 · 불가능을 가린다</h2>
+  <div class="flow" aria-label="채점 흐름">
+    <div class="box"><b>문맥</b><br><span class="muted">모델이 보는 앞부분<br>16 장</span></div>
+    <div class="arrow" aria-hidden="true">→</div>
+    <div class="box"><b>모델의 예측</b><br><span class="muted">뒷부분 16 장이<br>어떨지</span></div>
+    <div class="arrow" aria-hidden="true">→</div>
+    <div class="two">
+      <div class="box"><span class="lab ok">가능한 미래</span><br>실제로 일어날 수 있는 뒷부분 (가려진 물체가 다시 나옴)</div>
+      <div class="box"><span class="lab bad">불가능한 미래</span><br>물리적으로 말이 안 되는 뒷부분 (물체가 사라짐)</div>
+    </div>
+  </div>
+  <div class="rule">
+    <p><b>놀람</b> = 모델의 예측과 실제 뒷부분이 얼마나 다른가. 클수록 모델이 "예상 밖" 이라고 본 것이다.</p>
+    <p><b>정답</b> = 불가능한 미래에서 더 놀라면 맞힌 것이다. 두 영상은 문맥이 픽셀까지 같아, 뒷부분만 다르다. 이런 두 영상을 <b>쌍</b>이라 부른다.</p>
+    <p><b>정답률 50 %</b> 는 동전 던지기와 같다. 50 % 아래면 거꾸로, 말이 안 되는 쪽을 더 자연스럽다고 본다는 뜻이다.</p>
+  </div>
+</section>
+
+<section>
+  <div class="sec-no">3 · 무엇을 비교했나</div>
+  <h2>학습 데이터만 다른 모델 네 개</h2>
+  <div class="prose"><p>모두 원래 모델에서 출발해 같은 시간 (<span class="num">4,000</span> 번 갱신, 클립 <span class="num">25.6</span> 만 개) 동안 더 학습했다. 영상을 요약하는 부분은 고정하고, 예측하는 부분만 학습했다. 정답 라벨은 쓰지 않았다. 영상을 보고 뒷부분을 예측하는 원래 방식 그대로다.</p></div>
+  <div class="table-wrap">
+  <table class="models">
+    <thead><tr><th>모델</th><th>추가로 본 영상</th><th>왜 넣었나</th></tr></thead>
+    <tbody>
+      <tr><td><span class="tag tA">A</span></td><td>없음 (원래 공개 모델)</td><td>출발점</td></tr>
+      <tr><td><span class="tag tB">B</span></td><td>일상 영상 (SSv2) 만</td><td>"더 학습한 것만으로" 생기는 변화</td></tr>
+      <tr><td><span class="tag tC">C</span></td><td>일상 영상 반 + <b>가림 영상</b> (WROP 가림) 반</td><td><b>주인공.</b> 가림 경험의 효과</td></tr>
+      <tr><td><span class="tag tD">D</span></td><td>일상 영상 반 + <b>가림 없는 물리 영상</b> (WROP 비영속) 반</td><td>대조군. C 와 같은 프로그램으로 만든 같은 양의 영상이지만 가림이 핵심이 아니다. C 가 좋아졌을 때 "가림을 배워서" 인지 "합성 화면에 익숙해져서" 인지 가른다</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section>
+  <div class="sec-no">4 · 학습에 쓴 데이터</div>
+  <h2>무엇을 보여 주며 학습했나</h2>
+  <p class="cap">그림은 실제 학습 클립에서 뽑았다. 왼쪽 세 장 = 문맥 (모델이 보는 부분), 오른쪽 세 장 = 맞혀야 하는 뒷부분.</p>
+
+  <div class="ds">
+    <div class="ds-head">
+      <div class="group-title"><h3>SSv2 · 일상 영상</h3><span class="chip all">B · C · D 모두</span></div>
+      <span class="count">클립 <span class="num">185,229</span> 개 · 실제 촬영</span>
+    </div>
+    <p class="desc">사람이 손으로 물건을 다루는 짧은 영상. 동작 종류가 174 가지다. 원래 모델이 배운 영상과 비슷한 종류라, 일반적인 예측 능력이 무너지지 않게 붙잡는 역할이다.</p>
+    <div class="duo">
+      <div class="strip"><img src="img/ssv2_176660.webp" alt="손으로 크림 통을 왼쪽에서 오른쪽으로 미는 영상 네 장면" loading="lazy"><span class="lab">"pushing hand cream from left to right" · 연속 4 장</span></div>
+      <div class="strip"><img src="img/ssv2_216433.webp" alt="파우치와 휴대폰을 서로 가깝게 옮기는 영상 네 장면" loading="lazy"><span class="lab">"moving a pouch and a mobile phone closer to each other"</span></div>
+    </div>
+  </div>
+
+  <div class="ds">
+    <div class="ds-head">
+      <div class="group-title"><h3>WROP 가림 영상</h3><span class="chip c">C 만</span></div>
+      <span class="count">55 가지 과제 · 클립 <span class="num">79,750</span> 개 · Blender 로 만든 합성 영상</span>
+    </div>
+    <p class="desc">공개 물체 영속 데이터 WROP 중 물체가 가려졌다 다시 보이는 과제들. 카메라 · 조명 · 속도가 매번 무작위로 바뀐다. 뒷부분은 항상 "물체가 그대로 있는" 가능한 미래다.</p>
+    <div class="ex-row">
+      <div class="duo">
+        <div class="strip"><span class="lab">문맥</span><img src="img/wrop_ball_behind_box_stack_ctx.webp" alt="주황 공이 오른쪽에서 굴러와 회색 상자 더미 뒤로 들어감" loading="lazy"></div>
+        <div class="strip"><span class="lab">뒷부분</span><img src="img/wrop_ball_behind_box_stack_fut.webp" alt="공이 상자 더미 왼쪽으로 다시 나옴" loading="lazy"></div>
+      </div>
+      <span class="cap">움직이는 물체 가림 · 공이 상자 더미 뒤로 굴러가 반대편으로 다시 나온다.</span>
+    </div>
+    <div class="ex-row">
+      <div class="duo">
+        <div class="strip"><span class="lab">문맥</span><img src="img/wrop_cabinet_ctx.webp" alt="공 세 개가 든 선반의 미닫이문이 닫힘" loading="lazy"></div>
+        <div class="strip"><span class="lab">뒷부분</span><img src="img/wrop_cabinet_fut.webp" alt="문이 다시 열리고 공 세 개가 그대로 있음" loading="lazy"></div>
+      </div>
+      <span class="cap">멈춘 물체 가림 · 공 세 개가 든 선반의 문이 닫혔다 열린다. 공은 그대로 있다.</span>
+    </div>
+  </div>
+
+  <div class="ds">
+    <div class="ds-head">
+      <div class="group-title"><h3>WROP 가림 없는 물리 영상</h3><span class="chip d">D 만</span></div>
+      <span class="count">60 가지 과제 · 클립 <span class="num">79,800</span> 개 · 같은 Blender 데이터</span>
+    </div>
+    <p class="desc">같은 WROP 안에서 막힘 · 떨어짐 · 충돌 과제. 화면 느낌과 양은 C 의 가림 영상과 같고, 물체가 가려지는 것이 핵심이 아니다.</p>
+    <div class="ex-row">
+      <div class="duo">
+        <div class="strip"><span class="lab">문맥</span><img src="img/wrop_bumper_carom_ctx.webp" alt="청록 공이 회색 판 쪽으로 굴러감" loading="lazy"></div>
+        <div class="strip"><span class="lab">뒷부분</span><img src="img/wrop_bumper_carom_fut.webp" alt="공이 판에 맞고 튕겨 나옴" loading="lazy"></div>
+      </div>
+      <span class="cap">막힘 · 공이 판에 맞고 튕겨 나온다.</span>
+    </div>
+    <div class="ex-row">
+      <div class="duo">
+        <div class="strip"><span class="lab">문맥</span><img src="img/wrop_conveyor_edge_fall_ctx.webp" alt="파란 공이 컨베이어 위를 굴러감" loading="lazy"></div>
+        <div class="strip"><span class="lab">뒷부분</span><img src="img/wrop_conveyor_edge_fall_fut.webp" alt="공이 컨베이어 끝에서 떨어져 상자에 들어감" loading="lazy"></div>
+      </div>
+      <span class="cap">떨어짐 · 공이 컨베이어 끝에서 떨어져 상자에 들어간다.</span>
+    </div>
+    <div class="ex-row">
+      <div class="duo">
+        <div class="strip"><span class="lab">문맥</span><img src="img/wrop_ball_topples_block_ctx.webp" alt="공이 서 있는 분홍 블록 쪽으로 굴러감" loading="lazy"></div>
+        <div class="strip"><span class="lab">뒷부분</span><img src="img/wrop_ball_topples_block_fut.webp" alt="블록이 넘어짐" loading="lazy"></div>
+      </div>
+      <span class="cap">충돌 · 공이 굴러와 서 있는 블록을 넘어뜨린다.</span>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-no">5 · 시험에 쓴 데이터</div>
+  <h2>학습에 한 번도 안 쓴 시험 네 가지</h2>
+  <p class="cap">각 시험은 문맥이 같은 <span class="lab ok">가능</span> · <span class="lab bad">불가능</span> 쌍으로 되어 있다. 그림은 실제 시험 쌍에서 뽑았다.</p>
+
+  <div class="ds">
+    <div class="ds-head">
+      <h3>VOBench · 우리 팀이 Unreal 로 만든 합성 시험</h3>
+      <span class="count"><span class="num">720</span> 쌍 · 위반 종류: 사라짐 · 생김 · 모양 바뀜 · 색 바뀜</span>
+    </div>
+    <div class="pair">
+      <div class="strip ctx"><span class="lab">문맥 (두 영상이 같다)</span><img src="img/vobench_ctx.webp" alt="초록 고리가 오른쪽으로 움직이고 마지막 장면에서 갈색 가림막이 올라와 고리를 가림" loading="lazy"></div>
+      <div class="strip"><span class="lab ok">가능 · 고리가 다시 보인다</span><img src="img/vobench_pos.webp" alt="가림막이 내려가고 고리가 오른쪽에 보임" loading="lazy"></div>
+      <div class="strip"><span class="lab bad">불가능 · 고리가 사라졌다</span><img src="img/vobench_imp.webp" alt="가림막이 내려갔는데 고리가 없음" loading="lazy"></div>
+    </div>
+    <p class="cap">이 예시는 결과 ② 의 칸에서 뽑았다. 가림막이 물체를 가린 채로 문맥이 끝나서, 사라짐이 가림막 뒤에서 일어난다 (VOBench 의 영속 · late 가림).</p>
+  </div>
+
+  <div class="ds">
+    <div class="ds-head">
+      <h3>IntPhys 1 · 공개 합성 시험</h3>
+      <span class="count"><span class="num">180</span> 쌍 · 위반 종류: 사라짐 · 모양 바뀜 · 순간 이동</span>
+    </div>
+    <div class="pair">
+      <div class="strip ctx"><span class="lab">문맥 (두 영상이 같다)</span><img src="img/intphys1_ctx.webp" alt="벽 두 개가 일어서고 보라 정육면체가 왼쪽 벽 뒤로 들어감" loading="lazy"></div>
+      <div class="strip"><span class="lab ok">가능 · 두 벽 사이 틈에서 보인다</span><img src="img/intphys1_pos.webp" alt="보라 정육면체가 두 벽 사이에 보이고, 이어서 오른쪽으로 나옴" loading="lazy"></div>
+      <div class="strip"><span class="lab bad">불가능 · 틈에서 안 보이다가 오른쪽에 나타난다</span><img src="img/intphys1_imp.webp" alt="두 벽 사이에 아무것도 없다가 오른쪽에 정육면체가 나타남" loading="lazy"></div>
+    </div>
+  </div>
+
+  <div class="ds">
+    <div class="ds-head">
+      <h3>IntPhys 2 · 공개 합성 시험, 장면이 더 복잡하다</h3>
+      <span class="count"><span class="num">500</span> 쌍 · 위반 종류: 사라짐 · 바뀜 · 연속성 · 통과</span>
+    </div>
+    <div class="pair">
+      <div class="strip ctx"><span class="lab">문맥</span><img src="img/intphys2_ctx.webp" alt="막대들 앞에 현수막이 있고 분홍 공이 현수막 뒤로 들어감" loading="lazy"></div>
+      <div class="strip"><span class="lab ok">가능 · 공이 다시 보인다</span><img src="img/intphys2_pos.webp" alt="현수막 오른쪽 끝에 분홍 공이 보임" loading="lazy"></div>
+      <div class="strip"><span class="lab bad">불가능 · 공이 다시 안 보인다</span><img src="img/intphys2_imp.webp" alt="공이 어디에도 없음" loading="lazy"></div>
+    </div>
+    <p class="cap">이 시험만 두 영상의 문맥이 픽셀까지 같지는 않다 (원래 데이터가 그렇게 만들어졌다).</p>
+  </div>
+
+  <div class="ds">
+    <div class="ds-head">
+      <h3>실제 영상 시험 · 직접 찍은 영상</h3>
+      <span class="count"><span class="num">40</span> 쌍 · 위반 종류: 사라짐 · 생김</span>
+    </div>
+    <div class="pair">
+      <div class="strip ctx"><span class="lab">문맥 (두 영상이 같다)</span><img src="img/realbench_ctx.webp" alt="책상 위 차 상자 옆에 오리 인형, 상자가 오리를 가림" loading="lazy"></div>
+      <div class="strip"><span class="lab ok">가능 · 상자를 치우니 오리가 있다</span><img src="img/realbench_pos.webp" alt="손이 상자를 옮기고 오리 인형이 보임" loading="lazy"></div>
+      <div class="strip"><span class="lab bad">불가능 · 상자를 치우니 오리가 없다</span><img src="img/realbench_imp.webp" alt="손이 상자를 옮겼는데 오리 인형이 없음" loading="lazy"></div>
+    </div>
+    <p class="cap">불가능 영상은 물체가 완전히 가려진 순간부터 물체 없이 찍은 영상으로 이어 붙여 만들었다.</p>
+  </div>
+</section>
+
+<section>
+  <div class="sec-no">6 · 결과</div>
+  <h2>정답률 (%)</h2>
+  <div class="legend">
+    <span><span class="tag tA">A</span> 원래</span>
+    <span><span class="tag tB">B</span> + 일상</span>
+    <span><span class="tag tC">C</span> + 가림</span>
+    <span><span class="tag tD">D</span> + 가림 없는 물리</span>
+    <span>점선 = 50 % (동전 던지기)</span>
+  </div>
+  <p class="cap">아래 "C 만 맞힘 대 D 만 맞힘" 은 같은 쌍에서 한 모델만 맞힌 개수다. 정답률 두 개를 따로 비교하는 것보다 차이를 예민하게 잡는다. <b>"확실"</b> 은 이 차이가 우연으로 나올 확률이 5 % 미만이라는 뜻이다 (McNemar 검정).</p>
+
+  <div class="charts">
+    <div class="chart key">
+      <div class="chart-head"><h3>① VOBench · 가려진 물체가 사라지는 위반</h3><span class="sub">문맥에 물체가 있는 쌍 360 개</span></div>
+      <div class="bars">
+        <div class="bar"><span class="name">A 원래</span><div class="track"><div class="fill fA" style="width:68.3%"></div><div class="chance"></div></div><span class="val">68.3</span></div>
+        <div class="bar"><span class="name">B 일상</span><div class="track"><div class="fill fB" style="width:72.8%"></div><div class="chance"></div></div><span class="val">72.8</span></div>
+        <div class="bar hl"><span class="name">C 가림</span><div class="track"><div class="fill fC" style="width:77.2%"></div><div class="chance"></div></div><span class="val">77.2</span></div>
+        <div class="bar"><span class="name">D 물리</span><div class="track"><div class="fill fD" style="width:65.8%"></div><div class="chance"></div></div><span class="val">65.8</span></div>
+      </div>
+      <div class="verdict">
+        <span><span class="pill yes">확실</span>C 만 맞힘 <b class="num">41</b> 대 D 만 맞힘 <b class="num">0</b></span>
+        <span><span class="pill yes">확실</span>C 만 맞힘 <b class="num">27</b> 대 B 만 맞힘 <b class="num">11</b></span>
+      </div>
+    </div>
+
+    <div class="chart key">
+      <div class="chart-head"><h3>② VOBench · 원래 모델이 가장 못 하는 칸</h3><span class="sub">영속 · late 가림 · 사라짐 위반 36 쌍. VOBench 24 칸 중 원래 모델 최저 (다음 낮은 칸 55.6)</span></div>
+      <div class="bars">
+        <div class="bar"><span class="name">A 원래</span><div class="track"><div class="fill fA" style="width:13.9%"></div><div class="chance"></div></div><span class="val">13.9</span></div>
+        <div class="bar"><span class="name">B 일상</span><div class="track"><div class="fill fB" style="width:13.9%"></div><div class="chance"></div></div><span class="val">13.9</span></div>
+        <div class="bar hl"><span class="name">C 가림</span><div class="track"><div class="fill fC" style="width:41.7%"></div><div class="chance"></div></div><span class="val">41.7</span></div>
+        <div class="bar"><span class="name">D 물리</span><div class="track"><div class="fill fD" style="width:11.1%"></div><div class="chance"></div></div><span class="val">11.1</span></div>
+      </div>
+      <div class="verdict">
+        <span><span class="pill yes">확실</span>C 만 맞힘 <b class="num">11</b> 대 D 만 맞힘 <b class="num">0</b> · 대 B 만 맞힘 <b class="num">1</b></span>
+        <span>움직이는 물체 30 쌍만 보면 A <b class="num">1</b> → C <b class="num">10</b> 쌍 맞힘 (멈춘 물체 6 쌍은 A 4 · C 5)</span>
+        <span class="muted">그래도 50 % 아래다. 거꾸로 보던 경향이 줄었을 뿐, 맞히게 된 것은 아니다.</span>
+      </div>
+    </div>
+
+    <div class="chart">
+      <div class="chart-head"><h3>③ IntPhys 1</h3><span class="sub">180 쌍</span></div>
+      <div class="bars">
+        <div class="bar"><span class="name">A 원래</span><div class="track"><div class="fill fA" style="width:68.3%"></div><div class="chance"></div></div><span class="val">68.3</span></div>
+        <div class="bar"><span class="name">B 일상</span><div class="track"><div class="fill fB" style="width:68.9%"></div><div class="chance"></div></div><span class="val">68.9</span></div>
+        <div class="bar hl"><span class="name">C 가림</span><div class="track"><div class="fill fC" style="width:72.2%"></div><div class="chance"></div></div><span class="val">72.2</span></div>
+        <div class="bar"><span class="name">D 물리</span><div class="track"><div class="fill fD" style="width:65.6%"></div><div class="chance"></div></div><span class="val">65.6</span></div>
+      </div>
+      <div class="verdict">
+        <span><span class="pill yes">확실</span>C 만 맞힘 <b class="num">18</b> 대 D 만 맞힘 <b class="num">6</b></span>
+        <span><span class="pill no">불확실</span>C 만 맞힘 <b class="num">16</b> 대 B 만 맞힘 <b class="num">10</b></span>
+      </div>
+    </div>
+
+    <div class="chart">
+      <div class="chart-head"><h3>④ IntPhys 2</h3><span class="sub">500 쌍</span></div>
+      <div class="bars">
+        <div class="bar hl"><span class="name">A 원래</span><div class="track"><div class="fill fA" style="width:54.6%"></div><div class="chance"></div></div><span class="val">54.6</span></div>
+        <div class="bar"><span class="name">B 일상</span><div class="track"><div class="fill fB" style="width:52.8%"></div><div class="chance"></div></div><span class="val">52.8</span></div>
+        <div class="bar"><span class="name">C 가림</span><div class="track"><div class="fill fC" style="width:53.6%"></div><div class="chance"></div></div><span class="val">53.6</span></div>
+        <div class="bar"><span class="name">D 물리</span><div class="track"><div class="fill fD" style="width:53.4%"></div><div class="chance"></div></div><span class="val">53.4</span></div>
+      </div>
+      <div class="verdict">
+        <span><span class="pill no">차이 없음</span>C 만 맞힘 <b class="num">15</b> 대 D 만 맞힘 <b class="num">14</b></span>
+        <span class="muted">세 모델 모두 원래 모델보다 높지 않다. 원래 모델도 동전 던지기 근처다.</span>
+      </div>
+    </div>
+
+    <div class="chart">
+      <div class="chart-head"><h3>⑤ 실제 영상</h3><span class="sub">40 쌍</span></div>
+      <div class="bars">
+        <div class="bar hl"><span class="name">A 원래</span><div class="track"><div class="fill fA" style="width:47.5%"></div><div class="chance"></div></div><span class="val">47.5</span></div>
+        <div class="bar"><span class="name">B 일상</span><div class="track"><div class="fill fB" style="width:42.5%"></div><div class="chance"></div></div><span class="val">42.5</span></div>
+        <div class="bar"><span class="name">C 가림</span><div class="track"><div class="fill fC" style="width:42.5%"></div><div class="chance"></div></div><span class="val">42.5</span></div>
+        <div class="bar"><span class="name">D 물리</span><div class="track"><div class="fill fD" style="width:42.5%"></div><div class="chance"></div></div><span class="val">42.5</span></div>
+      </div>
+      <div class="verdict">
+        <span><span class="pill no">차이 없음</span>B · C · D 가 40 쌍 전부에서 같은 답을 냈다</span>
+        <span class="muted">원래 모델과도 4 쌍만 다르다.</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-no">7 · 정리</div>
+  <h2>확실한 것과 한계</h2>
+  <div class="facts">
+    <div class="fact"><span class="n">1</span><p><b>가림 영상으로 학습하면, 학습에 안 쓴 합성 시험 (VOBench) 에서 "가려진 물체가 사라지면 이상하다" 를 더 잘 잡는다.</b> 학습 영상은 Blender, 시험은 Unreal 로 만들어 화면 모양이 다르다. (결과 ①②)</p></div>
+    <div class="fact"><span class="n">2</span><p><b>효과는 "가림" 이라는 내용에서 온다.</b> 같은 프로그램 · 같은 양의 가림 없는 영상 (D) 으로는 좋아지지 않았다 (68.3 → 65.8). 같은 쌍에서 C 만 맞힌 것이 41 개, D 만 맞힌 것이 0 개다. IntPhys 1 에서도 C 가 D 보다 확실히 낫다. (결과 ①②③)</p></div>
+    <div class="fact"><span class="n">3</span><p><b>장면이 복잡한 IntPhys 2 와 실제 촬영 영상에서는 어떤 학습도 원래 모델보다 낫지 않았다.</b> 이전에 VOBench 로 직접 학습했을 때와 같은 모습이다. (결과 ④⑤)</p></div>
+    <div class="fact limit"><span class="n">!</span><p><b>한계 1.</b> 각 모델을 한 번씩만 학습했다. 같은 결과가 반복되는지 아직 모른다.</p></div>
+    <div class="fact limit"><span class="n">!</span><p><b>한계 2.</b> 결과 ② 칸의 정답률은 14 % 에서 42 % 로 올랐지만 아직 동전 던지기 (50 %) 아래다.</p></div>
+    <div class="fact limit"><span class="n">!</span><p><b>한계 3.</b> 실제 영상 시험은 40 쌍뿐이라 작은 차이는 보이지 않는다.</p></div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-no">8 · 다음 단계</div>
+  <h2>무엇을 할까</h2>
+  <ul class="tight prose">
+    <li>같은 학습을 두 번 더 돌려 결과 ①② 가 반복되는지 본다.</li>
+    <li>IntPhys 2 와 실제 영상에서 왜 안 움직이는지, 학습 없이 기존 채점 결과를 물체 크기 · 위반 종류별로 쪼개 본다.</li>
+    <li>WROP 생성 프로그램으로 불가능 영상과 빈 장면 영상을 직접 만든다. 학습에서 뺀 가림 종류로 시험하고, "가림막 뒤엔 늘 뭔가 나온다" 는 지름길을 걸러내기 위해서다. Blender 4.4 설치가 필요해 결정을 기다리는 중이다.</li>
+  </ul>
+</section>
+
+<footer>
+  <p>원 계획: 공동 연구자의 "Object Permanence in V-JEPA2 — 실험 계획" (2026-10-31) 의 첫 단계. 모델: V-JEPA 2 ViT-H.</p>
+  <p>데이터 출처: WROP (Hokin/object-permanence, CC BY-NC 4.0) · Something-Something v2 · VOBench (자체 제작) · IntPhys 1 · IntPhys 2 · 실제 영상 시험 (TCOW Rubric Office 영상으로 구성).</p>
+  <p>자세한 표와 재현 방법: <code>new_idea/permanence_wrop/README.md</code> · <code>results/summary_tables.md</code></p>
+</footer>
+
+</main>
+</body>
+</html>

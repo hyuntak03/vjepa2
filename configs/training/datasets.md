@@ -452,6 +452,17 @@ csv: ${DATA_CSV}/phys3d_perm_v1/train.csv
 frame_step: 1
 filter_short_videos: true
 
+## phys3d_perm_v2_occ
+
+**phys3d_perm_v2 학습 쪽 (2026-10-31, 영속 · 이식 원칙 반영: 그림자 끔 · 미끼 가림막 · 끝까지 안 나타나는 가림 · 렌즈 45 mm), 둘째 열 = 행 번호.**
+`z_training/data/build_perm_occupancy.py --root /workspace/dataset/training_data/phys3d_perm_v2 --split train --from-clips [--disp]` 가 렌더된 클립으로 목록 · 라벨을 만든다
+(생성이 끝나기 전에도 된다 — 다시 돌리면 목록이 늘어난다). 문서 `z_training/docs/AUX_PERMANENCE_2026-10-31.md` §7.
+
+type: video_csv
+csv: ${DATA_CSV}/phys3d_perm_v2/train_occ.csv
+frame_step: 1
+filter_short_videos: true
+
 ## phys3d_perm_v1_occ
 
 **phys3d_perm_v1 과 같은 영상, 둘째 열 = 행 번호** (2026-10-31, 보조 모듈 물체 칸 감독 `model.aux.sup`). 학습 루프가 행 번호로
@@ -463,3 +474,25 @@ csv: ${DATA_CSV}/phys3d_perm_v1/train_occ.csv
 frame_step: 1
 filter_short_videos: true
 
+
+## wrop_op12_uni32
+
+**WROP (Object Permanence, Blender 150 과제) 의 가림 두 계열 — Baillargeon 가림 (26 과제) + 정지 물체 가림 (29 과제), 과제당 1,450 = 79,750 편** (2026-10-31, `new_idea/permanence_wrop/`).
+원본 `object_permanence_320` (input + target 이어 붙임, 패딩 잘라 냄) 에서 문맥 = 경계 앞 균일 16 장 + 미래 = 경계 뒤 균일 16 장 → **정확히 32 장 mp4 (568×320)**.
+81 % 는 60 + 60 장이라 3.9 장 간격 (≈ 6.4 fps). 그릇 계열 (op3, 35 과제) 은 이번 판에서 빼 둔 계열이라 들어가지 않는다.
+만드는 법 `new_idea/permanence_wrop/data/build_wrop_uni32.py`. 계열 표 `new_idea/permanence_wrop/data/wrop_task_family.tsv` (WROP `taxonomy.py`).
+
+type: video_csv
+csv: ${DATA_CSV}/wrop_uni32/train_op12.csv
+frame_step: 1
+filter_short_videos: true
+
+## wrop_nonop_uni32
+
+**WROP 비영속 세 계열 — 가로막기 (20) · 떨어짐 (21) · 충돌 (19) = 60 과제 × 1,330 = 79,800 편** (같은 엔진 대조군, `wrop_op12_uni32` 와 클립 수를 맞췄다). 만드는 규칙은 `wrop_op12_uni32` 와 같다.
+⚠️ 비영속 계열에도 가려지는 장면이 일부 있다 (예: occ_small_ball_behind_screen 은 가로막기 계열). "가림 없음" 이 아니라 "영속이 과제의 핵심이 아님" 이다.
+
+type: video_csv
+csv: ${DATA_CSV}/wrop_uni32/train_nonop.csv
+frame_step: 1
+filter_short_videos: true

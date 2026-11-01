@@ -24,6 +24,11 @@ sup.p_weight: predictor **출력** p 위 칸 분류 head (1280 → 3) — 미래
 no_module (2026-10-31, 사용자: "보조 head 로 강제로 release predictor 가 배울 수 있도록 — 추론 때 모듈이 없게"): 보조 모듈 · cross 를 짓지 않고
   칸 분류 · 이동량 head 를 **predictor 자신의 은닉** (head_layer 번째 블록 뒤, 384) 의 미래 토큰에 붙인다. predictor 가 물체 자리 · 이동을 스스로
   계산하게 강제하고, 추론은 릴리즈 구조 그대로 (head 는 학습 때만). forward 출력은 릴리즈 predictor 와 비트 단위로 같은 계산이다.
+sup.binary (2026-10-31, imagine-seg): 칸 head 를 1 출력 (물체 점유 = 보이는 물체 ∪ 가려진 물체) 으로. 손실은 train.py 가 BCE + dice.
+inpath (2026-10-31, imagine-seg 계획 new_idea/imagine-seg/PLAN_2026-10-31.md §3): no_module + sup.binary 에서만.
+  head_layer 번째 블록 뒤 미래 토큰마다 점유 logit → ŝ = sigmoid → 은닉에 ŝ · e_mask 를 더해 **나머지 블록이 쓴다** (e_mask 0 에서 시작
+  → 학습 전에는 릴리즈와 같은 출력). 학습 때 occ_gt · p_gt 를 주면 표본마다 확률 p_gt 로 ŝ 대신 정답 점유를 넣는다 (scheduled sampling).
+  추론 (채점) 은 occ_gt 없이 → 늘 자기 추측 ŝ. 추론 때도 head · e_mask 가 남는다 (head 판과 다른 점).
 """
 import torch
 import torch.nn as nn
@@ -92,7 +97,13 @@ class AuxRelease(nn.Module):
             self.cross = nn.ModuleDict({str(i): AuxCross(pd, embed_dim, int(cfg.get("cross_heads", 6)), img_size // patch) for i in self.layers})
             hdim = embed_dim
         sup = cfg.get("sup") or {}
-        self.occ_head = nn.Linear(hdim, 3) if sup else None   # 미래 칸: 배경 / 보이는 물체 / 가려진 물체
+        self.binary = bool(sup.get("binary", False))
+        self.occ_head = nn.Linear(hdim, 1 if self.binary else 3) if sup else None   # 미래 칸: 배경 / 보이는 물체 / 가려진 물체 (binary: 점유 logit)
+        ip = cfg.get("inpath") or None
+        if ip and not (self.no_module and self.binary):
+            raise ValueError("model.aux.inpath 는 no_module: true + sup.binary: true 에서만 쓴다")
+        self.e_mask = nn.Parameter(torch.zeros(pd)) if ip else None   # 0 에서 시작 → 학습 전 출력 = 릴리즈
+        self.inpath_detach = bool((ip or {}).get("detach", False))
         self.disp_head = nn.Linear(hdim, 2) if sup.get("disp_labels") else None   # 미래 칸: 그 칸의 문맥 물체 이동량 (dx, dy)
         self.p_occ_head = nn.Linear(embed_dim, 3) if sup.get("p_weight") else None   # predictor 출력 p 의 미래 칸 분류
         self.last_occ = self.last_disp = None
@@ -105,7 +116,8 @@ class AuxRelease(nn.Module):
     def gates(self):
         return {i: float(self.cross[str(i)].gate) for i in self.layers}
 
-    def forward(self, x, masks_x, masks_y, mask_index=1, has_cls=False, return_occ=False):
+    def forward(self, x, masks_x, masks_y, mask_index=1, has_cls=False, return_occ=False, occ_gt=None, p_gt=0.0):
+        """occ_gt: (B, Nt) masks_y 순서 정답 점유 (1 / 0, −1 = 모름), p_gt: 표본마다 정답을 넣을 확률 — inpath 학습 때만."""
         assert not has_cls
         P = self.pred
         mx = masks_x[0] if isinstance(masks_x, list) else masks_x
@@ -137,8 +149,16 @@ class AuxRelease(nn.Module):
             if self.no_module and i == self.head_layer and self.occ_head is not None:   # predictor 은닉의 미래 토큰 → masks_y 순서로
                 ht = g(h, idx_t)
                 to_my = lambda z: torch.empty_like(z).scatter_(1, inv.unsqueeze(-1).expand_as(z), z)
-                self.last_occ = to_my(self.occ_head(ht))
+                lg = self.occ_head(ht)
+                self.last_occ = to_my(lg)
                 self.last_disp = to_my(self.disp_head(ht)) if self.disp_head is not None else None
+                if self.e_mask is not None:                      # in-path: 점유 추측 (또는 정답) 을 은닉에 넣어 뒤 블록이 쓰게
+                    sh = torch.sigmoid((lg.detach() if self.inpath_detach else lg).float())   # (B, Nt, 1) 정렬된 미래 순서
+                    if occ_gt is not None and p_gt > 0:
+                        gt = torch.gather(occ_gt.float(), 1, inv)                       # masks_y 순서 → 정렬된 미래 순서
+                        use = (torch.rand(B, 1, device=gt.device) < p_gt) & (gt >= 0)  # 표본마다, 모르는 칸은 추측 그대로
+                        sh = torch.where(use.unsqueeze(-1), gt.clamp(min=0).unsqueeze(-1), sh)
+                    h = h.scatter(1, idx_t.unsqueeze(-1).expand(-1, -1, h.size(-1)), (ht + sh * self.e_mask).to(h.dtype))
         h = P.predictor_norm(h)
         h = g(h, torch.argsort(order, dim=1))[:, n_ctx:]
         out = P.predictor_proj(h)

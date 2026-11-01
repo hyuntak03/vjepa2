@@ -1,0 +1,8 @@
+# imagine-seg 공정 비교 ① 대조군 — post-train 만 (점유 손실 가중 0). 바탕과 비교 설계는 imagine_seg_v1_base.yaml 머리말.
+#   GPUS=8 bash z_training/tmux_train.sh imagine_seg_v1_ctrl
+extends: imagine_seg_v1_base
+
+model:
+  aux:
+    sup:
+      weight: 0.0                 # head 는 계산되지만 기울기 0 → predictor 는 latent L1 만 받는다

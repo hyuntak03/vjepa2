@@ -1,0 +1,11 @@
+# imagine-seg 공정 비교 ③ in-path — 같은 head 의 추측 ŝ 를 은닉에 ŝ · e_mask 로 더해 뒤 블록이 쓴다 (계획 §3). 바탕: imagine_seg_v1_base.yaml
+#   scheduled sampling: 표본마다 정답 점유를 넣을 확률이 1 에서 선형으로 줄어 전체 step 의 75 % 에서 0 (그 뒤는 자기 추측만, 계획 §4.3)
+#   ⚠️ 추론 (채점) 때도 head · e_mask 가 남는다 — 채점기는 checkpoint 의 arch.aux 로 같은 구조를 짓고 자기 추측을 쓴다
+#   GPUS=8 bash z_training/tmux_train.sh imagine_seg_v1_inpath
+extends: imagine_seg_v1_base
+
+model:
+  aux:
+    inpath:
+      ss_end: 0.75
+      detach: false               # 점유 추측으로 L1 기울기도 흐른다 (계획 그림 그대로). ★ 미검증
