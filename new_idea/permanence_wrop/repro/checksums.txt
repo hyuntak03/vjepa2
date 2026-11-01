@@ -1,0 +1,4 @@
+2f18bab855c310d75fac12bfdb64f2dc2e2e048979f3fb9312c1d97a713b33cd  release vjepa2-vith-fpc64-256 original/model.pth
+2370ec9fb5371cad06a7e5a883445dc2e9a6b22afed6cca1d4e80bfaa3387654  permanence_wrop_B/latest.pt (= e20.pt 와 같은 가중치)
+c8ad14aa06de21073fb76e6a883f072bb76a98136867fbf20b8909b31e729ac4  permanence_wrop_C/latest.pt (= e20.pt 와 같은 가중치)
+f198d35690cbb52c52bfa272f9b41e55defe02a7a3997cf061eff1f275acccad  permanence_wrop_D/latest.pt (= e20.pt 와 같은 가중치)

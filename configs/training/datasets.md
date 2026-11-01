@@ -479,7 +479,7 @@ filter_short_videos: true
 
 **WROP (Object Permanence, Blender 150 과제) 의 가림 두 계열 — Baillargeon 가림 (26 과제) + 정지 물체 가림 (29 과제), 과제당 1,450 = 79,750 편** (2026-10-31, `new_idea/permanence_wrop/`).
 원본 `object_permanence_320` (input + target 이어 붙임, 패딩 잘라 냄) 에서 문맥 = 경계 앞 균일 16 장 + 미래 = 경계 뒤 균일 16 장 → **정확히 32 장 mp4 (568×320)**.
-81 % 는 60 + 60 장이라 3.9 장 간격 (≈ 6.4 fps). 그릇 계열 (op3, 35 과제) 은 이번 판에서 빼 둔 계열이라 들어가지 않는다.
+81 % 는 60 + 60 장이라 3.9 장 간격 (≈ 6.1 fps; 경계 59→60 만 1 장 간격). 그릇 계열 (op3, 35 과제) 은 이번 판에서 빼 둔 계열이라 들어가지 않는다.
 만드는 법 `new_idea/permanence_wrop/data/build_wrop_uni32.py`. 계열 표 `new_idea/permanence_wrop/data/wrop_task_family.tsv` (WROP `taxonomy.py`).
 
 type: video_csv
