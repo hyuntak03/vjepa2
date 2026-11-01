@@ -1,0 +1,47 @@
+# =============================================================================
+# permanence_wrop — 공통 바탕 (2026-10-31, 계획 `new_idea/Object Permanence in V-JEPA2 — 실험 계획.md` 의 첫 실험 A·B·C)
+#   폴더: new_idea/permanence_wrop/  (README.md 가 시작점)
+#
+# 판마다 학습 데이터 하나만 다르다 (같은 시작점 · 같은 step · 같은 일정 · 같은 aug):
+#   permanence_wrop_B : SSv2 100 %                                  — 계획 B "추가 학습 자체"
+#   permanence_wrop_C : SSv2 50 % + WROP 가림 두 계열 50 %            — 계획 C "가림 경험" (그릇 계열은 빼 둠, 부재 클립 없음 = 계획의 "C − 부재")
+#   permanence_wrop_D : SSv2 50 % + WROP 비영속 세 계열 50 %          — 추가 대조군 "같은 Blender 엔진, 영속이 핵심이 아닌 과제"
+#   A = 릴리즈 predictor (학습 없음)
+#
+# 과제 = 채점과 같다: 32 장 = 문맥 16 → 미래 16, 정답 = LN(target encoder), latent L1. 보조 head · 라벨 · 불가능 영상 없음.
+# encoder 동결, predictor = 릴리즈에서 시작 (frozen_predictor_postft).
+# 길이: 20 epoch × 200 step = 4,000 step × 전역 64 = 25.6 만 clip. lr 5e-5 WSD (warmup 1 epoch → 상수 → 마지막 4 epoch 선형 감소). ★ 미검증
+# aug: 좌우 반전 0.5 + RandomResizedCrop scale [0.5, 1.0] · ratio [0.75, 1.35] — 모든 데이터에 같게.
+#   WROP 568×320 에서는 높이 전체 근처 · 폭 46–76 % 창이 된다 (작은 물체가 창 밖으로 나갈 수 있다 — 단서).
+# =============================================================================
+extends: frozen_predictor_postft
+
+meta:
+  save_every_freq: 5
+
+data:
+  n_frames: 32
+  batch_size: 16                # rank 당 × 4 GPU = 64
+  num_workers: 5
+  datasets: []                  # 판에서 준다
+  aug:
+    hflip_p: 0.5
+    random_resized_crop: {scale: [0.5, 1.0], ratio: [0.75, 1.35]}
+
+mask:
+  - type: temporal_prefix
+    context_frames: [16]
+    weight: 1.0
+
+optimization:
+  epochs: 20
+  ipe: 200                      # 20 × 200 = 4,000 step
+  lr: 5.0e-5
+  start_lr: 1.0e-6
+  final_lr: 1.0e-6
+  warmup: 1
+  anneal_epochs: 4
+
+val:
+  dataset: vobench_v1_split_v2_test_late   # 학습 중 감시 (VOBench held-out late 216 쌍, 이 판들의 학습과 겹침 0)
+  every_epochs: 2

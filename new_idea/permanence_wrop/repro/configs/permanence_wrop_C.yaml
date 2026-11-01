@@ -1,0 +1,8 @@
+# permanence_wrop C — SSv2 50 % + WROP 가림 두 계열 (Baillargeon 가림 · 정지 물체 가림) 50 %. 그릇 계열은 일반화 시험용으로 빼 둠.
+#   GPUS=4 DEVICES="cuda:4 cuda:5 cuda:6 cuda:7" bash z_training/tmux_train.sh permanence_wrop_C
+extends: permanence_wrop_base
+
+data:
+  datasets:
+    - {name: ssv2_fs1_min32,  weight: 1.0}
+    - {name: wrop_op12_uni32, weight: 1.0}

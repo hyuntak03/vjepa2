@@ -1,0 +1,8 @@
+# permanence_wrop D — SSv2 50 % + WROP 비영속 세 계열 (가로막기 · 떨어짐 · 충돌) 50 %. "같은 엔진 · 영속 과제 아님" 대조군.
+#   GPUS=4 DEVICES="cuda:4 cuda:5 cuda:6 cuda:7" bash z_training/tmux_train.sh permanence_wrop_D
+extends: permanence_wrop_base
+
+data:
+  datasets:
+    - {name: ssv2_fs1_min32,   weight: 1.0}
+    - {name: wrop_nonop_uni32, weight: 1.0}

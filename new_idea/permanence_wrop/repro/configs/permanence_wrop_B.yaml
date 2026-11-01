@@ -1,0 +1,7 @@
+# permanence_wrop B — SSv2 만 (가림 경험 없음). 바탕 permanence_wrop_base.yaml 머리말.
+#   GPUS=4 DEVICES="cuda:4 cuda:5 cuda:6 cuda:7" bash z_training/tmux_train.sh permanence_wrop_B
+extends: permanence_wrop_base
+
+data:
+  datasets:
+    - {name: ssv2_fs1_min32, weight: 1.0}
