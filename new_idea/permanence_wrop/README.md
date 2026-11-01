@@ -3,6 +3,7 @@
 > **3줄 요약**
 > - **질문** — 가림 장면이 많은 관찰 영상 (WROP, Blender 90 과제) 으로 릴리즈 predictor 를 이어 학습하면, 영속 (가려져도 있다 · 없던 건 안 나온다) 이 배운 적 없는 가림 계열과 다른 벤치마크 (IntPhys2 · 실제 영상) 로 넘어가나.
 > - **답** — **다른 합성 엔진까지는 넘어가고, IntPhys2 · 실제 영상으로는 안 넘어간다.** 가림 데이터 (C) 는 같은 엔진 대조군 (D) · SSv2 만 (B) 보다 VOBench (Unreal) 의 "가려진 물체가 사라지면 위반" 을 더 잡는다 (경계 가림 칸 14 → 42 %, D 대비 11 / 0 쌍). IntPhys1 영속 (O1) 도 같은 방향이다. 그러나 IntPhys2 와 real_bench 는 세 판 모두 릴리즈 이하다. seed 하나.
+> - **재현** — 학습 설정 전부와 재현 방법: [`docs/TRAINING_SETUP_2026-11-01.md`](docs/TRAINING_SETUP_2026-11-01.md)
 > - **다음 할 일** — (1) seed 2 개 더로 VOBench 신호를 굳힌다. (2) IntPhys2 · 실제 영상이 안 움직이는 이유를 학습 없이 먼저 잰다. (3) WROP 위반 영상 (빼 둔 그릇 계열의 사라짐 · 생김) 은 Blender 4.4 결정 뒤에 만든다.
 
 원 계획: [`../Object Permanence in V-JEPA2 — 실험 계획.md`](../Object%20Permanence%20in%20V-JEPA2%20—%20실험%20계획.md) (2026-10-31, 공동 연구자). 이 폴더는 그 계획의 "진행 순서" 첫 단계 — **"첫 실험은 공개 WROP 만으로 A · B · C 를 돌려 방향을 정한다"** — 를 한다.
@@ -201,6 +202,9 @@ VOBench 영속의 방향 A = 문맥에 물체가 있고 가려짐 → 불가능�
 | `eval/wrop_heldout_l1.py` | WROP held-out 예측 L1, 계열별, 여러 predictor 를 같은 encoder 출력에 |
 | `eval/run_eval_chain.sh` | 판마다 학습이 끝나면 채점 → 릴리즈 대비 같은 쌍 비교 → 마지막에 WROP L1 |
 | `eval/summarize.py` | 네 판을 같은 쌍에서 나란히 (그룹 · 방향별, B · C · D 끼리 McNemar) → `results/summary_tables.md` |
+| `docs/TRAINING_SETUP_2026-11-01.md` | **학습 설정 전부 · 다른 기계에서 재현하는 방법** (코드 commit · 체크포인트 해시 · 데이터 세 단계 · 샘플러 · 기대값) |
+| `repro/` | 병합된 설정 · 학습 표본 목록 (순서 그대로) · 체크포인트 sha256 |
+| `eval/wrop_occlusion_timing.py` | 가림 계열 클립에서 물체가 경계 기준 언제 가려지나 (채도 화소 대리 지표) |
 | `results/` | 비교표 · WROP L1 json |
 | `logs/` | 데이터 생성 · 채점 로그 (git 무시 권장) |
 
