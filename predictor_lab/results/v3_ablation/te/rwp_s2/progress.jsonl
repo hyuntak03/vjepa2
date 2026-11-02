@@ -1,0 +1,2 @@
+{"event": "start", "rank": 0, "world": 1, "n": 380, "load_s": 38.6, "device": "cuda:0", "gpu": "NVIDIA RTX A5000", "time": "2026-11-02 15:47:01"}
+{"event": "end", "rank": 0, "n": 380, "loop_s": 178.5, "s_per_clip": 0.4698, "s_per_clip_steady": 0.4457, "peak_mem_gb": 6.37, "time": "2026-11-02 15:49:59"}

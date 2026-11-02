@@ -1,0 +1,19 @@
+# 무엇을 바꿨나: 학습셋을 BlenderTrack v3 (물체 영속 · late 가림만 · 자연스러운 물리 · primitive / realistic) 의 한 조각으로. 창은 v3 설계 그대로 고정
+#   (20 fps 64 장을 간격 2 → 32 샘플, 문맥 16 + 미래 16). 조각 (어떤 축의 어떤 수준만) 은 실행할 때 BT_TRAIN_META 로 준다.
+# 왜: 축마다 "그 수준만 보여 주면 무엇이 옮겨 가나" (11-01 사용자, predictor_lab/v3_ablation/README.md).
+# 모든 팔이 똑같이: 전역 batch 24 (vll7 = GPU 6 × 4 · vll6 = GPU 8 × 3, 11-01 사용자: 학습마다 노드 GPU 전부를 쓰고 여러 학습을 겹친다) · 2,000 step (= 20 epoch × ipe 100, 데이터 양과 상관없이 고정, 11-01 사용자) · lr 일정 · 데이터 읽기 작업자 4.
+extends: lab_base
+
+data:
+  num_workers: 4
+  blender_track:
+    strides: [2]
+    context_frames: [16]
+    late_p: 0.0
+optimization:
+  epochs: 20
+  ipe: 100                             # step 수를 데이터 양과 상관없이 고정 (작은 조각은 여러 번, 큰 조각은 일부만 본다)
+
+lab:
+  sheet_name: "V-JEPA2 w/ BlenderTrack v3 (slice)"
+  predictor_type: "future mask latent prediction"

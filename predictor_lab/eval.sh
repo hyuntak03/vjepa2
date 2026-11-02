@@ -6,6 +6,7 @@
 #   GPUS=2 NODE=vll7 bash predictor_lab/eval.sh lab_bind
 #   LOCAL=1 bash predictor_lab/eval.sh lab_bind                                  # 지금 셸 (GPU 있는 노드) 에서
 #   DRYRUN=1 bash predictor_lab/eval.sh lab_bind                                 # 병합 config 와 경로 검사만 (GPU 0 장)
+#   DEPEND=afterok:<학습 잡> bash predictor_lab/eval.sh <run>                     # 학습이 끝나면 시작 (체크포인트가 아직 없어도 된다)
 #
 # 벤치 (기본 다섯 다, 시트 열 순서)
 #   vobench        VOBench_v1 split v2 test 의 late 216 쌍 (primitive · realistic) — 표준 채점 c16t32 (보폭 3)        → VOBench P / R
@@ -24,15 +25,16 @@ if [[ $ARG == *.pt ]]; then
   CK=$(cd "$(dirname "$ARG")" && pwd)/$(basename "$ARG"); E=$(dirname "$CK")/eval_lab_$(basename "${CK%.pt}"); NAME=$(basename "$(dirname "$CK")")_$(basename "${CK%.pt}")
 else
   RUN=$ARG; [[ -d $RUN ]] || RUN=$LAB_REPO/z_training/runs/$ARG
+  [[ -n ${DEPEND:-} ]] && mkdir -p "$RUN"                      # 학습 뒤에 시작: 폴더는 학습이 쓸 자리 (train_job.sh 도 mkdir -p)
   RUN=$(cd "$RUN" && pwd); CK=$RUN/${CKPT:-latest.pt}; E=$RUN/eval_lab; NAME=$(basename "$RUN")
 fi
-[[ -f $CK ]] || { echo "ERROR: predictor 체크포인트가 없다 -> $CK"; exit 1; }
+[[ -f $CK || -n ${DEPEND:-} ]] || { echo "ERROR: predictor 체크포인트가 없다 -> $CK"; exit 1; }   # DEPEND 가 있으면 학습 뒤에 생긴다
 echo "predictor $CK | 결과 $E | 벤치 $BENCHES"
 if [[ -n ${LOCAL:-} || -n ${DRYRUN:-} ]]; then
   exec env CK="$CK" E="$E" NAME="$NAME" BENCHES="$BENCHES" GPUS=${GPUS:-1} bash "$HERE/eval_job.sh"
 fi
 mkdir -p "$E/logs"
-sbatch -p "$LAB_PARTITION" -w "${NODE:-$LAB_NODE}" --gres=gpu:${GPUS:-1} -c $((8 * ${GPUS:-1})) --mem=$((48 * ${GPUS:-1}))G --time=${TIME:-0-04:00:00} \
+sbatch -p "$LAB_PARTITION" -w "${NODE:-$LAB_NODE}" ${DEPEND:+--dependency=$DEPEND} --gres=gpu:${GPUS:-1} -c $((8 * ${GPUS:-1})) --mem=$((48 * ${GPUS:-1}))G --time=${TIME:-0-04:00:00} \
   -J "lab_ev_$NAME" -o "$E/logs/%j.out" \
   --export=ALL,CK="$CK",E="$E",NAME="$NAME",BENCHES="$BENCHES",GPUS=${GPUS:-1} "$HERE/eval_job.sh"
 echo "진행: tail -f $E/logs/<job>.out   |   다 끝나면: $LAB_PY predictor_lab/table.py $E"

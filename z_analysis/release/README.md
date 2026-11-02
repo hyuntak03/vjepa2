@@ -18,6 +18,7 @@
 | [`02_map_inject/`](02_map_inject/README.md) | 공간 지도 (마지막으로 보인 물체 토큰 → 추정 미래 자리) 를 p 에 넣는 학습 전 상한 시험 | 참 자리면 63 %, 추정 운동이면 25–30 % (릴리즈 8 · 복사 57) → 병목은 운동 외삽 | VOBench_v1 판, 사전 판정 "중간" |
 | [`06_blender_track/`](06_blender_track/README.md) | 경로를 외울 수 없는 학습셋 — 눈높이 Blender 렌더, 연속 무작위 궤적 · 가림 사건 · 64×64 amodal/visible 라벨 | late 미래 경로 21 (VOBench) → ~5,750 (설계 2,000, 보폭 3), late 창 clip 68 %, GPU 8 장 clip 당 ~1 초, 투영 오차 0.000 px | 본 렌더 중 (학습 4,000 + 검증 400) |
 | [`07_clevrer_perm/`](07_clevrer_perm/README.md) | CLEVRER 영속성 v1 (장면 396, 쌍 792) — 릴리즈 · VOBench PFT · 복사 | 릴리즈 59.2 → VOBench PFT 82.3 % (사라짐 18 → 65, 복사 29). **다른 생성기로 옮겨진 첫 사례.** overtake 만 17.8 (복사 44) | 2026-10-31 |
+| [`08_rubric_transfer/`](08_rubric_transfer/README.md) | Rubric 에서 PFT (VOBench · BlenderTrack v3) 가 왜 안 오르나 — 쌍 차이 분해 · 재등장 타이밍 · 샘플 간격 · 물체 기대 곡선 | PFT 는 학습셋 재등장 시간표 모양으로 물체를 넣는데, Rubric 에서는 어느 블록에도 켜지지 않는다. 타이밍 불일치 · 간격 (0.16 초까지) 은 기각 | 2026-11-01, 20 영상 |
 
 ## 폴더 지도
 
@@ -42,6 +43,9 @@ release/
   06_blender_track/
     README.md                    학습셋 설계 · 렌더 전 검사 · 처리량 · 라벨 검증
     results/ · figures/          (데이터는 nfs_cache/blender_track/v0)
+  08_rubric_transfer/
+    README.md                    Rubric 비전이 진단 (분해 · 타이밍 · 간격 · 물체 기대 곡선)
+    results/ · te/ · logs/
 ```
 
 ## 공통

@@ -5,6 +5,7 @@
 #   STAGE=render bash …/pipeline.sh <설정>      # 검사 · 스모크를 건너뛰고 본 렌더부터 (끝난 clip 은 건너뛰어 이어 한다)
 #   STAGE=meta   bash …/pipeline.sh <설정>      # 메타만 다시
 #   DRY=1        bash …/pipeline.sh <설정>      # 렌더 전 검사만 (GPU 0 장)
+#   STAGE=smoke ONLY_SMOKE=1 bash …/pipeline.sh <설정>   # 스모크 렌더 + 검증만 (샘플 확인 뒤 STAGE=render 로 본 렌더)
 #
 # 단계 (앞 단계가 실패하면 뒤는 안 돈다 — sbatch afterok 사슬)
 #   1 check   렌더 전 검사 (CPU, 이 셸에서 바로): 운동 종류 비율 · late 창 · 경로 수 · 외우기 대 계산 참고값 → <out>/check.json
@@ -17,11 +18,13 @@ HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 REPO=$(cd "$HERE/../../../.." && pwd)
 P=/data/hyuntak/anaconda3/envs/vjepa2/bin/python
 CFG=$(realpath "${1:?사용법: bash pipeline.sh <설정.yaml>}")
-read -r OUT NAME GPN PER THR NODES NGPUS CLAIMM <<<"$("$P" -c "
+read -r OUT NAME GPN PER THR NODES NGPUS CLAIMM DESIGN SGPU <<<"$("$P" -c "
 import yaml,sys; c=yaml.safe_load(open(sys.argv[1])); r=c['render']
 g=r.get('node_gpus') or [r['gpus_per_node']]*len(r['nodes']); assert len(g)==len(r['nodes'])
-print(c['out'], c['name'], r['gpus_per_node'], r['workers_per_gpu'], r['threads'], ','.join(r['nodes']), ','.join(map(str,g)), int(bool(r.get('claim'))))" "$CFG")"
+print(c['out'], c['name'], r['gpus_per_node'], r['workers_per_gpu'], r['threads'], ','.join(r['nodes']), ','.join(map(str,g)), int(bool(r.get('claim'))), c.get('design','gen_design'), r.get('smoke_gpus',1))" "$CFG")"
+if [[ $DESIGN == gen_design_v2 ]]; then CHECK=gen_check_v2.py; VERIFY=gen_verify_v2.py; VSPLITS="train test"; else CHECK=gen_check.py; VERIFY=gen_verify.py; VSPLITS="val"; fi
 IFS=, read -r -a NODE_ARR <<<"$NODES"
+RSPLITS=$("$P" -c "import yaml,sys; c=yaml.safe_load(open(sys.argv[1])); print(' '.join(k for k in c['splits'] if k!='smoke'))" "$CFG")   # 본 렌더 분할 (스모크 뺌)
 IFS=, read -r -a NGPU_ARR <<<"$NGPUS"                             # 노드별 GPU 수 (render.node_gpus, 없으면 gpus_per_node)
 SEEDS=$("$P" -c "import yaml,sys; c=yaml.safe_load(open(sys.argv[1])); print(' '.join(f'{k}:{v[\"seed\"]}' for k,v in c['splits'].items() if k!='smoke'))" "$CFG")
 mkdir -p "$OUT/logs"; cp "$CFG" "$OUT/config.yaml"
@@ -35,18 +38,19 @@ echo "설정 $CFG | 출력 $OUT | 노드 ${NODE_ARR[*]} × GPU $GPN × 작업자
 dep=""
 if (( S <= 1 )); then
   echo "### 1 렌더 전 검사"
-  "$P" "$HERE/gen_check.py" --config "$CFG" --out "$OUT/check.json" > "$OUT/logs/check.out" || { echo "!! 렌더 전 검사 실패 → $OUT/check.json"; exit 1; }
-  "$P" -c "import json,sys; r=json.load(open(sys.argv[1])); print('  통과', r['gates'], '| 보폭별 late clip', {k:v['clips_with_late'] for k,v in r['late_by_stride'].items()})" "$OUT/check.json"
+  "$P" "$HERE/$CHECK" --config "$CFG" --out "$OUT/check.json" > "$OUT/logs/check.out" || { echo "!! 렌더 전 검사 실패 → $OUT/check.json"; exit 1; }
+  "$P" -c "import json,sys; r=json.load(open(sys.argv[1])); print('  통과', r['gates'], '| 설계', r.get('n_designs'), '· 물리 위반', r.get('n_physics_bad'), '· 보폭별 late clip', {k:v['clips_with_late'] for k,v in r.get('late_by_stride',{}).items()})" "$OUT/check.json"
   [[ -n ${DRY:-} ]] && exit 0
 fi
 if (( S <= 2 )); then
   echo "### 2 스모크 렌더 → 3 검증"
-  js=$(sbatch --parsable -p batch_vll -w "${NODE_ARR[0]}" --gres=gpu:1 -c $((2 * THR + 4)) --mem=32G -t 01:00:00 -J bt_smoke_$NAME \
-       -o "$OUT/logs/%j_smoke.out" --export=ALL,CFG="$CFGJ",SPLITS=smoke,NODE_I=0,N_NODES=1,GPUS=1,PER_GPU=2,THREADS="$THR" "$HERE/gen_render.sh")
-  jv=$(sbatch --parsable -p batch_vll -c 4 --mem=16G -t 00:30:00 --dependency=afterok:$js -J bt_verify_$NAME \
-       -o "$OUT/logs/%j_verify.out" --wrap "$P $HERE/gen_verify.py --config $CFG --split smoke")
+  js=$(sbatch --parsable -p batch_vll -w "${NODE_ARR[0]}" --gres=gpu:"$SGPU" -c $((SGPU * PER * THR + 4)) --mem=$((SGPU * PER * 5 + 16))G -t 02:00:00 -J bt_smoke_$NAME \
+       -o "$OUT/logs/%j_smoke.out" --export=ALL,CFG="$CFGJ",SPLITS=smoke,NODE_I=0,N_NODES=1,GPUS="$SGPU",PER_GPU="$PER",THREADS="$THR" "$HERE/gen_render.sh")
+  jv=$(sbatch --parsable -p batch_vll -c 16 --mem=32G -t 00:30:00 --dependency=afterok:$js -J bt_verify_$NAME \
+       -o "$OUT/logs/%j_verify.out" --wrap "$P $HERE/$VERIFY --config $CFG --split smoke")
   echo "  smoke $js → verify $jv"
   dep="--dependency=afterok:$jv"
+  [[ -n ${ONLY_SMOKE:-} ]] && { echo "ONLY_SMOKE: 본 렌더 · 메타는 안 건다 (확인 뒤 STAGE=render 로)"; exit 0; }
 fi
 rdeps=""
 if (( S <= 4 )); then
@@ -59,7 +63,7 @@ if (( S <= 4 )); then
     g=${NGPU_ARR[$i]}
     jr=$(sbatch --parsable -p batch_vll -w "${NODE_ARR[$i]}" --gres=gpu:"$g" -c $((g * PER * THR + 8)) --mem=$((g * PER * 5 + 20))G -t 2-00:00:00 $dep \
          -J bt_render_${NAME}_$i -o "$OUT/logs/%j_render_$i.out" \
-         --export=ALL,CFG="$CFGJ",SPLITS="train val ood",NODE_I="$i",N_NODES="$n",GPUS="$g",PER_GPU="$PER",THREADS="$THR",W_OFF="$off",NW_TOTAL="$NWT"$CX "$HERE/gen_render.sh")
+         --export=ALL,CFG="$CFGJ",SPLITS="$RSPLITS",NODE_I="$i",N_NODES="$n",GPUS="$g",PER_GPU="$PER",THREADS="$THR",W_OFF="$off",NW_TOTAL="$NWT"$CX "$HERE/gen_render.sh")
     rdeps="$rdeps:$jr"; echo "  render ${NODE_ARR[$i]} (GPU $g, 작업자 $off–$((off + g * PER - 1)) / $NWT) → $jr"
     off=$((off + g * PER))
   done
@@ -69,7 +73,7 @@ MCMD="cd $REPO"
 for kv in $SEEDS; do sp=${kv%%:*}; sd=${kv##*:}
   MCMD="$MCMD && $P z_training/data/build_blender_track_index.py --root $OUT --prefix ${sp}${sd}_ --out data_csv/blender_track_${NAME}/${sp}_meta.npz"
 done
-MCMD="$MCMD && $P $HERE/gen_verify.py --config $CFG --split val"
+for vs in $VSPLITS; do MCMD="$MCMD && $P $HERE/$VERIFY --config $CFG --split $vs"; done
 jm=$(sbatch --parsable -p batch_vll -c 16 --mem=32G -t 01:00:00 ${rdeps:+--dependency=afterok$rdeps} -J bt_meta_$NAME \
      -o "$OUT/logs/%j_meta.out" --wrap "$MCMD")
 echo "  meta → $jm"

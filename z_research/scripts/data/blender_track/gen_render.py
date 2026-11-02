@@ -39,7 +39,13 @@ def render_clip(S, spec, out, cfg, wtag, check=False):
     phys = {"pivot": 0.0, "sink": 0.0}                       # (10-31) Blender 안에서 잰 회전 중심 어긋남 (m) · 구가 바닥 아래로 들어간 깊이 / 지름
     if check:
         from mathutils import Vector
-        ctr_np = [G.track(o, T, spec["fps"])[0] + np.array([0.0, 0.0, 0.5 * o["s"] * G.DIMS[o["shape"]][2]]) for o in spec["objects"]]
+        if hasattr(G, "center_path"):                                # v2: track(o, T, fps, g) → (pos, yaw, R), 중심 = center_path
+            ctr_np = []
+            for o in spec["objects"]:
+                pos_, _, R_ = G.track(o, T, spec["fps"], spec["g"])
+                ctr_np.append(G.center_path(o, pos_, R_))
+        else:
+            ctr_np = [G.track(o, T, spec["fps"])[0] + np.array([0.0, 0.0, 0.5 * o["s"] * G.DIMS[o["shape"]][2]]) for o in spec["objects"]]
     t_r = t_l = 0.0
     for f in range(T):
         S.set_frame(f)
@@ -74,6 +80,11 @@ def render_clip(S, spec, out, cfg, wtag, check=False):
     os.replace(tmp, f"{out}/clips/{cid}.mp4")
     shutil.rmtree(shm, ignore_errors=True)
     am, vi = np.array(acc["am"]), np.array(acc["vi"])
+    if K == 0:                                                  # v3 빈 장면 (target · 방해 물체 없음): 모양을 (T, 0, …) 으로 맞춘다
+        am = vi = np.zeros((T, 0, 64, 64), bool)
+        for k in ("pos", "center", "bbox"):
+            acc[k] = np.zeros((T, 0, {"pos": 3, "center": 2, "bbox": 4}[k]), np.float32)
+        acc["yaw"] = acc["depth"] = np.zeros((T, 0), np.float32)
     np.savez_compressed(f"{out}/labels/{cid}.{uniq}.tmp.npz",
                         pos=np.array(acc["pos"], np.float32), yaw=np.array(acc["yaw"], np.float32),
                         center_px=np.array(acc["center"], np.float32), depth=np.array(acc["depth"], np.float32),
@@ -106,15 +117,20 @@ def claim(lk, stale_s=900):
 
 
 def main():
+    global G
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", required=True)
     ap.add_argument("--split", required=True)
     ap.add_argument("--worker", type=int, default=0)
     ap.add_argument("--nworkers", type=int, default=1)
     ap.add_argument("--reverse", action="store_true", help="몫을 뒤에서부터 (남은 분할을 다른 노드가 거들 때)")
+    ap.add_argument("--extra_list", default=None, help="11-01: 칸 채우기 번호 목록 (gen_topup_v2.py 의 extra_<split>.txt) — 이 번호들을 먼저 그린다")
     ap.add_argument("--claim", action="store_true", help="동적 분배: 분할 전체를 돌며 아직 아무도 안 잡은 clip 을 잠금 파일로 잡아 그린다 (노드 · job 수가 달라도, 늦게 떠도 된다)")
     a = ap.parse_args(sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else sys.argv[1:])
     cfg = G.load_cfg(a.config, a.split)
+    if cfg.get("design", "gen_design") != "gen_design":            # v2 (11-01): 설계 모듈을 설정에서 고른다 (gen_design_v2 = 축 교차 칸)
+        import importlib
+        G = importlib.import_module(cfg["design"])
     sp, rc = cfg["splits"][a.split], cfg["render"]
     out = cfg["out"]
     for d in ("clips", "labels", "specs"):
@@ -133,6 +149,8 @@ def main():
         st = (a.worker * sp["n"]) // max(a.nworkers, 1)
         todo = list(range(st, sp["n"])) + list(range(st))
         os.makedirs(f"{out}/locks", exist_ok=True)
+    if a.extra_list and os.path.exists(a.extra_list):          # 칸 채우기 번호 (분할 크기 밖, 설계는 design/ 에 미리 있다)
+        todo = [int(x) for x in open(a.extra_list).read().split()] + todo
     if a.reverse:                                              # 도우미: 같은 몫을 뒤에서부터 (본 작업자와 가운데서 만난다, 끝난 clip 은 건너뜀)
         todo = todo[::-1]
     t_all, n_done = time.time(), 0
@@ -142,7 +160,20 @@ def main():
             continue
         if a.claim and not claim(f"{out}/locks/{cid}.lock"):
             continue
-        spec = G.sample_clip(cfg, sp["seed"], i)
+        dj, dfail = f"{out}/design/{cid}.json", f"{out}/design/{cid}.fail"          # 11-01: 미리 계산한 설계 (gen_design_cache.py) 가 있으면 읽는다
+        try:
+            if os.path.exists(dfail):
+                raise RuntimeError(open(dfail).read().strip() + " (미리 계산)")
+            if os.path.exists(dj):
+                spec = json.load(open(dj))
+            else:
+                spec = (G.sample_clip(cfg, a.split, i, max_tries=1500, streams=int(cfg.get("checks", {}).get("design_streams", 10))) if cfg.get("design") in ("gen_design_v2", "gen_design_v3")
+                        else G.sample_clip(cfg, sp["seed"], i))
+        except RuntimeError as e:                                   # 설계 실패: 기록만 하고 넘어간다 (렌더 뒤 검사가 칸별 개수로 잡는다)
+            with open(f"{out}/logs/design_fail_{a.split}.txt", "a") as f:
+                f.write(f"{cid}\t{e}\n")
+            print(f"[w{a.worker}] {cid} 설계 실패 — 건너뜀", flush=True)
+            continue
         spec["render"] = {"samples": rc["samples"], "denoise": rc["denoise"], "jpeg_quality": rc["jpeg_quality"], "crf": rc["crf"],
                           "gop": rc["gop"], "engine": "CYCLES", "bpy": S.bpy.app.version_string}
         t0 = time.time()

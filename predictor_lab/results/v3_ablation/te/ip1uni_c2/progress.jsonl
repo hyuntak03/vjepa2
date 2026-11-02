@@ -1,0 +1,4 @@
+{"event": "start", "rank": 0, "world": 2, "n": 180, "load_s": 18.5, "device": "cuda:0", "gpu": "NVIDIA RTX PRO 6000 Blackwell Server Edition", "time": "2026-11-02 01:20:56"}
+{"event": "start", "rank": 1, "world": 2, "n": 180, "load_s": 18.5, "device": "cuda:1", "gpu": "NVIDIA RTX PRO 6000 Blackwell Server Edition", "time": "2026-11-02 01:20:56"}
+{"event": "end", "rank": 1, "n": 180, "loop_s": 19.8, "s_per_clip": 0.1102, "s_per_clip_steady": 0.0824, "peak_mem_gb": 6.4, "time": "2026-11-02 01:21:16"}
+{"event": "end", "rank": 0, "n": 180, "loop_s": 20.3, "s_per_clip": 0.113, "s_per_clip_steady": 0.0805, "peak_mem_gb": 6.4, "time": "2026-11-02 01:21:17"}

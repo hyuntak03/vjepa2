@@ -43,6 +43,11 @@ def _nodes(mat):
     return mat.node_tree
 
 
+def _sock(socks, ident):
+    """Mix 노드처럼 같은 이름 소켓이 여럿인 노드에서 identifier 로 고른다 (예: A_Color · Result_Color)."""
+    return next(x for x in socks if x.identifier == ident)
+
+
 def _ramp(nt, c1, c2):
     r = nt.nodes.new("ShaderNodeValToRGB")
     r.color_ramp.elements[0].color = (*c1, 1)
@@ -115,7 +120,20 @@ class Scene:
         wnt.links.new(tc.outputs["Generated"], sep.inputs["Vector"])
         wnt.links.new(sep.outputs["Z"], mr.inputs["Value"])
         wnt.links.new(mr.outputs["Result"], self.sky.inputs["Fac"])
-        wnt.links.new(self.sky.outputs["Color"], bg.inputs["Color"])
+        # v3 (11-01): 환경맵 (Blender 내장 studiolights HDRI) — 섞기 노드로 하늘 램프와 바꾼다 (fac 0 = 옛 판)
+        mp_w = wnt.nodes.new("ShaderNodeMapping")
+        tc2 = wnt.nodes.new("ShaderNodeTexCoord")
+        self.env_tex = wnt.nodes.new("ShaderNodeTexEnvironment")
+        self.env_map = mp_w
+        wnt.links.new(tc2.outputs["Generated"], mp_w.inputs["Vector"])
+        wnt.links.new(mp_w.outputs["Vector"], self.env_tex.inputs["Vector"])
+        self.env_mix = wnt.nodes.new("ShaderNodeMix")
+        self.env_mix.data_type = "RGBA"
+        wnt.links.new(self.sky.outputs["Color"], _sock(self.env_mix.inputs, "A_Color"))
+        wnt.links.new(self.env_tex.outputs["Color"], _sock(self.env_mix.inputs, "B_Color"))
+        _sock(self.env_mix.inputs, "Factor_Float").default_value = 0.0
+        wnt.links.new(_sock(self.env_mix.outputs, "Result_Color"), bg.inputs["Color"])
+        self.env_imgs = {}
         self.sky_bg = bg
         # 바닥 (질감 4 종 재질을 미리 짓고 clip 마다 고른다)
         mesh = bpy.data.meshes.new("floor")
@@ -123,7 +141,7 @@ class Scene:
         mesh.from_pydata([(-S, -S, 0), (S, -S, 0), (S, S, 0), (-S, S, 0)], [], [(0, 1, 2, 3)])
         self.floor = bpy.data.objects.new("floor", mesh)
         scn.collection.objects.link(self.floor)
-        self.floor_mats = {k: self._tex_mat(f"floor_{k}", k) for k in D.FLOORS}
+        self.floor_mats = {k: self._tex_mat(f"floor_{k}", k) for k in list(D.FLOORS) + ["wood", "tile", "concrete", "carpet"]}   # v3: 사실적 바닥
         mesh.materials.append(self.floor_mats["checker"])
         # 뒷벽 (바닥 원점 상자)
         self.cube = self._cube_mesh("unitcube")
@@ -160,14 +178,32 @@ class Scene:
             tx = nt.nodes.new("ShaderNodeTexChecker")
             nt.links.new(mp.outputs["Vector"], tx.inputs["Vector"])
             nt.links.new(tx.outputs["Color"], b.inputs["Base Color"])
-        elif kind == "brick":
+        elif kind in ("brick", "wood", "tile"):
             tx = nt.nodes.new("ShaderNodeTexBrick")
             nt.links.new(mp.outputs["Vector"], tx.inputs["Vector"])
-            nt.links.new(tx.outputs["Color"], b.inputs["Base Color"])
-        elif kind in ("noise", "wave"):
+            if kind == "wood":                                 # 마루: 긴 널빤지 + 나뭇결 (노이즈로 밝기 흔들기)
+                tx.offset = 0.5
+                tx.inputs["Brick Width"].default_value, tx.inputs["Row Height"].default_value = 2.4, 0.18
+                tx.inputs["Mortar Size"].default_value = 0.004
+                nz = nt.nodes.new("ShaderNodeTexNoise"); nz.inputs["Scale"].default_value = 18.0; nz.inputs["Detail"].default_value = 8.0
+                nt.links.new(mp.outputs["Vector"], nz.inputs["Vector"])
+                mx = nt.nodes.new("ShaderNodeMix"); mx.data_type = "RGBA"; mx.blend_type = "MULTIPLY"; _sock(mx.inputs, "Factor_Float").default_value = 0.35
+                nt.links.new(tx.outputs["Color"], _sock(mx.inputs, "A_Color")); nt.links.new(nz.outputs["Color"], _sock(mx.inputs, "B_Color"))
+                nt.links.new(_sock(mx.outputs, "Result_Color"), b.inputs["Base Color"])
+                b.inputs["Roughness"].default_value = 0.55
+            else:
+                if kind == "tile":                             # 정사각 타일 + 밝은 줄눈
+                    tx.offset = 0.0
+                    tx.inputs["Brick Width"].default_value, tx.inputs["Row Height"].default_value = 0.4, 0.4
+                    tx.inputs["Mortar Size"].default_value = 0.008
+                    b.inputs["Roughness"].default_value = 0.35
+                nt.links.new(tx.outputs["Color"], b.inputs["Base Color"])
+        elif kind in ("noise", "wave", "concrete", "carpet"):
             tx = nt.nodes.new("ShaderNodeTexNoise" if kind == "noise" else "ShaderNodeTexWave")
-            if kind == "noise":
-                tx.inputs["Detail"].default_value = 6.0
+            if kind in ("noise", "concrete", "carpet"):
+                tx.inputs["Detail"].default_value = 6.0 if kind != "carpet" else 12.0
+                if kind == "carpet":
+                    tx.inputs["Scale"].default_value = 60.0
             else:
                 tx.inputs["Distortion"].default_value = 4.0
             r = _ramp(nt, (0.2, 0.2, 0.2), (0.5, 0.5, 0.5))
@@ -188,12 +224,13 @@ class Scene:
             tx = next(n for n in nt.nodes if n.bl_idname == "ShaderNodeTexChecker")
             tx.inputs["Color1"].default_value, tx.inputs["Color2"].default_value = (*c1, 1), (*c2, 1)
             tx.inputs["Scale"].default_value = 1.0
-        elif k == "brick":
+        elif k in ("brick", "wood", "tile"):
             tx = next(n for n in nt.nodes if n.bl_idname == "ShaderNodeTexBrick")
             tx.inputs["Color1"].default_value, tx.inputs["Color2"].default_value = (*c1, 1), (*c2, 1)
-            tx.inputs["Mortar"].default_value = tuple(0.6 * x for x in c1) + (1,)
+            mort = (0.85, 0.85, 0.82) if k == "tile" else tuple(0.6 * x for x in c1)
+            tx.inputs["Mortar"].default_value = tuple(mort) + (1,)
             tx.inputs["Scale"].default_value = 1.0
-        elif k in ("noise", "wave"):
+        elif k in ("noise", "wave", "concrete", "carpet"):
             r = next(n for n in nt.nodes if n.bl_idname == "ShaderNodeValToRGB")
             r.color_ramp.elements[0].color, r.color_ramp.elements[1].color = (*c1, 1), (*c2, 1)
         else:
@@ -284,14 +321,25 @@ class Scene:
         bpy, scn = self.bpy, self.scn
         c, e = spec["cam"], spec["env"]
         self.cam.data.lens = c["lens"]
-        self.cam.location = (0.0, 0.0, c["h"])
-        self.cam.rotation_euler = (math.radians(90.0 + c["pitch"]), 0.0, 0.0)
-        self.camN = D.Cam(c["h"], c["pitch"], c["lens"])
+        self.cam.location = (c.get("x", 0.0), c.get("y", 0.0), c["h"])            # v3: 카메라 위치 · yaw (기본 = 옛 판)
+        self.cam.rotation_euler = (math.radians(90.0 + c["pitch"]), 0.0, math.radians(c.get("yaw", 0.0)))
+        self.camN = D.Cam(c["h"], c["pitch"], c["lens"], yaw_deg=c.get("yaw", 0.0), x=c.get("x", 0.0), y=c.get("y", 0.0))
         self.sun.data.energy = e["sun_energy"]
         self.sun.rotation_euler = (math.radians(90 - e["sun_elev"]), 0.0, math.radians(e["sun_azim"]))
         self.sky.color_ramp.elements[0].color = (*e["sky_hor"], 1)
         self.sky.color_ramp.elements[1].color = (*e["sky_top"], 1)
         self.sky_bg.inputs["Strength"].default_value = e["sky_strength"]
+        if e.get("hdri"):                                      # v3: Blender 내장 HDRI (조명 + 배경)
+            base = bpy.utils.system_resource("DATAFILES") or os.path.abspath(os.path.join(os.path.dirname(bpy.__file__), "..", "..", "..", "datafiles"))
+            path = os.path.join(base, "studiolights", "world", e["hdri"] + ".exr")      # (bpy 모듈판은 공장 설정 뒤 system_resource 가 빈 문자열)
+            if e["hdri"] not in self.env_imgs:
+                self.env_imgs[e["hdri"]] = bpy.data.images.load(path)
+            self.env_tex.image = self.env_imgs[e["hdri"]]
+            self.env_map.inputs["Rotation"].default_value = (0.0, 0.0, math.radians(e.get("hdri_rot", 0.0)))
+            _sock(self.env_mix.inputs, "Factor_Float").default_value = 1.0
+            self.sky_bg.inputs["Strength"].default_value = e.get("hdri_strength", 1.0)
+        else:
+            _sock(self.env_mix.inputs, "Factor_Float").default_value = 0.0
         scn.view_settings.exposure = e["exposure"]
         fm = self.floor_mats[e["floor"]]
         self._set_tex(fm, e["floor_c1"], e["floor_c2"], e["floor_scale"])
@@ -304,15 +352,20 @@ class Scene:
         self.wall.material_slots[0].material = wm
 
         self.objs = []
+        self.pat_mats = []
         for i, o in enumerate(spec["objects"]):
             ob = bpy.data.objects.new(f"o{i}_{o['role']}", self.lib[o["shape"]])
             scn.collection.objects.link(ob)
             ob.material_slots[0].link = "OBJECT"
-            mat = self.obj_mats[i]
-            b = mat.node_tree.nodes["Principled BSDF"]
-            b.inputs["Base Color"].default_value = (*o["color"], 1)
-            b.inputs["Roughness"].default_value = o["rough"]
-            b.inputs["Metallic"].default_value = o["metal"]
+            if o.get("pattern") and o["pattern"] != "solid":          # v3 realistic: 실제 물건 무늬 (물체 좌표 → 구를 때 무늬도 돈다)
+                mat = self._pattern_mat(o)
+                self.pat_mats.append(mat)
+            else:
+                mat = self.obj_mats[i]
+                b = mat.node_tree.nodes["Principled BSDF"]
+                b.inputs["Base Color"].default_value = (*o["color"], 1)
+                b.inputs["Roughness"].default_value = o["rough"]
+                b.inputs["Metallic"].default_value = o["metal"]
             ob.material_slots[0].material = mat
             ob.scale = (o["s"],) * 3
             ob.visible_shadow = bool(spec.get("shadows", True))     # v1: 그림자 끔 (가려진 물체 자리 누수)
@@ -346,8 +399,12 @@ class Scene:
             ob.scale = (p["w"], p["th"], p["h"])
             self.pans.append(ob)
         self.props = []
-        for j, pr in enumerate(spec.get("props", [])):          # v1: 경사로 판 · 벽 (바닥면 중심 원점 상자)
-            ob = bpy.data.objects.new(f"prop{j}_{pr.get('role', '')}", self.cube)
+        self.prop_meshes = []
+        for j, pr in enumerate(spec.get("props", [])):          # v1: 경사로 판 · 벽 (바닥면 중심 원점 상자) · v2: 경사로 = 쐐기 (solid wedge)
+            wedge = pr.get("solid") == "wedge"
+            ob = bpy.data.objects.new(f"prop{j}_{pr.get('role', '')}", self._wedge_mesh(pr) if wedge else self.cube)
+            if wedge:
+                self.prop_meshes.append(ob.data)
             scn.collection.objects.link(ob)
             ob.material_slots[0].link = "OBJECT"
             mat = self.prop_mats[j % len(self.prop_mats)]
@@ -356,7 +413,8 @@ class Scene:
             r.color_ramp.elements[1].color = (*pr["color"], 1)
             r.inputs["Fac"].default_value = 1.0
             ob.material_slots[0].material = mat
-            ob.location, ob.rotation_euler, ob.scale = tuple(pr["loc"]), tuple(pr["rot"]), tuple(pr["scale"])
+            if not wedge:                                            # 쐐기 메시는 세계 좌표로 만든다 (원점 · 회전 · 크기 그대로)
+                ob.location, ob.rotation_euler, ob.scale = tuple(pr["loc"]), tuple(pr["rot"]), tuple(pr["scale"])
             self.props.append(ob)
         res = (self.track_fn or D.all_tracks)(spec)
         self.tracks, self.pan_ang = res[0], res[1]
@@ -365,7 +423,101 @@ class Scene:
     def teardown(self):
         for ob in self.objs + self.pans + self.props:
             self.bpy.data.objects.remove(ob, do_unlink=True)
-        self.objs, self.pans, self.props = [], [], []
+        for me in getattr(self, "prop_meshes", []):
+            self.bpy.data.meshes.remove(me, do_unlink=True)
+        for mat in getattr(self, "pat_mats", []):
+            self.bpy.data.materials.remove(mat, do_unlink=True)
+        self.pat_mats = []
+        self.objs, self.pans, self.props, self.prop_meshes = [], [], [], []
+
+    def _pattern_mat(self, o):
+        """v3 realistic 무늬 (물체 좌표, 메시 = 바닥면 중심 원점 · DIMS 상자): lines 농구공 솔기 · cells 축구공 · segments 비치볼 ·
+        band 통 · 고깔 띠 (높이) · tape 종이 상자 테이프 (가로) · grain 나뭇결."""
+        bpy = self.bpy
+        mat = bpy.data.materials.new("pat")
+        nt = _nodes(mat)
+        b = nt.nodes["Principled BSDF"]
+        b.inputs["Roughness"].default_value = o["rough"]
+        b.inputs["Metallic"].default_value = o["metal"]
+        c1, c2 = (*o["color"], 1), (*o.get("color2", (0.05, 0.05, 0.05)), 1)
+        co = nt.nodes.new("ShaderNodeTexCoord").outputs["Object"]
+        sep = nt.nodes.new("ShaderNodeSeparateXYZ"); nt.links.new(co, sep.inputs["Vector"])
+        L = nt.links.new
+        p = o["pattern"]
+
+        def ramp(stops, interp="CONSTANT"):
+            r = nt.nodes.new("ShaderNodeValToRGB")
+            r.color_ramp.interpolation = interp
+            el = r.color_ramp.elements
+            while len(el) < len(stops):
+                el.new(0.5)
+            for e_, (pos, col) in zip(el, stops):
+                e_.position, e_.color = pos, col
+            return r
+        if p == "lines":                                               # 두 방향 솔기 (구의 가로 · 세로 띠의 0 근처가 검은 선)
+            out = None
+            for ax in ("X", "Y"):
+                w = nt.nodes.new("ShaderNodeTexWave"); w.wave_type = "BANDS"; w.bands_direction = ax
+                w.inputs["Scale"].default_value = 1.6; L(co, w.inputs["Vector"])
+                r = ramp([(0.0, c2), (0.06, c1), (0.94, c1), (1.0, c2)], "LINEAR"); L(w.outputs["Fac"], r.inputs["Fac"])
+                if out is None:
+                    out = r.outputs["Color"]
+                else:
+                    mx = nt.nodes.new("ShaderNodeMix"); mx.data_type = "RGBA"; mx.blend_type = "MULTIPLY"; _sock(mx.inputs, "Factor_Float").default_value = 1.0
+                    L(out, _sock(mx.inputs, "A_Color")); L(r.outputs["Color"], _sock(mx.inputs, "B_Color")); out = _sock(mx.outputs, "Result_Color")
+            L(out, b.inputs["Base Color"])
+        elif p == "cells":                                             # 축구공: 칸마다 무작위 값 → 30 % 검은 칸
+            v = nt.nodes.new("ShaderNodeTexVoronoi"); v.inputs["Scale"].default_value = 4.0; L(co, v.inputs["Vector"])
+            sr = nt.nodes.new("ShaderNodeSeparateColor"); L(v.outputs["Color"], sr.inputs["Color"])
+            r = ramp([(0.0, c1), (0.7, c2)]); L(sr.outputs[0], r.inputs["Fac"]); L(r.outputs["Color"], b.inputs["Base Color"])
+        elif p == "segments":                                          # 비치볼: z 축 둘레 각도로 6 조각
+            g = nt.nodes.new("ShaderNodeTexGradient"); g.gradient_type = "RADIAL"; L(co, g.inputs["Vector"])
+            cols = [(0.9, 0.1, 0.1, 1), (0.95, 0.95, 0.95, 1), (0.1, 0.35, 0.85, 1), (0.95, 0.85, 0.1, 1), (0.1, 0.6, 0.25, 1), (0.95, 0.95, 0.95, 1)]
+            r = ramp([(k / 6, cols[k]) for k in range(6)]); L(g.outputs["Fac"], r.inputs["Fac"]); L(r.outputs["Color"], b.inputs["Base Color"])
+        elif p == "band":                                              # 통 · 고깔: 높이 가운데 띠
+            mr = nt.nodes.new("ShaderNodeMapRange"); mr.inputs["From Min"].default_value, mr.inputs["From Max"].default_value = 0.0, o.get("hz", 1.0)
+            L(sep.outputs["Z"], mr.inputs["Value"])
+            lo, hi = o.get("band", (0.4, 0.62))
+            r = ramp([(0.0, c1), (lo, c2), (hi, c1)]); L(mr.outputs["Result"], r.inputs["Fac"]); L(r.outputs["Color"], b.inputs["Base Color"])
+        elif p == "tape":                                              # 종이 상자: 가운데 테이프 띠 (x 방향) + 골판지 얼룩
+            mr = nt.nodes.new("ShaderNodeMapRange"); mr.inputs["From Min"].default_value, mr.inputs["From Max"].default_value = -0.5, 0.5
+            L(sep.outputs["X"], mr.inputs["Value"])
+            r = ramp([(0.0, c1), (0.44, c2), (0.56, c1)]); L(mr.outputs["Result"], r.inputs["Fac"])
+            nz = nt.nodes.new("ShaderNodeTexNoise"); nz.inputs["Scale"].default_value = 9.0; L(co, nz.inputs["Vector"])
+            mx = nt.nodes.new("ShaderNodeMix"); mx.data_type = "RGBA"; mx.blend_type = "MULTIPLY"; _sock(mx.inputs, "Factor_Float").default_value = 0.25
+            L(r.outputs["Color"], _sock(mx.inputs, "A_Color")); L(nz.outputs["Color"], _sock(mx.inputs, "B_Color"))
+            L(_sock(mx.outputs, "Result_Color"), b.inputs["Base Color"])
+        elif p == "grain":                                             # 나무: 나이테 결
+            w = nt.nodes.new("ShaderNodeTexWave"); w.wave_type = "RINGS"; w.inputs["Scale"].default_value = 3.0; w.inputs["Distortion"].default_value = 6.0
+            L(co, w.inputs["Vector"])
+            r = ramp([(0.0, c2), (1.0, c1)], "LINEAR"); L(w.outputs["Fac"], r.inputs["Fac"]); L(r.outputs["Color"], b.inputs["Base Color"])
+        else:
+            b.inputs["Base Color"].default_value = c1
+        return mat
+
+    def _wedge_mesh(self, pr):
+        """경사로 쐐기 (직각삼각형 기둥, 세계 좌표): 빗변 = 판 표현 (loc · rot[1] · scale) 의 윗면, 밑면 = 바닥 (z 0), 높은 끝 = 세운 면.
+        gen_design_v2.ramp_wedge 와 같은 식 (2026-11-01)."""
+        L, Wd, th = (float(x) for x in pr["scale"])
+        phi = float(pr["rot"][1])
+        top = [pr["loc"][0] + th * math.sin(phi), pr["loc"][1], pr["loc"][2] + th * math.cos(phi)]
+        d = (math.cos(phi), -math.sin(phi))
+        e1 = (top[0] - 0.5 * L * d[0], top[2] - 0.5 * L * d[1])
+        e2 = (top[0] + 0.5 * L * d[0], top[2] + 0.5 * L * d[1])
+        (xl, _), (xh, zh) = (e1, e2) if e1[1] < e2[1] else (e2, e1)
+        y0, y1 = top[1] - Wd / 2, top[1] + Wd / 2
+        v = [(xl, y0, 0.0), (xh, y0, 0.0), (xh, y0, zh), (xl, y1, 0.0), (xh, y1, 0.0), (xh, y1, zh)]
+        f = [(0, 1, 2), (3, 5, 4), (0, 3, 4, 1), (1, 4, 5, 2), (0, 2, 5, 3)]            # 앞 · 뒤 삼각형, 밑면, 세운 면, 빗면
+        me = self.bpy.data.meshes.new("ramp_wedge")
+        me.from_pydata(v, [], f)
+        me.update()
+        me.validate()
+        import bmesh
+        bm = bmesh.new(); bm.from_mesh(me)
+        bmesh.ops.recalc_face_normals(bm, faces=bm.faces)            # 바깥을 향하게
+        bm.to_mesh(me); bm.free()
+        me.materials.append(self.cube.materials[0])
+        return me
 
     def set_frame(self, f):
         from mathutils import Matrix
@@ -429,6 +581,8 @@ class Scene:
         """numpy 카메라 = Blender 카메라 인지 (target 중심, 픽셀 오차)."""
         from bpy_extras.object_utils import world_to_camera_view
         from mathutils import Vector
+        if not spec["objects"]:                                 # v3 빈 장면
+            return 0.0
         o = spec["objects"][0]
         pos = self.tracks[0][0][f] + np.array([0, 0, 0.5 * o["s"] * D.DIMS[o["shape"]][2]])
         co = world_to_camera_view(self.scn, self.cam, Vector(tuple(pos)))

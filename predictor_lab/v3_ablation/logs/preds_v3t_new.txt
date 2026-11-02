@@ -1,0 +1,2 @@
+v3t_only_s0=/data/hyuntak/project/2026/2027_cvpr/vjepa2/z_training/runs/v3t_only_s0/latest.pt
+v3_mix1600_t25_s0=/data/hyuntak/project/2026/2027_cvpr/vjepa2/z_training/runs/v3_mix1600_t25_s0/latest.pt

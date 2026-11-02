@@ -1,0 +1,18 @@
+# 무엇을 바꿨나: 학습셋을 BlenderTrack v2 (축 다섯 개 교차 324 칸 × train 160 = 51,840 clip, 렌더 타이밍 검사 통과분) 로. 창은 v2 설계 그대로 고정
+#   (20 fps 64 장을 간격 2 → 32 샘플, 문맥 16 + 미래 16) — 칸의 가림 타이밍 (early · mid · late) 이 창 안의 정해진 자리에 있도록 late 창 고르기를 끈다.
+# 왜: 축 (가림 타이밍 · 가림 형태 · 운동 × 장소 · 카메라 · 방해 물체 수) 별로 능력이 어떻게 옮겨지나를 보는 첫 판 (L1 만, 대조군). 2026-11-01 사용자 요청.
+# 비교: 릴리즈 · VOBench PFT · v1 판 (btrack_v1ns_l1) — 네 벤치 + Summary 시나리오 열 + 속도 sweep + v2 test (칸별).
+#   BT_CLIPS=…/blender_track/v2/clips BT_TRAIN_META=$LAB_REPO/data_csv/blender_track_v2/train_meta_ok.npz bash predictor_lab/train.sh lab_v2_base
+extends: lab_base
+
+data:
+  blender_track:
+    strides: [2]                       # v2 는 20 fps × 64 장: 간격 2 = 10 fps (VOBench 와 같은 샘플 속도), 창 63 장
+    context_frames: [16]               # 문맥 16 샘플 (블록 8) 고정 + 미래 16
+    late_p: 0.0                        # late 창 고르기 끔 — 칸의 타이밍이 창 안에 이미 정해져 있다 (칸 균형 유지)
+optimization:
+  epochs: 1                            # 51,840 clip / 32 = 1,620 step (v0 · v1 팔 1,500–1,585 step 과 비슷)
+
+lab:
+  sheet_name: "V-JEPA2 w/ BlenderTrack v2 (factorial)"
+  predictor_type: "future mask latent prediction"

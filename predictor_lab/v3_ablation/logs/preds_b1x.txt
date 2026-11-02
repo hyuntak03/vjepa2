@@ -1,0 +1,4 @@
+vobftg=/data/hyuntak/project/2026/2027_cvpr/vjepa2/z_training/runs/vobench_release_postft_g/latest.pt
+v3_mix1600_s0=/data/hyuntak/project/2026/2027_cvpr/vjepa2/z_training/runs/v3_mix1600_s0/latest.pt
+v3_real_s0=/data/hyuntak/project/2026/2027_cvpr/vjepa2/z_training/runs/v3_real_s0/latest.pt
+v3_mix680_s0=/data/hyuntak/project/2026/2027_cvpr/vjepa2/z_training/runs/v3_mix680_s0/latest.pt

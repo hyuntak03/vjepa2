@@ -199,6 +199,7 @@ analysis/       산출물·토큰 캐시 기반 분석. **전부 GPU 불필요**
   token_locality.py           (GPU) 표적 토큰 국소성 — 두 미래 (물체만 다름) 의 LN h 차가 물체 자리에 몇 % 있나 (§2-4)
   predictor_velocity_steer.py (GPU) 상태 안의 속도 코드 (오른쪽 − 왼쪽 운동 평균) 를 걸음 2 은닉에 더해 물체 자리가 누적해 움직이는가 (무작위 방향 대조) → bottleneck/steer/
   ar_attention_history.py     (GPU) AR predictor rollout attention (12 층 × 12 head) — key 블록별 질량 · 물체 자리 query → 과거 블록 물체 자리 (거울 대조), --ckpt 없으면 릴리즈 predictor (mask token 일괄, 10-14) · one-shot 체크포인트 (릴리즈 post-FT) 도 같은 분기, 같은 좌표 대조 om_ql · clip id vid · split_v2 train/test 요약 (10-14) → VOBench_v1/analysis/attention_map/<model>/ (층별 지도 · 기준 vs post-FT --rows release|vast (걸음 = 행, 정본) · --spotlight release|vast (가장 바뀐 층 하나) · --pair (층별) figures/plot_attention_layers.py · 그림 figures/plot_ar_attention.py → compare/ · 예시 plot_ar_attention_rows.py (걸음 = 행) → <model>/figures/ · plot_ar_attention_simple.py → _superseded/)
+  object_permanence_cells.py  시트 Object_permanence 탭 칸 (사라짐 A / 나타남 B × 움직임 / 정지) — VOBench late · VO_moving_occluder · IntPhys 1 late occ · Rubric, te 배열 + 표준 하네스 (AR) 에서 다시 셈 (2026-11-02)
 
 slurm_logs/     .gitignore
 ```

@@ -770,3 +770,19 @@ vobench_v1_gravity:                # 2026-10-11 재렌더 (g 375). VOBench gravi
   legacy_results_root: ${CVPR_REPO}/z_research/VOBench_v1/exp_results
   overrides:
     scoring.pairing: cross          # block 하나 = 문맥 하나라 cross (가능 1 × 불가능 전부) = 문맥 일치 쌍 전부
+vo_moving_occluder:               # 2026-11-01 등록 (렌더 10-31). UE 5.4 TestBed, 288 block × 4 arm, 96 프레임 30 fps 512 px PNG. late (k 1–3) 만, 가림막 = 움직이는 상자. 문맥 무결성 576 쌍 mismatch 0
+  raw_frames: 96
+  cache_tag: vo_moving_occluder
+  root: ${CVPR_DATA_CSV}/vo_moving_occluder   # z_research/scripts/data/build_vobench_index.py (metadata 열이 VOBench_v1 과 같다)
+  index_csv: index.csv
+  frames_root: ${CVPR_DATA2}/local_datasets/world/Benchmark/VO_moving_occluder
+  frames_pattern: '{file_name}/{frame:06d}.png'
+  frames_start: 0
+  frames_stride: 3
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: condition            # <objset>/<violation>/late
+  engine: wma
+  legacy_results_root: ${CVPR_REPO}/z_research/VOBench_v1/exp_results

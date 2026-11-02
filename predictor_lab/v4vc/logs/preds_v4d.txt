@@ -1,0 +1,1 @@
+v4vc_all_s0=/data/hyuntak/project/2026/2027_cvpr/vjepa2/z_training/runs/v4vc_all_s0/latest.pt

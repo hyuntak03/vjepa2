@@ -1021,3 +1021,25 @@ pair_column: pair_id
 variant_column: variant
 plausible_column: plausible
 type_column: condition
+
+## vo_moving_occluder
+
+VOBench 와 같은 UE 5.4 TestBed 렌더 (2026-10-31), **가림막 = 움직이는 상자** 판. 288 block × 4 arm = 1152 clip, **576 matched pair**.
+occlusion 은 **late 만** (k = 1–3, 문맥 끝 2k 샘플을 가림막이 가리고 그 사이에 A|B 가 바뀐다). objset 2 × violation 3 × 48 block.
+96 프레임 30 fps 512 px PNG, 0 부터 3 장 간격 32 장 (문맥 16 + 미래 16). `type_column` = condition (`<objset>/<violation>/late`, 6 값 × 48 block).
+인덱스 = `z_research/scripts/data/build_vobench_index.py` (metadata 열이 VOBench_v1 과 같다), 문맥 무결성 576 쌍 × 16 장 mismatch 0 (2026-11-01, vll5).
+cvpr 레지스트리 항목 (`cvpr/registry/datasets.yaml`) 과 같은 정의. 이 항목은 복사 기준선 (`copy_baseline.sh`, 옛 resolver) 용.
+
+raw_frames: 96
+cache_tag: vo_moving_occluder
+root: /data/hyuntak/project/2026/2027_cvpr/vjepa2/data_csv/vo_moving_occluder
+index_csv: index.csv
+frames_root: /data2/local_datasets/world/Benchmark/VO_moving_occluder
+frames_pattern: "{file_name}/{frame:06d}.png"
+frames_start: 0
+frames_stride: 3
+block_column: block_id
+pair_column: pair_id
+variant_column: variant
+plausible_column: plausible
+type_column: condition

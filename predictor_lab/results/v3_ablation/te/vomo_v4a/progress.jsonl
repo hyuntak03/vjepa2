@@ -1,0 +1,16 @@
+{"event": "start", "rank": 7, "world": 8, "n": 144, "load_s": 33.8, "device": "cuda:7", "gpu": "NVIDIA GeForce RTX 3090", "time": "2026-11-02 06:30:29"}
+{"event": "start", "rank": 0, "world": 8, "n": 144, "load_s": 35.5, "device": "cuda:0", "gpu": "NVIDIA GeForce RTX 3090", "time": "2026-11-02 06:30:31"}
+{"event": "start", "rank": 5, "world": 8, "n": 144, "load_s": 36.8, "device": "cuda:5", "gpu": "NVIDIA GeForce RTX 3090", "time": "2026-11-02 06:30:32"}
+{"event": "start", "rank": 6, "world": 8, "n": 144, "load_s": 38.1, "device": "cuda:6", "gpu": "NVIDIA GeForce RTX 3090", "time": "2026-11-02 06:30:33"}
+{"event": "start", "rank": 4, "world": 8, "n": 144, "load_s": 38.1, "device": "cuda:4", "gpu": "NVIDIA GeForce RTX 3090", "time": "2026-11-02 06:30:33"}
+{"event": "start", "rank": 2, "world": 8, "n": 144, "load_s": 38.1, "device": "cuda:2", "gpu": "NVIDIA GeForce RTX 3090", "time": "2026-11-02 06:30:33"}
+{"event": "start", "rank": 3, "world": 8, "n": 144, "load_s": 40.0, "device": "cuda:3", "gpu": "NVIDIA GeForce RTX 3090", "time": "2026-11-02 06:30:35"}
+{"event": "start", "rank": 1, "world": 8, "n": 144, "load_s": 41.9, "device": "cuda:1", "gpu": "NVIDIA GeForce RTX 3090", "time": "2026-11-02 06:30:37"}
+{"event": "end", "rank": 0, "n": 144, "loop_s": 72.5, "s_per_clip": 0.5037, "s_per_clip_steady": 0.3731, "peak_mem_gb": 6.2, "time": "2026-11-02 06:31:43"}
+{"event": "end", "rank": 7, "n": 144, "loop_s": 74.8, "s_per_clip": 0.5196, "s_per_clip_steady": 0.4066, "peak_mem_gb": 6.2, "time": "2026-11-02 06:31:44"}
+{"event": "end", "rank": 6, "n": 144, "loop_s": 71.9, "s_per_clip": 0.4992, "s_per_clip_steady": 0.3688, "peak_mem_gb": 6.2, "time": "2026-11-02 06:31:45"}
+{"event": "end", "rank": 5, "n": 144, "loop_s": 73.6, "s_per_clip": 0.5114, "s_per_clip_steady": 0.3888, "peak_mem_gb": 6.2, "time": "2026-11-02 06:31:45"}
+{"event": "end", "rank": 4, "n": 144, "loop_s": 74.1, "s_per_clip": 0.5143, "s_per_clip_steady": 0.3883, "peak_mem_gb": 6.2, "time": "2026-11-02 06:31:48"}
+{"event": "end", "rank": 2, "n": 144, "loop_s": 74.6, "s_per_clip": 0.5182, "s_per_clip_steady": 0.3814, "peak_mem_gb": 6.2, "time": "2026-11-02 06:31:48"}
+{"event": "end", "rank": 1, "n": 144, "loop_s": 71.3, "s_per_clip": 0.4951, "s_per_clip_steady": 0.3647, "peak_mem_gb": 6.2, "time": "2026-11-02 06:31:48"}
+{"event": "end", "rank": 3, "n": 144, "loop_s": 72.8, "s_per_clip": 0.5054, "s_per_clip_steady": 0.3853, "peak_mem_gb": 6.2, "time": "2026-11-02 06:31:48"}

@@ -1,0 +1,3 @@
+release=/data/hyuntak/project/2026/2027_cvpr/vjepa2/z_training/runs/release_vith/latest.pt
+vobftg=/data/hyuntak/project/2026/2027_cvpr/vjepa2/z_training/runs/vobench_release_postft_g/latest.pt
+v4vc_all_s0=/data/hyuntak/project/2026/2027_cvpr/vjepa2/z_training/runs/v4vc_all_s0/latest.pt

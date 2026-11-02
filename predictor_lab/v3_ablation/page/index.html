@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>물체 영속 학습 2차 결과</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=Noto+Serif+KR:wght@600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+/* 계획: 1차 결과 페이지와 같은 보고서. 위에서 아래로 요약 → 숫자 읽는 법 → 용어 → 결론 → 데이터 → 실험 1·2 → 질문 ①② → 대조 실험 → 한계.
+   절마다 같은 틀 (왜 · 어떻게 · 결과 · 해석). 색은 의미에만: 강조 = 파랑, 가능 = 초록, 불가능 = 주황. */
+:root {
+  --bg: #f4f6f8;
+  --surface: #ffffff;
+  --ink: #161a1f;
+  --muted: #5a636e;
+  --line: #dce1e6;
+  --accent: #2a78d6;
+  --ok: #138a60;
+  --bad: #d4571f;
+  --warn: #b7791f;
+  --track: #e9edf1;
+  --font-display: "Noto Serif KR", "Nanum Myeongjo", serif;
+  --font-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --font-num: "IBM Plex Mono", ui-monospace, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12161b; --surface: #1a2027; --ink: #e8ecf0; --muted: #9aa5b1; --line: #2c343d;
+    --accent: #5aa0f0; --ok: #3cc98f; --bad: #f08a55; --warn: #e0b04f; --track: #262e37;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #12161b; --surface: #1a2027; --ink: #e8ecf0; --muted: #9aa5b1; --line: #2c343d;
+  --accent: #5aa0f0; --ok: #3cc98f; --bad: #f08a55; --warn: #e0b04f; --track: #262e37;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 16.5px; line-height: 1.7; word-break: keep-all; overflow-wrap: anywhere; }
+main { max-width: 980px; margin: 0 auto; padding: 40px 20px 72px; display: grid; gap: 46px; }
+h1, h2 { font-family: var(--font-display); text-wrap: balance; line-height: 1.3; margin: 0; }
+h1 { font-size: clamp(1.7rem, 4vw, 2.3rem); }
+h2 { font-size: 1.42rem; }
+h3 { font-size: 1.06rem; margin: 0; font-weight: 600; }
+p { margin: 0; }
+a { color: var(--accent); }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.muted { color: var(--muted); }
+.num { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+section { display: grid; gap: 16px; }
+.sec-no { font-family: var(--font-body); font-weight: 600; color: var(--muted); font-size: .85rem; letter-spacing: .04em; }
+ul.tight { margin: 0; padding-left: 1.2em; display: grid; gap: 5px; }
+.ev { font-size: .72rem; font-weight: 700; color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; margin-left: 4px; white-space: nowrap; vertical-align: 1px; }
+.ev.m { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 40%, transparent); }
+.ev.t { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
+.ev.g { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, transparent); }
+
+/* 머리 */
+header { display: grid; gap: 14px; }
+.eyebrow { font-size: .88rem; color: var(--muted); }
+.summary { background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 10px; padding: 18px 20px; display: grid; gap: 10px; margin: 0; }
+.summary div { display: grid; grid-template-columns: 4.2em 1fr; gap: 12px; }
+.summary dt { font-weight: 700; color: var(--muted); }
+.summary dd { margin: 0; }
+
+/* 한 줄 답 상자 */
+.answer { background: color-mix(in srgb, var(--accent) 8%, var(--surface)); border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line)); border-radius: 10px; padding: 12px 16px; font-weight: 600; }
+.answer::before { content: "이 절의 답 · "; color: var(--accent); font-weight: 700; }
+
+/* 숫자 읽는 법 */
+.howto { background: var(--surface); border: 2px solid var(--ink); border-radius: 12px; padding: 18px 20px; display: grid; gap: 12px; }
+.formula { font-size: 1.05rem; font-weight: 600; padding: 10px 14px; background: var(--track); border-radius: 8px; }
+.pair3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+.pair3 .strip { gap: 4px; }
+
+/* 왜 · 어떻게 · 결과 · 해석 */
+.steps { display: grid; gap: 10px; }
+.step { display: grid; grid-template-columns: 5.2em 1fr; gap: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; }
+.step > b { color: var(--muted); font-size: .9rem; padding-top: 2px; }
+.step > div { display: grid; gap: 8px; min-width: 0; }
+
+/* 표 */
+.tbl { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; font-size: .93rem; }
+.tbl th, .tbl td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.tbl th { font-size: .84rem; color: var(--muted); font-weight: 600; background: color-mix(in srgb, var(--track) 55%, var(--surface)); }
+.tbl tr:last-child td { border-bottom: 0; }
+.tbl td.n, .tbl th.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tbl td.n { font-family: var(--font-num); }
+.tbl td.hi { font-weight: 700; color: var(--accent); }
+.tbl td.lo { font-weight: 700; color: var(--bad); }
+.tbl tr.sep td { border-top: 2px solid var(--line); }
+.tbl td.m { white-space: nowrap; font-weight: 600; }
+.tbl td.tr { min-width: 10.5em; color: var(--muted); font-size: .88rem; }
+.defs { display: grid; gap: 4px; margin: 0; padding-left: 1.2em; }
+.tbl td.in::after { content: " †"; color: var(--warn); font-weight: 700; }
+.fix { border: 1px solid color-mix(in srgb, var(--warn) 55%, var(--line)); background: color-mix(in srgb, var(--warn) 8%, var(--surface)); border-radius: 10px; padding: 10px 14px; }
+.tbl caption { caption-side: top; text-align: left; font-size: .9rem; color: var(--muted); padding: 0 0 6px; }
+.table-wrap { overflow-x: auto; }
+.pill { display: inline-block; font-size: .76rem; font-weight: 700; padding: 1px 8px; border-radius: 999px; white-space: nowrap; }
+.pill.up { background: color-mix(in srgb, var(--ok) 16%, transparent); color: var(--ok); }
+.pill.down { background: color-mix(in srgb, var(--bad) 14%, transparent); color: var(--bad); }
+.pill.same { background: var(--track); color: var(--muted); }
+.pill.run { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
+
+/* 결론 카드 */
+.facts { display: grid; gap: 10px; }
+.fact { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 13px 16px; display: grid; grid-template-columns: 2em 1fr; gap: 10px; }
+.fact .n { font-family: var(--font-num); color: var(--accent); font-weight: 700; }
+.fact.limit .n { color: var(--muted); }
+.fact p + p { margin-top: 4px; }
+
+/* 용어 */
+.terms td:first-child { font-weight: 600; white-space: nowrap; }
+
+/* 데이터 예시 */
+.strip { display: grid; gap: 4px; }
+.strip img { width: 100%; max-width: 100%; height: auto; display: block; border-radius: 4px; }
+.lab { font-size: .8rem; color: var(--muted); font-weight: 500; }
+.lab.ok { color: var(--ok); font-weight: 700; }
+.lab.bad { color: var(--bad); font-weight: 700; }
+.cap { font-size: .9rem; color: var(--muted); }
+.ex-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 12px; }
+.ex { display: grid; gap: 6px; border: 1px solid var(--line); border-radius: 10px; padding: 12px; background: var(--surface); }
+.duo { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; }
+.chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.chip { font-size: .74rem; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+.ds { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px; display: grid; gap: 8px; }
+.ds-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 14px; }
+
+/* 벌점 그림 */
+.penalty { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 10px; }
+.pbox { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; display: grid; gap: 6px; }
+.pbox svg { width: 100%; height: auto; display: block; }
+
+footer { font-size: .84rem; color: var(--muted); display: grid; gap: 6px; border-top: 1px solid var(--line); padding-top: 18px; }
+footer code { font-family: var(--font-num); font-size: .78rem; overflow-wrap: anywhere; }
+
+@media (max-width: 680px) {
+  .summary div, .step { grid-template-columns: 1fr; gap: 2px; }
+  .pair3, .duo { grid-template-columns: 1fr; }
+  .ex-grid { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+<main>
+
+<header>
+  <div class="eyebrow">V-JEPA 2 물체 영속 실험 · 2차 결과 · Blender 가림 데이터 v3 · 2026-11-01 (대조 실험 진행 중)</div>
+  <h1>Blender 로 만든 가림 장면을 배우면,<br>VOBench 의 가림도 풀리나</h1>
+  <dl class="summary">
+    <div><dt>질문</dt><dd>가림 장면을 직접 만든 데이터 (v3) 로 예측 부분을 더 학습하면, 다른 벤치마크에서도 "가려진 물체가 다시 나온다" 를 더 잘 고르나? 특히 VOBench 에서?</dd></div>
+    <div><dt>답</dt><dd><b>Blender 계열 벤치마크는 크게 오른다. VOBench 는 거의 그대로다.</b> 정지한 물체를 지우지 않는 것은 어느 쪽으로 학습해도 옮겨 간다. 움직이는 물체를 새 자리에 놓는 것은 학습한 데이터 밖으로 잘 안 옮겨 간다. Blender → Unreal, Unreal → Blender 양쪽 다 그렇다.</dd></div>
+    <div><dt>다음</dt><dd>대조 실험 세 개를 돌리는 중이다. "VOBench 와 닮은 장면만 모으면 풀리나", "시험 장면을 외우면 100 % 가 되나" 를 가른다 (12 절).</dd></div>
+  </dl>
+</header>
+
+<section>
+  <div class="sec-no">1 · 먼저 읽기</div>
+  <h2>이 페이지의 숫자는 모두 "쌍 정답률" 이다</h2>
+  <div class="howto">
+    <p>벤치마크는 <b>쌍</b>으로 되어 있다. 쌍 = 앞부분 (문맥) 이 픽셀까지 같고 뒷부분만 다른 두 영상이다.</p>
+    <p class="lab">예: VOBench late 의 사라짐 쌍 하나</p>
+    <div class="pair3">
+      <div class="strip"><span class="lab">문맥 (두 영상이 같다)</span><img src="img/vobench_ctx.webp" alt="초록 고리가 움직이고 바닥 판이 일어서서 고리를 가림" loading="lazy"></div>
+      <div class="strip"><span class="lab ok">가능 영상의 뒷부분 · 고리가 다시 보인다</span><img src="img/vobench_pos.webp" alt="판이 눕고 고리가 보임" loading="lazy"></div>
+      <div class="strip"><span class="lab bad">불가능 영상의 뒷부분 · 고리가 사라졌다</span><img src="img/vobench_imp.webp" alt="판이 누웠는데 고리가 없음" loading="lazy"></div>
+    </div>
+    <p>모델은 문맥을 보고 뒷부분을 예측한다. <b>놀람</b> = 예측과 실제 뒷부분의 차이다.</p>
+    <p class="formula">정답률 (%) = 그 벤치마크의 쌍 가운데, 모델이 <span style="color:var(--bad)">불가능 영상</span>에 더 놀란 쌍의 비율</p>
+    <ul class="tight">
+      <li><b>50 %</b> = 동전 던지기. <b>50 % 아래</b> = 말이 안 되는 쪽을 더 자연스럽게 본다.</li>
+      <li>이 페이지는 주로 <b>사라짐 쌍 정답률</b>을 쓴다 (2 절).</li>
+      <li>모든 표는 위에 <b>벤치마크 · 무엇의 정답률 · 쌍 수</b>를 적고, 행은 <b>모델과 그 학습 데이터</b>다.</li>
+      <li>표의 <b>†</b> = 그 모델이 학습한 데이터와 같은 분포에서 잰 칸. 일반화로 읽지 않는다.</li>
+      <li>표의 <b style="color:var(--accent)">파랑</b> · <b style="color:var(--bad)">주황</b> 칸 = 눈여겨볼 칸. 기준은 표마다 설명에 적었다.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <div class="sec-no">2 · 용어</div>
+  <h2>이 페이지에서 쓰는 말</h2>
+  <div class="table-wrap">
+  <table class="tbl terms">
+    <tbody>
+      <tr><td>장면</td><td>같은 설정 (물체 · 가리는 것 · 카메라 · 궤적) 으로 만든 영상 묶음. 장면마다 "물체 있음" · "물체 없음" 영상이 있다.</td></tr>
+      <tr><td>쌍</td><td>문맥이 같고 뒷부분만 다른 가능 영상 · 불가능 영상 한 벌. 시험 장면 하나에서 사라짐 쌍 1 개와 나타남 쌍 1 개가 나온다.</td></tr>
+      <tr><td>사라짐 쌍</td><td>문맥에 물체가 있다. 불가능 영상에서는 가림이 끝나도 물체가 안 나온다.</td></tr>
+      <tr><td>나타남 쌍</td><td>문맥에 물체가 없다. 불가능 영상에서는 가림 뒤에서 물체가 나온다. 거의 모든 모델이 99–100 % 라 따로 다루지 않는다.</td></tr>
+      <tr><td>샘플 · 튜블릿</td><td>샘플 = 모델이 읽는 프레임 한 장 (32 샘플, 초당 10 장). 0–15 가 문맥, 16–31 이 미래. 튜블릿 = 연속한 샘플 2 개 (미래 = 튜블릿 8 개).</td></tr>
+      <tr><td>토큰</td><td>화면을 16 × 16 으로 나눈 칸 하나. 1 토큰 = 16 픽셀 (256 픽셀 화면).</td></tr>
+      <tr><td>late 가림</td><td>문맥의 마지막 샘플에서 물체가 가려져 있는 상태.</td></tr>
+      <tr><td>정지 · 움직임</td><td>문맥에서 물체 (가려지는 것) 가 서 있나 움직이나.</td></tr>
+      <tr><td>재등장 시점 · 자리</td><td>가려졌던 물체가 다시 보이는 첫 샘플과 그때 화면 위치.</td></tr>
+      <tr><td>등속 외삽 오차</td><td>마지막으로 보인 위치와 속도로 곧게 이어 간 예상 자리와 실제 자리의 거리. 작을수록 다시 나올 자리를 맞히기 쉽다.</td></tr>
+      <tr><td>운동 틀 · 틀 궤적</td><td>운동 틀 = VOBench 가 쓰는 정해진 운동 6 가지 (정지 · 등속 · 가속 · 감속 · 빗면 오름 · 내림). 틀 궤적 = 방향 · 운동 종류가 같은 학습 장면들의 평균 미래 경로 (9 절).</td></tr>
+      <tr><td>경로 일치</td><td>시험 장면의 미래에서 물체가 지나가는 토큰 칸 순서가 학습 장면 중 하나와 똑같다 (9 절).</td></tr>
+      <tr><td>복사 기준선</td><td>예측 없이 마지막 문맥 샘플을 미래 자리에 그대로 둔 것. 벤치마크가 예측 없이 얼마나 풀리는지 잰다.</td></tr>
+      <tr><td>Blender 학습 모델</td><td>v3 섞음 · trapdoor 25 % · trapdoor 만 세 모델을 함께 부르는 말 (5 절).</td></tr>
+      <tr><td>확실</td><td>같은 쌍에서 한 모델만 맞힌 수의 차이가 우연으로 나올 확률이 5 % 미만 (McNemar 정확 검정).</td></tr>
+      <tr><td>근거 표시</td><td><span class="ev m">측정</span> 산출물에서 잰 값 · <span class="ev t">이론</span> 채점 식에서 따라 나옴 · <span class="ev g">추측</span> 아직 확인 안 함.</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section>
+  <div class="sec-no">3 · 결론 먼저</div>
+  <h2>측정으로 확인한 것 다섯 가지</h2>
+  <div class="facts">
+    <div class="fact"><span class="n">1</span><div><p><b>v3 로 학습하면 Blender 계열 벤치마크가 크게 오른다.</b> v3 시험 전체 쌍 (3,438): 원래 58.9 → v3 섞음 88.0 %. CLEVRER style 전체 쌍 (612): 51.3 → 82.5 %. <span class="ev m">측정</span> → 7 절</p></div></div>
+    <div class="fact"><span class="n">2</span><div><p><b>v3 시험의 움직이는 물체 사라짐 쌍 (1,262) 은 v3 섞음이 68.5 % 만 맞힌다.</b> 다시 나올 자리를 맞히기 어려운 쌍일수록 틀린다. 경로가 학습에 있으면 74.8 %, 없으면 62.3 % 다. 외울 수 있으면 도움은 되지만 100 % 에는 한참 못 미친다. <span class="ev m">측정</span> → 9 절</p></div></div>
+    <div class="fact"><span class="n">3</span><div><p><b>정지한 물체를 지우지 않는 것은 어느 쪽으로 학습해도 옮겨 간다.</b> VOBench late 정지 사라짐 쌍 (6): Blender 학습 모델 100 % (원래 83.3). Blender trapdoor 시험의 정지 · 가까이 사라짐 쌍 (231): VOBench 학습 모델 71.9 % (원래 61.9). <span class="ev m">측정</span> → 10 절</p></div></div>
+    <div class="fact"><span class="n">4</span><div><p><b>움직이는 물체를 새 자리에 놓는 것은 학습한 데이터 밖으로 잘 안 옮겨 간다. 양방향이다.</b> VOBench late 움직임 사라짐 쌍 (30): Blender 학습 모델 0–13 % (원래 0). Blender trapdoor 시험 움직임 사라짐 쌍 (187): VOBench 학습 모델 29.9 % (원래 10.2). 가림 시점 · 자리 난이도 · 판 크기 · 물체 크기는 이유가 아니고, VOBench 와 가장 닮은 Blender 장면만 학습해도 10 % 다 (대조 실험 ①). <span class="ev m">측정</span> → 10 · 11 절</p></div></div>
+    <div class="fact"><span class="n">5</span><div><p><b>IntPhys 1 · 2 와 실제 촬영 영상은 어떤 학습으로도 움직이지 않는다.</b> 1차 결과와 같다. <span class="ev m">측정</span> → 7 절</p></div></div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-no">4 · 학습 데이터</div>
+  <h2>v3: 조건을 하나씩 조절해 만든 Blender 가림 장면</h2>
+  <div class="steps">
+    <div class="step"><b>무엇</b><div><p>모든 장면이 late 가림이다. 장면마다 영상 둘을 만든다: <b>물체가 있는 영상</b>, 같은 장면에서 <b>물체만 뺀 영상</b>. 학습에는 이 두 가능 영상만 쓴다.</p></div></div>
+    <div class="step"><b>크기</b><div><p>20 fps · 64 프레임 · 256 픽셀. 모델은 한 프레임씩 건너 32 샘플 (3.2 초) 을 읽는다. v3 <span class="num">7,136</span> 장면. trapdoor <span class="num">1,528</span> 장면은 VOBench 와 같은 가림 방식이라 나중에 따로 만들었다.</p></div></div>
+    <div class="step"><b>조절한 축</b><div>
+      <ul class="tight">
+        <li>물체 모양: 기본 도형 · 실제 물건</li>
+        <li>카메라: 정면 · 측면 (30–60°) · 위에서. <b>카메라는 늘 물체가 가려지는 자리를 화면 가운데에 둔다.</b></li>
+        <li>가림 종류: 가림막 (판 · 벽 · 탁자 · 레일 판) · 다른 물체 (서 있는 물체 · 굴러오는 공) · trapdoor (누운 판이 일어섰다 다시 눕는다)</li>
+        <li>가림 움직임 (고정 · 움직임) · 물체 움직임 (움직임 · 정지) · 가림 길이 (짧게 · 길게)</li>
+        <li>장소: 평지 · 빗면 (5–12°, 물체가 움직이는 장면만). 빗면에는 <b>오르막</b> (아래에서 굴려 올리면 꼭대기에서 되돌아옴) 과 <b>내리막</b> (꼭대기 근처에서 놓음) 이 둘 다 있다. v3 학습 1,981 장면 (오르막 1,270 · 내리막 711), trapdoor 학습 489 장면 (283 · 206).</li>
+      </ul>
+    </div></div>
+  </div>
+  <p class="cap">예시는 같은 생성기로 만든 시험 장면의 가능 영상이다. 왼쪽 세 장 = 문맥, 오른쪽 세 장 = 맞혀야 하는 뒷부분.</p>
+  <div class="ex-grid">
+    <div class="ex"><div class="chips"><span class="chip">고정 판</span><span class="chip">정면</span><span class="chip">물체 움직임</span></div>
+      <div class="duo"><div class="strip"><span class="lab">문맥</span><img src="img/board_front_ctx.webp" alt="하늘색 원기둥이 주황 판 뒤로 들어감" loading="lazy"></div><div class="strip"><span class="lab">뒷부분</span><img src="img/board_front_pos.webp" alt="원기둥이 판 왼쪽으로 다시 나옴" loading="lazy"></div></div></div>
+    <div class="ex"><div class="chips"><span class="chip">레일 판 움직임</span><span class="chip">측면</span><span class="chip">물체 정지</span></div>
+      <div class="duo"><div class="strip"><span class="lab">문맥</span><img src="img/rail_side_ctx.webp" alt="초록 판이 미끄러져 와 교통 콘을 가림" loading="lazy"></div><div class="strip"><span class="lab">뒷부분</span><img src="img/rail_side_pos.webp" alt="판이 지나가고 콘이 보임" loading="lazy"></div></div></div>
+    <div class="ex"><div class="chips"><span class="chip">굴러오는 공이 가림</span><span class="chip">물체 정지</span></div>
+      <div class="duo"><div class="strip"><span class="lab">문맥</span><img src="img/rolling_ball_ctx.webp" alt="큰 분홍 공이 굴러와 작은 캡슐을 가림" loading="lazy"></div><div class="strip"><span class="lab">뒷부분</span><img src="img/rolling_ball_pos.webp" alt="공이 지나가고 캡슐이 보임" loading="lazy"></div></div></div>
+    <div class="ex"><div class="chips"><span class="chip">서 있는 물체가 가림</span><span class="chip">측면</span><span class="chip">물체 움직임</span></div>
+      <div class="duo"><div class="strip"><span class="lab">문맥</span><img src="img/stand_object_ctx.webp" alt="보라 공이 큰 캡슐 뒤로 들어감" loading="lazy"></div><div class="strip"><span class="lab">뒷부분</span><img src="img/stand_object_pos.webp" alt="보라 공이 캡슐 왼쪽으로 나옴" loading="lazy"></div></div></div>
+    <div class="ex"><div class="chips"><span class="chip">움직이는 판</span><span class="chip">위에서</span></div>
+      <div class="duo"><div class="strip"><span class="lab">문맥</span><img src="img/bird_ctx.webp" alt="위에서 본 장면, 판이 원기둥을 가림" loading="lazy"></div><div class="strip"><span class="lab">뒷부분</span><img src="img/bird_pos.webp" alt="판이 지나가고 원기둥이 보임" loading="lazy"></div></div></div>
+    <div class="ex"><div class="chips"><span class="chip">trapdoor</span><span class="chip">정면</span><span class="chip">VOBench 와 같은 가림 방식</span></div>
+      <div class="duo"><div class="strip"><span class="lab">문맥</span><img src="img/trapdoor_ctx.webp" alt="누운 판이 일어서서 초록 원기둥을 가림" loading="lazy"></div><div class="strip"><span class="lab">뒷부분</span><img src="img/trapdoor_pos.webp" alt="판이 눕고 원기둥이 보임" loading="lazy"></div></div></div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-no">5 · 모델</div>
+  <h2>비교한 모델과 학습 조건</h2>
+  <div class="answer">모든 표의 행은 이 모델들이다. 학습 데이터만 다르고 나머지 설정은 같다 (VOBench 학습만 예외).</div>
+  <div class="table-wrap">
+  <table class="tbl">
+    <thead><tr><th>모델 (표의 행 이름)</th><th>학습 데이터 (무엇을 더 봤나)</th><th class="n">장면 · 영상</th><th>학습 설정</th></tr></thead>
+    <tbody>
+      <tr><td class="m">복사 기준선</td><td>학습 없음. 예측 없이 마지막 문맥 샘플을 미래 자리에 그대로 둔다</td><td class="n">–</td><td>–</td></tr>
+      <tr><td class="m">원래</td><td>추가 학습 없음 (공개 V-JEPA 2 ViT-H 의 예측 부분)</td><td class="n">–</td><td>–</td></tr>
+      <tr><td class="m">v3 섞음</td><td>v3 학습 장면 (trapdoor 없음) 에서 무작위 1,600 장면</td><td class="n">1,600 · 3,200</td><td>공통 설정</td></tr>
+      <tr><td class="m">v3 섞음 680</td><td>같은 방식, 무작위 680 장면 (장면 수 비교용)</td><td class="n">680 · 1,360</td><td>공통 설정</td></tr>
+      <tr><td class="m">v3 전부</td><td>v3 학습 장면 전부 (장면 수 비교용)</td><td class="n">7,136 · 14,272</td><td>공통 설정</td></tr>
+      <tr><td class="m">trapdoor 25 %</td><td>v3 1,200 장면 + trapdoor 400 장면</td><td class="n">1,600 · 3,200</td><td>공통 설정</td></tr>
+      <tr><td class="m">trapdoor 만</td><td>trapdoor 학습 장면 전부</td><td class="n">1,528 · 3,056</td><td>공통 설정</td></tr>
+      <tr><td class="m">VOBench 학습</td><td>VOBench (Unreal) 학습 절반의 가능 영상. 시험과 같은 운동 틀 · 가림 길이 · 배경을 공유한다</td><td class="n">360 · 720</td><td>갱신 750 번 · 학습률 최고 5 × 10⁻⁵ (설정이 달라 참고용)</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="cap"><b>공통 설정</b> = 원래 모델의 예측 부분에서 출발 · 갱신 2,000 번 · 한 번에 24 영상 · 같은 학습률 일정 · 영상을 요약하는 부분 (encoder) 은 고정 · 정답 라벨 없음 · 모델마다 한 번씩 학습. 축별 "한 칸만" 모델 16 개 (8 절) 와 대조 실험 모델 3 개 (12 절) 도 같은 설정이다.</p>
+</section>
+
+<section>
+  <div class="sec-no">6 · 벤치마크</div>
+  <h2>시험에 쓴 벤치마크 여덟 개</h2>
+  <div class="table-wrap">
+  <table class="tbl">
+    <thead><tr><th>벤치마크</th><th>만든 곳</th><th>무엇이 가리나</th><th>이 페이지에서 세는 쌍</th><th class="n">쌍 수</th></tr></thead>
+    <tbody>
+      <tr><td class="m">v3 시험</td><td>Blender · 학습과 같은 생성기, 다른 장면 (1,719 장면)</td><td>v3 의 모든 가림 (trapdoor 제외)</td><td>전체 쌍 · 사라짐 쌍</td><td class="n">3,438 · 1,719</td></tr>
+      <tr><td class="m">Blender trapdoor 시험</td><td>Blender · trapdoor 생성기, 다른 장면 (446 장면)</td><td>trapdoor</td><td>사라짐 쌍 (전체 쌍은 892)</td><td class="n">446</td></tr>
+      <tr><td class="m">CLEVRER style</td><td>회색 바닥의 단순 도형 합성 장면</td><td>다른 물체 · 판</td><td>전체 쌍 (물체가 정지한 장면 제외)</td><td class="n">612</td></tr>
+      <tr><td class="m">움직이는 차 가림</td><td>Unreal · VOBench 와 같은 장면 · 궤적 (원래 이름 VO_moving_occluder)</td><td>지나가는 차</td><td>사라짐 쌍</td><td class="n">96</td></tr>
+      <tr><td class="m">VOBench late</td><td>Unreal · 우리 벤치마크</td><td>trapdoor</td><td>사라짐 쌍</td><td class="n">36</td></tr>
+      <tr><td class="m">IntPhys 1 영속 가림</td><td>공개 합성 벤치마크</td><td>벽</td><td>late 창 180 쌍 중 영속 위반 · 가림 쌍</td><td class="n">30</td></tr>
+      <tr><td class="m">IntPhys 2 영속</td><td>공개 합성 벤치마크 (복잡한 장면)</td><td>여러 가지</td><td>late 창의 영속 쌍</td><td class="n">120</td></tr>
+      <tr><td class="m">실제 촬영 영상</td><td>직접 찍은 사무실 영상 (독립 영상 20 개)</td><td>상자 · 컵</td><td>전체 쌍</td><td class="n">40</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="cap">아래는 사라짐 쌍 예시 세 개다. VOBench late 예시는 1 절 그림, IntPhys 1 · 2 와 실제 영상 예시는 <a href="https://claude.ai/artifact/5ToWJMQyP9FctyVF11mfXk">1차 결과 페이지</a>에 있다.</p>
+  <div class="ds">
+    <div class="ds-head"><h3>Blender trapdoor 시험</h3><span class="cap">사라짐 쌍 446</span></div>
+    <div class="pair3">
+      <div class="strip"><span class="lab">문맥 (두 영상이 같다)</span><img src="img/trapdoor_ctx.webp" alt="누운 판이 일어서서 초록 원기둥을 가림" loading="lazy"></div>
+      <div class="strip"><span class="lab ok">가능 · 원기둥이 다시 보인다</span><img src="img/trapdoor_pos.webp" alt="판이 눕고 원기둥이 보임" loading="lazy"></div>
+      <div class="strip"><span class="lab bad">불가능 · 원기둥이 사라졌다</span><img src="img/trapdoor_imp.webp" alt="판이 누웠는데 원기둥이 없음" loading="lazy"></div>
+    </div>
+  </div>
+  <div class="ds">
+    <div class="ds-head"><h3>움직이는 차 가림 (Unreal)</h3><span class="cap">사라짐 쌍 96</span></div>
+    <div class="pair3">
+      <div class="strip"><span class="lab">문맥</span><img src="img/vomo_ctx.webp" alt="검은 밴이 지나가며 주황 음식 모형을 가림" loading="lazy"></div>
+      <div class="strip"><span class="lab ok">가능 · 음식이 다시 보인다</span><img src="img/vomo_pos.webp" alt="밴이 지나가고 음식이 보임" loading="lazy"></div>
+      <div class="strip"><span class="lab bad">불가능 · 음식이 사라졌다</span><img src="img/vomo_imp.webp" alt="밴이 지나갔는데 음식이 없음" loading="lazy"></div>
+    </div>
+  </div>
+  <div class="ds">
+    <div class="ds-head"><h3>CLEVRER style</h3><span class="cap">전체 쌍 612</span></div>
+    <div class="pair3">
+      <div class="strip"><span class="lab">문맥</span><img src="img/clevrer_ctx.webp" alt="작은 빨간 정육면체가 보라 원기둥 뒤로 들어감" loading="lazy"></div>
+      <div class="strip"><span class="lab ok">가능 · 정육면체가 다시 보인다</span><img src="img/clevrer_pos.webp" alt="정육면체가 원기둥 오른쪽에 보임" loading="lazy"></div>
+      <div class="strip"><span class="lab bad">불가능 · 정육면체가 사라졌다</span><img src="img/clevrer_imp.webp" alt="원기둥만 있음" loading="lazy"></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-no">7 · 실험 1</div>
+  <h2>v3 로 학습하면 어떤 벤치마크가 오르나</h2>
+  <div class="answer">Blender 계열 벤치마크는 크게 오르고, VOBench late · IntPhys · 실제 영상은 거의 그대로다.</div>
+  <div class="steps">
+    <div class="step"><b>왜</b><div><p>v3 로 배운 것이 학습에 안 쓴 벤치마크로 옮겨 가는지 보려고.</p></div></div>
+    <div class="step"><b>어떻게</b><div><p>5 절의 모델들을 6 절의 벤치마크 여덟 개로 채점했다.</p></div></div>
+  </div>
+  <div class="table-wrap">
+  <table class="tbl">
+    <caption><b>벤치마크 A · Blender 계열 네 칸.</b> 칸 = 정답률 (%). 굵은 파랑 = 원래 모델보다 확실히 오름 (Blender 학습 모델만 검정). † = 학습 분포 안.</caption>
+    <thead>
+      <tr><th rowspan="2">모델</th><th rowspan="2">학습 데이터</th><th class="n">v3 시험</th><th class="n">v3 시험</th><th class="n">Blender trapdoor 시험</th><th class="n">CLEVRER style</th></tr>
+      <tr><th class="n">전체 쌍 3,438</th><th class="n">사라짐 쌍 1,719</th><th class="n">사라짐 쌍 446</th><th class="n">전체 쌍 612</th></tr>
+    </thead>
+    <tbody>
+      <tr><td class="m">복사 기준선</td><td class="tr">학습 없음 · 예측 없음</td><td class="n">62.3</td><td class="n">31.8</td><td class="n">43.5</td><td class="n">65.5</td></tr>
+      <tr><td class="m">원래</td><td class="tr">추가 학습 없음</td><td class="n">58.9</td><td class="n">18.4</td><td class="n">36.3</td><td class="n">51.3</td></tr>
+      <tr><td class="m">v3 섞음</td><td class="tr">v3 무작위 1,600 장면</td><td class="n hi in">88.0</td><td class="n hi in">76.0</td><td class="n hi">62.8</td><td class="n hi">82.5</td></tr>
+      <tr><td class="m">trapdoor 25 %</td><td class="tr">v3 1,200 + trapdoor 400 장면</td><td class="n hi in">87.9</td><td class="n hi in">75.8</td><td class="n hi in">80.3</td><td class="n hi">79.6</td></tr>
+      <tr><td class="m">trapdoor 만</td><td class="tr">trapdoor 1,528 장면</td><td class="n hi">73.2</td><td class="n hi">46.8</td><td class="n hi in">86.8</td><td class="n hi">64.2</td></tr>
+      <tr><td class="m">VOBench 학습</td><td class="tr">VOBench 학습 절반 (참고)</td><td class="n">74.4</td><td class="n">48.9</td><td class="n">52.5</td><td class="n">77.0</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="table-wrap">
+  <table class="tbl">
+    <caption><b>벤치마크 B · Unreal · 공개 · 실제 영상 다섯 칸.</b> 칸 = 정답률 (%). 굵은 파랑 = 원래 모델보다 확실히 오름 (Blender 학습 모델만 검정). † = 학습 분포 안 (움직이는 차 가림은 VOBench 와 같은 장면 · 궤적).</caption>
+    <thead>
+      <tr><th rowspan="2">모델</th><th rowspan="2">학습 데이터</th><th class="n">움직이는 차 가림</th><th class="n">VOBench late</th><th class="n">IntPhys 1</th><th class="n">IntPhys 2</th><th class="n">실제 영상</th></tr>
+      <tr><th class="n">사라짐 쌍 96</th><th class="n">사라짐 쌍 36</th><th class="n">영속 가림 30</th><th class="n">영속 120</th><th class="n">전체 40</th></tr>
+    </thead>
+    <tbody>
+      <tr><td class="m">복사 기준선</td><td class="tr">학습 없음 · 예측 없음</td><td class="n">78.1</td><td class="n">41.7</td><td class="n">63.3</td><td class="n">50.8</td><td class="n">55.0</td></tr>
+      <tr><td class="m">원래</td><td class="tr">추가 학습 없음</td><td class="n">18.8</td><td class="n">13.9</td><td class="n">53.3</td><td class="n">59.2</td><td class="n">47.5</td></tr>
+      <tr><td class="m">v3 섞음</td><td class="tr">v3 무작위 1,600 장면</td><td class="n hi">35.4</td><td class="n">16.7</td><td class="n">60.0</td><td class="n">58.3</td><td class="n">50.0</td></tr>
+      <tr><td class="m">trapdoor 25 %</td><td class="tr">v3 1,200 + trapdoor 400 장면</td><td class="n hi">36.5</td><td class="n">22.2</td><td class="n">56.7</td><td class="n">59.2</td><td class="n">52.5</td></tr>
+      <tr><td class="m">trapdoor 만</td><td class="tr">trapdoor 1,528 장면</td><td class="n hi">56.3</td><td class="n">27.8</td><td class="n">56.7</td><td class="n">61.7</td><td class="n">47.5</td></tr>
+      <tr><td class="m">VOBench 학습</td><td class="tr">VOBench 학습 절반 (참고)</td><td class="n in">77.1</td><td class="n in">100.0</td><td class="n">63.3</td><td class="n">60.0</td><td class="n">50.0</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="steps">
+    <div class="step"><b>결과</b><div>
+      <ul class="tight">
+        <li>v3 시험 전체 쌍: v3 섞음만 맞힌 쌍 1,011 개 대 원래만 맞힌 쌍 11 개. <span class="pill up">확실</span> <span class="ev m">측정</span></li>
+        <li>장면 수는 680 개면 충분하다. v3 시험 전체 쌍: v3 섞음 680 87.8 · v3 섞음 88.0 · v3 전부 88.6 %. <span class="ev m">측정</span></li>
+        <li>CLEVRER style: trapdoor 25 % 가 v3 섞음보다 2.9 %p 낮다 (한쪽만 맞힘 5 대 23). <span class="pill down">확실히 낮음</span> <span class="ev m">측정</span> trapdoor 때문인지, v3 장면이 1,200 개로 줄어서인지는 못 가른다.</li>
+        <li>VOBench late: trapdoor 만이 v3 섞음보다 4 쌍 더 맞힌다 (4 대 0). <span class="pill same">불확실</span> <span class="ev m">측정</span></li>
+      </ul>
+    </div></div>
+    <div class="step"><b>해석</b><div>
+      <p>v3 로 배운 것은 Blender · 단순 도형 장면까지 옮겨 간다. <span class="ev m">측정</span></p>
+      <p>VOBench late, 공개 벤치마크, 실제 영상으로는 거의 안 옮겨 간다. <span class="ev m">측정</span></p>
+      <p>VOBench late 사라짐 쌍에서는 복사 기준선 (41.7 %) 이 모든 Blender 학습 모델보다 높다. <span class="ev m">측정</span></p>
+    </div></div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-no">8 · 실험 2</div>
+  <h2>v3 안에서는 무엇이 옮겨 가나</h2>
+  <div class="answer">겉모양 축은 옮겨 가고, 움직임이 바뀌는 축은 덜 옮겨 간다.</div>
+  <div class="steps">
+    <div class="step"><b>왜</b><div><p>어떤 조건을 배우면 다른 조건으로도 옮겨 가는지 알면, 학습 데이터를 무엇으로 채울지 정할 수 있다.</p></div></div>
+    <div class="step"><b>어떻게</b><div>
+      <p>축마다 그 축의 <b>한 조건만</b> 담은 1,600 장면으로 모델을 하나씩 학습했다 (예: 카메라 축 = 정면만 · 측면만 · 위에서만, 모델 3 개).</p>
+      <ul class="tight">
+        <li><b>배운 칸 이득</b> = 배운 조건의 시험 쌍에서 오른 정답률 (원래 모델 대비 %p).</li>
+        <li><b>밖 칸 이득</b> = 같은 축의 다른 조건 시험 쌍에서 오른 정답률.</li>
+        <li><b>전이율</b> = 밖 칸 이득 ÷ 배운 칸 이득. 판정: 80 % 이상 = 옮겨 감, 30 % 이하 = 안 옮겨 감, 그 사이 = 일부.</li>
+      </ul>
+    </div></div>
+  </div>
+  <div class="table-wrap">
+  <table class="tbl">
+    <caption><b>벤치마크: v3 시험 + Blender trapdoor 시험의 전체 쌍 4,330 개 (3,438 + 892) 를 축의 조건별로 나눈 정답률.</b> 이득 = 원래 모델 대비 %p, 축 안 모델들의 평균. 행 = 축 (조건마다 모델 하나, 각 1,600 장면 · 공통 설정).</caption>
+    <thead><tr><th>축 · 학습한 모델들</th><th class="n">배운 칸 이득</th><th class="n">밖 칸 이득</th><th class="n">전이율</th><th>판정</th></tr></thead>
+    <tbody>
+      <tr><td>물체 모양: 기본 도형만 · 실제 물건만</td><td class="n">+27.2</td><td class="n">+25.6</td><td class="n">94 %</td><td><span class="pill up">옮겨 감</span></td></tr>
+      <tr><td>가림 길이: 짧게만 · 길게만</td><td class="n">+26.7</td><td class="n">+20.8</td><td class="n">78 %</td><td><span class="pill same">일부</span></td></tr>
+      <tr><td>카메라: 정면만 · 측면만 · 위에서만</td><td class="n">+28.7</td><td class="n">+21.8</td><td class="n">76 %</td><td><span class="pill same">일부</span></td></tr>
+      <tr><td>가림 종류: 가림막만 · 물체만 · trapdoor 만</td><td class="n">+29.2</td><td class="n">+16.6</td><td class="n">57 %</td><td><span class="pill same">일부</span></td></tr>
+      <tr><td>물체 움직임: 움직임만 · 정지만</td><td class="n">+27.2</td><td class="n">+15.4</td><td class="n">56 %</td><td><span class="pill same">일부</span></td></tr>
+      <tr><td>가림 움직임: 고정만 · 움직임만</td><td class="n">+33.8</td><td class="n">+15.8</td><td class="n">47 %</td><td><span class="pill same">일부</span></td></tr>
+      <tr><td>장소: 평지만 · 빗면만</td><td class="n">+33.7</td><td class="n">+9.0</td><td class="n">27 %</td><td><span class="pill down">안 옮겨 감</span></td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="steps">
+    <div class="step"><b>해석</b><div>
+      <p>물체 모양 · 카메라 같은 겉모양 축은 대부분 옮겨 간다. <span class="ev m">측정</span></p>
+      <p>장소 (평지 ↔ 빗면) 처럼 움직임 자체가 바뀌는 축은 거의 안 옮겨 간다. <span class="ev m">측정</span></p>
+      <p>빗면은 속도가 바뀌는 운동이라 평지에서 배운 것이 덜 맞는다고 본다. <span class="ev g">추측</span></p>
+    </div></div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-no">9 · 질문 ①</div>
+  <h2>VOBench 학습은 VOBench late 를 100 % 맞히는데, v3 학습은 왜 v3 시험 사라짐 쌍에서 76 % 에 머무나</h2>
+  <div class="answer">다시 나올 자리를 맞히기 어려운 쌍에서 많이 틀린다. 경로를 외울 수 있으면 도움은 되지만, 그래도 75 % 라서 "외울 수 있느냐" 만으로는 설명이 안 된다.</div>
+  <div class="fix"><b>⚠️ 정정 (2026-11-01).</b> 이 페이지의 이전 판은 "v3 는 다시 나올 자리를 외울 수 없게 만들어져 있다" 고 썼다. 토큰 단위로 재 보니 틀렸다 (아래 측정 2).</div>
+
+  <div class="steps">
+    <div class="step"><b>이론</b><div>
+      <p>사라짐 쌍에서 모델이 물체를 <b>엉뚱한 자리</b>에 예측했다고 하자. <span class="ev t">이론</span></p>
+      <div class="penalty">
+        <div class="pbox">
+          <svg viewBox="0 0 240 70" role="img" aria-label="가능 영상: 예측 자리와 진짜 자리 두 곳에서 벌점">
+            <rect x="1" y="1" width="238" height="68" rx="6" fill="none" stroke="currentColor" opacity=".25"/>
+            <circle cx="60" cy="35" r="13" fill="none" stroke="var(--bad)" stroke-width="2.5" stroke-dasharray="4 3"/>
+            <text x="60" y="62" text-anchor="middle" font-size="10" fill="currentColor">예측 자리</text>
+            <circle cx="175" cy="35" r="13" fill="var(--ok)"/>
+            <text x="175" y="62" text-anchor="middle" font-size="10" fill="currentColor">진짜 자리</text>
+          </svg>
+          <p><span class="lab ok">가능 영상</span> 벌점 <b>두 곳</b>: 예측 자리에는 물체가 없고, 진짜 자리에는 예측이 비어 있다.</p>
+        </div>
+        <div class="pbox">
+          <svg viewBox="0 0 240 70" role="img" aria-label="불가능 영상: 예측 자리 한 곳에서만 벌점">
+            <rect x="1" y="1" width="238" height="68" rx="6" fill="none" stroke="currentColor" opacity=".25"/>
+            <circle cx="60" cy="35" r="13" fill="none" stroke="var(--bad)" stroke-width="2.5" stroke-dasharray="4 3"/>
+            <text x="60" y="62" text-anchor="middle" font-size="10" fill="currentColor">예측 자리</text>
+            <text x="175" y="40" text-anchor="middle" font-size="11" fill="currentColor" opacity=".6">(물체 없음)</text>
+          </svg>
+          <p><span class="lab bad">불가능 영상</span> 벌점 <b>한 곳</b>: 예측 자리에 물체가 없을 뿐이다.</p>
+        </div>
+      </div>
+      <p>그래서 자리가 크게 틀리면 가능 영상에 더 놀라고 오답이 된다. <span class="ev t">이론</span></p>
+      <p>나타남 쌍은 문맥에 물체가 없어 예측도 비어 있으니 자리와 상관없이 맞는다. <span class="ev t">이론</span></p>
+    </div></div>
+
+    <div class="step"><b>측정 1</b><div>
+      <p><b>자리를 맞히기 어려운 쌍일수록 틀린다.</b> <span class="ev m">측정</span></p>
+      <div class="table-wrap">
+      <table class="tbl">
+        <caption><b>벤치마크: v3 시험 · 사라짐 쌍 1,719 개를 장면 조건으로 나눔.</b> 칸 = 정답률 (%). 괄호 = 쌍 수. v3 섞음에게 이 벤치마크 전체가 학습 분포 안이다. 파랑 · 주황 = v3 섞음의 가장 높은 칸 · 낮은 칸.</caption>
+        <thead>
+          <tr><th rowspan="2">모델</th><th rowspan="2">학습 데이터</th><th class="n">물체 정지</th><th class="n">물체 움직임</th><th class="n">평지</th><th class="n">빗면</th><th class="n">짧은 가림</th><th class="n">긴 가림</th><th class="n">미래 튜블릿 1–2 에 재등장</th><th class="n">튜블릿 5–7 에 재등장</th></tr>
+          <tr><th class="n">(457)</th><th class="n">(1,262)</th><th class="n">(1,231)</th><th class="n">(488)</th><th class="n">(1,082)</th><th class="n">(637)</th><th class="n">(838)</th><th class="n">(268)</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="m">복사 기준선</td><td class="tr">학습 없음</td><td class="n">33.5</td><td class="n">31.2</td><td class="n">37.6</td><td class="n">17.2</td><td class="n">41.8</td><td class="n">14.9</td><td class="n">37.9</td><td class="n">18.7</td></tr>
+          <tr><td class="m">원래</td><td class="tr">추가 학습 없음</td><td class="n">50.3</td><td class="n">6.9</td><td class="n">25.0</td><td class="n">1.8</td><td class="n">25.2</td><td class="n">6.9</td><td class="n">23.3</td><td class="n">7.1</td></tr>
+          <tr><td class="m">v3 섞음</td><td class="tr">v3 무작위 1,600 장면</td><td class="n hi">96.7</td><td class="n lo">68.5</td><td class="n">84.6</td><td class="n lo">54.3</td><td class="n">83.5</td><td class="n">63.1</td><td class="n">83.3</td><td class="n lo">57.1</td></tr>
+          <tr><td class="m">VOBench 학습</td><td class="tr">VOBench 학습 절반</td><td class="n">74.6</td><td class="n">39.5</td><td class="n">59.7</td><td class="n">21.5</td><td class="n">62.4</td><td class="n">25.9</td><td class="n">62.6</td><td class="n">23.5</td></tr>
+        </tbody>
+      </table>
+      </div>
+    </div></div>
+
+    <div class="step"><b>측정 2</b><div>
+      <p><b>v3 의 미래 경로는 토큰 단위로 꽤 정형적이다.</b> <span class="ev m">측정</span></p>
+      <ul class="tight">
+        <li>궤적을 정하는 값 (속도 · 방향 · 마찰 · 빗면 각도 · 가림 시점) 은 범위 안에서 연속으로 무작위로 뽑는다.</li>
+        <li>하지만 <b>카메라가 가림 자리를 늘 화면 가운데에 둔다.</b> 문맥 끝 물체 위치는 (128, 127) 픽셀, 표준편차는 13 × 9 픽셀로 1 토큰보다 작다.</li>
+        <li>그래서 화면 위 경로가 서로 비슷하다. 아래 네 잣대로 쟀다. 물체 위치 = 라벨에 기록된 물체 중심이다 (가려진 동안도 있다).</li>
+      </ul>
+      <ol class="defs">
+        <li><b>경로 일치</b> = 시험 장면 미래의 물체 토큰 칸 순서가 학습 장면 중 하나와 똑같다. 튜블릿 8 개 단위와 샘플 16 개 단위 두 가지로 셌다.</li>
+        <li><b>끝 칸 일치</b> = 마지막 샘플에서 물체가 있는 토큰 칸이 학습 장면들의 끝 칸 중에 있다.</li>
+        <li><b>틀 궤적 오차</b> = 학습 장면을 (방향 × 운동 종류) 로 묶어 미래 궤적을 평균한 뒤, 그 평균으로 시험 장면의 미래 위치를 맞혔을 때의 평균 거리. 속도 크기는 안 쓴다. 방향 = 문맥에서 가로로 움직인 쪽 (왼쪽 · 오른쪽 · 정지). 운동 종류 = 장소 × 빗면 방향 × 물체 움직임 (묶음 8–9 개). 상대 = 문맥 끝 위치에서 출발한 평균 궤적, 절대 = 화면 위치 그대로의 평균 궤적.</li>
+        <li><b>등속 외삽 오차</b> = 마지막으로 보인 두 샘플의 속도로 곧게 이었을 때의 평균 거리.</li>
+      </ol>
+      <div class="table-wrap">
+      <table class="tbl">
+        <caption><b>벤치마크: v3 시험 사라짐 쌍 장면 1,719 개 · Blender trapdoor 시험 사라짐 쌍 장면 446 개.</b> 비교 대상 = 같은 생성기의 학습 장면 (v3 7,136 · trapdoor 1,528). 모델과 상관없는 데이터 성질이다. 정지한 물체는 자명하게 일치 100 % · 오차 0 이라 "물체 움직임" 칸을 따로 둔다.</caption>
+        <thead><tr><th>잣대</th><th class="n">v3 · 전체 (1,719)</th><th class="n">v3 · 물체 움직임 (1,262)</th><th class="n">trapdoor · 전체 (446)</th><th class="n">trapdoor · 물체 움직임 (296)</th></tr></thead>
+        <tbody>
+          <tr><td>경로 일치, 튜블릿 8 개 (%)</td><td class="n">63.0</td><td class="n">49.6</td><td class="n">63.2</td><td class="n">44.6</td></tr>
+          <tr><td>경로 일치, 샘플 16 개 (%)</td><td class="n">47.8</td><td class="n">28.9</td><td class="n">55.4</td><td class="n">32.8</td></tr>
+          <tr><td>끝 칸 일치 (%)</td><td class="n">99.9</td><td class="n">99.9</td><td class="n">98.7</td><td class="n">98.0</td></tr>
+          <tr class="sep"><td>틀 궤적 오차, 상대 (토큰)</td><td class="n">1.06</td><td class="n">1.44</td><td class="n">0.91</td><td class="n">1.36</td></tr>
+          <tr><td>틀 궤적 오차, 절대 (토큰)</td><td class="n">1.33</td><td class="n">1.56</td><td class="n">1.23</td><td class="n">1.45</td></tr>
+          <tr><td>등속 외삽 오차 (토큰)</td><td class="n">2.27</td><td class="n">3.09</td><td class="n">1.76</td><td class="n">2.65</td></tr>
+        </tbody>
+      </table>
+      </div>
+      <p class="cap">먼저 보고된 값 (경로 일치 49 · 38 %, 끝 칸 99 · 94 %, 틀 궤적 1.24 · 1.07 토큰, 등속 3.11 · 2.30 토큰) 과 정의만 조금 다르고 크기는 같다.</p>
+    </div></div>
+
+    <div class="step"><b>측정 3</b><div>
+      <p><b>경로가 학습에 있으면 더 맞히지만, 있어도 75 % 다.</b> <span class="ev m">측정</span></p>
+      <div class="table-wrap">
+      <table class="tbl">
+        <caption><b>벤치마크: v3 시험 · 사라짐 쌍 중 물체가 움직이는 1,262 쌍.</b> 칸 = 정답률 (%). 괄호 = 쌍 수. 경로 일치는 튜블릿 8 개 기준, 틀 궤적 오차는 상대 판. 파랑 = v3 섞음이 가장 잘 맞힌 칸.</caption>
+        <thead>
+          <tr><th rowspan="2">모델</th><th rowspan="2">학습 데이터</th><th class="n">경로 일치</th><th class="n">경로 불일치</th><th class="n">틀 궤적 오차 ≤ 0.5 토큰</th><th class="n">0.5–1.5 토큰</th><th class="n">&gt; 1.5 토큰</th></tr>
+          <tr><th class="n">(626)</th><th class="n">(636)</th><th class="n">(200)</th><th class="n">(539)</th><th class="n">(523)</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="m">원래</td><td class="tr">추가 학습 없음</td><td class="n">10.7</td><td class="n">3.1</td><td class="n">6.0</td><td class="n">3.5</td><td class="n">10.7</td></tr>
+          <tr><td class="m">v3 섞음</td><td class="tr">v3 무작위 1,600 장면</td><td class="n hi">74.8</td><td class="n">62.3</td><td class="n hi">79.5</td><td class="n">69.4</td><td class="n">63.3</td></tr>
+          <tr><td class="m">trapdoor 25 %</td><td class="tr">v3 1,200 + trapdoor 400 장면</td><td class="n">74.8</td><td class="n">61.5</td><td class="n">79.0</td><td class="n">67.0</td><td class="n">65.0</td></tr>
+          <tr><td class="m">VOBench 학습</td><td class="tr">VOBench 학습 절반</td><td class="n">46.2</td><td class="n">33.0</td><td class="n">61.5</td><td class="n">39.3</td><td class="n">31.4</td></tr>
+        </tbody>
+      </table>
+      </div>
+    </div></div>
+
+    <div class="step"><b>해석</b><div>
+      <p>자리를 맞히기 쉬운 쌍 (정지한 물체, 틀 궤적에 가까운 쌍) 은 잘 맞히고, 어려운 쌍에서 틀린다. <span class="ev m">측정</span></p>
+      <p>경로가 학습에 있으면 정답률이 오른다 (62.3 → 74.8 %). <span class="ev m">측정</span></p>
+      <p>하지만 경로가 학습에 있어도 75 % 다. <b>그러니 v3 의 실패를 "외울 수 없어서" 로만 볼 수는 없다.</b> <span class="ev m">측정</span></p>
+      <p>남은 원인 후보는 토큰보다 작은 위치 차이, 재등장할 때 물체가 얼마나 보이는지, 학습 양 (갱신 2,000 번) 이다. <span class="ev g">추측</span></p>
+      <p>VOBench late 시험 사라짐 36 쌍 중 32 쌍은 운동 틀 · 가림 길이 · 배경이 같은 장면이 학습에 있다. 장면 이름으로 센 것이고 궤적 좌표는 맞춰 보지 않았다. <span class="ev m">측정</span></p>
+      <p>VOBench 학습의 100 % 는 이 겹침 덕일 수 있다. <span class="ev g">추측</span></p>
+    </div></div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-no">10 · 질문 ②</div>
+  <h2>trapdoor 를 배웠는데 왜 VOBench late 로 안 옮겨 가나</h2>
+  <div class="answer">시점 · 자리 난이도 · 판 크기 · 물체 크기 때문이 아니다. 정지한 물체는 옮겨 가고, 움직이는 물체는 학습한 데이터 밖으로 잘 안 옮겨 간다.</div>
+  <div class="steps">
+    <div class="step"><b>왜</b><div><p>trapdoor 만 모델은 Blender trapdoor 시험 사라짐 쌍을 86.8 % 맞히는데 VOBench late 사라짐 쌍은 27.8 % 다. 두 벤치마크의 무엇이 다른지 찾으려고.</p></div></div>
+    <div class="step"><b>어떻게</b><div><p>두 벤치마크 모두 같은 장면의 "물체 있음" · "물체 없음" 영상이 있다. 두 영상의 픽셀 차가 곧 물체다. 그래서 라벨 없이 <b>같은 잣대</b>로 잴 수 있다. 그다음 쌍을 "정지 · 움직임" 과 "VOBench 와 같은 조건" 으로 나눠 정답률을 비교했다.</p></div></div>
+    <div class="step"><b>결과 1</b><div>
+      <p><b>VOBench late 는 기하로는 오히려 쉬운 쪽이다.</b> <span class="ev m">측정</span></p>
+      <div class="table-wrap">
+      <table class="tbl">
+        <caption><b>벤치마크: VOBench late 사라짐 쌍 36 개 · Blender trapdoor 시험 사라짐 쌍 446 개.</b> 칸 = 중앙값 (괄호 = 10–90 %). 모델과 상관없는 장면 조건이다. 거리는 픽셀 (1 토큰 = 16 픽셀).</caption>
+        <thead><tr><th>잣대</th><th class="n">VOBench late</th><th class="n">Blender trapdoor</th><th>VOBench late 가</th></tr></thead>
+        <tbody>
+          <tr><td>가림 길이 (샘플)</td><td class="n">4 (2–6)</td><td class="n">6 (3–13)</td><td>더 짧다 · 쉬움</td></tr>
+          <tr><td>재등장 시점 (샘플, 미래 = 16–31)</td><td class="n">18 (17–19)</td><td class="n">20 (17–26)</td><td>더 이르다 · 쉬움</td></tr>
+          <tr><td>등속 외삽 오차 (픽셀)</td><td class="n">4 (0–10)</td><td class="n">14 (0–80)</td><td>더 작다 · 쉬움</td></tr>
+          <tr><td>물체 크기 (픽셀)</td><td class="n">30 (27–33)</td><td class="n">41 (29–61)</td><td>더 작다</td></tr>
+          <tr><td>판 넓이 ÷ 물체 넓이</td><td class="n">4.8 (2.7–10.3)</td><td class="n">2.4 (0.7–8.1)</td><td>판이 상대적으로 크다</td></tr>
+        </tbody>
+      </table>
+      </div>
+    </div></div>
+    <div class="step"><b>결과 2</b><div>
+      <p><b>정지한 물체는 어디서나 맞히고, 움직이는 물체는 학습한 데이터에서만 맞힌다.</b> <span class="ev m">측정</span></p>
+      <div class="table-wrap">
+      <table class="tbl">
+        <caption><b>벤치마크 세 개의 사라짐 쌍을 물체 움직임으로 나눔.</b> 칸 = 정답률 (%). 괄호 = 쌍 수. † = 학습 분포 안. Blender 의 "정지 · 가까이" = 재등장 거리 15 픽셀 미만. "VOBench 조건" = 가림 ≤ 6 샘플 · 재등장 ≤ 샘플 19 · 등속 외삽 오차 ≤ 10 픽셀. 재등장을 픽셀 차로 못 잡은 Blender 28 쌍은 뺐다. 학습한 모델 칸의 파랑 = 90 % 이상, 주황 = 30 % 이하.</caption>
+        <thead>
+          <tr><th rowspan="2">모델</th><th rowspan="2">학습 데이터</th><th class="n" colspan="3">Blender trapdoor 시험</th><th class="n" colspan="2">VOBench late</th><th class="n" colspan="2">움직이는 차 가림</th></tr>
+          <tr><th class="n">정지 · 가까이 (231)</th><th class="n">움직임 (187)</th><th class="n">움직임 · VOBench 조건 (34)</th><th class="n">정지 (6)</th><th class="n">움직임 (30)</th><th class="n">정지 (24)</th><th class="n">움직임 (72)</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="m">복사 기준선</td><td class="tr">학습 없음</td><td class="n">59.7</td><td class="n">26.7</td><td class="n">32.4</td><td class="n">66.7</td><td class="n">36.7</td><td class="n">62.5</td><td class="n">83.3</td></tr>
+          <tr><td class="m">원래</td><td class="tr">추가 학습 없음</td><td class="n">61.9</td><td class="n">10.2</td><td class="n">5.9</td><td class="n">83.3</td><td class="n">0.0</td><td class="n">54.2</td><td class="n">6.9</td></tr>
+          <tr><td class="m">v3 섞음</td><td class="tr">v3 무작위 1,600 장면</td><td class="n">84.4</td><td class="n">40.6</td><td class="n">35.3</td><td class="n hi">100</td><td class="n lo">0.0</td><td class="n hi">100</td><td class="n lo">13.9</td></tr>
+          <tr><td class="m">trapdoor 25 %</td><td class="tr">v3 1,200 + trapdoor 400 장면</td><td class="n in hi">90.9</td><td class="n in">70.6</td><td class="n in">76.5</td><td class="n hi">100</td><td class="n lo">6.7</td><td class="n hi">100</td><td class="n lo">15.3</td></tr>
+          <tr><td class="m">trapdoor 만</td><td class="tr">trapdoor 1,528 장면</td><td class="n in hi">94.4</td><td class="n in">79.1</td><td class="n in hi">97.1</td><td class="n hi">100</td><td class="n lo">13.3</td><td class="n">83.3</td><td class="n">47.2</td></tr>
+          <tr><td class="m">VOBench 학습</td><td class="tr">VOBench 학습 절반</td><td class="n">71.9</td><td class="n lo">29.9</td><td class="n">50.0</td><td class="n in hi">100</td><td class="n in hi">100</td><td class="n in">70.8</td><td class="n in">79.2</td></tr>
+        </tbody>
+      </table>
+      </div>
+      <p class="cap">움직이는 차 가림의 움직임 칸은 복사 기준선이 83.3 % 로 높다. 이 칸은 예측 없이도 잘 풀리는 칸이다. <span class="ev m">측정</span></p>
+    </div></div>
+    <div class="step"><b>해석</b><div>
+      <p><b>가림 시점 · 자리 난이도 · 판 크기 · 물체 크기는 이유가 아니다.</b> Blender trapdoor 시험에서 VOBench 조건의 움직이는 쌍은 trapdoor 만 모델이 97.1 % 를 맞힌다. <span class="ev m">측정</span></p>
+      <p>같은 조건에 작은 물체 (35 픽셀 이하) 만 고르면 100 %, 큰 판 (판 ÷ 물체 3.5 이상) 만 고르면 96.2 % 다. <span class="ev m">측정</span></p>
+      <p><b>정지한 물체를 지우지 않는 것은 어느 쪽으로 학습해도 옮겨 간다.</b> <span class="ev m">측정</span></p>
+      <p><b>움직이는 물체를 새 자리에 놓는 것은 학습한 데이터 밖으로 잘 안 옮겨 간다.</b> Blender 학습 모델 → VOBench late 움직임 0–13 %. 거꾸로 VOBench 학습 → Blender trapdoor 움직임 29.9 %. <span class="ev m">측정</span></p>
+      <p>무엇이 학습 데이터에 묶여 있는지 (겉모양 · 움직임이 화면에 보이는 모습 · 궤적) 는 아직 모른다. <span class="ev g">추측</span></p>
+    </div></div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-no">11 · 질문 ③</div>
+  <h2>VOBench 학습 모델은 왜 Blender 시험에서 잘 되는 것처럼 보이나</h2>
+  <div class="answer">VOBench 학습이 Blender 로 더 잘 옮겨 가는 게 아니다. Blender 시험에 쉬운 쌍이 더 많아서 점수가 높아 보였을 뿐이다.</div>
+  <div class="steps">
+    <div class="step"><b>왜</b><div>
+      <p>두 숫자만 보면 한쪽으로만 옮겨 가는 것처럼 보였다.</p>
+      <div class="table-wrap">
+      <table class="tbl">
+        <caption>칸 = 정답률 (%).</caption>
+        <thead><tr><th>학습 → 시험</th><th class="n">원래</th><th class="n">학습 후</th></tr></thead>
+        <tbody>
+          <tr><td>VOBench 학습 → <b>v3 시험</b> 전체 쌍 (3,438)</td><td class="n">58.9</td><td class="n hi">74.4</td></tr>
+          <tr><td>Blender 학습 모델 → <b>VOBench late</b> 사라짐 쌍 (36)</td><td class="n">13.9</td><td class="n lo">17–28</td></tr>
+        </tbody>
+      </table>
+      </div>
+    </div></div>
+    <div class="step"><b>어떻게</b><div>
+      <p>사라짐 쌍을 두 종류로 나눴다.</p>
+      <ul class="tight">
+        <li><b>쉬운 쌍 = 물체가 정지</b>한 채로 가려진다. 가림이 끝나면 그 자리에 다시 두면 된다.</li>
+        <li><b>어려운 쌍 = 물체가 움직이다</b> 가려진다. 가려진 동안 움직인 만큼 새 자리에 놓아야 한다.</li>
+      </ul>
+      <p>같은 종류의 쌍끼리 두 방향을 비교했다.</p>
+    </div></div>
+    <div class="step"><b>결과</b><div>
+      <div class="table-wrap">
+      <table class="tbl">
+        <caption><b>칸 = 사라짐 쌍 정답률 (%), 괄호 = 원래 모델.</b> Blender 쪽 = Blender trapdoor 시험 (정지 · 가까이 231 쌍, 움직임 187 쌍). VOBench 쪽 = VOBench late (정지 6 쌍, 움직임 30 쌍). Blender 학습 모델 = v3 섞음 · trapdoor 25 % · trapdoor 만 (값의 범위).</caption>
+        <thead><tr><th>학습 → 시험</th><th class="n">쉬운 쌍 (정지)</th><th class="n">어려운 쌍 (움직임)</th></tr></thead>
+        <tbody>
+          <tr><td>VOBench 학습 → Blender trapdoor 시험</td><td class="n hi">71.9 (61.9)</td><td class="n lo">29.9 (10.2)</td></tr>
+          <tr><td>Blender 학습 모델 → VOBench late</td><td class="n hi">100 (83.3)</td><td class="n lo">0–13 (0)</td></tr>
+        </tbody>
+      </table>
+      </div>
+      <p><b>두 방향 모두 같은 모양이다.</b> 쉬운 쌍은 옮겨 가고, 어려운 쌍은 둘 다 30 % 이하다. <span class="ev m">측정</span></p>
+      <p>그런데 두 벤치마크는 <b>쉬운 쌍의 비율</b>이 다르다. Blender trapdoor 시험은 절반 (52 %) 이 쉬운 쌍이고, VOBench late 는 6 개 중 1 개 (17 %) 다. <span class="ev m">측정</span></p>
+      <p>확인 계산: Blender 시험의 쉬운 쌍 비율을 VOBench 처럼 17 % 로 맞추면, VOBench 학습 모델의 점수는 0.17 × 71.9 + 0.83 × 29.9 ≈ <b>37 %</b> 다. Blender 학습 모델의 VOBench late 점수 (17–28 %) 와 비슷해진다. <span class="ev m">측정</span></p>
+      <p class="cap">VOBench 학습이 더 오래 학습한 것도 아니다. 갱신 750 번으로 Blender 학습 모델 (2,000 번) 보다 적다.</p>
+    </div></div>
+    <div class="step"><b>해석</b><div>
+      <p>머리 숫자의 차이는 <b>시험 구성의 차이</b>다. 한쪽으로만 옮겨 가는 것이 아니다. <span class="ev m">측정</span></p>
+      <p>정지한 물체를 다시 두는 것은 어느 쪽으로든 옮겨 간다. 움직이는 물체를 새 자리에 두는 것은 어느 쪽으로도 잘 안 옮겨 간다. 움직임 칸에서 VOBench 학습 쪽이 조금 낫지만 (30 % 대 0–13 %), 둘 다 낮다. <span class="ev m">측정</span></p>
+    </div></div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-no">12 · 대조 실험 (진행 중)</div>
+  <h2>"비슷한 것만 모으면 풀리나" · "외우면 100 % 가 되나"</h2>
+  <div class="answer">① 결과: VOBench 와 가장 닮은 Blender 장면만 모아 학습해도 VOBench late 의 움직이는 물체는 풀리지 않는다 (30 쌍 중 3 쌍). ② ③ 은 학습 중이다.</div>
+  <div class="steps">
+    <div class="step"><b>왜</b><div><p>v3 전체를 섞으면 장면이 너무 다양해서 VOBench late 로 안 옮겨 갈 수도 있다. 그렇다면 VOBench 와 닮은 장면만 모아 학습하면 풀려야 한다. 그리고 다시 나올 자리를 아예 외울 수 있으면 v3 시험 사라짐 쌍이 100 % 가 되는지도 본다.</p></div></div>
+    <div class="step"><b>어떻게</b><div><p>공통 설정 (5 절) 그대로, 학습 데이터만 바꾼다. 장면 수가 적을수록 같은 영상을 더 자주 본다. ① → ② → ③ 차례로 학습하고, ① 은 끝나자마자 VOBench late · 움직이는 차 가림 · Blender trapdoor 시험만 먼저 채점한다.</p></div></div>
+  </div>
+  <div class="table-wrap">
+  <table class="tbl">
+    <thead><tr><th>모델</th><th>학습 데이터</th><th>비교 모델</th><th>오르면</th><th>안 오르면</th><th>상태</th></tr></thead>
+    <tbody>
+      <tr><td class="m">① VOBench 닮은 조각만</td><td>trapdoor · 정면 카메라 · VOBench 와 같은 재등장 타이밍 (가림 시작 샘플 13–15, 끝 16–18) 인 trapdoor 학습 장면 전부 (389 장면 · 778 영상)</td><td>trapdoor 만 · VOBench 학습</td><td>섞어서 안 옮겨 간 것이 원인</td><td>닮은 Blender 장면으로도 안 된다 → 학습 데이터에 묶인 무언가</td><td><span class="pill down">안 오름</span></td></tr>
+      <tr><td class="m">② 타이밍만 맞춤</td><td>재등장 타이밍만 VOBench 와 같은 v3 1,200 + trapdoor 400 장면</td><td>trapdoor 25 % (같은 구성)</td><td>재등장 타이밍 분포가 원인</td><td>타이밍은 원인이 아니다</td><td><span class="pill run">대기</span></td></tr>
+      <tr><td class="m">③ 시험 장면 외우기 (상한)</td><td>v3 시험 1,719 장면 + Blender trapdoor 시험 446 장면의 가능 영상 그대로 (2,165 장면 · 4,330 영상)</td><td>v3 섞음 · trapdoor 25 %</td><td>v3 시험 사라짐이 100 % 에 가까우면 "자리를 알면 풀린다"</td><td>자리를 알아도 안 된다 → 다른 원인 (9 절)</td><td><span class="pill run">대기</span></td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="table-wrap">
+  <table class="tbl">
+    <caption><b>① 결과 · 사라짐 쌍 정답률 (%).</b> 괄호 = 쌍 수. † = 학습 분포 안.</caption>
+    <thead><tr><th>모델</th><th>학습 데이터</th><th class="n">VOBench late 움직임 (30)</th><th class="n">VOBench late 정지 (6)</th><th class="n">움직이는 차 가림 움직임 (72)</th><th class="n">Blender trapdoor 움직임 · VOBench 조건 (34)</th></tr></thead>
+    <tbody>
+      <tr><td class="m">원래</td><td class="tr">추가 학습 없음</td><td class="n">0.0</td><td class="n">83.3</td><td class="n">6.9</td><td class="n">5.9</td></tr>
+      <tr><td class="m">trapdoor 만</td><td class="tr">trapdoor 1,528 장면</td><td class="n lo">13.3</td><td class="n">100</td><td class="n">47.2</td><td class="n in">97.1</td></tr>
+      <tr><td class="m">① VOBench 닮은 조각만</td><td class="tr">trapdoor · 정면 · VOBench 타이밍 389 장면</td><td class="n lo">10.0</td><td class="n">100</td><td class="n">54.2</td><td class="n in">88.2</td></tr>
+      <tr><td class="m">VOBench 학습</td><td class="tr">VOBench 학습 절반</td><td class="n in">100</td><td class="n in">100</td><td class="n in">79.2</td><td class="n">50.0</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>가림 종류 · 카메라 · 재등장 타이밍을 VOBench 에 맞춘 Blender 장면만 배워도, VOBench late 의 움직이는 물체는 trapdoor 만 모델과 같은 수준 (10–13 %) 이다. <b>"v3 를 섞어서 못 외웠다" 는 원인이 아니다.</b> <span class="ev m">측정</span></p>
+  <p class="cap">③ 은 시험 장면을 학습에 넣은 상한 실험이다. 일반화 수치로 읽지 않는다.</p>
+</section>
+
+<section>
+  <div class="sec-no">13 · 가르는 실험</div>
+  <h2>예측은 속도로 자리를 계산하나, 자리를 외우나</h2>
+  <div class="answer">속도로 계산하지 않는다. 학습한 데이터 안에서도 속도만 바꾸면 예측 자리가 따라가지 않는다. 학습한 데이터 안에서만 물체를 맞는 자리에 둔다.</div>
+  <div class="steps">
+    <div class="step"><b>왜</b><div><p>움직이는 물체가 안 옮겨 가는 이유로 두 설명이 남았다. (가) 예측기가 속도로 자리를 계산하지 않고 학습 데이터의 자리를 외운다. (나) 다른 장면에서는 움직이는 물체가 encoder 에서 달라 보여서 못 알아본다. (나) 라면 겉모양이 같은 학습 데이터 안에서는 속도를 바꿔도 따라가야 한다.</p></div></div>
+    <div class="step"><b>어떻게</b><div>
+      <ul class="tight">
+        <li><b>예측이 물체를 둔 자리</b> = 같은 장면의 "물체 있는 문맥" 과 "물체 없는 문맥" 으로 각각 예측을 내고, 두 예측이 가장 크게 다른 3 × 3 토큰 칸. 참 자리는 같은 방법을 실제 미래에 적용해 얻는다. 학습된 판독기는 없다. 마지막 미래 튜블릿에서 본다.</li>
+        <li><b>속도 바꾸기</b> = 같은 영상에서 문맥 끝 프레임은 그대로 두고 프레임 간격만 줄인다. 화면 속도가 VOBench late 는 1/3, Blender trapdoor 는 1/2 이 된다. 렌더는 새로 안 했다.</li>
+        <li><b>속도 따라감</b> = (원래 속도의 예측 자리 − 느린 속도의 예측 자리) ÷ (원래 속도의 참 자리 − 느린 속도의 참 자리), 참 이동 방향으로 잰다. 1 = 속도를 따라 계산, 0 = 속도와 상관없이 같은 자리. 참 자리 차가 1.5 토큰 이상인 장면만, 중앙값과 95 % 구간.</li>
+      </ul>
+    </div></div>
+    <div class="step"><b>결과 1</b><div>
+      <p><b>속도를 바꾸면 참 자리는 4 토큰 움직이는데, 예측 자리는 어느 모델도 따라가지 않는다.</b> <span class="ev m">측정</span></p>
+      <div class="table-wrap">
+      <table class="tbl">
+        <caption><b>벤치마크: VOBench late 움직이는 사라짐 블록 (따라감 계산 26 개) · Blender trapdoor 시험 움직이는 장면 (232 개).</b> 칸 = 속도 따라감 중앙값 [95 % 구간]. 참 자리 차 중앙값: VOBench 4.0 토큰, Blender 4.1 토큰. † = 학습 분포 안.</caption>
+        <thead><tr><th>모델</th><th>학습 데이터</th><th class="n">VOBench late (속도 1/3 vs 1)</th><th class="n">Blender trapdoor (속도 1/2 vs 1)</th></tr></thead>
+        <tbody>
+          <tr><td class="m">원래</td><td class="tr">추가 학습 없음</td><td class="n">0.00 [−2.25, 0.00]</td><td class="n">0.00 [0.00, 0.00]</td></tr>
+          <tr><td class="m">v3 섞음</td><td class="tr">v3 무작위 1,600 장면</td><td class="n">−0.50 [−1.33, −0.14]</td><td class="n">0.00 [0.00, 0.00]</td></tr>
+          <tr><td class="m">trapdoor 25 %</td><td class="tr">v3 1,200 + trapdoor 400 장면</td><td class="n">−0.13 [−0.60, 0.25]</td><td class="n in">0.00 [0.00, 0.00]</td></tr>
+          <tr><td class="m">trapdoor 만</td><td class="tr">trapdoor 1,528 장면</td><td class="n">0.00 [−0.08, 0.28]</td><td class="n in">0.00 [0.00, 0.00]</td></tr>
+          <tr><td class="m">① VOBench 닮은 조각만</td><td class="tr">trapdoor · 정면 · VOBench 타이밍 389 장면</td><td class="n">−0.17 [−0.53, 0.17]</td><td class="n in">0.00 [0.00, 0.00]</td></tr>
+          <tr><td class="m">VOBench 학습</td><td class="tr">VOBench 학습 절반</td><td class="n in">0.07 [0.00, 0.25]</td><td class="n">0.00 [0.00, 0.00]</td></tr>
+        </tbody>
+      </table>
+      </div>
+      <p class="cap">Blender 쪽에서 예측 자리가 바뀐 거리는 중앙값 1 토큰이다 (참 4.1 토큰).</p>
+    </div></div>
+    <div class="step"><b>결과 2</b><div>
+      <p><b>원래 속도에서는, 학습한 데이터에서만 물체를 맞는 자리에 둔다.</b> <span class="ev m">측정</span></p>
+      <div class="table-wrap">
+      <table class="tbl">
+        <caption><b>벤치마크: VOBench late 움직이는 사라짐 블록 30 개 · Blender trapdoor 시험 움직이는 장면 296 개, 원래 속도, 마지막 미래 튜블릿.</b> 칸 = 예측 자리가 참 자리에서 1.5 토큰 안인 비율 (%) · 괄호 = 마지막으로 보인 자리에서 예측 자리까지 거리 중앙값 (토큰). 참 이동 거리: VOBench 10.3 토큰, Blender 8.0 토큰. † = 학습 분포 안.</caption>
+        <thead><tr><th>모델</th><th>학습 데이터</th><th class="n">VOBench late</th><th class="n">Blender trapdoor</th></tr></thead>
+        <tbody>
+          <tr><td class="m">원래</td><td class="tr">추가 학습 없음</td><td class="n">0 (6.7)</td><td class="n">4 (6.1)</td></tr>
+          <tr><td class="m">v3 섞음</td><td class="tr">v3 무작위 1,600 장면</td><td class="n lo">0 (3.1)</td><td class="n">46 (6.3)</td></tr>
+          <tr><td class="m">trapdoor 25 %</td><td class="tr">v3 1,200 + trapdoor 400 장면</td><td class="n lo">13 (6.7)</td><td class="n in">62 (7.3)</td></tr>
+          <tr><td class="m">trapdoor 만</td><td class="tr">trapdoor 1,528 장면</td><td class="n lo">27 (6.0)</td><td class="n hi in">69 (7.9)</td></tr>
+          <tr><td class="m">① VOBench 닮은 조각만</td><td class="tr">trapdoor · 정면 · VOBench 타이밍 389 장면</td><td class="n lo">13 (7.0)</td><td class="n in">55 (7.3)</td></tr>
+          <tr><td class="m">VOBench 학습</td><td class="tr">VOBench 학습 절반</td><td class="n hi in">97 (10.7)</td><td class="n">28 (9.9)</td></tr>
+        </tbody>
+      </table>
+      </div>
+      <p class="cap">파랑 = 60 % 이상, 주황 = 30 % 이하 (강조용).</p>
+    </div></div>
+    <div class="step"><b>해석</b><div>
+      <p><b>(가) 쪽이다.</b> 겉모양이 같은 Blender 안에서도 속도만 바꾸면 예측 자리가 따라가지 않는다 (따라감 0.00). 그러니 (나) 만으로는 설명되지 않는다. <span class="ev m">측정</span></p>
+      <p>예측은 물체를 속도로 계산한 자리가 아니라, 장면 배치와 학습 데이터로 정해진 자리에 둔다. 학습 데이터 안에서는 그 자리가 맞아서 정답이 나온다. 속도나 장면이 바뀌면 틀린다. <span class="ev m">측정</span></p>
+      <p>Blender 학습 모델은 VOBench 의 움직이는 물체를 참 자리 (10.3 토큰 앞) 보다 덜 간 곳 (3–7 토큰) 에 둔다. VOBench 학습 모델은 Blender 에서 참 자리 (8.0) 보다 더 간 곳 (9.9) 에 둔다. 각자 학습한 데이터의 이동 거리 쪽으로 쏠린다고 본다. <span class="ev m">측정</span> <span class="ev g">추측</span></p>
+      <p>그래서 고칠 곳은 "자리를 외울 수 없게 하는 학습" 이다. 이전에 VOBench 로 시간 척도 · 화면 위치를 흩뜨린 PFT 가 끝 자리 외우기를 반쯤 줄이고 학습 생성기 밖 IntPhys late 를 올린 적이 있다 (2026-10-30, seed 1 개). <span class="ev m">측정</span></p>
+    </div></div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-no">14 · 한계와 다음</div>
+  <h2>아직 모르는 것</h2>
+  <div class="facts">
+    <div class="fact limit"><span class="n">!</span><p>각 모델을 한 번씩만 학습했다. 갱신은 2,000 번으로 1차 결과 (4,000 번) 의 절반이다.</p></div>
+    <div class="fact limit"><span class="n">!</span><p>쌍이 적은 벤치마크가 있다. VOBench late 사라짐 쌍 36 개 (정지 6), IntPhys 1 영속 가림 30 개, 실제 영상 40 개 (독립 영상은 20 개). 작은 차이는 안 보인다.</p></div>
+    <div class="fact limit"><span class="n">!</span><p>"움직이는 물체가 학습한 데이터 밖으로 안 옮겨 간다" 의 원인 (겉모양 · 움직임 모습 · 궤적) 은 아직 가르지 않았다.</p></div>
+    <div class="fact limit"><span class="n">!</span><p>v3 시험 움직이는 물체 사라짐 쌍에서, 경로가 학습에 있어도 25 % 를 틀리는 이유는 아직 모른다.</p></div>
+  </div>
+  <ul class="tight">
+    <li>대조 실험 ②③ 결과를 12 절에 채운다.</li>
+    <li>자리를 외울 수 없게 시간 척도 · 화면 위치를 흩뜨린 PFT 로, 속도 따라감 0.7 이상 · VOBench late 움직임 사라짐 쌍 상승을 노린다 (13 절).</li>
+    <li>① 이 안 오르면: VOBench late 움직이는 물체 30 쌍에서 모델의 예측이 물체를 어디에 두는지 (또는 지우는지) 토큰 단위로 본다.</li>
+  </ul>
+</section>
+
+<footer>
+  <p>모델: V-JEPA 2 ViT-H, 예측 부분만 추가 학습. 수치는 채점 산출물에서 다시 계산했다 (2026-11-01, vll7 한 노드). 1차 결과: <a href="https://claude.ai/artifact/5ToWJMQyP9FctyVF11mfXk">물체 영속 학습 1차 결과</a>.</p>
+  <p>부록 · 재현 — 채점 <code>predictor_lab/v3_ablation/eval_v3.sh</code> · 표 <code>predictor_lab/v3_ablation/table_v3.py</code> · 이 페이지 수치 <code>predictor_lab/v3_ablation/page/page_numbers.py</code> · v3 사라짐 쌍 조건별 <code>predictor_lab/v3_ablation/analyze_vanish.py --tag v3_mix1600_s0 --also vobftg release copy</code> · 두 trapdoor 비교 <code>predictor_lab/v3_ablation/page/trapdoor_compare.py</code> · 토큰 경로 <code>predictor_lab/v3_ablation/page/token_memo_check.py</code> · 대조 실험 <code>predictor_lab/v3_ablation/ctrl_job.sh</code> (vll7 GPU 2 장, 목록 <code>z_research/scripts/data/blender_track/make_ctrl_meta.py</code>) · 그림 <code>predictor_lab/v3_ablation/page/make_imgs.py</code> · 데이터 생성 설정 <code>z_research/scripts/data/blender_track/configs/v3.yaml</code>. 벤치마크 내부 이름: 움직이는 차 가림 = VO_moving_occluder, IntPhys 1 영속 가림 = IntPhys 1 dev late 창의 O1 가림 블록. 전체 표는 시트 2027_CVPR_world_model 의 trianing_ablation 탭.</p>
+</footer>
+
+</main>
+
+</body>
+</html>

@@ -1,6 +1,6 @@
 #!/bin/bash
 # predictor_lab/train.sh 의 본체 (sbatch 안 또는 LOCAL=1 · DRYRUN=1). 직접 부르지 말고 train.sh 를 쓴다.
-# 입력 (환경변수): CONFIG · NAME · GPUS · SET_B64 [· LIMIT · DRYRUN · THREADS · TRAIN_DDP_PORT]
+# 입력 (환경변수): CONFIG · NAME · GPUS · SET_B64 [· LIMIT · DRYRUN · THREADS · TRAIN_DDP_PORT · DEVS (잡 안 GPU 번호, 학습 여럿을 한 잡에)]
 # z_training/train.sh 와 같은 순서 (resolve_train → DDP 포트 → harness/launch.py) 인데 파이썬만 paths.env 의 LAB_PY 를 쓴다.
 set -uo pipefail
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
@@ -37,6 +37,7 @@ export TRAIN_DDP_PORT TRAIN_EXPECT_WS=$GPUS TRAIN_DDP_TIMEOUT_S=${TRAIN_DDP_TIME
 T=$(( $(nproc) / GPUS )); (( T > 12 )) && T=12; (( T < 1 )) && T=1
 export OMP_NUM_THREADS=${THREADS:-$T} MKL_NUM_THREADS=${THREADS:-$T}
 DEVICES=$(for i in $(seq 0 $((GPUS - 1))); do echo -n "cuda:$i "; done)
+[[ -n ${DEVS:-} ]] && DEVICES=$(for i in $DEVS; do echo -n "cuda:$i "; done)   # 11-01: 한 잡 안에 학습 여럿 (GPU 번호를 학습마다, 예 DEVS="2 3")
 echo "  devices $DEVICES | ddp port $TRAIN_DDP_PORT | threads/rank $OMP_NUM_THREADS | log $FOLDER/train.log"
 echo "=================================================="
 "$LAB_PY" z_training/harness/launch.py --fname "$CFGOUT" --devices $DEVICES 2>&1 | tee -a "$FOLDER/train.log"

@@ -1,0 +1,28 @@
+# 이름	학습 목록 (data_csv/blender_track_v3/arms/<>.npz)	seed	— 순서 = 대기열 순서 (중요한 팔 먼저)   (11-01 사용자: seed 1 반복은 안 함)
+v3_mix1600_s0	mix1600	0
+v3_prim_s0	prim	0
+v3_real_s0	real	0
+v3_frontstatic_s0	frontstatic	0
+v3_mix680_s0	mix680	0
+v3_full_s0	full	0
+v3_front_s0	front	0
+v3_side_s0	side	0
+v3_bird_s0	bird	0
+v3_barrier_s0	barrier	0
+v3_object_s0	object	0
+v3_occstatic_s0	occstatic	0
+v3_occmoving_s0	occmoving	0
+v3_tgtmoving_s0	tgtmoving	0
+v3_tgtstatic_s0	tgtstatic	0
+v3_flat_s0	flat	0
+v3_ramp_s0	ramp	0
+v3_short_s0	short	0
+v3_long_s0	long	0
+v3_aonly_s0	aonly	0
+# 11-01 v3t (trapdoor 추가): trapdoor 만 1,600 장면 · v3 섞음 1,600 중 400 을 trapdoor 로 (비교: v3_mix1600_s0)
+v3t_only_s0	t_only	0
+v3_mix1600_t25_s0	mix1600_t25	0
+# 11-01 대조 실험 (ctrl_job.sh, vll7 GPU 2): VOBench 닮은 조각만 · 타이밍만 맞춤 · 시험 장면 외우기 상한
+v3t_voblike_s0	vob_like	0
+v3_timingvob_s0	timing_vob	0
+v3_oracle_s0	oracle_test	0

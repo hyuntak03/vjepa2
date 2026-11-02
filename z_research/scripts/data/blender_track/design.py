@@ -44,10 +44,14 @@ KIND_P = [0.04, 0.24, 0.18, 0.12, 0.16, 0.26]
 
 # ----------------------------------------------------------------------------- camera
 class Cam:
-    def __init__(self, h, pitch_deg, lens, size=SIZE, sensor=SENSOR):
+    def __init__(self, h, pitch_deg, lens, size=SIZE, sensor=SENSOR, yaw_deg=0.0, x=0.0, y=0.0):
+        """v3 (2026-11-01): yaw_deg (z 축 회전, Blender rotation_euler z 와 같다) · 위치 (x, y) 추가. 기본값 = 옛 판 (원점, +y 를 봄)."""
         th = math.radians(90.0 + pitch_deg)
-        self.R = np.array([[1, 0, 0], [0, math.cos(th), -math.sin(th)], [0, math.sin(th), math.cos(th)]])
-        self.C = np.array([0.0, 0.0, h])
+        Rx = np.array([[1, 0, 0], [0, math.cos(th), -math.sin(th)], [0, math.sin(th), math.cos(th)]])
+        yw = math.radians(yaw_deg)
+        Rz = np.array([[math.cos(yw), -math.sin(yw), 0], [math.sin(yw), math.cos(yw), 0], [0, 0, 1]])
+        self.R = Rz @ Rx                       # Blender XYZ Euler (90 + pitch, 0, yaw) 와 같은 회전
+        self.C = np.array([float(x), float(y), h])
         self.f = size * lens / sensor
         self.c = size / 2.0
         self.size = size

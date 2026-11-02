@@ -1,0 +1,5 @@
+v3_frontstatic_s0=/data/hyuntak/project/2026/2027_cvpr/vjepa2/z_training/runs/v3_frontstatic_s0/latest.pt
+v3_full_s0=/data/hyuntak/project/2026/2027_cvpr/vjepa2/z_training/runs/v3_full_s0/latest.pt
+v3_bird_s0=/data/hyuntak/project/2026/2027_cvpr/vjepa2/z_training/runs/v3_bird_s0/latest.pt
+v3_barrier_s0=/data/hyuntak/project/2026/2027_cvpr/vjepa2/z_training/runs/v3_barrier_s0/latest.pt
+v3_object_s0=/data/hyuntak/project/2026/2027_cvpr/vjepa2/z_training/runs/v3_object_s0/latest.pt

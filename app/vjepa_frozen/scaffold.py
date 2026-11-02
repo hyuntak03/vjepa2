@@ -100,3 +100,33 @@ def calc(a_ctx: torch.Tensor, tau: float, t_future: torch.Tensor, mode="visible"
     x, m = readout(a_ctx, temp, topk)
     coef, w = fit_track(x, m, tau, mode, order, kappa)
     return rollout(coef, t_future), x, m, w
+
+
+# ============================================================================= 2 판: (T, 256) 물체 지도 (2026-11-01 사용자 설계)
+class MapScaffold(nn.Module):
+    """물체 지도 scaffold — 문맥 encoder 토큰 (B, Tc·S, D) → 시간 칸마다 물체 확률 logit (B, Tc + Tf, S).
+
+    점 · 직선 · 문턱 없이 지도로만 간다 (물체 여럿이면 덩어리가 여럿일 뿐). 0 단계에서 encoder 고정 · 이 모듈만 학습 (라벨 = 가려진 부분 포함 물체 점유).
+    문맥 토큰: LN (affine 없음) → 선형 D → d. 미래 칸 토큰: 학습되는 query 하나를 Tf·S 자리에 복사 (predictor mask token 꼴).
+    RoPE (시간 · 행 · 열 상대 위치, predictor 와 같은 Block) — 절대 위치 임베딩은 없다: 자리는 상대 위치와 문맥 내용으로만 계산한다
+    (학습셋 끝 자리를 외울 여지를 줄인다)."""
+
+    def __init__(self, dim_in: int = 1280, d: int = 384, depth: int = 4, heads: int = 12, n_ctx: int = 8, n_fut: int = 8):
+        super().__init__()
+        from src.models.utils.modules import Block
+        self.n_ctx, self.n_fut = n_ctx, n_fut
+        self.inp = nn.Linear(dim_in, d)
+        self.query = nn.Parameter(torch.zeros(1, 1, d))
+        nn.init.trunc_normal_(self.query, std=0.02)
+        self.blocks = nn.ModuleList([Block(d, heads, mlp_ratio=4.0, qkv_bias=True, use_rope=True, grid_size=G) for _ in range(depth)])
+        self.norm = nn.LayerNorm(d)
+        self.out = nn.Linear(d, 1)
+        nn.init.constant_(self.out.bias, -3.0)                    # 물체 칸 약 5 % 사전
+
+    def forward(self, z: torch.Tensor) -> torch.Tensor:          # z (B, Tc·S, D) → logit (B, Tc + Tf, S)
+        B = z.size(0)
+        x = self.inp(F.layer_norm(z.float(), z.shape[-1:]))
+        x = torch.cat([x, self.query.expand(B, self.n_fut * G * G, -1)], 1)
+        for blk in self.blocks:                                   # mask 없음 → 위치 = arange → (칸, 행, 열) = 문맥 0..Tc-1, 미래 Tc..
+            x = blk(x)
+        return self.out(self.norm(x)).squeeze(-1).view(B, self.n_ctx + self.n_fut, G * G)

@@ -1,0 +1,4 @@
+{"event": "start", "rank": 1, "world": 2, "n": 40, "load_s": 36.3, "device": "cuda:1", "gpu": "NVIDIA RTX A5000", "time": "2026-11-01 20:15:20"}
+{"event": "start", "rank": 0, "world": 2, "n": 40, "load_s": 36.5, "device": "cuda:0", "gpu": "NVIDIA RTX A5000", "time": "2026-11-01 20:15:20"}
+{"event": "end", "rank": 1, "n": 40, "loop_s": 31.1, "s_per_clip": 0.7779, "s_per_clip_steady": 0.248, "peak_mem_gb": 6.2, "time": "2026-11-01 20:15:51"}
+{"event": "end", "rank": 0, "n": 40, "loop_s": 32.8, "s_per_clip": 0.8188, "s_per_clip_steady": 0.2494, "peak_mem_gb": 6.2, "time": "2026-11-01 20:15:53"}

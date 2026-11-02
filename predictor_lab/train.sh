@@ -6,6 +6,7 @@
 #   GPUS=2 NODE=vll7 bash predictor_lab/train.sh lab_base   # 노드 · GPU 수 (기본 paths.env 의 LAB_NODE, GPU 2)
 #   LOCAL=1 GPUS=1 LIMIT=64 SET="optimization.epochs=1" bash predictor_lab/train.sh lab_bind_occ   # 지금 셸 (GPU 있는 노드) 에서 스모크
 #   DRYRUN=1 bash predictor_lab/train.sh lab_base        # 병합 config 만 출력 (GPU 0 장, 몇 초)
+#   DEPEND=afterok:<job> bash predictor_lab/train.sh …   # 앞 잡 (예: 데이터 만들기) 이 끝나면 시작
 #
 # 학습 데이터 경로는 paths.env 의 BT_TRAIN_META · BT_CLIPS 를 data.datasets 로 넣는다 (config 에는 경로를 안 적는다).
 # 파이썬은 paths.env 의 LAB_PY (vll7 Blackwell 은 vjepa2_bw). 본체는 train_job.sh.
@@ -24,7 +25,7 @@ if [[ -n ${LOCAL:-} || -n ${DRYRUN:-} ]]; then
   exec env CONFIG="$CFG" NAME="$NAME" GPUS="$G" LIMIT="${LIMIT:-}" SET_B64="$(printf %s "$SETALL" | base64 -w0)" bash "$HERE/train_job.sh"
 fi
 mkdir -p "$LAB_REPO/z_training/slurm_logs"
-sbatch -p "$LAB_PARTITION" -w "${NODE:-$LAB_NODE}" --gres=gpu:"$G" -c $(( ${CPUS_PER_GPU:-14} * G )) --mem=$(( ${MEM_GB_PER_GPU:-60} * G ))G \
+sbatch -p "$LAB_PARTITION" -w "${NODE:-$LAB_NODE}" ${DEPEND:+--dependency=$DEPEND} --gres=gpu:"$G" -c $(( ${CPUS_PER_GPU:-14} * G )) --mem=$(( ${MEM_GB_PER_GPU:-60} * G ))G \
   --time="${TIME:-0-08:00:00}" -J "lab_tr_$NAME" -o "$LAB_REPO/z_training/slurm_logs/lab_tr_${NAME}_%j.out" \
   --export=ALL,CONFIG="$CFG",NAME="$NAME",GPUS="$G",LIMIT="${LIMIT:-}",SET_B64="$(printf %s "$SETALL" | base64 -w0)" "$HERE/train_job.sh"
 echo "진행: tail -f $LAB_REPO/z_training/runs/$NAME/train.log   |   끝나면: bash predictor_lab/eval.sh $NAME"

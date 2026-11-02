@@ -68,6 +68,9 @@ class BlenderTrackDataset(torch.utils.data.Dataset):
         z = np.load(os.path.join(self.labels_root, f"{self.clips[c]}.npz") if self.layout == "mp4"
                     else os.path.join(self.root, self.clips[c], "labels.npz"))
         n = len(idx); nb = n // tub
+        if z["amodal"].shape[1] == 0 or ("roles" in z.files and str(z["roles"][0]) != "target"):
+            # v3 빈 장면 (팔 B, 11-01): target 이 없다 — 위치 nan · 가려짐 1 · 점유 0 (손실이 라벨을 안 쓰는 PFT 에서는 읽히지 않는다)
+            return {"pos": torch.full((nb, 2), float("nan")), "present": torch.tensor(0.0), "hid": torch.ones(nb), "occ": torch.zeros(nb, G, G)}
         am = np.unpackbits(z["amodal"][idx, 0], axis=-1).astype(np.float32)          # (n, 64, 64)
         occ = am.reshape(nb, tub, G, L // G, G, L // G).mean((1, 3, 5))                 # (nb, 16, 16)
         u, v = z["center_px"][idx, 0, 0].astype(np.float32), z["center_px"][idx, 0, 1].astype(np.float32)
