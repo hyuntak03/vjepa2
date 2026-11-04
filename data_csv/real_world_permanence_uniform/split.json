@@ -1,0 +1,29 @@
+{
+ "seed": 0,
+ "videos_train": 47,
+ "videos_test": 48,
+ "train_possible_clips": 94,
+ "test_pairs": 96,
+ "per_source": {
+  "HOOT": {
+   "train": 1,
+   "test": 1
+  },
+  "MAGICONTROL": {
+   "train": 5,
+   "test": 5
+  },
+  "PerceptionTest": {
+   "train": 25,
+   "test": 25
+  },
+  "PhysicsIQ": {
+   "train": 6,
+   "test": 7
+  },
+  "RubricOffice": {
+   "train": 10,
+   "test": 10
+  }
+ }
+}

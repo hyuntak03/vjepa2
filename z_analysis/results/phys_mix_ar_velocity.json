@@ -1,0 +1,125 @@
+{
+ "models": {
+  "natural": "natural_ar_vw_state",
+  "mix_event": "natural_ar_vw_state_phys3d_event"
+ },
+ "n_train_samples": 8409,
+ "n_val_samples": 1923,
+ "note": "phys3d_multi \ub294 70 epoch \uacc4\ud68d \uc911 epoch 34 \uc5d0\uc11c \uba48\ucd98 \uccb4\ud06c\ud3ec\uc778\ud2b8 (latest.pt). mix_event \ub294 \uc0c1\ud0dc \uac10\ub3c5 \uc190\uc2e4\ub3c4 \uc788\ub2e4",
+ "encoder_probe": {
+  "enc": {
+   "velocity_r2": 0.892,
+   "position_r2": 0.926,
+   "follow_one_block": 0.919,
+   "n": 1923,
+   "n_moved8": 804
+  },
+  "natural": {
+   "velocity_r2": 0.04,
+   "position_r2": 0.835,
+   "follow_one_block": 0.488,
+   "n": 1923,
+   "n_moved8": 804
+  },
+  "mix_event": {
+   "velocity_r2": 0.246,
+   "position_r2": 0.863,
+   "follow_one_block": 0.668,
+   "n": 1923,
+   "n_moved8": 804
+  }
+ },
+ "own_probe": {
+  "enc": {
+   "velocity_r2": 0.885,
+   "position_r2": 0.934,
+   "follow_one_block": 0.927,
+   "n": 1923,
+   "n_moved8": 804
+  },
+  "natural": {
+   "velocity_r2": 0.629,
+   "position_r2": 0.928,
+   "follow_one_block": 0.843,
+   "n": 1923,
+   "n_moved8": 804
+  },
+  "mix_event": {
+   "velocity_r2": 0.624,
+   "position_r2": 0.932,
+   "follow_one_block": 0.814,
+   "n": 1923,
+   "n_moved8": 804
+  }
+ },
+ "rollout_follow_own_probe": {
+  "natural": {
+   "1": {
+    "follow": 0.614,
+    "n": 25
+   },
+   "2": {
+    "follow": 0.292,
+    "n": 43
+   },
+   "3": {
+    "follow": 0.257,
+    "n": 52
+   },
+   "4": {
+    "follow": 0.265,
+    "n": 51
+   },
+   "5": {
+    "follow": 0.298,
+    "n": 49
+   },
+   "6": {
+    "follow": 0.207,
+    "n": 43
+   },
+   "7": {
+    "follow": 0.253,
+    "n": 43
+   },
+   "8": {
+    "follow": 0.329,
+    "n": 53
+   }
+  },
+  "mix_event": {
+   "1": {
+    "follow": 0.676,
+    "n": 25
+   },
+   "2": {
+    "follow": 0.526,
+    "n": 43
+   },
+   "3": {
+    "follow": 0.531,
+    "n": 52
+   },
+   "4": {
+    "follow": 0.549,
+    "n": 51
+   },
+   "5": {
+    "follow": 0.595,
+    "n": 49
+   },
+   "6": {
+    "follow": 0.426,
+    "n": 43
+   },
+   "7": {
+    "follow": 0.41,
+    "n": 43
+   },
+   "8": {
+    "follow": 0.434,
+    "n": 53
+   }
+  }
+ }
+}

@@ -99,26 +99,43 @@ class VarWindowBatches(torch.utils.data.IterableDataset):
             return
         self.fixed_p = float(fx["p"])
         self.fixed_spec = None
+        # 2026-11-02 (사용자: "scratch AR 에 v4 껴서"): type: mp4_list 소스 추가 — list = mp4 절대경로 한 줄에 하나 (all_mp4list.csv 형식),
+        #   starts: [..] 중 하나를 clip 마다 고른다 (Mp4ListDataset 과 같은 창: start + stride·k). PNG 소스는 예전과 난수 소비까지 같다.
         for src in fx["sources"]:
             cf = src["context_frames"]
             cf = tuple(int(v) for v in (cf if isinstance(cf, (list, tuple)) else [cf]))   # 2026-10-15: 문맥 길이 후보 (step 마다 무작위)
-            spec = (int(src.get("start", 0)), int(src["stride"]), int(src["n_frames"]), cf)
+            kind = str(src.get("type", "png"))
+            starts = tuple(int(v) for v in (src.get("starts") or [src.get("start", 0)]))
+            spec = (int(src["stride"]), int(src["n_frames"]), cf)
             if self.fixed_spec not in (None, spec):
-                raise ValueError("fixed: 소스들의 창 (start, stride, n_frames, context_frames) 이 같아야 한다")
+                raise ValueError("fixed: 소스들의 창 (stride, n_frames, context_frames) 이 같아야 한다")
             self.fixed_spec = spec
-            rows = list(__import__("csv").DictReader(open(src["list"])))
-            pat = src.get("frames_pattern", "{file_name}/{frame:06d}.png")
-            self.fixed_items += [(src["name"], src["frames_root"], pat, r["file_name"]) for r in rows]
-        st, sd, n, cs = self.fixed_spec
+            if kind == "png":
+                rows = list(__import__("csv").DictReader(open(src["list"])))
+                pat = src.get("frames_pattern", "{file_name}/{frame:06d}.png")
+                self.fixed_items += [(src["name"], kind, src["frames_root"], pat, r["file_name"], starts) for r in rows]
+            elif kind == "mp4_list":
+                paths = [ln.strip() for ln in open(src["list"], encoding="utf-8") if ln.strip()]
+                if any("\t" in q for q in paths):
+                    raise ValueError(f"fixed mp4_list: 줄마다 프레임 번호를 주는 형식은 아직 안 받는다: {src['list']}")
+                if src.get("limit"):
+                    paths = paths[: int(src["limit"])]
+                if not paths or not os.path.isfile(paths[0]):
+                    raise ValueError(f"fixed mp4_list 가 비었거나 첫 파일이 없다: {src['list']}")
+                self.fixed_items += [(src["name"], kind, None, None, q, starts) for q in paths]
+            else:
+                raise ValueError(f"fixed: 소스 type 은 png | mp4_list: {kind!r}")
+        sd, n, cs = self.fixed_spec
         if n % self.tubelet or any(c % self.tubelet or not 0 < c < n for c in cs):
             raise ValueError("fixed: n_frames · context_frames 는 tubelet 의 배수, 0 < 문맥 < n_frames")
-        logger.info(f"var_window fixed: p {self.fixed_p}, clip {len(self.fixed_items)} 개, 프레임 {st}+{sd}k (k<{n}), 문맥 후보 {list(cs)} 장")
+        logger.info(f"var_window fixed: p {self.fixed_p}, clip {len(self.fixed_items)} 개, 시작 "
+                    f"{sorted({s0 for it in self.fixed_items for s0 in it[5]})} + {sd}k (k<{n}), 문맥 후보 {list(cs)} 장")
 
     def _is_fixed(self, step):
         return self.fixed_p > 0 and random.Random(f"{self.seed}-fixed-{step}").random() < self.fixed_p
 
     def make_fixed(self, step):
-        st, sd, n, cs = self.fixed_spec
+        sd, n, cs = self.fixed_spec
         c = random.Random(f"{self.seed}-fixedplan-{step}").choice(cs)     # 모든 rank 같은 문맥 길이
         W = n
         B = max(self.b_min, min(self.b_max, self.budget // W))
@@ -126,15 +143,25 @@ class VarWindowBatches(torch.utils.data.IterableDataset):
         from PIL import Image
         clips = []
         for _ in range(B):
-            name, root, pat, fn = self.fixed_items[rng.randrange(len(self.fixed_items))]
-            fr = [np.asarray(Image.open(os.path.join(root, pat.format(file_name=fn, frame=st + sd * k))).convert("RGB")) for k in range(n)]
-            clips.append(self.transform(np.stack(fr)))
+            name, kind, root, pat, fn, starts = self.fixed_items[rng.randrange(len(self.fixed_items))]
+            st = starts[0] if len(starts) == 1 else starts[rng.randrange(len(starts))]
+            if kind == "mp4_list":
+                import decord
+                vr = decord.VideoReader(fn, num_threads=1)
+                idx = [st + sd * k for k in range(n)]
+                if idx[-1] >= len(vr):
+                    raise IndexError(f"fixed mp4: {fn} 는 {len(vr)} 장인데 프레임 {idx[-1]} 이 필요하다")
+                arr = vr.get_batch(idx).asnumpy()
+            else:
+                arr = np.stack([np.asarray(Image.open(os.path.join(root, pat.format(file_name=fn, frame=st + sd * k))).convert("RGB")) for k in range(n)])
+            clips.append(self.transform(arr))
         x = torch.stack(clips)
         names = sorted({it[0] for it in self.fixed_items})
+        tag = "vob" if all(it[1] == "png" for it in self.fixed_items) else "+".join(names)
         info = {"step": step, "C": c, "K": n - c, "W": W, "B": B, "dataset": "+".join(names),
                 "context_blocks": c // self.tubelet, "predict_blocks": (n - c) // self.tubelet,
                 "gap_blocks": 0, "win_blocks": W // self.tubelet, "context_frames": c,
-                "type": f"var C{c}K{n - c} vob B{B}", "read_fails": 0}
+                "type": f"var C{c}K{n - c} {tag} B{B}", "read_fails": 0}
         return x, info
 
     # ---------------------------------------------------------------- 경계 정렬 mp4 소스 (2026-10-16, object_permanence_320)

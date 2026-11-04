@@ -1,0 +1,72 @@
+{
+ "path": "ro",
+ "layer": 1,
+ "best_epoch": 7,
+ "n_train": 11631,
+ "val_all": {
+  "shape_x_color": 62.3,
+  "shape": 72.6,
+  "color": 81.5,
+  "velocity_r2": 0.089,
+  "position_r2": 0.753,
+  "n": 1176
+ },
+ "val_by_step": {
+  "1": {
+   "shape_x_color": 77.5,
+   "shape": 81.1,
+   "color": 95.3,
+   "velocity_r2": 0.377,
+   "position_r2": 0.831,
+   "n": 169
+  },
+  "2": {
+   "shape_x_color": 64.6,
+   "shape": 73.2,
+   "color": 84.1,
+   "velocity_r2": 0.307,
+   "position_r2": 0.801,
+   "n": 164
+  },
+  "3": {
+   "shape_x_color": 62.1,
+   "shape": 71.0,
+   "color": 81.1,
+   "velocity_r2": 0.091,
+   "position_r2": 0.767,
+   "n": 169
+  },
+  "4": {
+   "shape_x_color": 63.3,
+   "shape": 72.8,
+   "color": 80.4,
+   "velocity_r2": -0.066,
+   "position_r2": 0.703,
+   "n": 158
+  },
+  "5": {
+   "shape_x_color": 62.1,
+   "shape": 74.0,
+   "color": 79.9,
+   "velocity_r2": -0.102,
+   "position_r2": 0.741,
+   "n": 169
+  },
+  "6": {
+   "shape_x_color": 56.0,
+   "shape": 71.1,
+   "color": 76.5,
+   "velocity_r2": -0.091,
+   "position_r2": 0.716,
+   "n": 166
+  },
+  "7": {
+   "shape_x_color": 51.4,
+   "shape": 65.7,
+   "color": 73.5,
+   "velocity_r2": -0.033,
+   "position_r2": 0.722,
+   "n": 181
+  }
+ }
+}

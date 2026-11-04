@@ -1,0 +1,174 @@
+{
+ "models": {
+  "natural": "natural_ar_vw_state",
+  "phys3d_single": "natural_ar_vw_state_phys3d_only",
+  "phys3d_multi": "natural_ar_vw_state_phys3d_multi_only"
+ },
+ "n_train_samples": 8409,
+ "n_val_samples": 1923,
+ "note": "phys3d_multi \ub294 70 epoch \uacc4\ud68d \uc911 epoch 34 \uc5d0\uc11c \uba48\ucd98 \uccb4\ud06c\ud3ec\uc778\ud2b8 (latest.pt)",
+ "encoder_probe": {
+  "enc": {
+   "velocity_r2": 0.892,
+   "position_r2": 0.926,
+   "follow_one_block": 0.919,
+   "n": 1923,
+   "n_moved8": 804
+  },
+  "natural": {
+   "velocity_r2": 0.04,
+   "position_r2": 0.835,
+   "follow_one_block": 0.488,
+   "n": 1923,
+   "n_moved8": 804
+  },
+  "phys3d_single": {
+   "velocity_r2": 0.557,
+   "position_r2": 0.897,
+   "follow_one_block": 0.836,
+   "n": 1923,
+   "n_moved8": 804
+  },
+  "phys3d_multi": {
+   "velocity_r2": 0.199,
+   "position_r2": 0.88,
+   "follow_one_block": 0.758,
+   "n": 1923,
+   "n_moved8": 804
+  }
+ },
+ "own_probe": {
+  "enc": {
+   "velocity_r2": 0.883,
+   "position_r2": 0.932,
+   "follow_one_block": 0.921,
+   "n": 1923,
+   "n_moved8": 804
+  },
+  "natural": {
+   "velocity_r2": 0.636,
+   "position_r2": 0.923,
+   "follow_one_block": 0.794,
+   "n": 1923,
+   "n_moved8": 804
+  },
+  "phys3d_single": {
+   "velocity_r2": 0.819,
+   "position_r2": 0.92,
+   "follow_one_block": 0.905,
+   "n": 1923,
+   "n_moved8": 804
+  },
+  "phys3d_multi": {
+   "velocity_r2": 0.726,
+   "position_r2": 0.92,
+   "follow_one_block": 0.858,
+   "n": 1923,
+   "n_moved8": 804
+  }
+ },
+ "rollout_follow_own_probe": {
+  "natural": {
+   "1": {
+    "follow": 0.636,
+    "n": 25
+   },
+   "2": {
+    "follow": 0.316,
+    "n": 43
+   },
+   "3": {
+    "follow": 0.289,
+    "n": 52
+   },
+   "4": {
+    "follow": 0.315,
+    "n": 51
+   },
+   "5": {
+    "follow": 0.383,
+    "n": 49
+   },
+   "6": {
+    "follow": 0.241,
+    "n": 43
+   },
+   "7": {
+    "follow": 0.271,
+    "n": 43
+   },
+   "8": {
+    "follow": 0.351,
+    "n": 53
+   }
+  },
+  "phys3d_single": {
+   "1": {
+    "follow": 0.867,
+    "n": 25
+   },
+   "2": {
+    "follow": 0.91,
+    "n": 43
+   },
+   "3": {
+    "follow": 0.96,
+    "n": 52
+   },
+   "4": {
+    "follow": 0.927,
+    "n": 51
+   },
+   "5": {
+    "follow": 0.83,
+    "n": 49
+   },
+   "6": {
+    "follow": 0.629,
+    "n": 43
+   },
+   "7": {
+    "follow": 0.69,
+    "n": 43
+   },
+   "8": {
+    "follow": 0.737,
+    "n": 53
+   }
+  },
+  "phys3d_multi": {
+   "1": {
+    "follow": 0.705,
+    "n": 25
+   },
+   "2": {
+    "follow": 0.717,
+    "n": 43
+   },
+   "3": {
+    "follow": 0.802,
+    "n": 52
+   },
+   "4": {
+    "follow": 0.8,
+    "n": 51
+   },
+   "5": {
+    "follow": 0.726,
+    "n": 49
+   },
+   "6": {
+    "follow": 0.479,
+    "n": 43
+   },
+   "7": {
+    "follow": 0.378,
+    "n": 43
+   },
+   "8": {
+    "follow": 0.392,
+    "n": 53
+   }
+  }
+ }
+}

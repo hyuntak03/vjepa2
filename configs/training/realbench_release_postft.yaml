@@ -1,0 +1,37 @@
+# =============================================================================
+# 릴리즈 V-JEPA 2 ViT-H predictor post-FT — real world permanence 학습 절반의 가능 영상 94 편 (2026-11-02, 사용자: "release · ar 둘 다 real bench 로 PFT, held out")
+#
+#   GPUS=8 bash z_training/tmux_train.sh realbench_release_postft
+#
+# 무엇: vobench_release_postft (릴리즈 출발 · 문맥 16 장 → 미래 16 장 · lr 5e-5 warmup + cosine) 의 데이터만 real bench 학습 절반으로.
+# 왜: 실제 영상 물체 영속을 실제 영상 (같은 벤치의 다른 영상) 으로 이어 학습하면 보류한 절반이 오르나. 다른 벤치 (IntPhys 1 · 2 late) 가 바뀌는지도 같이.
+# 비교: 릴리즈 그대로 (vith) 의 같은 시험 절반 점수. 짝 = realbench_ar_vw_state_postft (AR 출발, 같은 데이터 · 같은 길이).
+# 길이: 30 epoch (시트 PFT 행들의 관례) × 94 편 / 전역 16 (GPU 8 × 2) ≈ 180 step. 전처리: 채점기처럼 256² 로 눌러 줄임 (자르지 않음).
+# =============================================================================
+extends: vobench_release_postft
+
+meta:
+  seed: 0
+  save_every_freq: 10           # e10 · e20 · e30
+
+data:
+  n_frames: 32
+  batch_size: 2                 # rank 당 × 8 GPU = 16
+  num_workers: 4
+  datasets:
+    - {name: realbench_perm_train, weight: 1.0}
+  aug:
+    hflip_p: 0.5
+    random_resized_crop: null
+    square_crop: none           # 채점기 (evals/world_model_analysis/data.py) 와 같은 눌러 줄이기
+
+mask:
+  - type: temporal_prefix
+    context_frames: [16]
+    weight: 1.0
+
+optimization:
+  epochs: 30
+
+val:
+  every_epochs: 10              # VOBench late 432 쌍 — 다른 도메인에서 잃는 것 감시

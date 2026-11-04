@@ -1,0 +1,389 @@
+{
+ "n": 100,
+ "n_late": 70,
+ "n_vis": 30,
+ "chance": {
+  "shape": 16.666666666666668,
+  "color": 12.5
+ },
+ "probe": {
+  "natural_ar_vw_state": {
+   "ctx_last": {
+    "shape": {
+     "late": 37.142857142857146,
+     "visible": 83.33333333333334
+    },
+    "color": {
+     "late": 11.428571428571429,
+     "visible": 26.666666666666668
+    }
+   },
+   "pred_L1": {
+    "shape": {
+     "late": 32.857142857142854,
+     "visible": 86.66666666666667
+    },
+    "color": {
+     "late": 11.428571428571429,
+     "visible": 33.33333333333333
+    }
+   },
+   "pred_L4": {
+    "shape": {
+     "late": 38.57142857142858,
+     "visible": 86.66666666666667
+    },
+    "color": {
+     "late": 12.857142857142856,
+     "visible": 33.33333333333333
+    }
+   },
+   "pred_L8": {
+    "shape": {
+     "late": 37.142857142857146,
+     "visible": 86.66666666666667
+    },
+    "color": {
+     "late": 15.714285714285714,
+     "visible": 33.33333333333333
+    }
+   },
+   "pred_L12": {
+    "shape": {
+     "late": 40.0,
+     "visible": 83.33333333333334
+    },
+    "color": {
+     "late": 15.714285714285714,
+     "visible": 36.666666666666664
+    }
+   },
+   "out_r0": {
+    "shape": {
+     "late": 31.428571428571427,
+     "visible": 86.66666666666667
+    },
+    "color": {
+     "late": 15.714285714285714,
+     "visible": 36.666666666666664
+    }
+   },
+   "out_r3": {
+    "shape": {
+     "late": 41.42857142857143,
+     "visible": 43.333333333333336
+    },
+    "color": {
+     "late": 11.428571428571429,
+     "visible": 6.666666666666667
+    }
+   },
+   "out_r7": {
+    "shape": {
+     "late": 44.285714285714285,
+     "visible": 56.666666666666664
+    },
+    "color": {
+     "late": 25.71428571428571,
+     "visible": 10.0
+    }
+   }
+  },
+  "natural_ar_vw_state_ctxt_video": {
+   "ctx_last": {
+    "shape": {
+     "late": 45.714285714285715,
+     "visible": 86.66666666666667
+    },
+    "color": {
+     "late": 12.857142857142856,
+     "visible": 33.33333333333333
+    }
+   },
+   "pred_L1": {
+    "shape": {
+     "late": 42.857142857142854,
+     "visible": 90.0
+    },
+    "color": {
+     "late": 17.142857142857142,
+     "visible": 53.333333333333336
+    }
+   },
+   "pred_L4": {
+    "shape": {
+     "late": 37.142857142857146,
+     "visible": 90.0
+    },
+    "color": {
+     "late": 11.428571428571429,
+     "visible": 50.0
+    }
+   },
+   "pred_L8": {
+    "shape": {
+     "late": 44.285714285714285,
+     "visible": 90.0
+    },
+    "color": {
+     "late": 17.142857142857142,
+     "visible": 33.33333333333333
+    }
+   },
+   "pred_L12": {
+    "shape": {
+     "late": 42.857142857142854,
+     "visible": 86.66666666666667
+    },
+    "color": {
+     "late": 12.857142857142856,
+     "visible": 36.666666666666664
+    }
+   },
+   "out_r0": {
+    "shape": {
+     "late": 41.42857142857143,
+     "visible": 83.33333333333334
+    },
+    "color": {
+     "late": 20.0,
+     "visible": 40.0
+    }
+   },
+   "out_r3": {
+    "shape": {
+     "late": 47.14285714285714,
+     "visible": 63.33333333333333
+    },
+    "color": {
+     "late": 18.571428571428573,
+     "visible": 20.0
+    }
+   },
+   "out_r7": {
+    "shape": {
+     "late": 52.85714285714286,
+     "visible": 53.333333333333336
+    },
+    "color": {
+     "late": 30.0,
+     "visible": 10.0
+    }
+   }
+  },
+  "target": {
+   "tgt_r0": {
+    "shape": {
+     "late": 27.142857142857142,
+     "visible": 80.0
+    },
+    "color": {
+     "late": 11.428571428571429,
+     "visible": 36.666666666666664
+    }
+   },
+   "tgt_r3": {
+    "shape": {
+     "late": 87.14285714285714,
+     "visible": 76.66666666666667
+    },
+    "color": {
+     "late": 72.85714285714285,
+     "visible": 16.666666666666664
+    }
+   },
+   "tgt_r7": {
+    "shape": {
+     "late": 90.0,
+     "visible": 73.33333333333333
+    },
+    "color": {
+     "late": 65.71428571428571,
+     "visible": 23.333333333333332
+    }
+   }
+  }
+ },
+ "attn": {
+  "natural_ar_vw_state": {
+   "1": {
+    "late": {
+     "last_block": 0.7404,
+     "obj_in_seen_earlier": 0.054,
+     "other_earlier": 0.2056
+    },
+    "visible": {
+     "last_block": 0.7455,
+     "obj_in_seen_earlier": 0.0878,
+     "other_earlier": 0.1667
+    }
+   },
+   "4": {
+    "late": {
+     "last_block": 0.6626,
+     "obj_in_seen_earlier": 0.0564,
+     "other_earlier": 0.2809
+    },
+    "visible": {
+     "last_block": 0.5012,
+     "obj_in_seen_earlier": 0.212,
+     "other_earlier": 0.2868
+    }
+   },
+   "8": {
+    "late": {
+     "last_block": 0.6096,
+     "obj_in_seen_earlier": 0.026,
+     "other_earlier": 0.3644
+    },
+    "visible": {
+     "last_block": 0.6444,
+     "obj_in_seen_earlier": 0.0256,
+     "other_earlier": 0.33
+    }
+   },
+   "12": {
+    "late": {
+     "last_block": 0.4668,
+     "obj_in_seen_earlier": 0.0391,
+     "other_earlier": 0.4942
+    },
+    "visible": {
+     "last_block": 0.5046,
+     "obj_in_seen_earlier": 0.059,
+     "other_earlier": 0.4364
+    }
+   }
+  },
+  "natural_ar_vw_state_ctxt_video": {
+   "1": {
+    "late": {
+     "last_block": 0.7646,
+     "obj_in_seen_earlier": 0.0168,
+     "other_earlier": 0.2187
+    },
+    "visible": {
+     "last_block": 0.6713,
+     "obj_in_seen_earlier": 0.0766,
+     "other_earlier": 0.2521
+    }
+   },
+   "4": {
+    "late": {
+     "last_block": 0.5404,
+     "obj_in_seen_earlier": 0.0371,
+     "other_earlier": 0.4226
+    },
+    "visible": {
+     "last_block": 0.3724,
+     "obj_in_seen_earlier": 0.1885,
+     "other_earlier": 0.4391
+    }
+   },
+   "8": {
+    "late": {
+     "last_block": 0.803,
+     "obj_in_seen_earlier": 0.0145,
+     "other_earlier": 0.1825
+    },
+    "visible": {
+     "last_block": 0.7095,
+     "obj_in_seen_earlier": 0.1003,
+     "other_earlier": 0.1902
+    }
+   },
+   "12": {
+    "late": {
+     "last_block": 0.8138,
+     "obj_in_seen_earlier": 0.0148,
+     "other_earlier": 0.1714
+    },
+    "visible": {
+     "last_block": 0.8017,
+     "obj_in_seen_earlier": 0.0193,
+     "other_earlier": 0.179
+    }
+   }
+  }
+ },
+ "err": {
+  "natural_ar_vw_state": {
+   "obj": {
+    "late": [
+     0.44679999351501465,
+     0.691100001335144,
+     0.6877999901771545
+    ],
+    "visible": [
+     0.47119998931884766,
+     0.6557000279426575,
+     0.694599986076355
+    ]
+   },
+   "bg": {
+    "late": [
+     0.4722999930381775,
+     0.5041999816894531,
+     0.5134000182151794
+    ],
+    "visible": [
+     0.45969998836517334,
+     0.4869000017642975,
+     0.5045999884605408
+    ]
+   }
+  },
+  "natural_ar_vw_state_ctxt_video": {
+   "obj": {
+    "late": [
+     0.5491999983787537,
+     0.6650999784469604,
+     0.6751000285148621
+    ],
+    "visible": [
+     0.4797999858856201,
+     0.5613999962806702,
+     0.6658999919891357
+    ]
+   },
+   "bg": {
+    "late": [
+     0.5692999958992004,
+     0.5569000244140625,
+     0.5680000185966492
+    ],
+    "visible": [
+     0.5479000210762024,
+     0.5468000173568726,
+     0.5565999746322632
+    ]
+   }
+  },
+  "copy": {
+   "obj": {
+    "late": [
+     0.33239999413490295,
+     0.829200029373169,
+     0.8395000100135803
+    ],
+    "visible": [
+     0.6176999807357788,
+     0.815500020980835,
+     0.8355000019073486
+    ]
+   },
+   "bg": {
+    "late": [
+     0.36570000648498535,
+     0.5875999927520752,
+     0.5753999948501587
+    ],
+    "visible": [
+     0.3968000113964081,
+     0.4855000078678131,
+     0.5210999846458435
+    ]
+   }
+  }
+ }
+}

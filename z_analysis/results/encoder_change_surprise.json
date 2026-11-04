@@ -1,0 +1,714 @@
+{
+ "intphys1_late": {
+  "n_videos": 360,
+  "n_pairs": 180,
+  "context_copy": {
+   "pair_accuracy": 0.5944,
+   "by_group": {
+    "O1/moving/occluded": [
+     0.55,
+     20
+    ],
+    "O1/moving/visible": [
+     0.8,
+     20
+    ],
+    "O1/static/occluded": [
+     0.7,
+     10
+    ],
+    "O1/static/visible": [
+     0.8,
+     10
+    ],
+    "O2/moving/occluded": [
+     0.55,
+     20
+    ],
+    "O2/moving/visible": [
+     0.35,
+     20
+    ],
+    "O2/static/occluded": [
+     0.6,
+     10
+    ],
+    "O2/static/visible": [
+     0.7,
+     10
+    ],
+    "O3/moving/occluded": [
+     0.45,
+     20
+    ],
+    "O3/moving/visible": [
+     0.45,
+     20
+    ],
+    "O3/static/occluded": [
+     0.7,
+     10
+    ],
+    "O3/static/visible": [
+     0.9,
+     10
+    ]
+   }
+  },
+  "context_ctxmean": {
+   "pair_accuracy": 0.6556,
+   "by_group": {
+    "O1/moving/occluded": [
+     0.5,
+     20
+    ],
+    "O1/moving/visible": [
+     0.6,
+     20
+    ],
+    "O1/static/occluded": [
+     0.9,
+     10
+    ],
+    "O1/static/visible": [
+     1.0,
+     10
+    ],
+    "O2/moving/occluded": [
+     0.65,
+     20
+    ],
+    "O2/moving/visible": [
+     0.65,
+     20
+    ],
+    "O2/static/occluded": [
+     0.6,
+     10
+    ],
+    "O2/static/visible": [
+     0.9,
+     10
+    ],
+    "O3/moving/occluded": [
+     0.45,
+     20
+    ],
+    "O3/moving/visible": [
+     0.5,
+     20
+    ],
+    "O3/static/occluded": [
+     0.8,
+     10
+    ],
+    "O3/static/visible": [
+     0.9,
+     10
+    ]
+   }
+  },
+  "target_copy": {
+   "pair_accuracy": 0.6056,
+   "by_group": {
+    "O1/moving/occluded": [
+     0.45,
+     20
+    ],
+    "O1/moving/visible": [
+     0.8,
+     20
+    ],
+    "O1/static/occluded": [
+     0.9,
+     10
+    ],
+    "O1/static/visible": [
+     0.9,
+     10
+    ],
+    "O2/moving/occluded": [
+     0.6,
+     20
+    ],
+    "O2/moving/visible": [
+     0.3,
+     20
+    ],
+    "O2/static/occluded": [
+     0.7,
+     10
+    ],
+    "O2/static/visible": [
+     0.8,
+     10
+    ],
+    "O3/moving/occluded": [
+     0.35,
+     20
+    ],
+    "O3/moving/visible": [
+     0.45,
+     20
+    ],
+    "O3/static/occluded": [
+     0.8,
+     10
+    ],
+    "O3/static/visible": [
+     0.9,
+     10
+    ]
+   }
+  },
+  "target_ctxmean": {
+   "pair_accuracy": 0.6556,
+   "by_group": {
+    "O1/moving/occluded": [
+     0.5,
+     20
+    ],
+    "O1/moving/visible": [
+     0.55,
+     20
+    ],
+    "O1/static/occluded": [
+     1.0,
+     10
+    ],
+    "O1/static/visible": [
+     1.0,
+     10
+    ],
+    "O2/moving/occluded": [
+     0.5,
+     20
+    ],
+    "O2/moving/visible": [
+     0.55,
+     20
+    ],
+    "O2/static/occluded": [
+     0.8,
+     10
+    ],
+    "O2/static/visible": [
+     0.9,
+     10
+    ],
+    "O3/moving/occluded": [
+     0.4,
+     20
+    ],
+    "O3/moving/visible": [
+     0.6,
+     20
+    ],
+    "O3/static/occluded": [
+     0.9,
+     10
+    ],
+    "O3/static/visible": [
+     1.0,
+     10
+    ]
+   }
+  }
+ },
+ "intphys2_uni": {
+  "n_videos": 1000,
+  "n_pairs": 500,
+  "context_copy": {
+   "pair_accuracy": 0.552,
+   "by_group": {
+    "continuity/Easy": [
+     0.333,
+     12
+    ],
+    "continuity/Hard": [
+     0.5,
+     36
+    ],
+    "continuity/Medium": [
+     0.522,
+     46
+    ],
+    "continuity/Unknown": [
+     0.692,
+     26
+    ],
+    "immutability/Easy": [
+     0.833,
+     12
+    ],
+    "immutability/Hard": [
+     0.5,
+     34
+    ],
+    "immutability/Medium": [
+     0.5,
+     46
+    ],
+    "immutability/Unknown": [
+     0.423,
+     26
+    ],
+    "permanence/Easy": [
+     0.667,
+     12
+    ],
+    "permanence/Hard": [
+     0.667,
+     36
+    ],
+    "permanence/Medium": [
+     0.478,
+     46
+    ],
+    "permanence/Unknown": [
+     0.654,
+     26
+    ],
+    "solidity/Easy": [
+     0.625,
+     16
+    ],
+    "solidity/Hard": [
+     0.6,
+     60
+    ],
+    "solidity/Medium": [
+     0.483,
+     60
+    ],
+    "solidity/Unknown": [
+     0.833,
+     6
+    ]
+   }
+  },
+  "context_ctxmean": {
+   "pair_accuracy": 0.562,
+   "by_group": {
+    "continuity/Easy": [
+     0.25,
+     12
+    ],
+    "continuity/Hard": [
+     0.5,
+     36
+    ],
+    "continuity/Medium": [
+     0.587,
+     46
+    ],
+    "continuity/Unknown": [
+     0.692,
+     26
+    ],
+    "immutability/Easy": [
+     0.5,
+     12
+    ],
+    "immutability/Hard": [
+     0.647,
+     34
+    ],
+    "immutability/Medium": [
+     0.587,
+     46
+    ],
+    "immutability/Unknown": [
+     0.423,
+     26
+    ],
+    "permanence/Easy": [
+     0.417,
+     12
+    ],
+    "permanence/Hard": [
+     0.667,
+     36
+    ],
+    "permanence/Medium": [
+     0.565,
+     46
+    ],
+    "permanence/Unknown": [
+     0.731,
+     26
+    ],
+    "solidity/Easy": [
+     0.5,
+     16
+    ],
+    "solidity/Hard": [
+     0.567,
+     60
+    ],
+    "solidity/Medium": [
+     0.5,
+     60
+    ],
+    "solidity/Unknown": [
+     0.5,
+     6
+    ]
+   }
+  },
+  "target_copy": {
+   "pair_accuracy": 0.538,
+   "by_group": {
+    "continuity/Easy": [
+     0.417,
+     12
+    ],
+    "continuity/Hard": [
+     0.556,
+     36
+    ],
+    "continuity/Medium": [
+     0.609,
+     46
+    ],
+    "continuity/Unknown": [
+     0.615,
+     26
+    ],
+    "immutability/Easy": [
+     0.667,
+     12
+    ],
+    "immutability/Hard": [
+     0.441,
+     34
+    ],
+    "immutability/Medium": [
+     0.5,
+     46
+    ],
+    "immutability/Unknown": [
+     0.5,
+     26
+    ],
+    "permanence/Easy": [
+     0.583,
+     12
+    ],
+    "permanence/Hard": [
+     0.639,
+     36
+    ],
+    "permanence/Medium": [
+     0.457,
+     46
+    ],
+    "permanence/Unknown": [
+     0.577,
+     26
+    ],
+    "solidity/Easy": [
+     0.562,
+     16
+    ],
+    "solidity/Hard": [
+     0.567,
+     60
+    ],
+    "solidity/Medium": [
+     0.467,
+     60
+    ],
+    "solidity/Unknown": [
+     0.667,
+     6
+    ]
+   }
+  },
+  "target_ctxmean": {
+   "pair_accuracy": 0.548,
+   "by_group": {
+    "continuity/Easy": [
+     0.333,
+     12
+    ],
+    "continuity/Hard": [
+     0.556,
+     36
+    ],
+    "continuity/Medium": [
+     0.652,
+     46
+    ],
+    "continuity/Unknown": [
+     0.654,
+     26
+    ],
+    "immutability/Easy": [
+     0.583,
+     12
+    ],
+    "immutability/Hard": [
+     0.471,
+     34
+    ],
+    "immutability/Medium": [
+     0.565,
+     46
+    ],
+    "immutability/Unknown": [
+     0.385,
+     26
+    ],
+    "permanence/Easy": [
+     0.417,
+     12
+    ],
+    "permanence/Hard": [
+     0.611,
+     36
+    ],
+    "permanence/Medium": [
+     0.587,
+     46
+    ],
+    "permanence/Unknown": [
+     0.615,
+     26
+    ],
+    "solidity/Easy": [
+     0.562,
+     16
+    ],
+    "solidity/Hard": [
+     0.55,
+     60
+    ],
+    "solidity/Medium": [
+     0.483,
+     60
+    ],
+    "solidity/Unknown": [
+     0.5,
+     6
+    ]
+   }
+  }
+ },
+ "vobench_all": {
+  "n_videos": 2880,
+  "n_pairs": 1440,
+  "context_copy": {
+   "pair_accuracy": 0.75,
+   "by_group": {
+    "early/color": [
+     0.792,
+     144
+    ],
+    "early/permanence": [
+     0.958,
+     144
+    ],
+    "early/shape": [
+     0.757,
+     144
+    ],
+    "late/color": [
+     0.625,
+     144
+    ],
+    "late/permanence": [
+     0.542,
+     144
+    ],
+    "late/shape": [
+     0.521,
+     144
+    ],
+    "mid/color": [
+     0.715,
+     144
+    ],
+    "mid/permanence": [
+     0.951,
+     144
+    ],
+    "mid/shape": [
+     0.764,
+     144
+    ],
+    "visible/color": [
+     0.917,
+     48
+    ],
+    "visible/permanence": [
+     0.875,
+     48
+    ],
+    "visible/shape": [
+     0.833,
+     48
+    ]
+   }
+  },
+  "context_ctxmean": {
+   "pair_accuracy": 0.6868,
+   "by_group": {
+    "early/color": [
+     0.667,
+     144
+    ],
+    "early/permanence": [
+     0.715,
+     144
+    ],
+    "early/shape": [
+     0.611,
+     144
+    ],
+    "late/color": [
+     0.736,
+     144
+    ],
+    "late/permanence": [
+     0.646,
+     144
+    ],
+    "late/shape": [
+     0.694,
+     144
+    ],
+    "mid/color": [
+     0.701,
+     144
+    ],
+    "mid/permanence": [
+     0.708,
+     144
+    ],
+    "mid/shape": [
+     0.646,
+     144
+    ],
+    "visible/color": [
+     0.729,
+     48
+    ],
+    "visible/permanence": [
+     0.729,
+     48
+    ],
+    "visible/shape": [
+     0.771,
+     48
+    ]
+   }
+  },
+  "target_copy": {
+   "pair_accuracy": 0.7632,
+   "by_group": {
+    "early/color": [
+     0.819,
+     144
+    ],
+    "early/permanence": [
+     0.944,
+     144
+    ],
+    "early/shape": [
+     0.799,
+     144
+    ],
+    "late/color": [
+     0.639,
+     144
+    ],
+    "late/permanence": [
+     0.521,
+     144
+    ],
+    "late/shape": [
+     0.542,
+     144
+    ],
+    "mid/color": [
+     0.715,
+     144
+    ],
+    "mid/permanence": [
+     0.972,
+     144
+    ],
+    "mid/shape": [
+     0.785,
+     144
+    ],
+    "visible/color": [
+     0.917,
+     48
+    ],
+    "visible/permanence": [
+     0.875,
+     48
+    ],
+    "visible/shape": [
+     0.896,
+     48
+    ]
+   }
+  },
+  "target_ctxmean": {
+   "pair_accuracy": 0.7021,
+   "by_group": {
+    "early/color": [
+     0.715,
+     144
+    ],
+    "early/permanence": [
+     0.757,
+     144
+    ],
+    "early/shape": [
+     0.625,
+     144
+    ],
+    "late/color": [
+     0.715,
+     144
+    ],
+    "late/permanence": [
+     0.646,
+     144
+    ],
+    "late/shape": [
+     0.701,
+     144
+    ],
+    "mid/color": [
+     0.736,
+     144
+    ],
+    "mid/permanence": [
+     0.701,
+     144
+    ],
+    "mid/shape": [
+     0.653,
+     144
+    ],
+    "visible/color": [
+     0.792,
+     48
+    ],
+    "visible/permanence": [
+     0.75,
+     48
+    ],
+    "visible/shape": [
+     0.771,
+     48
+    ]
+   }
+  }
+ }
+}

@@ -138,7 +138,7 @@ def main():
             spec["name"] = name
         else:
             spec = item
-        if a.limit and spec.get("type") == "frames_index":
+        if a.limit and spec.get("type") in ("frames_index", "mp4_list"):
             spec["limit"] = int(a.limit)
         out.append(spec)
     vw = cfg["data"].get("var_window")
@@ -265,11 +265,15 @@ def main():
             check_frames(spec, f"data.datasets[{i}]({spec.get('name', '?')})")
             for k in META_KEYS:
                 spec.pop(k, None)
-        elif spec.get("type") == "video_csv":
+        elif spec.get("type") in ("video_csv", "mp4_list"):
             if not os.path.isfile(spec["csv"]):
                 die(f"data.datasets[{i}].csv 가 없다 -> {spec['csv']}")
+            if spec.get("type") == "mp4_list":   # 2026-11-02: 첫 줄 mp4 가 실제로 있는지 (경로 오타를 모델 로드 전에)
+                first = next((ln.split("\t", 1)[0].strip() for ln in open(spec["csv"], encoding="utf-8") if ln.strip()), "")
+                if not os.path.isfile(first):
+                    die(f"data.datasets[{i}] mp4_list 첫 줄 mp4 가 없다 -> {first!r}")
         else:
-            die(f"data.datasets[{i}].type={spec.get('type')!r}; frames_index | video_csv")
+            die(f"data.datasets[{i}].type={spec.get('type')!r}; frames_index | video_csv | mp4_list")
     if cfg.get("val"):
         check_frames(cfg["val"]["data"], "val.data", int(cfg["val"].get("n_frames", n)))   # val.n_frames 가 있으면 그 길이 (var_window)
         cfg["val"]["data"].pop("raw_frames", None)

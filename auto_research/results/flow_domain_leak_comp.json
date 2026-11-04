@@ -1,0 +1,22 @@
+{
+ "comp0|motion_shape(|x|,|x'|,r,cos)": {
+  "auroc": 0.838,
+  "n_nat": 123622,
+  "n_syn": 3610
+ },
+ "comp0|+moving_fraction": {
+  "auroc": 0.982,
+  "n_nat": 123622,
+  "n_syn": 3610
+ },
+ "comp1|motion_shape(|x|,|x'|,r,cos)": {
+  "auroc": 0.817,
+  "n_nat": 64226,
+  "n_syn": 3610
+ },
+ "comp1|+moving_fraction": {
+  "auroc": 0.959,
+  "n_nat": 64226,
+  "n_syn": 3610
+ }
+}

@@ -1,0 +1,170 @@
+{
+ "base": {
+  "IntPhys1": [
+   90.0,
+   "skip2_w16"
+  ],
+  "InfLevel": [
+   58.35,
+   "skip10_w16",
+   {
+    "continuity": 75.4,
+    "solidity": 49.8,
+    "gravity": 49.9
+   }
+  ],
+  "IntPhys2": [
+   51.78,
+   "w48 C36",
+   506
+  ],
+  "IntPhys2_late": [
+   51.98,
+   252
+  ]
+ },
+ "ftl1": {
+  "IntPhys1": [
+   90.0,
+   "skip2_w16"
+  ],
+  "InfLevel": [
+   58.35,
+   "skip10_w16",
+   {
+    "continuity": 74.6,
+    "solidity": 50.0,
+    "gravity": 50.5
+   }
+  ],
+  "IntPhys2": [
+   52.37,
+   "w32 C12",
+   506
+  ],
+  "IntPhys2_late": [
+   52.38,
+   252
+  ]
+ },
+ "h0": {
+  "IntPhys1": [
+   90.0,
+   "skip2_w16"
+  ],
+  "InfLevel": [
+   58.36,
+   "skip10_w16",
+   {
+    "continuity": 75.0,
+    "solidity": 50.0,
+    "gravity": 50.1
+   }
+  ],
+  "IntPhys2": [
+   51.98,
+   "w48 C30",
+   506
+  ],
+  "IntPhys2_late": [
+   50.4,
+   252
+  ]
+ },
+ "h1": {
+  "IntPhys1": [
+   90.56,
+   "skip2_w16"
+  ],
+  "InfLevel": [
+   58.11,
+   "skip10_w16",
+   {
+    "continuity": 74.6,
+    "solidity": 49.8,
+    "gravity": 50.0
+   }
+  ],
+  "IntPhys2": [
+   51.98,
+   "w32 C8",
+   506
+  ],
+  "IntPhys2_late": [
+   52.38,
+   252
+  ]
+ },
+ "h2": {
+  "IntPhys1": [
+   91.11,
+   "skip2_w16"
+  ],
+  "InfLevel": [
+   57.84,
+   "skip10_w16",
+   {
+    "continuity": 73.9,
+    "solidity": 49.8,
+    "gravity": 49.8
+   }
+  ],
+  "IntPhys2": [
+   53.16,
+   "w32 C16",
+   506
+  ],
+  "IntPhys2_late": [
+   53.57,
+   252
+  ]
+ },
+ "set_min": {
+  "IntPhys1": [
+   90.0,
+   "skip2_w16"
+  ],
+  "InfLevel": [
+   58.24,
+   "skip10_w16",
+   {
+    "continuity": 74.3,
+    "solidity": 50.4,
+    "gravity": 50.0
+   }
+  ],
+  "IntPhys2": [
+   51.98,
+   "w32 C12",
+   506
+  ],
+  "IntPhys2_late": [
+   51.19,
+   252
+  ]
+ },
+ "set_mean": {
+  "IntPhys1": [
+   91.11,
+   "skip2_w16"
+  ],
+  "InfLevel": [
+   58.11,
+   "skip10_w16",
+   {
+    "continuity": 74.6,
+    "solidity": 49.8,
+    "gravity": 50.0
+   }
+  ],
+  "IntPhys2": [
+   52.57,
+   "w32 C12",
+   506
+  ],
+  "IntPhys2_late": [
+   50.79,
+   252
+  ]
+ }
+}

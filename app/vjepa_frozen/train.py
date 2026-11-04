@@ -247,17 +247,35 @@ def main(args, resume_preempt=False):
     # ── model.encoder_lora (kind=ar, 2026-10-25, 사용자: "ar 에 intphys2 pft 할 때 encoder 에 lora 붙인 버전도"). main 의 app/vjepa_frozen/lora.py 이식.
     #    AR 은 입력 · 타깃이 같은 target_encoder 라서, **입력 경로 전용 복사본** 에만 LoRA 를 단다 (타깃 encoder 는 얼린 채 — 타깃이 안 움직인다).
     #    입력 = LN(in_enc(블록)) (LoRA, grad), 타깃 = LN(tgt_enc(블록)) (얼림). 채점기는 체크포인트의 encoder_lora 로 문맥 encoder 를 다시 만든다.
+    #    2026-11-02 (사용자: "context encoder LoRA 붙여서 같이 학습"): main 의 release 판 이식 — kind=oneshot 이면 context encoder (online `encoder`)
+    #    에 LoRA (main app/vjepa_frozen/train.py 138–150 · 298–300 · 343–345 · 709–755 와 같다). target encoder 는 얼린 채. 저장 키는 둘 다 encoder_lora.
+    #    lr: LoRA 그룹 lr = 스케줄 lr × lr_mult (main 의 lora_lr_mult 와 같다). ⚠️ 2026-10-25 AR 판은 lr_scale 로 넣어 WSDSchedule 에서만 곱해졌다 —
+    #    WarmupCosine (PFT config 들) 에서는 조용히 ×1 이었다. 이제 스케줄 종류와 상관없이 아래 _LoraLrSched 가 곱한다.
     LORA = MD.get("encoder_lora") or None
-    lora_params, in_enc = [], None
+    lora_params, in_enc, lora_mod = [], None, None
     if LORA:
-        if not (str((MD.get("predictor") or {}).get("kind", "oneshot")) == "ar" and str((MD.get("predictor") or {}).get("ar_input", "block")) == "block"):
-            raise ValueError("이 판의 encoder_lora 는 kind=ar + ar_input: block 전용이다 (main 의 release 판은 아직 안 옮겼다)")
         import copy
         from app.vjepa_frozen import lora as LR
-        in_enc = copy.deepcopy(tgt_enc)
-        lora_params = LR.apply_lora(in_enc, int(LORA.get("rank", 8)), float(LORA.get("alpha", 16)), LORA.get("targets", LR.DEFAULT_TARGETS))
-        in_enc.use_activation_checkpointing = bool(LORA.get("act_ckpt", True))
-        logger.info(f"encoder LoRA (입력 경로 복사본, 타깃 encoder 는 얼림): {in_enc.lora_info} · act_ckpt {in_enc.use_activation_checkpointing} · lr_mult {LORA.get('lr_mult', 10)}")
+        _pk = str((MD.get("predictor") or {}).get("kind", "oneshot"))
+        if _pk == "ar":
+            if str((MD.get("predictor") or {}).get("ar_input", "block")) != "block":
+                raise ValueError("kind=ar 의 encoder_lora 는 ar_input: block 전용이다")
+            in_enc = copy.deepcopy(tgt_enc)
+            lora_mod = in_enc
+            lora_params = LR.apply_lora(in_enc, int(LORA.get("rank", 8)), float(LORA.get("alpha", 16)), LORA.get("targets", LR.DEFAULT_TARGETS))
+            in_enc.use_activation_checkpointing = bool(LORA.get("act_ckpt", True))
+            logger.info(f"encoder LoRA (입력 경로 복사본, 타깃 encoder 는 얼림): {in_enc.lora_info} · act_ckpt {in_enc.use_activation_checkpointing} · lr_mult {LORA.get('lr_mult', 10)}")
+        elif _pk == "oneshot":
+            if ctx_enc is tgt_enc:
+                raise ValueError("encoder_lora 는 context · target encoder 가 다른 키여야 한다 (target 을 얼린 채 두려고)")
+            if MD.get("aux") or str(cfg.get("mask_mode", "sample")) == "all":
+                raise ValueError("release 판 encoder_lora 는 기본 train_step 전용이다 (model.aux · mask_mode=all 과 같이 쓰지 않는다)")
+            lora_mod = ctx_enc
+            lora_params = LR.apply_lora(ctx_enc, int(LORA.get("rank", 8)), float(LORA.get("alpha", 16)), LORA.get("targets", LR.DEFAULT_TARGETS))
+            ctx_enc.use_activation_checkpointing = bool(LORA.get("act_ckpt", True))
+            logger.info(f"encoder LoRA on context encoder (target 은 얼림): {ctx_enc.lora_info} · act_ckpt {ctx_enc.use_activation_checkpointing} · lr_mult {LORA.get('lr_mult', 10)}")
+        else:
+            raise ValueError(f"encoder_lora 는 kind=oneshot (context encoder) | ar (입력 경로 복사본) 전용이다: kind={_pk}")
     # ── 동결 encoder torch.compile (2026-09-22) ─────────────────────────────────
     # 실측 B=28, 48장: eager 5.8 s -> compiled(default, dynamic) 3.2 s (1.8x). 오차는 bf16 잡음 수준
     # (eager bf16 vs fp32 6.5e-2, compiled vs fp32 4.8e-2 — compiled 가 오히려 fp32 에 가깝다).
@@ -265,8 +283,11 @@ def main(args, resume_preempt=False):
     # ⚠️ mode=reduce-overhead(CUDA graph) 는 459 ms 로 나왔는데 A6000 peak 를 넘는 값이라 믿지 않는다.
     if bool(M.get("compile_encoders", True)):
         tgt_enc = torch.compile(tgt_enc, mode="default", dynamic=True)
-        ctx_enc = tgt_enc if ctx_enc is tgt_enc else torch.compile(ctx_enc, mode="default", dynamic=True)
-        logger.info("encoders: torch.compile(mode=default, dynamic=True)")
+        if lora_mod is not None and lora_mod is ctx_enc:   # 2026-11-02: LoRA 를 단 context encoder 는 gradient 를 받으므로 eager 로 둔다 (main 과 같다)
+            logger.info("encoders: target 만 torch.compile (LoRA context encoder 는 eager)")
+        else:
+            ctx_enc = tgt_enc if ctx_enc is tgt_enc else torch.compile(ctx_enc, mode="default", dynamic=True)
+            logger.info("encoders: torch.compile(mode=default, dynamic=True)")
     predictor = U.build_predictor(MD, ctx_enc.embed_dim, state if MD.get("load_predictor") else None, device, n_frames)
     if MD.get("predictor_init_checkpoint"):   # 2026-10-22: 우리 학습 run 의 predictor 에서 시작 (AR post-FT). resume 이 있으면 그쪽이 덮는다
         _ck = torch.load(MD["predictor_init_checkpoint"], map_location="cpu", weights_only=False)
@@ -457,8 +478,21 @@ def main(args, resume_preempt=False):
         optimizer.add_param_group({"params": [q for q in head_params if q.ndim <= 1], "lr": float(O["lr"]), "lr_scale": _hm,
                                    "WD_exclude": True, "weight_decay": 0.0})
     if lora_params:                 # encoder LoRA 그룹: lr = 스케줄 lr × lr_mult (main 과 같은 10 배), weight decay 없음
-        optimizer.add_param_group({"params": lora_params, "lr": float(O["lr"]), "lr_scale": float(LORA.get("lr_mult", 10)),
+        # 2026-11-02: lr_scale (WSDSchedule 만 읽는다) 대신 lora_lr_mult + 스케줄 래퍼 — WarmupCosine · LinearDecay 에서도 곱해진다 (main 과 같다)
+        optimizer.add_param_group({"params": lora_params, "lr": float(O["lr"]), "lora_lr_mult": float(LORA.get("lr_mult", 10)),
                                    "WD_exclude": True, "weight_decay": 0.0})
+
+        class _LoraLrSched:
+            def __init__(self, base):
+                self.base = base
+
+            def step(self):
+                v = self.base.step()
+                for g in optimizer.param_groups:
+                    if "lora_lr_mult" in g:
+                        g["lr"] = v * g["lora_lr_mult"]
+                return v
+        scheduler = _LoraLrSched(scheduler)
     if lam_mod is not None:         # latent action 그룹 (역동역학 · 변조): predictor 와 같은 일정, 1-D 는 weight decay 없음
         optimizer.add_param_group({"params": [q for q in lam_params if q.ndim > 1], "lr": float(O["lr"]), "lr_scale": float(LA.get("lr_mult", 1.0))})
         optimizer.add_param_group({"params": [q for q in lam_params if q.ndim <= 1], "lr": float(O["lr"]), "lr_scale": float(LA.get("lr_mult", 1.0)),
@@ -491,7 +525,7 @@ def main(args, resume_preempt=False):
             _ck = torch.load(latest, map_location="cpu", weights_only=False)
             if "encoder_lora" not in _ck:
                 raise KeyError(f"{latest} 에 encoder_lora 가 없다 — config 와 run 이 맞는지 확인")
-            LR.load_lora(in_enc, _ck["encoder_lora"]); del _ck
+            LR.load_lora(lora_mod, _ck["encoder_lora"]); del _ck
             logger.info("resume: encoder LoRA <- latest.pt")
         if lam_mod is not None:
             _ck = torch.load(latest, map_location="cpu", weights_only=False)
@@ -1022,7 +1056,11 @@ def main(args, resume_preempt=False):
                     h = torch.gather(h, 1, m_pred.unsqueeze(-1).expand(-1, -1, h.size(-1)))
                     if target_ln:
                         h = torch.nn.functional.layer_norm(h, (h.size(-1),))       # affine-free, target 에만
-                    z = ctx_enc(xe, masks=[m_enc])                                    # context 토큰만 (B, K, D)
+                    if not lora_params:
+                        z = ctx_enc(xe, masks=[m_enc])                                # context 토큰만 (B, K, D)
+                if lora_params:                                                       # 2026-11-02 (main 이식): LoRA context encoder 에 gradient
+                    with _ac():
+                        z = ctx_enc(xe, masks=[m_enc])
                 if AUXSUP:   # 2026-10-31 보조 모듈 물체 칸 감독 (temporal_prefix: 미래 = 문맥 뒤 블록 전부, m 순서 = 블록 · 칸). forward 전에 (inpath 가 정답을 받는다)
                     C_ = int(info["context_frames"])
                     lab = torch.from_numpy(np.ascontiguousarray(OCC[occ_rows.numpy(), OCC_CTX.index(C_), C_ // tubelet:])).to(device).long()
@@ -1086,7 +1124,18 @@ def main(args, resume_preempt=False):
                     scaler.unscale_(optimizer)
                 else:
                     loss.backward()
-                if clip_grad:
+                if lora_params:      # 2026-11-02 (main 이식): DDP 는 predictor 만 감쌌다 → LoRA grad 는 직접 rank 평균 (AR 판과 같은 묶음 all_reduce). clip 은 predictor 와 같이
+                    _g = [q.grad if q.grad is not None else torch.zeros_like(q) for q in lora_params]
+                    if world_size > 1:
+                        _flat = torch.cat([g.reshape(-1) for g in _g])
+                        torch.distributed.all_reduce(_flat); _flat.div_(world_size)
+                        _o = 0
+                        for q, g in zip(lora_params, _g):
+                            q.grad = _flat[_o: _o + g.numel()].view_as(q).clone(); _o += g.numel()
+                    aux["lgn"] = float(torch.nn.utils.clip_grad_norm_(lora_params, float("inf")))
+                    if clip_grad:
+                        torch.nn.utils.clip_grad_norm_(list(pred_mod.parameters()) + lora_params, float(clip_grad))
+                elif clip_grad:
                     torch.nn.utils.clip_grad_norm_(pred_mod.parameters(), float(clip_grad))
                 if scaler is not None:
                     scaler.step(optimizer); scaler.update()
@@ -1182,8 +1231,8 @@ def main(args, resume_preempt=False):
         logger.info(f"epoch {epoch + 1} avg loss {loss_meter.avg:.4f}" + (f" (tf {jl_meter.avg:.4f} ar {sl_meter.avg:.4f})" if is_seq else ""))
         if rank == 0:
             _extra = {"state_head": state_head.state_dict(), "state_head_cfg": SH} if state_head is not None else None
-            if lora_params:             # 2026-10-25: 채점기가 문맥 (입력) encoder 를 다시 만든다 (analysis/intphys2/model.py, kind=ar)
-                _extra = {**(_extra or {}), "encoder_lora": LR.lora_state_dict(in_enc), "encoder_lora_cfg": in_enc.lora_info}
+            if lora_params:             # 2026-10-25: 채점기가 문맥 (입력) encoder 를 다시 만든다 (analysis/intphys2/model.py, kind=ar · 2026-11-02 release = context encoder)
+                _extra = {**(_extra or {}), "encoder_lora": LR.lora_state_dict(lora_mod), "encoder_lora_cfg": lora_mod.lora_info}
             if motion_mod is not None:
                 _extra = {**(_extra or {}), "motion": motion_mod.state_dict(), "motion_cfg": MO}
             if lam_mod is not None:     # predictor 키는 그대로 (= z = 0 추론), 역동역학 · 변조는 따로

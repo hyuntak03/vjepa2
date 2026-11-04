@@ -1,0 +1,17 @@
+# =============================================================================
+# 무엇: realbench_ar_vw_state_postft (AR 기본판 출발 · real world permanence 학습 절반 94 편 · 30 epoch · 전역 16) 에 입력 경로 encoder LoRA 를 붙여 같이 학습. 타깃 encoder 는 얼림.
+# 왜: 2026-11-02 사용자 "context encoder LoRA 붙여서 같이 학습 ... sheet 에 있는 것들 다" (시트 "AR └ real permanence" 행). 채점은 보류한 시험 절반 (rwpT).
+# 비교: realbench_ar_vw_state_postft (vast_ar_vw_state_realbench). 다른 것은 LoRA 하나.
+#
+#   GPUS=8 bash z_training/tmux_train.sh realbench_ar_vw_state_postft_lora
+# LoRA 설정은 intphys2_vuni_ar_vw_state_postft_lora 와 같다. ⚠️ lr ×10 은 2026-11-02 train.py 수정 뒤에야 WarmupCosine 에서도 실제로 곱해진다.
+# =============================================================================
+extends: realbench_ar_vw_state_postft
+
+model:
+  encoder_lora:
+    rank: 8
+    alpha: 16
+    targets: [qkv, proj, fc1, fc2]
+    lr_mult: 10
+    act_ckpt: true

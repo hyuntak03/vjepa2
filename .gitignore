@@ -22,6 +22,8 @@ run_pretrain.py
 traces/
 third_party/*
 
+*.tsv
+
 evals/simu_env_planning/local/
 evals/simu_env_planning/docker2/
 evals/simu_env_planning/docker/
@@ -36,10 +38,6 @@ checkpoint/
 sample_video/
 
 z_scripts
-
-*csv
-
-*.json
 
 configs/z_tak_attentive_probing
 
@@ -93,3 +91,7 @@ configs/_archive
 # 2026-10-16: 실행 산출물 · 로그 (커밋하지 않는다)
 cvpr/results/
 z_training/logs/
+
+# 2026-11-04: GitHub 100MB 한도 초과 (push 거부)
+data_csv/phys3d_perm_v1/disp_train.npy
+data_csv/phys3d_perm_v1/occ_train.npy

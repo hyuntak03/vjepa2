@@ -1,0 +1,522 @@
+{
+ "primitive/moving_A": [
+  {
+   "gif": "primitive/moving_A/flat_acc__v11_flat_acc_torus_green.gif",
+   "pos": "primitive/permanence/late_k1/v11_flat_acc_torus_green/pos_a",
+   "imp": "primitive/permanence/late_k1/v11_flat_acc_torus_green/imp_ab",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "primitive/moving_A/ramp_down__v11_ramp_down_capsule_purple.gif",
+   "pos": "primitive/permanence/late_k1/v11_ramp_down_capsule_purple/pos_a",
+   "imp": "primitive/permanence/late_k1/v11_ramp_down_capsule_purple/imp_ab",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "primitive/moving_A/flat_vel__v11_flat_vel_torus_green.gif",
+   "pos": "primitive/permanence/late_k2/v11_flat_vel_torus_green/pos_a",
+   "imp": "primitive/permanence/late_k2/v11_flat_vel_torus_green/imp_ab",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "primitive/moving_A/flat_dec__v11_flat_dec_cylinder_purple.gif",
+   "pos": "primitive/permanence/late_k2/v11_flat_dec_cylinder_purple/pos_a",
+   "imp": "primitive/permanence/late_k2/v11_flat_dec_cylinder_purple/imp_ab",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "primitive/moving_A/ramp_down__v11_ramp_down_sphere_orange.gif",
+   "pos": "primitive/permanence/late_k2/v11_ramp_down_sphere_orange/pos_a",
+   "imp": "primitive/permanence/late_k2/v11_ramp_down_sphere_orange/imp_ab",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "primitive/moving_A/ramp_up__v11_ramp_up_cone_blue.gif",
+   "pos": "primitive/permanence/late_k2/v11_ramp_up_cone_blue/pos_a",
+   "imp": "primitive/permanence/late_k2/v11_ramp_up_cone_blue/imp_ab",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "primitive/moving_A/flat_vel__v11_flat_vel_cylinder_cyan.gif",
+   "pos": "primitive/permanence/late_k3/v11_flat_vel_cylinder_cyan/pos_a",
+   "imp": "primitive/permanence/late_k3/v11_flat_vel_cylinder_cyan/imp_ab",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "primitive/moving_A/flat_acc__v11_flat_acc_cone_cyan.gif",
+   "pos": "primitive/permanence/late_k3/v11_flat_acc_cone_cyan/pos_a",
+   "imp": "primitive/permanence/late_k3/v11_flat_acc_cone_cyan/imp_ab",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "primitive/moving_A/flat_dec__v11_flat_dec_capsule_purple.gif",
+   "pos": "primitive/permanence/late_k3/v11_flat_dec_capsule_purple/pos_a",
+   "imp": "primitive/permanence/late_k3/v11_flat_dec_capsule_purple/imp_ab",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "primitive/moving_A/flat_vel__assets_flat_vel_sphere_red.gif",
+   "pos": "primitive/permanence/late_k1/assets_flat_vel_sphere_red/pos_a",
+   "imp": "primitive/permanence/late_k1/assets_flat_vel_sphere_red/imp_ab",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "primitive/moving_A/ramp_up__assets_ramp_up_cylinder_magenta.gif",
+   "pos": "primitive/permanence/late_k1/assets_ramp_up_cylinder_magenta/pos_a",
+   "imp": "primitive/permanence/late_k1/assets_ramp_up_cylinder_magenta/imp_ab",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "primitive/moving_A/flat_dec__assets_flat_dec_torus_orange.gif",
+   "pos": "primitive/permanence/late_k2/assets_flat_dec_torus_orange/pos_a",
+   "imp": "primitive/permanence/late_k2/assets_flat_dec_torus_orange/imp_ab",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "primitive/moving_A/ramp_up__assets_ramp_up_capsule_cyan.gif",
+   "pos": "primitive/permanence/late_k2/assets_ramp_up_capsule_cyan/pos_a",
+   "imp": "primitive/permanence/late_k2/assets_ramp_up_capsule_cyan/imp_ab",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "primitive/moving_A/flat_acc__assets_flat_acc_torus_purple.gif",
+   "pos": "primitive/permanence/late_k3/assets_flat_acc_torus_purple/pos_a",
+   "imp": "primitive/permanence/late_k3/assets_flat_acc_torus_purple/imp_ab",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "primitive/moving_A/ramp_down__assets_ramp_down_cube_red.gif",
+   "pos": "primitive/permanence/late_k3/assets_ramp_down_cube_red/pos_a",
+   "imp": "primitive/permanence/late_k3/assets_ramp_down_cube_red/imp_ab",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  }
+ ],
+ "primitive/moving_B": [
+  {
+   "gif": "primitive/moving_B/flat_acc__v11_flat_acc_torus_green.gif",
+   "pos": "primitive/permanence/late_k1/v11_flat_acc_torus_green/pos_b",
+   "imp": "primitive/permanence/late_k1/v11_flat_acc_torus_green/imp_ba",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "primitive/moving_B/ramp_down__v11_ramp_down_capsule_purple.gif",
+   "pos": "primitive/permanence/late_k1/v11_ramp_down_capsule_purple/pos_b",
+   "imp": "primitive/permanence/late_k1/v11_ramp_down_capsule_purple/imp_ba",
+   "natural_ar_vw_state": "wrong",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "primitive/moving_B/flat_vel__v11_flat_vel_torus_green.gif",
+   "pos": "primitive/permanence/late_k2/v11_flat_vel_torus_green/pos_b",
+   "imp": "primitive/permanence/late_k2/v11_flat_vel_torus_green/imp_ba",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "primitive/moving_B/flat_dec__v11_flat_dec_cylinder_purple.gif",
+   "pos": "primitive/permanence/late_k2/v11_flat_dec_cylinder_purple/pos_b",
+   "imp": "primitive/permanence/late_k2/v11_flat_dec_cylinder_purple/imp_ba",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "primitive/moving_B/ramp_down__v11_ramp_down_sphere_orange.gif",
+   "pos": "primitive/permanence/late_k2/v11_ramp_down_sphere_orange/pos_b",
+   "imp": "primitive/permanence/late_k2/v11_ramp_down_sphere_orange/imp_ba",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "primitive/moving_B/ramp_up__v11_ramp_up_cone_blue.gif",
+   "pos": "primitive/permanence/late_k2/v11_ramp_up_cone_blue/pos_b",
+   "imp": "primitive/permanence/late_k2/v11_ramp_up_cone_blue/imp_ba",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "primitive/moving_B/flat_vel__v11_flat_vel_cylinder_cyan.gif",
+   "pos": "primitive/permanence/late_k3/v11_flat_vel_cylinder_cyan/pos_b",
+   "imp": "primitive/permanence/late_k3/v11_flat_vel_cylinder_cyan/imp_ba",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "primitive/moving_B/flat_acc__v11_flat_acc_cone_cyan.gif",
+   "pos": "primitive/permanence/late_k3/v11_flat_acc_cone_cyan/pos_b",
+   "imp": "primitive/permanence/late_k3/v11_flat_acc_cone_cyan/imp_ba",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "primitive/moving_B/flat_dec__v11_flat_dec_capsule_purple.gif",
+   "pos": "primitive/permanence/late_k3/v11_flat_dec_capsule_purple/pos_b",
+   "imp": "primitive/permanence/late_k3/v11_flat_dec_capsule_purple/imp_ba",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "primitive/moving_B/flat_vel__assets_flat_vel_sphere_red.gif",
+   "pos": "primitive/permanence/late_k1/assets_flat_vel_sphere_red/pos_b",
+   "imp": "primitive/permanence/late_k1/assets_flat_vel_sphere_red/imp_ba",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "primitive/moving_B/ramp_up__assets_ramp_up_cylinder_magenta.gif",
+   "pos": "primitive/permanence/late_k1/assets_ramp_up_cylinder_magenta/pos_b",
+   "imp": "primitive/permanence/late_k1/assets_ramp_up_cylinder_magenta/imp_ba",
+   "natural_ar_vw_state": "wrong",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "primitive/moving_B/flat_dec__assets_flat_dec_torus_orange.gif",
+   "pos": "primitive/permanence/late_k2/assets_flat_dec_torus_orange/pos_b",
+   "imp": "primitive/permanence/late_k2/assets_flat_dec_torus_orange/imp_ba",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "primitive/moving_B/ramp_up__assets_ramp_up_capsule_cyan.gif",
+   "pos": "primitive/permanence/late_k2/assets_ramp_up_capsule_cyan/pos_b",
+   "imp": "primitive/permanence/late_k2/assets_ramp_up_capsule_cyan/imp_ba",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "primitive/moving_B/flat_acc__assets_flat_acc_torus_purple.gif",
+   "pos": "primitive/permanence/late_k3/assets_flat_acc_torus_purple/pos_b",
+   "imp": "primitive/permanence/late_k3/assets_flat_acc_torus_purple/imp_ba",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "primitive/moving_B/ramp_down__assets_ramp_down_cube_red.gif",
+   "pos": "primitive/permanence/late_k3/assets_ramp_down_cube_red/pos_b",
+   "imp": "primitive/permanence/late_k3/assets_ramp_down_cube_red/imp_ba",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  }
+ ],
+ "realistic/moving_A": [
+  {
+   "gif": "realistic/moving_A/flat_dec__v11_flat_dec_apple.gif",
+   "pos": "realistic/permanence/late_k1/v11_flat_dec_apple/pos_a",
+   "imp": "realistic/permanence/late_k1/v11_flat_dec_apple/imp_ab",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "realistic/moving_A/ramp_down__v11_ramp_down_scooter.gif",
+   "pos": "realistic/permanence/late_k1/v11_ramp_down_scooter/pos_a",
+   "imp": "realistic/permanence/late_k1/v11_ramp_down_scooter/imp_ab",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "realistic/moving_A/flat_vel__v11_flat_vel_tennis_ball.gif",
+   "pos": "realistic/permanence/late_k2/v11_flat_vel_tennis_ball/pos_a",
+   "imp": "realistic/permanence/late_k2/v11_flat_vel_tennis_ball/imp_ab",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "realistic/moving_A/flat_dec__v11_flat_dec_car.gif",
+   "pos": "realistic/permanence/late_k2/v11_flat_dec_car/pos_a",
+   "imp": "realistic/permanence/late_k2/v11_flat_dec_car/imp_ab",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "realistic/moving_A/ramp_up__v11_ramp_up_basketball.gif",
+   "pos": "realistic/permanence/late_k2/v11_ramp_up_basketball/pos_a",
+   "imp": "realistic/permanence/late_k2/v11_ramp_up_basketball/imp_ab",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "realistic/moving_A/flat_acc__v11_flat_acc_scooter.gif",
+   "pos": "realistic/permanence/late_k3/v11_flat_acc_scooter/pos_a",
+   "imp": "realistic/permanence/late_k3/v11_flat_acc_scooter/imp_ab",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "realistic/moving_A/flat_dec__v11_flat_dec_tennis_ball.gif",
+   "pos": "realistic/permanence/late_k3/v11_flat_dec_tennis_ball/pos_a",
+   "imp": "realistic/permanence/late_k3/v11_flat_dec_tennis_ball/imp_ab",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "realistic/moving_A/ramp_down__v11_ramp_down_car.gif",
+   "pos": "realistic/permanence/late_k3/v11_ramp_down_car/pos_a",
+   "imp": "realistic/permanence/late_k3/v11_ramp_down_car/imp_ab",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "wrong"
+  },
+  {
+   "gif": "realistic/moving_A/flat_vel__assets_flat_vel_apple.gif",
+   "pos": "realistic/permanence/late_k1/assets_flat_vel_apple/pos_a",
+   "imp": "realistic/permanence/late_k1/assets_flat_vel_apple/imp_ab",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "realistic/moving_A/flat_vel__assets_flat_vel_tennis_ball.gif",
+   "pos": "realistic/permanence/late_k2/assets_flat_vel_tennis_ball/pos_a",
+   "imp": "realistic/permanence/late_k2/assets_flat_vel_tennis_ball/imp_ab",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "realistic/moving_A/flat_acc__assets_flat_acc_basketball.gif",
+   "pos": "realistic/permanence/late_k2/assets_flat_acc_basketball/pos_a",
+   "imp": "realistic/permanence/late_k2/assets_flat_acc_basketball/imp_ab",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "realistic/moving_A/ramp_up__assets_ramp_up_scooter.gif",
+   "pos": "realistic/permanence/late_k2/assets_ramp_up_scooter/pos_a",
+   "imp": "realistic/permanence/late_k2/assets_ramp_up_scooter/imp_ab",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "realistic/moving_A/flat_acc__assets_flat_acc_bus.gif",
+   "pos": "realistic/permanence/late_k3/assets_flat_acc_bus/pos_a",
+   "imp": "realistic/permanence/late_k3/assets_flat_acc_bus/imp_ab",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "realistic/moving_A/ramp_down__assets_ramp_down_apple.gif",
+   "pos": "realistic/permanence/late_k3/assets_ramp_down_apple/pos_a",
+   "imp": "realistic/permanence/late_k3/assets_ramp_down_apple/imp_ab",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "realistic/moving_A/ramp_up__assets_ramp_up_basketball.gif",
+   "pos": "realistic/permanence/late_k3/assets_ramp_up_basketball/pos_a",
+   "imp": "realistic/permanence/late_k3/assets_ramp_up_basketball/imp_ab",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  }
+ ],
+ "realistic/moving_B": [
+  {
+   "gif": "realistic/moving_B/flat_dec__v11_flat_dec_apple.gif",
+   "pos": "realistic/permanence/late_k1/v11_flat_dec_apple/pos_b",
+   "imp": "realistic/permanence/late_k1/v11_flat_dec_apple/imp_ba",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "realistic/moving_B/ramp_down__v11_ramp_down_scooter.gif",
+   "pos": "realistic/permanence/late_k1/v11_ramp_down_scooter/pos_b",
+   "imp": "realistic/permanence/late_k1/v11_ramp_down_scooter/imp_ba",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "realistic/moving_B/flat_vel__v11_flat_vel_tennis_ball.gif",
+   "pos": "realistic/permanence/late_k2/v11_flat_vel_tennis_ball/pos_b",
+   "imp": "realistic/permanence/late_k2/v11_flat_vel_tennis_ball/imp_ba",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "realistic/moving_B/flat_dec__v11_flat_dec_car.gif",
+   "pos": "realistic/permanence/late_k2/v11_flat_dec_car/pos_b",
+   "imp": "realistic/permanence/late_k2/v11_flat_dec_car/imp_ba",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "realistic/moving_B/ramp_up__v11_ramp_up_basketball.gif",
+   "pos": "realistic/permanence/late_k2/v11_ramp_up_basketball/pos_b",
+   "imp": "realistic/permanence/late_k2/v11_ramp_up_basketball/imp_ba",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "realistic/moving_B/flat_acc__v11_flat_acc_scooter.gif",
+   "pos": "realistic/permanence/late_k3/v11_flat_acc_scooter/pos_b",
+   "imp": "realistic/permanence/late_k3/v11_flat_acc_scooter/imp_ba",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "realistic/moving_B/flat_dec__v11_flat_dec_tennis_ball.gif",
+   "pos": "realistic/permanence/late_k3/v11_flat_dec_tennis_ball/pos_b",
+   "imp": "realistic/permanence/late_k3/v11_flat_dec_tennis_ball/imp_ba",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "realistic/moving_B/ramp_down__v11_ramp_down_car.gif",
+   "pos": "realistic/permanence/late_k3/v11_ramp_down_car/pos_b",
+   "imp": "realistic/permanence/late_k3/v11_ramp_down_car/imp_ba",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "realistic/moving_B/flat_vel__assets_flat_vel_apple.gif",
+   "pos": "realistic/permanence/late_k1/assets_flat_vel_apple/pos_b",
+   "imp": "realistic/permanence/late_k1/assets_flat_vel_apple/imp_ba",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "realistic/moving_B/flat_vel__assets_flat_vel_tennis_ball.gif",
+   "pos": "realistic/permanence/late_k2/assets_flat_vel_tennis_ball/pos_b",
+   "imp": "realistic/permanence/late_k2/assets_flat_vel_tennis_ball/imp_ba",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "realistic/moving_B/flat_acc__assets_flat_acc_basketball.gif",
+   "pos": "realistic/permanence/late_k2/assets_flat_acc_basketball/pos_b",
+   "imp": "realistic/permanence/late_k2/assets_flat_acc_basketball/imp_ba",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "realistic/moving_B/ramp_up__assets_ramp_up_scooter.gif",
+   "pos": "realistic/permanence/late_k2/assets_ramp_up_scooter/pos_b",
+   "imp": "realistic/permanence/late_k2/assets_ramp_up_scooter/imp_ba",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "realistic/moving_B/flat_acc__assets_flat_acc_bus.gif",
+   "pos": "realistic/permanence/late_k3/assets_flat_acc_bus/pos_b",
+   "imp": "realistic/permanence/late_k3/assets_flat_acc_bus/imp_ba",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "realistic/moving_B/ramp_down__assets_ramp_down_apple.gif",
+   "pos": "realistic/permanence/late_k3/assets_ramp_down_apple/pos_b",
+   "imp": "realistic/permanence/late_k3/assets_ramp_down_apple/imp_ba",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "realistic/moving_B/ramp_up__assets_ramp_up_basketball.gif",
+   "pos": "realistic/permanence/late_k3/assets_ramp_up_basketball/pos_b",
+   "imp": "realistic/permanence/late_k3/assets_ramp_up_basketball/imp_ba",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  }
+ ],
+ "primitive/static_A": [
+  {
+   "gif": "primitive/static_A/flat_static__v11_flat_static_cone_red.gif",
+   "pos": "primitive/permanence/late_k2/v11_flat_static_cone_red/pos_a",
+   "imp": "primitive/permanence/late_k2/v11_flat_static_cone_red/imp_ab",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "primitive/static_A/flat_static__assets_flat_static_cylinder_cyan.gif",
+   "pos": "primitive/permanence/late_k1/assets_flat_static_cylinder_cyan/pos_a",
+   "imp": "primitive/permanence/late_k1/assets_flat_static_cylinder_cyan/imp_ab",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "primitive/static_A/flat_static__assets_flat_static_cube_blue.gif",
+   "pos": "primitive/permanence/late_k2/assets_flat_static_cube_blue/pos_a",
+   "imp": "primitive/permanence/late_k2/assets_flat_static_cube_blue/imp_ab",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  }
+ ],
+ "primitive/static_B": [
+  {
+   "gif": "primitive/static_B/flat_static__v11_flat_static_cone_red.gif",
+   "pos": "primitive/permanence/late_k2/v11_flat_static_cone_red/pos_b",
+   "imp": "primitive/permanence/late_k2/v11_flat_static_cone_red/imp_ba",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "primitive/static_B/flat_static__assets_flat_static_cylinder_cyan.gif",
+   "pos": "primitive/permanence/late_k1/assets_flat_static_cylinder_cyan/pos_b",
+   "imp": "primitive/permanence/late_k1/assets_flat_static_cylinder_cyan/imp_ba",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "primitive/static_B/flat_static__assets_flat_static_cube_blue.gif",
+   "pos": "primitive/permanence/late_k2/assets_flat_static_cube_blue/pos_b",
+   "imp": "primitive/permanence/late_k2/assets_flat_static_cube_blue/imp_ba",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  }
+ ],
+ "realistic/static_A": [
+  {
+   "gif": "realistic/static_A/flat_static__v11_flat_static_basketball.gif",
+   "pos": "realistic/permanence/late_k3/v11_flat_static_basketball/pos_a",
+   "imp": "realistic/permanence/late_k3/v11_flat_static_basketball/imp_ab",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "realistic/static_A/flat_static__assets_flat_static_tennis_ball.gif",
+   "pos": "realistic/permanence/late_k1/assets_flat_static_tennis_ball/pos_a",
+   "imp": "realistic/permanence/late_k1/assets_flat_static_tennis_ball/imp_ab",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "realistic/static_A/flat_static__assets_flat_static_bus.gif",
+   "pos": "realistic/permanence/late_k3/assets_flat_static_bus/pos_a",
+   "imp": "realistic/permanence/late_k3/assets_flat_static_bus/imp_ab",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  }
+ ],
+ "realistic/static_B": [
+  {
+   "gif": "realistic/static_B/flat_static__v11_flat_static_basketball.gif",
+   "pos": "realistic/permanence/late_k3/v11_flat_static_basketball/pos_b",
+   "imp": "realistic/permanence/late_k3/v11_flat_static_basketball/imp_ba",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "realistic/static_B/flat_static__assets_flat_static_tennis_ball.gif",
+   "pos": "realistic/permanence/late_k1/assets_flat_static_tennis_ball/pos_b",
+   "imp": "realistic/permanence/late_k1/assets_flat_static_tennis_ball/imp_ba",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  },
+  {
+   "gif": "realistic/static_B/flat_static__assets_flat_static_bus.gif",
+   "pos": "realistic/permanence/late_k3/assets_flat_static_bus/pos_b",
+   "imp": "realistic/permanence/late_k3/assets_flat_static_bus/imp_ba",
+   "natural_ar_vw_state": "correct",
+   "v4vc_ar_vw_state_postft": "correct"
+  }
+ ]
+}

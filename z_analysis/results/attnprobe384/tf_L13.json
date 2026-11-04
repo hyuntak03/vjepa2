@@ -1,0 +1,72 @@
+{
+ "path": "tf",
+ "layer": 13,
+ "best_epoch": 19,
+ "n_train": 11631,
+ "val_all": {
+  "shape_x_color": 86.6,
+  "shape": 88.7,
+  "color": 97.8,
+  "velocity_r2": 0.825,
+  "position_r2": 0.945,
+  "n": 1176
+ },
+ "val_by_step": {
+  "1": {
+   "shape_x_color": 87.0,
+   "shape": 89.3,
+   "color": 97.0,
+   "velocity_r2": 0.86,
+   "position_r2": 0.937,
+   "n": 169
+  },
+  "2": {
+   "shape_x_color": 89.0,
+   "shape": 90.9,
+   "color": 98.2,
+   "velocity_r2": 0.906,
+   "position_r2": 0.939,
+   "n": 164
+  },
+  "3": {
+   "shape_x_color": 87.6,
+   "shape": 89.3,
+   "color": 97.6,
+   "velocity_r2": 0.727,
+   "position_r2": 0.953,
+   "n": 169
+  },
+  "4": {
+   "shape_x_color": 86.1,
+   "shape": 88.0,
+   "color": 98.1,
+   "velocity_r2": 0.786,
+   "position_r2": 0.941,
+   "n": 158
+  },
+  "5": {
+   "shape_x_color": 83.4,
+   "shape": 85.2,
+   "color": 98.2,
+   "velocity_r2": 0.902,
+   "position_r2": 0.936,
+   "n": 169
+  },
+  "6": {
+   "shape_x_color": 87.3,
+   "shape": 89.2,
+   "color": 98.2,
+   "velocity_r2": 0.842,
+   "position_r2": 0.943,
+   "n": 166
+  },
+  "7": {
+   "shape_x_color": 86.2,
+   "shape": 89.0,
+   "color": 97.2,
+   "velocity_r2": 0.586,
+   "position_r2": 0.961,
+   "n": 181
+  }
+ }
+}

@@ -1,0 +1,134 @@
+{
+ "ctx_all__pair_mean_diff": {
+  "pair_accuracy": 0.91,
+  "video_accuracy": 0.59,
+  "null_pair_accuracy_mean": 0.5,
+  "null_pair_accuracy_max": 0.625,
+  "pair_accuracy_by_violation": {
+   "permanence": 0.833,
+   "shape": 0.896,
+   "color": 1.0
+  }
+ },
+ "ctx_all__logistic": {
+  "pair_accuracy": 0.993,
+  "video_accuracy": 0.931,
+  "null_pair_accuracy_mean": 0.486,
+  "null_pair_accuracy_max": 0.576,
+  "pair_accuracy_by_violation": {
+   "permanence": 1.0,
+   "shape": 0.979,
+   "color": 1.0
+  }
+ },
+ "ctx_future__pair_mean_diff": {
+  "pair_accuracy": 0.91,
+  "video_accuracy": 0.618,
+  "null_pair_accuracy_mean": 0.483,
+  "null_pair_accuracy_max": 0.569,
+  "pair_accuracy_by_violation": {
+   "permanence": 0.833,
+   "shape": 0.896,
+   "color": 1.0
+  }
+ },
+ "ctx_future__logistic": {
+  "pair_accuracy": 0.993,
+  "video_accuracy": 0.931,
+  "null_pair_accuracy_mean": 0.479,
+  "null_pair_accuracy_max": 0.562,
+  "pair_accuracy_by_violation": {
+   "permanence": 1.0,
+   "shape": 0.979,
+   "color": 1.0
+  }
+ },
+ "ctx_change__pair_mean_diff": {
+  "pair_accuracy": 0.972,
+  "video_accuracy": 0.84,
+  "null_pair_accuracy_mean": 0.488,
+  "null_pair_accuracy_max": 0.59,
+  "pair_accuracy_by_violation": {
+   "permanence": 0.958,
+   "shape": 0.979,
+   "color": 0.979
+  }
+ },
+ "ctx_change__logistic": {
+  "pair_accuracy": 0.993,
+  "video_accuracy": 0.965,
+  "null_pair_accuracy_mean": 0.512,
+  "null_pair_accuracy_max": 0.639,
+  "pair_accuracy_by_violation": {
+   "permanence": 1.0,
+   "shape": 0.979,
+   "color": 1.0
+  }
+ },
+ "tgt_all__pair_mean_diff": {
+  "pair_accuracy": 0.868,
+  "video_accuracy": 0.59,
+  "null_pair_accuracy_mean": 0.5,
+  "null_pair_accuracy_max": 0.583,
+  "pair_accuracy_by_violation": {
+   "permanence": 0.771,
+   "shape": 0.854,
+   "color": 0.979
+  }
+ },
+ "tgt_all__logistic": {
+  "pair_accuracy": 0.993,
+  "video_accuracy": 0.931,
+  "null_pair_accuracy_mean": 0.505,
+  "null_pair_accuracy_max": 0.632,
+  "pair_accuracy_by_violation": {
+   "permanence": 1.0,
+   "shape": 0.979,
+   "color": 1.0
+  }
+ },
+ "tgt_future__pair_mean_diff": {
+  "pair_accuracy": 0.903,
+  "video_accuracy": 0.625,
+  "null_pair_accuracy_mean": 0.478,
+  "null_pair_accuracy_max": 0.569,
+  "pair_accuracy_by_violation": {
+   "permanence": 0.854,
+   "shape": 0.854,
+   "color": 1.0
+  }
+ },
+ "tgt_future__logistic": {
+  "pair_accuracy": 0.993,
+  "video_accuracy": 0.924,
+  "null_pair_accuracy_mean": 0.509,
+  "null_pair_accuracy_max": 0.59,
+  "pair_accuracy_by_violation": {
+   "permanence": 1.0,
+   "shape": 0.979,
+   "color": 1.0
+  }
+ },
+ "tgt_change__pair_mean_diff": {
+  "pair_accuracy": 0.958,
+  "video_accuracy": 0.826,
+  "null_pair_accuracy_mean": 0.525,
+  "null_pair_accuracy_max": 0.59,
+  "pair_accuracy_by_violation": {
+   "permanence": 0.979,
+   "shape": 0.917,
+   "color": 0.979
+  }
+ },
+ "tgt_change__logistic": {
+  "pair_accuracy": 1.0,
+  "video_accuracy": 0.938,
+  "null_pair_accuracy_mean": 0.478,
+  "null_pair_accuracy_max": 0.535,
+  "pair_accuracy_by_violation": {
+   "permanence": 1.0,
+   "shape": 1.0,
+   "color": 1.0
+  }
+ }
+}

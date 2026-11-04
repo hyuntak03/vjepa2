@@ -1,0 +1,230 @@
+{
+ "k710": {
+  "all": {
+   "follow_content": {
+    "n": 46574,
+    "k_L2": 0.217,
+    "k_L1": 0.29,
+    "R2": 0.064,
+    "relL1_constvel": 1.206,
+    "relL1_bestk": 0.953,
+    "dir_within45": 0.507
+   },
+   "same_cell": {
+    "n": 46574,
+    "k_L2": 0.228,
+    "k_L1": 0.3,
+    "R2": 0.068,
+    "relL1_constvel": 1.185,
+    "relL1_bestk": 0.949,
+    "dir_within45": 0.514
+   }
+  },
+  "cam_static": {
+   "follow_content": {
+    "n": 5675,
+    "k_L2": 0.128,
+    "k_L1": 0.18,
+    "R2": 0.026,
+    "relL1_constvel": 1.359,
+    "relL1_bestk": 0.987,
+    "dir_within45": 0.371
+   },
+   "same_cell": {
+    "n": 5675,
+    "k_L2": 0.124,
+    "k_L1": 0.17,
+    "R2": 0.019,
+    "relL1_constvel": 1.316,
+    "relL1_bestk": 0.988,
+    "dir_within45": 0.36
+   }
+  },
+  "cam_moving": {
+   "follow_content": {
+    "n": 40899,
+    "k_L2": 0.221,
+    "k_L1": 0.3,
+    "R2": 0.066,
+    "relL1_constvel": 1.194,
+    "relL1_bestk": 0.95,
+    "dir_within45": 0.526
+   },
+   "same_cell": {
+    "n": 40899,
+    "k_L2": 0.232,
+    "k_L1": 0.31,
+    "R2": 0.07,
+    "relL1_constvel": 1.175,
+    "relL1_bestk": 0.946,
+    "dir_within45": 0.535
+   }
+  }
+ },
+ "ht100m": {
+  "all": {
+   "follow_content": {
+    "n": 28470,
+    "k_L2": 0.305,
+    "k_L1": 0.32,
+    "R2": 0.088,
+    "relL1_constvel": 1.131,
+    "relL1_bestk": 0.961,
+    "dir_within45": 0.442
+   },
+   "same_cell": {
+    "n": 28470,
+    "k_L2": 0.306,
+    "k_L1": 0.32,
+    "R2": 0.087,
+    "relL1_constvel": 1.122,
+    "relL1_bestk": 0.96,
+    "dir_within45": 0.441
+   }
+  },
+  "cam_static": {
+   "follow_content": {
+    "n": 8814,
+    "k_L2": 0.016,
+    "k_L1": 0.05,
+    "R2": 0.0,
+    "relL1_constvel": 1.368,
+    "relL1_bestk": 0.999,
+    "dir_within45": 0.369
+   },
+   "same_cell": {
+    "n": 8814,
+    "k_L2": 0.022,
+    "k_L1": 0.07,
+    "R2": 0.001,
+    "relL1_constvel": 1.328,
+    "relL1_bestk": 0.998,
+    "dir_within45": 0.366
+   }
+  },
+  "cam_moving": {
+   "follow_content": {
+    "n": 19656,
+    "k_L2": 0.365,
+    "k_L1": 0.37,
+    "R2": 0.118,
+    "relL1_constvel": 1.068,
+    "relL1_bestk": 0.938,
+    "dir_within45": 0.474
+   },
+   "same_cell": {
+    "n": 19656,
+    "k_L2": 0.358,
+    "k_L1": 0.36,
+    "R2": 0.114,
+    "relL1_constvel": 1.066,
+    "relL1_bestk": 0.94,
+    "dir_within45": 0.474
+   }
+  }
+ },
+ "ssv2": {
+  "all": {
+   "follow_content": {
+    "n": 46171,
+    "k_L2": 0.189,
+    "k_L1": 0.23,
+    "R2": 0.05,
+    "relL1_constvel": 1.286,
+    "relL1_bestk": 0.964,
+    "dir_within45": 0.46
+   },
+   "same_cell": {
+    "n": 46171,
+    "k_L2": 0.2,
+    "k_L1": 0.24,
+    "R2": 0.054,
+    "relL1_constvel": 1.269,
+    "relL1_bestk": 0.961,
+    "dir_within45": 0.461
+   }
+  },
+  "cam_static": {
+   "follow_content": {
+    "n": 8316,
+    "k_L2": 0.224,
+    "k_L1": 0.17,
+    "R2": 0.07,
+    "relL1_constvel": 1.303,
+    "relL1_bestk": 0.98,
+    "dir_within45": 0.401
+   },
+   "same_cell": {
+    "n": 8316,
+    "k_L2": 0.171,
+    "k_L1": 0.14,
+    "R2": 0.036,
+    "relL1_constvel": 1.311,
+    "relL1_bestk": 0.986,
+    "dir_within45": 0.379
+   }
+  },
+  "cam_moving": {
+   "follow_content": {
+    "n": 37855,
+    "k_L2": 0.185,
+    "k_L1": 0.25,
+    "R2": 0.047,
+    "relL1_constvel": 1.283,
+    "relL1_bestk": 0.96,
+    "dir_within45": 0.473
+   },
+   "same_cell": {
+    "n": 37855,
+    "k_L2": 0.204,
+    "k_L1": 0.26,
+    "R2": 0.056,
+    "relL1_constvel": 1.262,
+    "relL1_bestk": 0.955,
+    "dir_within45": 0.479
+   }
+  }
+ },
+ "phys3d": {
+  "all": {
+   "follow_content": {
+    "n": 3468,
+    "k_L2": 0.946,
+    "k_L1": 1.1,
+    "R2": 0.615,
+    "relL1_constvel": 0.599,
+    "relL1_bestk": 0.59,
+    "dir_within45": 0.788
+   },
+   "same_cell": {
+    "n": 3468,
+    "k_L2": 0.494,
+    "k_L1": 0.36,
+    "R2": 0.062,
+    "relL1_constvel": 0.982,
+    "relL1_bestk": 0.938,
+    "dir_within45": 0.548
+   }
+  },
+  "cam_static": {
+   "follow_content": {
+    "n": 3468,
+    "k_L2": 0.946,
+    "k_L1": 1.1,
+    "R2": 0.615,
+    "relL1_constvel": 0.599,
+    "relL1_bestk": 0.59,
+    "dir_within45": 0.788
+   },
+   "same_cell": {
+    "n": 3468,
+    "k_L2": 0.494,
+    "k_L1": 0.36,
+    "R2": 0.062,
+    "relL1_constvel": 0.982,
+    "relL1_bestk": 0.938,
+    "dir_within45": 0.548
+   }
+  }
+ }
+}

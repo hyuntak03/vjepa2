@@ -1,0 +1,19 @@
+# =============================================================================
+# ⚠️ 2026-11-04 19:20 KST e14 에서 멈춤 (사용자: "context 는 video 로 줘야지") → natural_ar_vw_state_oneshot_vidctx_causal.yaml
+# 한 번에 예측 (ar_oneshot) + attention 전부 블록 인과 (2026-11-04, 사용자: "문맥도 block causal 로 한 걸로 predictor scratch 부터 학습 해보자")
+#
+#   GPUS=8 bash z_training/tmux_train.sh natural_ar_vw_state_oneshot_causal
+#
+# natural_ar_vw_state_oneshot (fps 4, 블록 문맥, 양방향) 과 같고 다른 점 하나: attention 마스크.
+#   블록 b 의 query (문맥 블록 · 미래 mask token 블록 모두) 는 블록 <= b 의 key 만 본다. 블록 안 256 토큰끼리는 양방향.
+#   = 블록 AR (natural_ar_vw_state) 의 forward_seq 와 같은 마스크 (src/models/rollout_predictor.py _ar_oneshot, PrefixSpec(1, nb-1)).
+# 그래서 블록 AR 과 다른 것 = 미래 자리에 mask token (되먹임 없음) · 손실 = 미래 K 블록 L1 하나 (teacher forcing 없음).
+#   입력 · 정답 = 블록별 LN(target_encoder) (블록 AR 과 같다). 데이터 · 창 · 일정 · seed 도 같다.
+# 시트 "future prediction" 판 (natural_ar_vw_state_oneshot_vidctx) 과는 두 가지가 다르다: 문맥 입력 (영상 pass vs 블록별) 과 attention.
+# 마스크 검사: z_training/tests/ar_oneshot_causal_test.py (dense 블록 인과 마스크와 max|d| 0, 앞 문맥 은닉은 뒤 블록에 불변).
+# =============================================================================
+extends: natural_ar_vw_state_oneshot
+
+model:
+  predictor:
+    ar_oneshot_causal: true

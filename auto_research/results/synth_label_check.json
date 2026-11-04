@@ -1,0 +1,16 @@
+{
+ "rigid": {
+  "change_obj_static": 0.3261940394250447,
+  "n_static": 285,
+  "change_far": 0.4096240129295763,
+  "b_moving": 0.5821032262158274,
+  "n_moving": 405
+ },
+ "soft": {
+  "change_obj_static": 0.4033935714464683,
+  "n_static": 231,
+  "change_far": 0.4226398252849949,
+  "b_moving": 0.5677117578537154,
+  "n_moving": 371
+ }
+}

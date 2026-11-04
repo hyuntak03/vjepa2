@@ -1,0 +1,78 @@
+{
+ "held_out": {
+  "primitive/v11": [
+   "cone",
+   "torus"
+  ],
+  "primitive/assets": [
+   "capsule",
+   "cube"
+  ],
+  "realistic/v11": [
+   "car_641e",
+   "tennis_ball_edc3"
+  ],
+  "realistic/assets": [
+   "bus_4e19",
+   "food_apple_01"
+  ]
+ },
+ "blocks_total": 720,
+ "blocks_test": 304,
+ "blocks_train": 416,
+ "test_clips": 1216,
+ "train_pos_clips": 832,
+ "leak": [],
+ "train_by_condition": {
+  "primitive/permanence/visible": 22,
+  "realistic/permanence/visible": 10,
+  "realistic/color/visible": 12,
+  "primitive/color/visible": 16,
+  "primitive/shape/visible": 12,
+  "realistic/shape/visible": 12,
+  "primitive/permanence/mid": 50,
+  "primitive/color/mid": 46,
+  "primitive/permanence/late": 40,
+  "primitive/color/late": 50,
+  "realistic/permanence/early": 48,
+  "realistic/shape/early": 36,
+  "realistic/permanence/mid": 56,
+  "realistic/color/mid": 44,
+  "realistic/permanence/late": 46,
+  "primitive/color/early": 50,
+  "primitive/shape/late": 24,
+  "realistic/color/early": 54,
+  "primitive/permanence/early": 48,
+  "realistic/color/late": 50,
+  "primitive/shape/mid": 24,
+  "realistic/shape/late": 20,
+  "realistic/shape/mid": 28,
+  "primitive/shape/early": 34
+ },
+ "test_by_condition": {
+  "primitive/shape/visible": 12,
+  "primitive/color/visible": 8,
+  "realistic/shape/visible": 12,
+  "realistic/color/visible": 12,
+  "realistic/permanence/visible": 14,
+  "primitive/permanence/visible": 2,
+  "primitive/permanence/early": 24,
+  "primitive/shape/early": 38,
+  "primitive/color/early": 22,
+  "primitive/shape/mid": 48,
+  "primitive/shape/late": 48,
+  "realistic/color/early": 18,
+  "realistic/shape/mid": 44,
+  "realistic/shape/late": 52,
+  "realistic/color/late": 22,
+  "primitive/permanence/mid": 22,
+  "realistic/shape/early": 36,
+  "primitive/permanence/late": 32,
+  "realistic/permanence/late": 26,
+  "primitive/color/mid": 26,
+  "realistic/permanence/early": 24,
+  "realistic/permanence/mid": 16,
+  "realistic/color/mid": 28,
+  "primitive/color/late": 22
+ }
+}

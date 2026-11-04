@@ -1,0 +1,118 @@
+{
+ "ro": {
+  "1": {
+   "velocity_gain": 0.356,
+   "n_v": 87,
+   "position_increment_gain": 0.905,
+   "n_p": 89
+  },
+  "2": {
+   "velocity_gain": 0.269,
+   "n_v": 74,
+   "position_increment_gain": 0.42,
+   "n_p": 69
+  },
+  "3": {
+   "velocity_gain": 0.102,
+   "n_v": 60,
+   "position_increment_gain": 0.223,
+   "n_p": 62
+  },
+  "4": {
+   "velocity_gain": -0.018,
+   "n_v": 56,
+   "position_increment_gain": 0.02,
+   "n_p": 53
+  },
+  "5": {
+   "velocity_gain": -0.033,
+   "n_v": 59,
+   "position_increment_gain": 0.01,
+   "n_p": 49
+  },
+  "6": {
+   "velocity_gain": -0.017,
+   "n_v": 59,
+   "position_increment_gain": 0.022,
+   "n_p": 48
+  },
+  "7": {
+   "velocity_gain": 0.01,
+   "n_v": 57,
+   "position_increment_gain": 0.007,
+   "n_p": 48
+  },
+  "8": {
+   "velocity_gain": 0.0,
+   "n_v": 63,
+   "position_increment_gain": 0.001,
+   "n_p": 51
+  },
+  "velocity_gain_geometric_fit": {
+   "p": 0.535,
+   "a": 0.399
+  },
+  "position_increment_gain_geometric_fit": {
+   "p": 0.476,
+   "a": 0.916
+  }
+ },
+ "tf": {
+  "1": {
+   "velocity_gain": 0.356,
+   "n_v": 87,
+   "position_increment_gain": 0.905,
+   "n_p": 89
+  },
+  "2": {
+   "velocity_gain": 0.355,
+   "n_v": 74,
+   "position_increment_gain": 0.85,
+   "n_p": 69
+  },
+  "3": {
+   "velocity_gain": 0.333,
+   "n_v": 60,
+   "position_increment_gain": 0.831,
+   "n_p": 62
+  },
+  "4": {
+   "velocity_gain": 0.381,
+   "n_v": 56,
+   "position_increment_gain": 0.896,
+   "n_p": 53
+  },
+  "5": {
+   "velocity_gain": 0.376,
+   "n_v": 59,
+   "position_increment_gain": 0.606,
+   "n_p": 49
+  },
+  "6": {
+   "velocity_gain": 0.252,
+   "n_v": 59,
+   "position_increment_gain": 0.85,
+   "n_p": 48
+  },
+  "7": {
+   "velocity_gain": 0.162,
+   "n_v": 57,
+   "position_increment_gain": 0.919,
+   "n_p": 48
+  },
+  "8": {
+   "velocity_gain": 0.374,
+   "n_v": 63,
+   "position_increment_gain": 0.878,
+   "n_p": 51
+  },
+  "velocity_gain_geometric_fit": {
+   "p": 0.949,
+   "a": 0.376
+  },
+  "position_increment_gain_geometric_fit": {
+   "p": 0.998,
+   "a": 0.841
+  }
+ }
+}

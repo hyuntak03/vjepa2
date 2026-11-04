@@ -1,0 +1,2163 @@
+{
+ "summary": {
+  "n": 253,
+  "nb": 6,
+  "all": {
+   "n": 253,
+   "d_pair": 0.5169537999177639,
+   "d_within": 0.4765659941750553,
+   "ratio": 1.0847475611696145,
+   "ratio_median": 1.0553926120708943,
+   "frac_scene_ratio_gt2": 0.0,
+   "top10": 0.14694799609452838
+  },
+  "condition=continuity": {
+   "n": 60,
+   "d_pair": 0.4863736018538475,
+   "d_within": 0.46456697434186933,
+   "ratio": 1.0469396851613713,
+   "ratio_median": 1.0368817175152754,
+   "frac_scene_ratio_gt2": 0.0,
+   "top10": 0.1509275369346142
+  },
+  "condition=immutability": {
+   "n": 60,
+   "d_pair": 0.48084454983472824,
+   "d_within": 0.46382998178402585,
+   "ratio": 1.036682768943179,
+   "ratio_median": 1.0297418032946162,
+   "frac_scene_ratio_gt2": 0.0,
+   "top10": 0.1514043668905894
+  },
+  "condition=permanence": {
+   "n": 60,
+   "d_pair": 0.48416344771782555,
+   "d_within": 0.46508390257755916,
+   "ratio": 1.0410238777014746,
+   "ratio_median": 1.042259513917779,
+   "frac_scene_ratio_gt2": 0.0,
+   "top10": 0.15046257078647612
+  },
+  "condition=solidity": {
+   "n": 73,
+   "d_pair": 0.5987180193809614,
+   "d_within": 0.506333493206599,
+   "ratio": 1.182457861101175,
+   "ratio_median": 1.127096172471206,
+   "frac_scene_ratio_gt2": 0.0,
+   "top10": 0.13712567856458768
+  },
+  "camera=Fixed": {
+   "n": 104,
+   "d_pair": 0.4843080502289992,
+   "d_within": 0.46279340581252026,
+   "ratio": 1.0464886581058905,
+   "ratio_median": 1.0381283607292728,
+   "frac_scene_ratio_gt2": 0.0,
+   "top10": 0.1597618323106032
+  },
+  "camera=Moving": {
+   "n": 149,
+   "d_pair": 0.5397400950025392,
+   "d_within": 0.48617907598514687,
+   "ratio": 1.1101672648269805,
+   "ratio_median": 1.0663699037023036,
+   "frac_scene_ratio_gt2": 0.0,
+   "top10": 0.13800411041350974
+  },
+  "block_median_within": [
+   0.4834038019180298,
+   0.4765278100967407,
+   0.46894359588623047,
+   0.47577422857284546,
+   0.4752213954925537,
+   0.47647029161453247,
+   0.4776804447174072,
+   0.48340409994125366,
+   0.49483442306518555,
+   0.4975406527519226,
+   0.4963036775588989,
+   0.5000770688056946,
+   0.5088149309158325,
+   0.518916130065918,
+   0.5157172679901123,
+   0.5146801471710205,
+   0.5208072662353516,
+   0.5119872093200684,
+   0.5114830136299133,
+   0.5086072683334351,
+   0.5078559517860413,
+   0.5031142830848694,
+   0.5180412530899048,
+   0.5183335542678833,
+   0.5252171754837036,
+   0.5278917551040649,
+   0.5429257750511169,
+   0.5354331135749817,
+   0.5441937446594238,
+   0.5424172282218933,
+   0.5354774594306946,
+   0.5412783622741699
+  ],
+  "block_median_pair": [
+   0.5210583806037903,
+   0.5168569684028625,
+   0.5061521530151367,
+   0.5030847191810608,
+   0.4961176812648773,
+   0.49636220932006836,
+   0.4995860457420349,
+   0.4960811138153076,
+   0.5032798051834106,
+   0.5114344358444214,
+   0.514009952545166,
+   0.514166533946991,
+   0.528978168964386,
+   0.5315715670585632,
+   0.5223640203475952,
+   0.5233707427978516,
+   0.5274511575698853,
+   0.5190956592559814,
+   0.5204183459281921,
+   0.5152658224105835,
+   0.5190693140029907,
+   0.5105065107345581,
+   0.5179104804992676,
+   0.527666449546814,
+   0.5309329032897949,
+   0.5307945609092712,
+   0.5412793159484863,
+   0.537750244140625,
+   0.5492621660232544,
+   0.5503243207931519,
+   0.5355099439620972,
+   0.5447053909301758
+  ]
+ },
+ "rows": [
+  {
+   "scene": "0",
+   "condition": "solidity",
+   "camera": "Fixed",
+   "d_pair": 0.5750154256820679,
+   "d_within": 0.5405536890029907,
+   "top10": 0.14363786578178406
+  },
+  {
+   "scene": "1",
+   "condition": "solidity",
+   "camera": "Fixed",
+   "d_pair": 0.5883777737617493,
+   "d_within": 0.5111837387084961,
+   "top10": 0.14417234063148499
+  },
+  {
+   "scene": "2",
+   "condition": "solidity",
+   "camera": "Moving",
+   "d_pair": 0.5723844766616821,
+   "d_within": 0.5303862690925598,
+   "top10": 0.13631309568881989
+  },
+  {
+   "scene": "3",
+   "condition": "solidity",
+   "camera": "Fixed",
+   "d_pair": 0.5405082702636719,
+   "d_within": 0.4859127998352051,
+   "top10": 0.14548704028129578
+  },
+  {
+   "scene": "4",
+   "condition": "solidity",
+   "camera": "Moving",
+   "d_pair": 0.7071359157562256,
+   "d_within": 0.5244479179382324,
+   "top10": 0.11689755320549011
+  },
+  {
+   "scene": "5",
+   "condition": "solidity",
+   "camera": "Moving",
+   "d_pair": 0.5383973717689514,
+   "d_within": 0.38399261236190796,
+   "top10": 0.14188167452812195
+  },
+  {
+   "scene": "6",
+   "condition": "solidity",
+   "camera": "Moving",
+   "d_pair": 0.69487065076828,
+   "d_within": 0.5617175698280334,
+   "top10": 0.1273752599954605
+  },
+  {
+   "scene": "7",
+   "condition": "solidity",
+   "camera": "Moving",
+   "d_pair": 0.641299307346344,
+   "d_within": 0.6039291024208069,
+   "top10": 0.12950867414474487
+  },
+  {
+   "scene": "8",
+   "condition": "permanence",
+   "camera": "Moving",
+   "d_pair": 0.49568772315979004,
+   "d_within": 0.5033012628555298,
+   "top10": 0.13699424266815186
+  },
+  {
+   "scene": "9",
+   "condition": "immutability",
+   "camera": "Moving",
+   "d_pair": 0.5002431273460388,
+   "d_within": 0.5013459920883179,
+   "top10": 0.13709264993667603
+  },
+  {
+   "scene": "10",
+   "condition": "continuity",
+   "camera": "Moving",
+   "d_pair": 0.4777982234954834,
+   "d_within": 0.47021928429603577,
+   "top10": 0.1433965414762497
+  },
+  {
+   "scene": "11",
+   "condition": "permanence",
+   "camera": "Moving",
+   "d_pair": 0.6093069911003113,
+   "d_within": 0.5590259432792664,
+   "top10": 0.12855437397956848
+  },
+  {
+   "scene": "12",
+   "condition": "immutability",
+   "camera": "Moving",
+   "d_pair": 0.5761845111846924,
+   "d_within": 0.5516543388366699,
+   "top10": 0.12914013862609863
+  },
+  {
+   "scene": "13",
+   "condition": "continuity",
+   "camera": "Moving",
+   "d_pair": 0.5851879119873047,
+   "d_within": 0.5507333278656006,
+   "top10": 0.1288047879934311
+  },
+  {
+   "scene": "14",
+   "condition": "permanence",
+   "camera": "Moving",
+   "d_pair": 0.5105610489845276,
+   "d_within": 0.45286035537719727,
+   "top10": 0.1480846107006073
+  },
+  {
+   "scene": "15",
+   "condition": "immutability",
+   "camera": "Moving",
+   "d_pair": 0.45404666662216187,
+   "d_within": 0.44922274351119995,
+   "top10": 0.14932532608509064
+  },
+  {
+   "scene": "16",
+   "condition": "continuity",
+   "camera": "Moving",
+   "d_pair": 0.47134196758270264,
+   "d_within": 0.4504154324531555,
+   "top10": 0.14842529594898224
+  },
+  {
+   "scene": "17",
+   "condition": "permanence",
+   "camera": "Fixed",
+   "d_pair": 0.4949815273284912,
+   "d_within": 0.47421908378601074,
+   "top10": 0.16315019130706787
+  },
+  {
+   "scene": "18",
+   "condition": "immutability",
+   "camera": "Fixed",
+   "d_pair": 0.4858851134777069,
+   "d_within": 0.47361788153648376,
+   "top10": 0.1644328236579895
+  },
+  {
+   "scene": "19",
+   "condition": "continuity",
+   "camera": "Fixed",
+   "d_pair": 0.5320593118667603,
+   "d_within": 0.5283032059669495,
+   "top10": 0.15381665527820587
+  },
+  {
+   "scene": "20",
+   "condition": "permanence",
+   "camera": "Fixed",
+   "d_pair": 0.4304291009902954,
+   "d_within": 0.3927040994167328,
+   "top10": 0.15826374292373657
+  },
+  {
+   "scene": "21",
+   "condition": "immutability",
+   "camera": "Fixed",
+   "d_pair": 0.410966694355011,
+   "d_within": 0.4039396643638611,
+   "top10": 0.16729319095611572
+  },
+  {
+   "scene": "22",
+   "condition": "continuity",
+   "camera": "Fixed",
+   "d_pair": 0.42842233180999756,
+   "d_within": 0.40886473655700684,
+   "top10": 0.16696882247924805
+  },
+  {
+   "scene": "23",
+   "condition": "permanence",
+   "camera": "Fixed",
+   "d_pair": 0.5133785605430603,
+   "d_within": 0.5180736780166626,
+   "top10": 0.15770256519317627
+  },
+  {
+   "scene": "24",
+   "condition": "immutability",
+   "camera": "Fixed",
+   "d_pair": 0.5150611400604248,
+   "d_within": 0.5154812335968018,
+   "top10": 0.15548647940158844
+  },
+  {
+   "scene": "25",
+   "condition": "continuity",
+   "camera": "Fixed",
+   "d_pair": 0.5108036994934082,
+   "d_within": 0.4981566369533539,
+   "top10": 0.15730565786361694
+  },
+  {
+   "scene": "26",
+   "condition": "solidity",
+   "camera": "Fixed",
+   "d_pair": 0.5653820037841797,
+   "d_within": 0.5270907878875732,
+   "top10": 0.1452651023864746
+  },
+  {
+   "scene": "27",
+   "condition": "solidity",
+   "camera": "Fixed",
+   "d_pair": 0.5767756104469299,
+   "d_within": 0.5419790744781494,
+   "top10": 0.1413467526435852
+  },
+  {
+   "scene": "28",
+   "condition": "solidity",
+   "camera": "Fixed",
+   "d_pair": 0.49331748485565186,
+   "d_within": 0.43880799412727356,
+   "top10": 0.15944424271583557
+  },
+  {
+   "scene": "29",
+   "condition": "solidity",
+   "camera": "Fixed",
+   "d_pair": 0.602387547492981,
+   "d_within": 0.5812678337097168,
+   "top10": 0.13695837557315826
+  },
+  {
+   "scene": "30",
+   "condition": "solidity",
+   "camera": "Fixed",
+   "d_pair": 0.5634836554527283,
+   "d_within": 0.5049744248390198,
+   "top10": 0.14843668043613434
+  },
+  {
+   "scene": "31",
+   "condition": "solidity",
+   "camera": "Fixed",
+   "d_pair": 0.585645318031311,
+   "d_within": 0.5095809698104858,
+   "top10": 0.14266778528690338
+  },
+  {
+   "scene": "32",
+   "condition": "solidity",
+   "camera": "Fixed",
+   "d_pair": 0.5336287617683411,
+   "d_within": 0.45400989055633545,
+   "top10": 0.15538688004016876
+  },
+  {
+   "scene": "33",
+   "condition": "solidity",
+   "camera": "Fixed",
+   "d_pair": 0.5764646530151367,
+   "d_within": 0.5356389880180359,
+   "top10": 0.14124485850334167
+  },
+  {
+   "scene": "34",
+   "condition": "solidity",
+   "camera": "Moving",
+   "d_pair": 0.5650681257247925,
+   "d_within": 0.5240658521652222,
+   "top10": 0.136091947555542
+  },
+  {
+   "scene": "35",
+   "condition": "solidity",
+   "camera": "Moving",
+   "d_pair": 0.5722297430038452,
+   "d_within": 0.5429754853248596,
+   "top10": 0.1342330127954483
+  },
+  {
+   "scene": "36",
+   "condition": "solidity",
+   "camera": "Moving",
+   "d_pair": 0.49553176760673523,
+   "d_within": 0.43883103132247925,
+   "top10": 0.14354582130908966
+  },
+  {
+   "scene": "37",
+   "condition": "solidity",
+   "camera": "Fixed",
+   "d_pair": 0.5311367511749268,
+   "d_within": 0.4814548194408417,
+   "top10": 0.1468057781457901
+  },
+  {
+   "scene": "38",
+   "condition": "solidity",
+   "camera": "Fixed",
+   "d_pair": 0.5565422773361206,
+   "d_within": 0.4981381893157959,
+   "top10": 0.14514216780662537
+  },
+  {
+   "scene": "39",
+   "condition": "solidity",
+   "camera": "Fixed",
+   "d_pair": 0.4889741837978363,
+   "d_within": 0.43699511885643005,
+   "top10": 0.14723922312259674
+  },
+  {
+   "scene": "40",
+   "condition": "solidity",
+   "camera": "Fixed",
+   "d_pair": 0.5209155082702637,
+   "d_within": 0.5173578262329102,
+   "top10": 0.14430886507034302
+  },
+  {
+   "scene": "41",
+   "condition": "solidity",
+   "camera": "Moving",
+   "d_pair": 0.7097461223602295,
+   "d_within": 0.5165400505065918,
+   "top10": 0.11564060300588608
+  },
+  {
+   "scene": "42",
+   "condition": "solidity",
+   "camera": "Moving",
+   "d_pair": 0.6996794939041138,
+   "d_within": 0.5610710382461548,
+   "top10": 0.11727298051118851
+  },
+  {
+   "scene": "43",
+   "condition": "solidity",
+   "camera": "Moving",
+   "d_pair": 0.700330376625061,
+   "d_within": 0.5346740484237671,
+   "top10": 0.11701200902462006
+  },
+  {
+   "scene": "44",
+   "condition": "solidity",
+   "camera": "Moving",
+   "d_pair": 0.7140508890151978,
+   "d_within": 0.5948793888092041,
+   "top10": 0.11612959206104279
+  },
+  {
+   "scene": "45",
+   "condition": "solidity",
+   "camera": "Moving",
+   "d_pair": 0.5921581983566284,
+   "d_within": 0.38381481170654297,
+   "top10": 0.13581717014312744
+  },
+  {
+   "scene": "46",
+   "condition": "solidity",
+   "camera": "Moving",
+   "d_pair": 0.5912944674491882,
+   "d_within": 0.3639000654220581,
+   "top10": 0.1361522078514099
+  },
+  {
+   "scene": "47",
+   "condition": "solidity",
+   "camera": "Moving",
+   "d_pair": 0.6069092154502869,
+   "d_within": 0.44011974334716797,
+   "top10": 0.1308462768793106
+  },
+  {
+   "scene": "48",
+   "condition": "solidity",
+   "camera": "Moving",
+   "d_pair": 0.644172191619873,
+   "d_within": 0.5110509991645813,
+   "top10": 0.12498985975980759
+  },
+  {
+   "scene": "49",
+   "condition": "solidity",
+   "camera": "Moving",
+   "d_pair": 0.6854564547538757,
+   "d_within": 0.5630306005477905,
+   "top10": 0.12585163116455078
+  },
+  {
+   "scene": "50",
+   "condition": "solidity",
+   "camera": "Moving",
+   "d_pair": 0.708275556564331,
+   "d_within": 0.5636799931526184,
+   "top10": 0.12725727260112762
+  },
+  {
+   "scene": "51",
+   "condition": "solidity",
+   "camera": "Moving",
+   "d_pair": 0.6154661178588867,
+   "d_within": 0.4855753779411316,
+   "top10": 0.1418015956878662
+  },
+  {
+   "scene": "52",
+   "condition": "solidity",
+   "camera": "Moving",
+   "d_pair": 0.6832631826400757,
+   "d_within": 0.5428861379623413,
+   "top10": 0.12639120221138
+  },
+  {
+   "scene": "53",
+   "condition": "solidity",
+   "camera": "Moving",
+   "d_pair": 0.6367532014846802,
+   "d_within": 0.596688985824585,
+   "top10": 0.1334024965763092
+  },
+  {
+   "scene": "54",
+   "condition": "solidity",
+   "camera": "Moving",
+   "d_pair": 0.6367088556289673,
+   "d_within": 0.6138763427734375,
+   "top10": 0.13128694891929626
+  },
+  {
+   "scene": "55",
+   "condition": "solidity",
+   "camera": "Moving",
+   "d_pair": 0.5265464186668396,
+   "d_within": 0.48244422674179077,
+   "top10": 0.1537000983953476
+  },
+  {
+   "scene": "56",
+   "condition": "solidity",
+   "camera": "Moving",
+   "d_pair": 0.6584454774856567,
+   "d_within": 0.6174644231796265,
+   "top10": 0.12764044106006622
+  },
+  {
+   "scene": "57",
+   "condition": "permanence",
+   "camera": "Moving",
+   "d_pair": 0.540374755859375,
+   "d_within": 0.5123043060302734,
+   "top10": 0.13336730003356934
+  },
+  {
+   "scene": "58",
+   "condition": "permanence",
+   "camera": "Moving",
+   "d_pair": 0.4960831105709076,
+   "d_within": 0.4929320812225342,
+   "top10": 0.14054013788700104
+  },
+  {
+   "scene": "59",
+   "condition": "permanence",
+   "camera": "Moving",
+   "d_pair": 0.4483513832092285,
+   "d_within": 0.4419557452201843,
+   "top10": 0.13821560144424438
+  },
+  {
+   "scene": "60",
+   "condition": "permanence",
+   "camera": "Moving",
+   "d_pair": 0.4813660979270935,
+   "d_within": 0.47471439838409424,
+   "top10": 0.1349118947982788
+  },
+  {
+   "scene": "61",
+   "condition": "immutability",
+   "camera": "Moving",
+   "d_pair": 0.488372802734375,
+   "d_within": 0.4861259460449219,
+   "top10": 0.14224164187908173
+  },
+  {
+   "scene": "62",
+   "condition": "immutability",
+   "camera": "Moving",
+   "d_pair": 0.5085492134094238,
+   "d_within": 0.5072729587554932,
+   "top10": 0.13974405825138092
+  },
+  {
+   "scene": "63",
+   "condition": "immutability",
+   "camera": "Moving",
+   "d_pair": 0.4907100200653076,
+   "d_within": 0.4924217760562897,
+   "top10": 0.14259406924247742
+  },
+  {
+   "scene": "64",
+   "condition": "immutability",
+   "camera": "Moving",
+   "d_pair": 0.551397442817688,
+   "d_within": 0.5514413714408875,
+   "top10": 0.12807582318782806
+  },
+  {
+   "scene": "65",
+   "condition": "continuity",
+   "camera": "Moving",
+   "d_pair": 0.533825695514679,
+   "d_within": 0.5073956251144409,
+   "top10": 0.13692978024482727
+  },
+  {
+   "scene": "66",
+   "condition": "continuity",
+   "camera": "Moving",
+   "d_pair": 0.524219810962677,
+   "d_within": 0.5078471899032593,
+   "top10": 0.14092053472995758
+  },
+  {
+   "scene": "67",
+   "condition": "continuity",
+   "camera": "Moving",
+   "d_pair": 0.45667368173599243,
+   "d_within": 0.4435935616493225,
+   "top10": 0.14649559557437897
+  },
+  {
+   "scene": "68",
+   "condition": "continuity",
+   "camera": "Moving",
+   "d_pair": 0.5069471597671509,
+   "d_within": 0.5586752891540527,
+   "top10": 0.13710221648216248
+  },
+  {
+   "scene": "69",
+   "condition": "permanence",
+   "camera": "Moving",
+   "d_pair": 0.6116548776626587,
+   "d_within": 0.5789868831634521,
+   "top10": 0.12705320119857788
+  },
+  {
+   "scene": "70",
+   "condition": "permanence",
+   "camera": "Moving",
+   "d_pair": 0.5378862619400024,
+   "d_within": 0.5223279595375061,
+   "top10": 0.13773144781589508
+  },
+  {
+   "scene": "71",
+   "condition": "permanence",
+   "camera": "Moving",
+   "d_pair": 0.5014493465423584,
+   "d_within": 0.48070594668388367,
+   "top10": 0.1400255709886551
+  },
+  {
+   "scene": "72",
+   "condition": "permanence",
+   "camera": "Moving",
+   "d_pair": 0.6002421379089355,
+   "d_within": 0.5562602877616882,
+   "top10": 0.1292363554239273
+  },
+  {
+   "scene": "73",
+   "condition": "immutability",
+   "camera": "Moving",
+   "d_pair": 0.5481326580047607,
+   "d_within": 0.5303230881690979,
+   "top10": 0.13159140944480896
+  },
+  {
+   "scene": "74",
+   "condition": "immutability",
+   "camera": "Moving",
+   "d_pair": 0.5516489744186401,
+   "d_within": 0.5428167581558228,
+   "top10": 0.1328330785036087
+  },
+  {
+   "scene": "75",
+   "condition": "immutability",
+   "camera": "Moving",
+   "d_pair": 0.5593386888504028,
+   "d_within": 0.5047838687896729,
+   "top10": 0.13787931203842163
+  },
+  {
+   "scene": "76",
+   "condition": "immutability",
+   "camera": "Moving",
+   "d_pair": 0.5476757287979126,
+   "d_within": 0.5201621651649475,
+   "top10": 0.131953626871109
+  },
+  {
+   "scene": "77",
+   "condition": "continuity",
+   "camera": "Moving",
+   "d_pair": 0.5687063932418823,
+   "d_within": 0.533530592918396,
+   "top10": 0.13146507740020752
+  },
+  {
+   "scene": "78",
+   "condition": "continuity",
+   "camera": "Moving",
+   "d_pair": 0.5501182675361633,
+   "d_within": 0.5157748460769653,
+   "top10": 0.1343231350183487
+  },
+  {
+   "scene": "79",
+   "condition": "continuity",
+   "camera": "Moving",
+   "d_pair": 0.49468082189559937,
+   "d_within": 0.4626064896583557,
+   "top10": 0.14473415911197662
+  },
+  {
+   "scene": "80",
+   "condition": "continuity",
+   "camera": "Moving",
+   "d_pair": 0.5616058111190796,
+   "d_within": 0.532446026802063,
+   "top10": 0.13175998628139496
+  },
+  {
+   "scene": "81",
+   "condition": "permanence",
+   "camera": "Moving",
+   "d_pair": 0.5098832249641418,
+   "d_within": 0.4643231928348541,
+   "top10": 0.14698342978954315
+  },
+  {
+   "scene": "82",
+   "condition": "permanence",
+   "camera": "Moving",
+   "d_pair": 0.48891422152519226,
+   "d_within": 0.4547432065010071,
+   "top10": 0.14585183560848236
+  },
+  {
+   "scene": "83",
+   "condition": "permanence",
+   "camera": "Moving",
+   "d_pair": 0.48982128500938416,
+   "d_within": 0.4549032747745514,
+   "top10": 0.14162971079349518
+  },
+  {
+   "scene": "84",
+   "condition": "permanence",
+   "camera": "Moving",
+   "d_pair": 0.5332995057106018,
+   "d_within": 0.5138329863548279,
+   "top10": 0.13911396265029907
+  },
+  {
+   "scene": "85",
+   "condition": "immutability",
+   "camera": "Moving",
+   "d_pair": 0.5079835057258606,
+   "d_within": 0.4700070023536682,
+   "top10": 0.14204642176628113
+  },
+  {
+   "scene": "86",
+   "condition": "immutability",
+   "camera": "Moving",
+   "d_pair": 0.5052142143249512,
+   "d_within": 0.4477306008338928,
+   "top10": 0.14676761627197266
+  },
+  {
+   "scene": "87",
+   "condition": "immutability",
+   "camera": "Moving",
+   "d_pair": 0.49223268032073975,
+   "d_within": 0.46538057923316956,
+   "top10": 0.14574576914310455
+  },
+  {
+   "scene": "88",
+   "condition": "immutability",
+   "camera": "Moving",
+   "d_pair": 0.5282455682754517,
+   "d_within": 0.46947789192199707,
+   "top10": 0.13662590086460114
+  },
+  {
+   "scene": "89",
+   "condition": "continuity",
+   "camera": "Moving",
+   "d_pair": 0.5098484754562378,
+   "d_within": 0.4524707794189453,
+   "top10": 0.14236316084861755
+  },
+  {
+   "scene": "90",
+   "condition": "continuity",
+   "camera": "Moving",
+   "d_pair": 0.5128668546676636,
+   "d_within": 0.4395458698272705,
+   "top10": 0.14411137998104095
+  },
+  {
+   "scene": "91",
+   "condition": "continuity",
+   "camera": "Moving",
+   "d_pair": 0.5002985596656799,
+   "d_within": 0.4368789494037628,
+   "top10": 0.14557233452796936
+  },
+  {
+   "scene": "92",
+   "condition": "continuity",
+   "camera": "Moving",
+   "d_pair": 0.5319963097572327,
+   "d_within": 0.46533653140068054,
+   "top10": 0.13556981086730957
+  },
+  {
+   "scene": "93",
+   "condition": "permanence",
+   "camera": "Fixed",
+   "d_pair": 0.5157248377799988,
+   "d_within": 0.49560409784317017,
+   "top10": 0.15865249931812286
+  },
+  {
+   "scene": "94",
+   "condition": "permanence",
+   "camera": "Fixed",
+   "d_pair": 0.5198334455490112,
+   "d_within": 0.5084158182144165,
+   "top10": 0.1538425236940384
+  },
+  {
+   "scene": "95",
+   "condition": "permanence",
+   "camera": "Fixed",
+   "d_pair": 0.4746741056442261,
+   "d_within": 0.4444771409034729,
+   "top10": 0.16370749473571777
+  },
+  {
+   "scene": "96",
+   "condition": "permanence",
+   "camera": "Fixed",
+   "d_pair": 0.528661847114563,
+   "d_within": 0.4951901435852051,
+   "top10": 0.1539555788040161
+  },
+  {
+   "scene": "97",
+   "condition": "immutability",
+   "camera": "Fixed",
+   "d_pair": 0.5129462480545044,
+   "d_within": 0.4917620122432709,
+   "top10": 0.15793174505233765
+  },
+  {
+   "scene": "98",
+   "condition": "immutability",
+   "camera": "Fixed",
+   "d_pair": 0.503218412399292,
+   "d_within": 0.5024656653404236,
+   "top10": 0.15882602334022522
+  },
+  {
+   "scene": "99",
+   "condition": "immutability",
+   "camera": "Fixed",
+   "d_pair": 0.4478190541267395,
+   "d_within": 0.4659627676010132,
+   "top10": 0.17457473278045654
+  },
+  {
+   "scene": "100",
+   "condition": "immutability",
+   "camera": "Fixed",
+   "d_pair": 0.5229021310806274,
+   "d_within": 0.5218555927276611,
+   "top10": 0.15314003825187683
+  },
+  {
+   "scene": "101",
+   "condition": "continuity",
+   "camera": "Fixed",
+   "d_pair": 0.5643288493156433,
+   "d_within": 0.5469679832458496,
+   "top10": 0.14671573042869568
+  },
+  {
+   "scene": "102",
+   "condition": "continuity",
+   "camera": "Fixed",
+   "d_pair": 0.5823789834976196,
+   "d_within": 0.5662449598312378,
+   "top10": 0.1429305225610733
+  },
+  {
+   "scene": "103",
+   "condition": "continuity",
+   "camera": "Fixed",
+   "d_pair": 0.5243096351623535,
+   "d_within": 0.5056623220443726,
+   "top10": 0.14948749542236328
+  },
+  {
+   "scene": "104",
+   "condition": "continuity",
+   "camera": "Fixed",
+   "d_pair": 0.5343776345252991,
+   "d_within": 0.5584446787834167,
+   "top10": 0.15241670608520508
+  },
+  {
+   "scene": "105",
+   "condition": "permanence",
+   "camera": "Fixed",
+   "d_pair": 0.43234390020370483,
+   "d_within": 0.4050414562225342,
+   "top10": 0.16536766290664673
+  },
+  {
+   "scene": "106",
+   "condition": "permanence",
+   "camera": "Fixed",
+   "d_pair": 0.4263962209224701,
+   "d_within": 0.40328460931777954,
+   "top10": 0.1692153513431549
+  },
+  {
+   "scene": "107",
+   "condition": "permanence",
+   "camera": "Fixed",
+   "d_pair": 0.42357873916625977,
+   "d_within": 0.39206230640411377,
+   "top10": 0.1638326495885849
+  },
+  {
+   "scene": "108",
+   "condition": "permanence",
+   "camera": "Fixed",
+   "d_pair": 0.4353242516517639,
+   "d_within": 0.442091166973114,
+   "top10": 0.16307979822158813
+  },
+  {
+   "scene": "109",
+   "condition": "immutability",
+   "camera": "Fixed",
+   "d_pair": 0.431337833404541,
+   "d_within": 0.4149954319000244,
+   "top10": 0.16566653549671173
+  },
+  {
+   "scene": "110",
+   "condition": "immutability",
+   "camera": "Fixed",
+   "d_pair": 0.4237387776374817,
+   "d_within": 0.3919394612312317,
+   "top10": 0.17246101796627045
+  },
+  {
+   "scene": "111",
+   "condition": "immutability",
+   "camera": "Fixed",
+   "d_pair": 0.4114547371864319,
+   "d_within": 0.39095795154571533,
+   "top10": 0.16847598552703857
+  },
+  {
+   "scene": "112",
+   "condition": "immutability",
+   "camera": "Fixed",
+   "d_pair": 0.43912050127983093,
+   "d_within": 0.4410620927810669,
+   "top10": 0.162937730550766
+  },
+  {
+   "scene": "113",
+   "condition": "continuity",
+   "camera": "Fixed",
+   "d_pair": 0.4404911994934082,
+   "d_within": 0.42363619804382324,
+   "top10": 0.17016582190990448
+  },
+  {
+   "scene": "114",
+   "condition": "continuity",
+   "camera": "Fixed",
+   "d_pair": 0.4402942657470703,
+   "d_within": 0.41708076000213623,
+   "top10": 0.16593313217163086
+  },
+  {
+   "scene": "115",
+   "condition": "continuity",
+   "camera": "Fixed",
+   "d_pair": 0.3755038380622864,
+   "d_within": 0.366550087928772,
+   "top10": 0.18192705512046814
+  },
+  {
+   "scene": "116",
+   "condition": "continuity",
+   "camera": "Fixed",
+   "d_pair": 0.4547921419143677,
+   "d_within": 0.4548078775405884,
+   "top10": 0.16388170421123505
+  },
+  {
+   "scene": "117",
+   "condition": "permanence",
+   "camera": "Fixed",
+   "d_pair": 0.4983776807785034,
+   "d_within": 0.5164564847946167,
+   "top10": 0.15850162506103516
+  },
+  {
+   "scene": "118",
+   "condition": "permanence",
+   "camera": "Fixed",
+   "d_pair": 0.5131666660308838,
+   "d_within": 0.516867458820343,
+   "top10": 0.15170469880104065
+  },
+  {
+   "scene": "119",
+   "condition": "permanence",
+   "camera": "Fixed",
+   "d_pair": 0.42238593101501465,
+   "d_within": 0.4274439811706543,
+   "top10": 0.17604951560497284
+  },
+  {
+   "scene": "120",
+   "condition": "immutability",
+   "camera": "Fixed",
+   "d_pair": 0.5070772171020508,
+   "d_within": 0.5008852481842041,
+   "top10": 0.15806496143341064
+  },
+  {
+   "scene": "121",
+   "condition": "immutability",
+   "camera": "Fixed",
+   "d_pair": 0.49695372581481934,
+   "d_within": 0.4870510697364807,
+   "top10": 0.15797555446624756
+  },
+  {
+   "scene": "122",
+   "condition": "immutability",
+   "camera": "Fixed",
+   "d_pair": 0.4281735122203827,
+   "d_within": 0.4244163930416107,
+   "top10": 0.1689673811197281
+  },
+  {
+   "scene": "123",
+   "condition": "continuity",
+   "camera": "Fixed",
+   "d_pair": 0.49887269735336304,
+   "d_within": 0.49184343218803406,
+   "top10": 0.1596829891204834
+  },
+  {
+   "scene": "124",
+   "condition": "continuity",
+   "camera": "Fixed",
+   "d_pair": 0.4887341260910034,
+   "d_within": 0.48355531692504883,
+   "top10": 0.16407443583011627
+  },
+  {
+   "scene": "125",
+   "condition": "continuity",
+   "camera": "Fixed",
+   "d_pair": 0.4323599934577942,
+   "d_within": 0.43734651803970337,
+   "top10": 0.17361554503440857
+  },
+  {
+   "scene": "126",
+   "condition": "solidity",
+   "camera": "Fixed",
+   "d_pair": 0.5529876351356506,
+   "d_within": 0.5297868251800537,
+   "top10": 0.14885255694389343
+  },
+  {
+   "scene": "127",
+   "condition": "solidity",
+   "camera": "Fixed",
+   "d_pair": 0.6002102494239807,
+   "d_within": 0.5725905895233154,
+   "top10": 0.1403968781232834
+  },
+  {
+   "scene": "128",
+   "condition": "solidity",
+   "camera": "Fixed",
+   "d_pair": 0.551022469997406,
+   "d_within": 0.5163030624389648,
+   "top10": 0.14712458848953247
+  },
+  {
+   "scene": "129",
+   "condition": "solidity",
+   "camera": "Fixed",
+   "d_pair": 0.5335406064987183,
+   "d_within": 0.4750744104385376,
+   "top10": 0.15272316336631775
+  },
+  {
+   "scene": "130",
+   "condition": "solidity",
+   "camera": "Fixed",
+   "d_pair": 0.5340288877487183,
+   "d_within": 0.4345399737358093,
+   "top10": 0.155978724360466
+  },
+  {
+   "scene": "131",
+   "condition": "solidity",
+   "camera": "Fixed",
+   "d_pair": 0.5324455499649048,
+   "d_within": 0.47240471839904785,
+   "top10": 0.1547151654958725
+  },
+  {
+   "scene": "132",
+   "condition": "solidity",
+   "camera": "Fixed",
+   "d_pair": 0.5675244927406311,
+   "d_within": 0.4793093204498291,
+   "top10": 0.14147748053073883
+  },
+  {
+   "scene": "133",
+   "condition": "solidity",
+   "camera": "Moving",
+   "d_pair": 0.5419106483459473,
+   "d_within": 0.5075075030326843,
+   "top10": 0.14224283397197723
+  },
+  {
+   "scene": "134",
+   "condition": "solidity",
+   "camera": "Moving",
+   "d_pair": 0.5052061080932617,
+   "d_within": 0.46626758575439453,
+   "top10": 0.14135661721229553
+  },
+  {
+   "scene": "135",
+   "condition": "solidity",
+   "camera": "Moving",
+   "d_pair": 0.5194206237792969,
+   "d_within": 0.4935862123966217,
+   "top10": 0.14848358929157257
+  },
+  {
+   "scene": "136",
+   "condition": "solidity",
+   "camera": "Fixed",
+   "d_pair": 0.5058757066726685,
+   "d_within": 0.46749335527420044,
+   "top10": 0.15205422043800354
+  },
+  {
+   "scene": "137",
+   "condition": "solidity",
+   "camera": "Fixed",
+   "d_pair": 0.4811263084411621,
+   "d_within": 0.43215271830558777,
+   "top10": 0.15263168513774872
+  },
+  {
+   "scene": "138",
+   "condition": "solidity",
+   "camera": "Fixed",
+   "d_pair": 0.6140451431274414,
+   "d_within": 0.5975048542022705,
+   "top10": 0.13000696897506714
+  },
+  {
+   "scene": "139",
+   "condition": "solidity",
+   "camera": "Fixed",
+   "d_pair": 0.5426958799362183,
+   "d_within": 0.48358553647994995,
+   "top10": 0.14246593415737152
+  },
+  {
+   "scene": "140",
+   "condition": "solidity",
+   "camera": "Moving",
+   "d_pair": 0.7163019180297852,
+   "d_within": 0.5294267535209656,
+   "top10": 0.11641667783260345
+  },
+  {
+   "scene": "141",
+   "condition": "solidity",
+   "camera": "Moving",
+   "d_pair": 0.7073969841003418,
+   "d_within": 0.4837173819541931,
+   "top10": 0.11505477875471115
+  },
+  {
+   "scene": "142",
+   "condition": "solidity",
+   "camera": "Moving",
+   "d_pair": 0.7148449420928955,
+   "d_within": 0.536418080329895,
+   "top10": 0.11567464470863342
+  },
+  {
+   "scene": "143",
+   "condition": "solidity",
+   "camera": "Moving",
+   "d_pair": 0.7069761753082275,
+   "d_within": 0.5314935445785522,
+   "top10": 0.11582635343074799
+  },
+  {
+   "scene": "144",
+   "condition": "solidity",
+   "camera": "Moving",
+   "d_pair": 0.6995574831962585,
+   "d_within": 0.47789907455444336,
+   "top10": 0.11760348826646805
+  },
+  {
+   "scene": "145",
+   "condition": "solidity",
+   "camera": "Moving",
+   "d_pair": 0.6022307276725769,
+   "d_within": 0.4187160134315491,
+   "top10": 0.13003753125667572
+  },
+  {
+   "scene": "146",
+   "condition": "solidity",
+   "camera": "Moving",
+   "d_pair": 0.5255278944969177,
+   "d_within": 0.35573089122772217,
+   "top10": 0.14529453217983246
+  },
+  {
+   "scene": "147",
+   "condition": "solidity",
+   "camera": "Moving",
+   "d_pair": 0.5949208736419678,
+   "d_within": 0.44600582122802734,
+   "top10": 0.13191130757331848
+  },
+  {
+   "scene": "148",
+   "condition": "solidity",
+   "camera": "Moving",
+   "d_pair": 0.5561543703079224,
+   "d_within": 0.40935367345809937,
+   "top10": 0.143451526761055
+  },
+  {
+   "scene": "149",
+   "condition": "solidity",
+   "camera": "Moving",
+   "d_pair": 0.6861220002174377,
+   "d_within": 0.5673085451126099,
+   "top10": 0.1275094598531723
+  },
+  {
+   "scene": "150",
+   "condition": "solidity",
+   "camera": "Moving",
+   "d_pair": 0.6590757369995117,
+   "d_within": 0.5478276014328003,
+   "top10": 0.13108232617378235
+  },
+  {
+   "scene": "151",
+   "condition": "solidity",
+   "camera": "Moving",
+   "d_pair": 0.6787360906600952,
+   "d_within": 0.4491962492465973,
+   "top10": 0.12895141541957855
+  },
+  {
+   "scene": "152",
+   "condition": "solidity",
+   "camera": "Moving",
+   "d_pair": 0.5938150882720947,
+   "d_within": 0.4441586136817932,
+   "top10": 0.14254245162010193
+  },
+  {
+   "scene": "153",
+   "condition": "solidity",
+   "camera": "Moving",
+   "d_pair": 0.5684828758239746,
+   "d_within": 0.4480368494987488,
+   "top10": 0.14953964948654175
+  },
+  {
+   "scene": "154",
+   "condition": "solidity",
+   "camera": "Moving",
+   "d_pair": 0.5973160266876221,
+   "d_within": 0.5653937458992004,
+   "top10": 0.14105966687202454
+  },
+  {
+   "scene": "154_0",
+   "condition": "solidity",
+   "camera": "Moving",
+   "d_pair": 0.5951772928237915,
+   "d_within": 0.5514415502548218,
+   "top10": 0.14133651554584503
+  },
+  {
+   "scene": "155",
+   "condition": "solidity",
+   "camera": "Moving",
+   "d_pair": 0.6157690286636353,
+   "d_within": 0.583450198173523,
+   "top10": 0.13411496579647064
+  },
+  {
+   "scene": "155_0",
+   "condition": "solidity",
+   "camera": "Moving",
+   "d_pair": 0.6213330626487732,
+   "d_within": 0.5858625173568726,
+   "top10": 0.13443434238433838
+  },
+  {
+   "scene": "156",
+   "condition": "solidity",
+   "camera": "Moving",
+   "d_pair": 0.5928943157196045,
+   "d_within": 0.5299139618873596,
+   "top10": 0.142496258020401
+  },
+  {
+   "scene": "156_0",
+   "condition": "solidity",
+   "camera": "Moving",
+   "d_pair": 0.5970134139060974,
+   "d_within": 0.5258990526199341,
+   "top10": 0.14074285328388214
+  },
+  {
+   "scene": "157",
+   "condition": "permanence",
+   "camera": "Moving",
+   "d_pair": 0.48393672704696655,
+   "d_within": 0.4830896854400635,
+   "top10": 0.13602221012115479
+  },
+  {
+   "scene": "158",
+   "condition": "permanence",
+   "camera": "Moving",
+   "d_pair": 0.44040295481681824,
+   "d_within": 0.44165539741516113,
+   "top10": 0.13974973559379578
+  },
+  {
+   "scene": "159",
+   "condition": "permanence",
+   "camera": "Moving",
+   "d_pair": 0.4917963743209839,
+   "d_within": 0.49651962518692017,
+   "top10": 0.13896209001541138
+  },
+  {
+   "scene": "160",
+   "condition": "permanence",
+   "camera": "Moving",
+   "d_pair": 0.5665982365608215,
+   "d_within": 0.5612461566925049,
+   "top10": 0.13152195513248444
+  },
+  {
+   "scene": "161",
+   "condition": "immutability",
+   "camera": "Moving",
+   "d_pair": 0.5599604845046997,
+   "d_within": 0.5602802634239197,
+   "top10": 0.1311015784740448
+  },
+  {
+   "scene": "162",
+   "condition": "immutability",
+   "camera": "Moving",
+   "d_pair": 0.5564550161361694,
+   "d_within": 0.5570292472839355,
+   "top10": 0.1304018348455429
+  },
+  {
+   "scene": "163",
+   "condition": "immutability",
+   "camera": "Moving",
+   "d_pair": 0.5720175504684448,
+   "d_within": 0.5691551566123962,
+   "top10": 0.13165076076984406
+  },
+  {
+   "scene": "164",
+   "condition": "immutability",
+   "camera": "Moving",
+   "d_pair": 0.5124460458755493,
+   "d_within": 0.5247557163238525,
+   "top10": 0.13253885507583618
+  },
+  {
+   "scene": "165",
+   "condition": "continuity",
+   "camera": "Moving",
+   "d_pair": 0.4846126139163971,
+   "d_within": 0.47959956526756287,
+   "top10": 0.14044934511184692
+  },
+  {
+   "scene": "166",
+   "condition": "continuity",
+   "camera": "Moving",
+   "d_pair": 0.4929945170879364,
+   "d_within": 0.48169663548469543,
+   "top10": 0.13667412102222443
+  },
+  {
+   "scene": "167",
+   "condition": "continuity",
+   "camera": "Moving",
+   "d_pair": 0.5107094645500183,
+   "d_within": 0.4925413727760315,
+   "top10": 0.13886970281600952
+  },
+  {
+   "scene": "168",
+   "condition": "continuity",
+   "camera": "Moving",
+   "d_pair": 0.443606972694397,
+   "d_within": 0.4447721540927887,
+   "top10": 0.14521659910678864
+  },
+  {
+   "scene": "169",
+   "condition": "permanence",
+   "camera": "Moving",
+   "d_pair": 0.5794016122817993,
+   "d_within": 0.5567129254341125,
+   "top10": 0.13693353533744812
+  },
+  {
+   "scene": "170",
+   "condition": "permanence",
+   "camera": "Moving",
+   "d_pair": 0.5294580459594727,
+   "d_within": 0.5084259510040283,
+   "top10": 0.13584434986114502
+  },
+  {
+   "scene": "171",
+   "condition": "permanence",
+   "camera": "Moving",
+   "d_pair": 0.5172925591468811,
+   "d_within": 0.4656117856502533,
+   "top10": 0.14008192718029022
+  },
+  {
+   "scene": "172",
+   "condition": "immutability",
+   "camera": "Moving",
+   "d_pair": 0.5084441900253296,
+   "d_within": 0.4975751042366028,
+   "top10": 0.14207901060581207
+  },
+  {
+   "scene": "173",
+   "condition": "immutability",
+   "camera": "Moving",
+   "d_pair": 0.4801306128501892,
+   "d_within": 0.48554670810699463,
+   "top10": 0.14504170417785645
+  },
+  {
+   "scene": "174",
+   "condition": "immutability",
+   "camera": "Moving",
+   "d_pair": 0.4380608797073364,
+   "d_within": 0.42873287200927734,
+   "top10": 0.1524505764245987
+  },
+  {
+   "scene": "175",
+   "condition": "continuity",
+   "camera": "Moving",
+   "d_pair": 0.6154765486717224,
+   "d_within": 0.49589985609054565,
+   "top10": 0.13234111666679382
+  },
+  {
+   "scene": "176",
+   "condition": "continuity",
+   "camera": "Moving",
+   "d_pair": 0.5708536505699158,
+   "d_within": 0.5242279767990112,
+   "top10": 0.1349291354417801
+  },
+  {
+   "scene": "177",
+   "condition": "continuity",
+   "camera": "Moving",
+   "d_pair": 0.4780161380767822,
+   "d_within": 0.4237125515937805,
+   "top10": 0.151903435587883
+  },
+  {
+   "scene": "178",
+   "condition": "permanence",
+   "camera": "Moving",
+   "d_pair": 0.4979938566684723,
+   "d_within": 0.4494417905807495,
+   "top10": 0.14391915500164032
+  },
+  {
+   "scene": "179",
+   "condition": "permanence",
+   "camera": "Moving",
+   "d_pair": 0.5176541805267334,
+   "d_within": 0.48636502027511597,
+   "top10": 0.13981710374355316
+  },
+  {
+   "scene": "180",
+   "condition": "permanence",
+   "camera": "Moving",
+   "d_pair": 0.5381032228469849,
+   "d_within": 0.4857337474822998,
+   "top10": 0.13982973992824554
+  },
+  {
+   "scene": "181",
+   "condition": "permanence",
+   "camera": "Moving",
+   "d_pair": 0.4844047427177429,
+   "d_within": 0.43461012840270996,
+   "top10": 0.14932893216609955
+  },
+  {
+   "scene": "182",
+   "condition": "permanence",
+   "camera": "Moving",
+   "d_pair": 0.4443504214286804,
+   "d_within": 0.43783098459243774,
+   "top10": 0.14481070637702942
+  },
+  {
+   "scene": "183",
+   "condition": "permanence",
+   "camera": "Moving",
+   "d_pair": 0.47690340876579285,
+   "d_within": 0.4397430419921875,
+   "top10": 0.1452603042125702
+  },
+  {
+   "scene": "184",
+   "condition": "immutability",
+   "camera": "Moving",
+   "d_pair": 0.4797650873661041,
+   "d_within": 0.44520384073257446,
+   "top10": 0.1472998708486557
+  },
+  {
+   "scene": "185",
+   "condition": "immutability",
+   "camera": "Moving",
+   "d_pair": 0.514765739440918,
+   "d_within": 0.4580104351043701,
+   "top10": 0.13782301545143127
+  },
+  {
+   "scene": "186",
+   "condition": "immutability",
+   "camera": "Moving",
+   "d_pair": 0.5110749006271362,
+   "d_within": 0.4879777133464813,
+   "top10": 0.13638336956501007
+  },
+  {
+   "scene": "187",
+   "condition": "immutability",
+   "camera": "Moving",
+   "d_pair": 0.47153979539871216,
+   "d_within": 0.44971466064453125,
+   "top10": 0.1463523805141449
+  },
+  {
+   "scene": "188",
+   "condition": "immutability",
+   "camera": "Moving",
+   "d_pair": 0.46058666706085205,
+   "d_within": 0.42099350690841675,
+   "top10": 0.14664869010448456
+  },
+  {
+   "scene": "189",
+   "condition": "immutability",
+   "camera": "Moving",
+   "d_pair": 0.463664710521698,
+   "d_within": 0.4387165307998657,
+   "top10": 0.14409185945987701
+  },
+  {
+   "scene": "190",
+   "condition": "continuity",
+   "camera": "Moving",
+   "d_pair": 0.49635493755340576,
+   "d_within": 0.4415293335914612,
+   "top10": 0.14180631935596466
+  },
+  {
+   "scene": "191",
+   "condition": "continuity",
+   "camera": "Moving",
+   "d_pair": 0.5025597810745239,
+   "d_within": 0.4620562195777893,
+   "top10": 0.1358332335948944
+  },
+  {
+   "scene": "192",
+   "condition": "continuity",
+   "camera": "Moving",
+   "d_pair": 0.5062838196754456,
+   "d_within": 0.4816553294658661,
+   "top10": 0.1398194581270218
+  },
+  {
+   "scene": "193",
+   "condition": "continuity",
+   "camera": "Moving",
+   "d_pair": 0.4729555547237396,
+   "d_within": 0.43106913566589355,
+   "top10": 0.14545601606369019
+  },
+  {
+   "scene": "194",
+   "condition": "continuity",
+   "camera": "Moving",
+   "d_pair": 0.46166279911994934,
+   "d_within": 0.42336809635162354,
+   "top10": 0.14683128893375397
+  },
+  {
+   "scene": "195",
+   "condition": "continuity",
+   "camera": "Moving",
+   "d_pair": 0.46797454357147217,
+   "d_within": 0.425275981426239,
+   "top10": 0.14623920619487762
+  },
+  {
+   "scene": "196",
+   "condition": "permanence",
+   "camera": "Moving",
+   "d_pair": 0.4632244110107422,
+   "d_within": 0.45256906747817993,
+   "top10": 0.1461544632911682
+  },
+  {
+   "scene": "196_0",
+   "condition": "permanence",
+   "camera": "Moving",
+   "d_pair": 0.4541158676147461,
+   "d_within": 0.45438408851623535,
+   "top10": 0.1452324092388153
+  },
+  {
+   "scene": "196_1",
+   "condition": "permanence",
+   "camera": "Moving",
+   "d_pair": 0.46054932475090027,
+   "d_within": 0.4713394045829773,
+   "top10": 0.14615771174430847
+  },
+  {
+   "scene": "197",
+   "condition": "immutability",
+   "camera": "Moving",
+   "d_pair": 0.45929932594299316,
+   "d_within": 0.45467907190322876,
+   "top10": 0.1460040956735611
+  },
+  {
+   "scene": "197_0",
+   "condition": "immutability",
+   "camera": "Moving",
+   "d_pair": 0.4838719367980957,
+   "d_within": 0.45546138286590576,
+   "top10": 0.13904789090156555
+  },
+  {
+   "scene": "197_1",
+   "condition": "immutability",
+   "camera": "Moving",
+   "d_pair": 0.46204328536987305,
+   "d_within": 0.45212429761886597,
+   "top10": 0.14057114720344543
+  },
+  {
+   "scene": "198",
+   "condition": "continuity",
+   "camera": "Moving",
+   "d_pair": 0.4369558095932007,
+   "d_within": 0.4100233018398285,
+   "top10": 0.1433708220720291
+  },
+  {
+   "scene": "198_0",
+   "condition": "continuity",
+   "camera": "Moving",
+   "d_pair": 0.4272095561027527,
+   "d_within": 0.4143821895122528,
+   "top10": 0.14858613908290863
+  },
+  {
+   "scene": "198_1",
+   "condition": "continuity",
+   "camera": "Moving",
+   "d_pair": 0.4396384358406067,
+   "d_within": 0.41968947649002075,
+   "top10": 0.14736361801624298
+  },
+  {
+   "scene": "199",
+   "condition": "permanence",
+   "camera": "Fixed",
+   "d_pair": 0.4882817566394806,
+   "d_within": 0.4782651364803314,
+   "top10": 0.16579455137252808
+  },
+  {
+   "scene": "200",
+   "condition": "permanence",
+   "camera": "Fixed",
+   "d_pair": 0.500239372253418,
+   "d_within": 0.4834766387939453,
+   "top10": 0.16132904589176178
+  },
+  {
+   "scene": "201",
+   "condition": "permanence",
+   "camera": "Fixed",
+   "d_pair": 0.39429086446762085,
+   "d_within": 0.37551435828208923,
+   "top10": 0.17893175780773163
+  },
+  {
+   "scene": "202",
+   "condition": "permanence",
+   "camera": "Fixed",
+   "d_pair": 0.4545198678970337,
+   "d_within": 0.4573732018470764,
+   "top10": 0.17047734558582306
+  },
+  {
+   "scene": "203",
+   "condition": "permanence",
+   "camera": "Fixed",
+   "d_pair": 0.38556933403015137,
+   "d_within": 0.3680983781814575,
+   "top10": 0.17714367806911469
+  },
+  {
+   "scene": "204",
+   "condition": "immutability",
+   "camera": "Fixed",
+   "d_pair": 0.48128747940063477,
+   "d_within": 0.41096967458724976,
+   "top10": 0.1699443906545639
+  },
+  {
+   "scene": "205",
+   "condition": "immutability",
+   "camera": "Fixed",
+   "d_pair": 0.4875018894672394,
+   "d_within": 0.4713438153266907,
+   "top10": 0.1654704511165619
+  },
+  {
+   "scene": "206",
+   "condition": "immutability",
+   "camera": "Fixed",
+   "d_pair": 0.3862449526786804,
+   "d_within": 0.3730987310409546,
+   "top10": 0.17932413518428802
+  },
+  {
+   "scene": "207",
+   "condition": "immutability",
+   "camera": "Fixed",
+   "d_pair": 0.4570876657962799,
+   "d_within": 0.44642171263694763,
+   "top10": 0.1720629334449768
+  },
+  {
+   "scene": "208",
+   "condition": "immutability",
+   "camera": "Fixed",
+   "d_pair": 0.3938899636268616,
+   "d_within": 0.3745743930339813,
+   "top10": 0.17384234070777893
+  },
+  {
+   "scene": "209",
+   "condition": "continuity",
+   "camera": "Fixed",
+   "d_pair": 0.5797302722930908,
+   "d_within": 0.5631811618804932,
+   "top10": 0.14706100523471832
+  },
+  {
+   "scene": "210",
+   "condition": "continuity",
+   "camera": "Fixed",
+   "d_pair": 0.5214860439300537,
+   "d_within": 0.520885705947876,
+   "top10": 0.15766002237796783
+  },
+  {
+   "scene": "211",
+   "condition": "continuity",
+   "camera": "Fixed",
+   "d_pair": 0.42195558547973633,
+   "d_within": 0.4082886576652527,
+   "top10": 0.17267663776874542
+  },
+  {
+   "scene": "212",
+   "condition": "continuity",
+   "camera": "Fixed",
+   "d_pair": 0.47559982538223267,
+   "d_within": 0.4629082679748535,
+   "top10": 0.16312171518802643
+  },
+  {
+   "scene": "213",
+   "condition": "continuity",
+   "camera": "Fixed",
+   "d_pair": 0.3838118314743042,
+   "d_within": 0.36868733167648315,
+   "top10": 0.18482211232185364
+  },
+  {
+   "scene": "214",
+   "condition": "permanence",
+   "camera": "Moving",
+   "d_pair": 0.4457329511642456,
+   "d_within": 0.4216616153717041,
+   "top10": 0.14706842601299286
+  },
+  {
+   "scene": "214_0",
+   "condition": "permanence",
+   "camera": "Moving",
+   "d_pair": 0.4270746111869812,
+   "d_within": 0.4041925072669983,
+   "top10": 0.15318211913108826
+  },
+  {
+   "scene": "214_1",
+   "condition": "permanence",
+   "camera": "Moving",
+   "d_pair": 0.4311637282371521,
+   "d_within": 0.40146949887275696,
+   "top10": 0.14845490455627441
+  },
+  {
+   "scene": "215",
+   "condition": "immutability",
+   "camera": "Moving",
+   "d_pair": 0.4493991732597351,
+   "d_within": 0.4129331111907959,
+   "top10": 0.14954636991024017
+  },
+  {
+   "scene": "215_0",
+   "condition": "immutability",
+   "camera": "Moving",
+   "d_pair": 0.42649707198143005,
+   "d_within": 0.41046059131622314,
+   "top10": 0.14821243286132812
+  },
+  {
+   "scene": "215_1",
+   "condition": "immutability",
+   "camera": "Moving",
+   "d_pair": 0.4265572130680084,
+   "d_within": 0.40475478768348694,
+   "top10": 0.15128111839294434
+  },
+  {
+   "scene": "216",
+   "condition": "continuity",
+   "camera": "Moving",
+   "d_pair": 0.44726571440696716,
+   "d_within": 0.40549904108047485,
+   "top10": 0.1441563218832016
+  },
+  {
+   "scene": "216_0",
+   "condition": "continuity",
+   "camera": "Moving",
+   "d_pair": 0.4123382270336151,
+   "d_within": 0.40084588527679443,
+   "top10": 0.15250056982040405
+  },
+  {
+   "scene": "216_1",
+   "condition": "continuity",
+   "camera": "Moving",
+   "d_pair": 0.42373716831207275,
+   "d_within": 0.39866259694099426,
+   "top10": 0.1452801376581192
+  },
+  {
+   "scene": "217",
+   "condition": "permanence",
+   "camera": "Fixed",
+   "d_pair": 0.4139845371246338,
+   "d_within": 0.3841512203216553,
+   "top10": 0.16832132637500763
+  },
+  {
+   "scene": "218",
+   "condition": "permanence",
+   "camera": "Fixed",
+   "d_pair": 0.40493476390838623,
+   "d_within": 0.36852169036865234,
+   "top10": 0.1643880158662796
+  },
+  {
+   "scene": "219",
+   "condition": "permanence",
+   "camera": "Fixed",
+   "d_pair": 0.4311199486255646,
+   "d_within": 0.4142679274082184,
+   "top10": 0.16071289777755737
+  },
+  {
+   "scene": "220",
+   "condition": "permanence",
+   "camera": "Fixed",
+   "d_pair": 0.415288507938385,
+   "d_within": 0.39088141918182373,
+   "top10": 0.15372595191001892
+  },
+  {
+   "scene": "221",
+   "condition": "immutability",
+   "camera": "Fixed",
+   "d_pair": 0.4107750356197357,
+   "d_within": 0.39331817626953125,
+   "top10": 0.17131325602531433
+  },
+  {
+   "scene": "222",
+   "condition": "immutability",
+   "camera": "Fixed",
+   "d_pair": 0.3950722813606262,
+   "d_within": 0.36692577600479126,
+   "top10": 0.1705041229724884
+  },
+  {
+   "scene": "223",
+   "condition": "immutability",
+   "camera": "Fixed",
+   "d_pair": 0.40389761328697205,
+   "d_within": 0.410444438457489,
+   "top10": 0.17232009768486023
+  },
+  {
+   "scene": "224",
+   "condition": "immutability",
+   "camera": "Fixed",
+   "d_pair": 0.420562207698822,
+   "d_within": 0.394209086894989,
+   "top10": 0.15679436922073364
+  },
+  {
+   "scene": "225",
+   "condition": "continuity",
+   "camera": "Fixed",
+   "d_pair": 0.3876444399356842,
+   "d_within": 0.3954094648361206,
+   "top10": 0.17232409119606018
+  },
+  {
+   "scene": "226",
+   "condition": "continuity",
+   "camera": "Fixed",
+   "d_pair": 0.3573327362537384,
+   "d_within": 0.36145973205566406,
+   "top10": 0.188668891787529
+  },
+  {
+   "scene": "227",
+   "condition": "continuity",
+   "camera": "Fixed",
+   "d_pair": 0.35978350043296814,
+   "d_within": 0.3389810621738434,
+   "top10": 0.17707286775112152
+  },
+  {
+   "scene": "228",
+   "condition": "continuity",
+   "camera": "Fixed",
+   "d_pair": 0.39350426197052,
+   "d_within": 0.38235795497894287,
+   "top10": 0.1649097502231598
+  },
+  {
+   "scene": "229",
+   "condition": "permanence",
+   "camera": "Fixed",
+   "d_pair": 0.4459359645843506,
+   "d_within": 0.45505231618881226,
+   "top10": 0.17186596989631653
+  },
+  {
+   "scene": "230",
+   "condition": "permanence",
+   "camera": "Fixed",
+   "d_pair": 0.5619826316833496,
+   "d_within": 0.553778350353241,
+   "top10": 0.14804600179195404
+  },
+  {
+   "scene": "231",
+   "condition": "permanence",
+   "camera": "Fixed",
+   "d_pair": 0.4193632900714874,
+   "d_within": 0.4279417395591736,
+   "top10": 0.17336635291576385
+  },
+  {
+   "scene": "232",
+   "condition": "immutability",
+   "camera": "Fixed",
+   "d_pair": 0.4478413164615631,
+   "d_within": 0.4394027590751648,
+   "top10": 0.1719491183757782
+  },
+  {
+   "scene": "233",
+   "condition": "immutability",
+   "camera": "Fixed",
+   "d_pair": 0.5540730357170105,
+   "d_within": 0.4831808805465698,
+   "top10": 0.14635246992111206
+  },
+  {
+   "scene": "234",
+   "condition": "immutability",
+   "camera": "Fixed",
+   "d_pair": 0.4292289614677429,
+   "d_within": 0.43524491786956787,
+   "top10": 0.17596672475337982
+  },
+  {
+   "scene": "235",
+   "condition": "continuity",
+   "camera": "Fixed",
+   "d_pair": 0.4653029441833496,
+   "d_within": 0.4571174383163452,
+   "top10": 0.17519375681877136
+  },
+  {
+   "scene": "236",
+   "condition": "continuity",
+   "camera": "Fixed",
+   "d_pair": 0.7087003588676453,
+   "d_within": 0.7103069424629211,
+   "top10": 0.11799350380897522
+  },
+  {
+   "scene": "237",
+   "condition": "continuity",
+   "camera": "Fixed",
+   "d_pair": 0.4425134062767029,
+   "d_within": 0.4329935312271118,
+   "top10": 0.17562520503997803
+  }
+ ]
+}

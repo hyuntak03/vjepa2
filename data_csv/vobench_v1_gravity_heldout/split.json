@@ -1,0 +1,66 @@
+{
+ "held_out": {
+  "primitive/v11": [
+   "cone",
+   "torus"
+  ],
+  "primitive/assets": [
+   "capsule",
+   "cube"
+  ],
+  "realistic/v11": [
+   "car_641e",
+   "tennis_ball_edc3"
+  ],
+  "realistic/assets": [
+   "bus_4e19",
+   "food_apple_01"
+  ]
+ },
+ "blocks_total": 216,
+ "blocks_test": 72,
+ "blocks_train": 144,
+ "test_clips": 312,
+ "train_pos_clips": 144,
+ "leak": [],
+ "train_by_condition": {
+  "primitive/ledge/z300_v200": 8,
+  "primitive/ledge/z400_v200": 8,
+  "primitive/ledge/z300_v260": 8,
+  "primitive/ledge/z400_v260": 8,
+  "primitive/ledge/z300_v320": 8,
+  "primitive/ledge/z400_v320": 8,
+  "primitive/arc/apex66": 8,
+  "primitive/arc/apex48": 8,
+  "primitive/arc/apex30": 8,
+  "realistic/ledge/z300_v200": 8,
+  "realistic/ledge/z400_v200": 8,
+  "realistic/ledge/z300_v260": 8,
+  "realistic/ledge/z400_v260": 8,
+  "realistic/ledge/z300_v320": 8,
+  "realistic/ledge/z400_v320": 8,
+  "realistic/arc/apex66": 8,
+  "realistic/arc/apex48": 8,
+  "realistic/arc/apex30": 8
+ },
+ "test_by_condition": {
+  "primitive/ledge/z300_v200": 4,
+  "primitive/ledge/z400_v200": 4,
+  "primitive/ledge/z300_v260": 4,
+  "primitive/ledge/z400_v260": 4,
+  "primitive/ledge/z300_v320": 4,
+  "primitive/ledge/z400_v320": 4,
+  "primitive/arc/apex66": 4,
+  "primitive/arc/apex48": 4,
+  "primitive/arc/apex30": 4,
+  "realistic/ledge/z300_v200": 4,
+  "realistic/ledge/z400_v200": 4,
+  "realistic/ledge/z300_v260": 4,
+  "realistic/ledge/z400_v260": 4,
+  "realistic/ledge/z300_v320": 4,
+  "realistic/ledge/z400_v320": 4,
+  "realistic/arc/apex66": 4,
+  "realistic/arc/apex48": 4,
+  "realistic/arc/apex30": 4
+ }
+}

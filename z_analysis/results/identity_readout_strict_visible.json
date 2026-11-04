@@ -1,0 +1,33 @@
+{
+ "area_threshold_px2": 742.7,
+ "n_train": {
+  "ok": 62036,
+  "clear": 47900,
+  "clear_large": 23950
+ },
+ "n_val": {
+  "ok": 2667,
+  "clear": 2067,
+  "clear_large": 1254
+ },
+ "shape": {
+  "train_ok__test_ok": 81.8,
+  "train_ok__test_clear": 82.8,
+  "train_ok__test_clear_large": 77.5,
+  "epoch_train_ok": 51,
+  "train_clear__test_clear": 83.3,
+  "train_clear__test_clear_large": 78.4,
+  "epoch_train_clear": 49,
+  "val_majority_clear": 27.5
+ },
+ "color": {
+  "train_ok__test_ok": 87.3,
+  "train_ok__test_clear": 87.6,
+  "train_ok__test_clear_large": 85.1,
+  "epoch_train_ok": 59,
+  "train_clear__test_clear": 87.8,
+  "train_clear__test_clear_large": 85.2,
+  "epoch_train_clear": 51,
+  "val_majority_clear": 18.1
+ }
+}

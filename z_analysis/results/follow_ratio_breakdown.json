@@ -1,0 +1,132 @@
+{
+ "enc": {
+  "by_distance": {
+   "16-32px": {
+    "ratio": 1.171,
+    "n": 152,
+    "pred_move_px_median": 24.1,
+    "true_move_px_median": 23.7
+   },
+   "32-64px": {
+    "ratio": 0.953,
+    "n": 142,
+    "pred_move_px_median": 41.5,
+    "true_move_px_median": 42.2
+   },
+   "64-999px": {
+    "ratio": 0.89,
+    "n": 65,
+    "pred_move_px_median": 87.2,
+    "true_move_px_median": 87.9
+   }
+  },
+  "by_step_group_and_distance": {
+   "steps 2-3 | 16-32px": {
+    "ratio": 0.996,
+    "n": 43
+   },
+   "steps 2-3 | 32-999px": {
+    "ratio": 0.947,
+    "n": 52
+   },
+   "steps 6-8 | 16-32px": {
+    "ratio": 1.301,
+    "n": 59
+   },
+   "steps 6-8 | 32-999px": {
+    "ratio": 0.888,
+    "n": 80
+   }
+  }
+ },
+ "ro": {
+  "by_distance": {
+   "16-32px": {
+    "ratio": 0.831,
+    "n": 152,
+    "pred_move_px_median": 20.0,
+    "true_move_px_median": 23.7
+   },
+   "32-64px": {
+    "ratio": 0.524,
+    "n": 142,
+    "pred_move_px_median": 23.3,
+    "true_move_px_median": 42.2
+   },
+   "64-999px": {
+    "ratio": 0.402,
+    "n": 65,
+    "pred_move_px_median": 47.7,
+    "true_move_px_median": 87.9
+   }
+  },
+  "by_step_group_and_distance": {
+   "steps 2-3 | 16-32px": {
+    "ratio": 0.765,
+    "n": 43
+   },
+   "steps 2-3 | 32-999px": {
+    "ratio": 0.486,
+    "n": 52
+   },
+   "steps 6-8 | 16-32px": {
+    "ratio": 0.803,
+    "n": 59
+   },
+   "steps 6-8 | 32-999px": {
+    "ratio": 0.267,
+    "n": 80
+   }
+  },
+  "by_scene": {
+   "drop_behind": {
+    "ratio": 0.803,
+    "n": 1
+   },
+   "drop_bounce": {
+    "ratio": 0.493,
+    "n": 21
+   },
+   "ledge_fall": {
+    "ratio": 2.251,
+    "n": 11
+   },
+   "moving_screen": {
+    "ratio": 0.203,
+    "n": 8
+   },
+   "obstacle_bounce": {
+    "ratio": 0.589,
+    "n": 14
+   },
+   "occ_pass": {
+    "ratio": 0.099,
+    "n": 12
+   },
+   "pendulum": {
+    "ratio": 0.487,
+    "n": 186
+   },
+   "projectile": {
+    "ratio": 0.64,
+    "n": 11
+   },
+   "ramp_roll": {
+    "ratio": 0.615,
+    "n": 21
+   },
+   "shelf_land": {
+    "ratio": 0.201,
+    "n": 25
+   },
+   "toss_up": {
+    "ratio": 0.542,
+    "n": 13
+   },
+   "wall_bounce": {
+    "ratio": 0.399,
+    "n": 36
+   }
+  }
+ }
+}

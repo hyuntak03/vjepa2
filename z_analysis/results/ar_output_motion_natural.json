@@ -1,0 +1,392 @@
+{
+ "n_clips": 1500,
+ "cells_per_block": 64,
+ "tf_data_r": 0.19271071255207062,
+ "tf_data_copy_direction": {
+  "dir_cos_med": 0.5453659892082214,
+  "dir_acc": 0.6324794568110799,
+  "n": 311052
+ },
+ "tf": {
+  "self_block_encoder": {
+   "dir_cos_med": 0.8551065325737,
+   "dir_acc": 0.7879859145204723,
+   "n_target_moving": 362075,
+   "R2_all": 0.09072351455688477,
+   "R2_moving": 0.10271596908569336,
+   "n_moving": 361846,
+   "r_carried": 0.041275180876255035,
+   "speed_ratio": 0.41905826330184937
+  },
+  "current_block_encoder": {
+   "dir_cos_med": 0.3094542622566223,
+   "dir_acc": 0.5835034178001796,
+   "n_target_moving": 362075,
+   "R2_all": 0.02188199758529663,
+   "R2_moving": 0.02653491497039795,
+   "n_moving": 361846,
+   "r_carried": 0.06183846294879913,
+   "speed_ratio": 0.21120387315750122
+  },
+  "ar_output": {
+   "dir_cos_med": 0.4128580689430237,
+   "dir_acc": 0.6100421183456466,
+   "n_target_moving": 362075,
+   "R2_all": 0.027184605598449707,
+   "R2_moving": 0.03314012289047241,
+   "n_moving": 361846,
+   "r_carried": 0.0323067232966423,
+   "speed_ratio": 0.18941593170166016
+  },
+  "transfer_self_probe_on_ar_output": {
+   "dir_cos_med": 0.19199402630329132,
+   "dir_acc": 0.5493116067113167,
+   "n_target_moving": 362075,
+   "R2_all": 0.01412343978881836,
+   "R2_moving": 0.020406246185302734,
+   "n_moving": 361846,
+   "r_carried": 0.029076028615236282,
+   "speed_ratio": 0.2685852646827698
+  },
+  "self_probe_on_true_block (calibration)": {
+   "dir_cos_med": 0.8551065325737,
+   "dir_acc": 0.7879859145204723,
+   "n_target_moving": 362075,
+   "R2_all": 0.09072351455688477,
+   "R2_moving": 0.10271596908569336,
+   "n_moving": 361846,
+   "r_carried": 0.041275180876255035,
+   "speed_ratio": 0.41905826330184937
+  },
+  "ar_output_context_positions_targets_2_8": {
+   "dir_cos_med": 0.43411096930503845,
+   "dir_acc": 0.6169397925315127,
+   "n_target_moving": 211502,
+   "R2_all": 0.028456151485443115,
+   "R2_moving": 0.03415912389755249,
+   "n_moving": 212581,
+   "r_carried": 0.03472450003027916,
+   "speed_ratio": 0.1912127137184143
+  },
+  "current_block_context_positions_targets_2_8": {
+   "dir_cos_med": 0.3273295760154724,
+   "dir_acc": 0.5884152395722027,
+   "n_target_moving": 211502,
+   "R2_all": 0.022569656372070312,
+   "R2_moving": 0.02700066566467285,
+   "n_moving": 212581,
+   "r_carried": 0.0633559450507164,
+   "speed_ratio": 0.2129228413105011
+  },
+  "ar_output_later_positions_targets_9_13": {
+   "dir_cos_med": 0.38250532746315,
+   "dir_acc": 0.6003533169957429,
+   "n_target_moving": 150573,
+   "R2_all": 0.025117456912994385,
+   "R2_moving": 0.03152453899383545,
+   "n_moving": 149265,
+   "r_carried": 0.02909969352185726,
+   "speed_ratio": 0.18688321113586426
+  },
+  "current_block_later_positions_targets_9_13": {
+   "dir_cos_med": 0.28515660762786865,
+   "dir_acc": 0.5766040392367822,
+   "n_target_moving": 150573,
+   "R2_all": 0.020671069622039795,
+   "R2_moving": 0.025742411613464355,
+   "n_moving": 149265,
+   "r_carried": 0.05964386463165283,
+   "speed_ratio": 0.20868811011314392
+  }
+ },
+ "rollout": {
+  "1": {
+   "data_r": 0.20059877634048462,
+   "data_copy_direction": {
+    "dir_cos_med": 0.6261453628540039,
+    "dir_acc": 0.639348079161816,
+    "n": 25770
+   },
+   "current_block_encoder": {
+    "dir_cos_med": 0.30011796951293945,
+    "dir_acc": 0.5826989383129075,
+    "n_target_moving": 29293,
+    "R2_all": 0.023387610912322998,
+    "R2_moving": 0.03143852949142456,
+    "n_moving": 30718,
+    "r_carried": 0.0666428655385971,
+    "speed_ratio": 0.30922967195510864
+   },
+   "ar_output": {
+    "dir_cos_med": 0.3267498016357422,
+    "dir_acc": 0.5942716689994196,
+    "n_target_moving": 29293,
+    "R2_all": 0.03066486120223999,
+    "R2_moving": 0.04016733169555664,
+    "n_moving": 30718,
+    "r_carried": 0.028738301247358322,
+    "speed_ratio": 0.2765805125236511
+   },
+   "transfer_self_probe_on_ar_output": {
+    "dir_cos_med": 0.2833672761917114,
+    "dir_acc": 0.5715358618099887,
+    "n_target_moving": 29293,
+    "R2_all": 0.015440642833709717,
+    "R2_moving": 0.02044004201889038,
+    "n_moving": 30718,
+    "r_carried": 0.032728008925914764,
+    "speed_ratio": 0.264670193195343
+   },
+   "self_probe_on_true_block": {
+    "dir_cos_med": 0.8525683283805847,
+    "dir_acc": 0.7818250093879083,
+    "n_target_moving": 29293,
+    "R2_all": 0.07201451063156128,
+    "R2_moving": 0.08436858654022217,
+    "n_moving": 30718,
+    "r_carried": 0.041948527097702026,
+    "speed_ratio": 0.40760719776153564
+   }
+  },
+  "2": {
+   "data_r": 0.046559594571590424,
+   "data_copy_direction": {
+    "dir_cos_med": 0.33105140924453735,
+    "dir_acc": 0.5790013410112803,
+    "n": 25354
+   },
+   "current_block_encoder": {
+    "dir_cos_med": 0.12302940338850021,
+    "dir_acc": 0.5337755516447814,
+    "n_target_moving": 29548,
+    "R2_all": -0.000944972038269043,
+    "R2_moving": 0.006212353706359863,
+    "n_moving": 30688,
+    "r_carried": 0.02797621116042137,
+    "speed_ratio": 0.26215797662734985
+   },
+   "ar_output": {
+    "dir_cos_med": 0.19306570291519165,
+    "dir_acc": 0.552017056992013,
+    "n_target_moving": 29548,
+    "R2_all": -0.0027747154235839844,
+    "R2_moving": 0.004921972751617432,
+    "n_moving": 30688,
+    "r_carried": 0.004187921993434429,
+    "speed_ratio": 0.24219681322574615
+   },
+   "transfer_self_probe_on_ar_output": {
+    "dir_cos_med": 0.10202233493328094,
+    "dir_acc": 0.5225057533504806,
+    "n_target_moving": 29548,
+    "R2_all": 0.001996159553527832,
+    "R2_moving": 0.007893979549407959,
+    "n_moving": 30688,
+    "r_carried": 0.022230399772524834,
+    "speed_ratio": 0.26724129915237427
+   },
+   "self_probe_on_true_block": {
+    "dir_cos_med": 0.8564226031303406,
+    "dir_acc": 0.7826925680249086,
+    "n_target_moving": 29548,
+    "R2_all": 0.0971636176109314,
+    "R2_moving": 0.11144763231277466,
+    "n_moving": 30688,
+    "r_carried": 0.022287096828222275,
+    "speed_ratio": 0.40797996520996094
+   }
+  },
+  "3": {
+   "data_r": 0.02198365330696106,
+   "data_copy_direction": {
+    "dir_cos_med": 0.20375290513038635,
+    "dir_acc": 0.5479185681971507,
+    "n": 25199
+   },
+   "current_block_encoder": {
+    "dir_cos_med": 0.10549083352088928,
+    "dir_acc": 0.5314472840214712,
+    "n_target_moving": 29621,
+    "R2_all": -0.013096094131469727,
+    "R2_moving": -0.013462662696838379,
+    "n_moving": 30741,
+    "r_carried": 0.012112152762711048,
+    "speed_ratio": 0.23589645326137543
+   },
+   "ar_output": {
+    "dir_cos_med": 0.1397300362586975,
+    "dir_acc": 0.5415752337868405,
+    "n_target_moving": 29621,
+    "R2_all": -0.012535572052001953,
+    "R2_moving": -0.011386990547180176,
+    "n_moving": 30741,
+    "r_carried": 0.01401217095553875,
+    "speed_ratio": 0.23371119797229767
+   },
+   "transfer_self_probe_on_ar_output": {
+    "dir_cos_med": 0.023517277091741562,
+    "dir_acc": 0.5051146146315114,
+    "n_target_moving": 29621,
+    "R2_all": 0.004645705223083496,
+    "R2_moving": 0.00832754373550415,
+    "n_moving": 30741,
+    "r_carried": 0.019440477713942528,
+    "speed_ratio": 0.27249571681022644
+   },
+   "self_probe_on_true_block": {
+    "dir_cos_med": 0.8535142540931702,
+    "dir_acc": 0.7902164005266534,
+    "n_target_moving": 29621,
+    "R2_all": 0.08660554885864258,
+    "R2_moving": 0.08970320224761963,
+    "n_moving": 30741,
+    "r_carried": 0.01581924594938755,
+    "speed_ratio": 0.40203264355659485
+   }
+  },
+  "4": {
+   "data_r": 0.01681668497622013,
+   "data_copy_direction": {
+    "dir_cos_med": 0.1694699227809906,
+    "dir_acc": 0.5338085377508761,
+    "n": 25112
+   },
+   "current_block_encoder": {
+    "dir_cos_med": -0.006749186664819717,
+    "dir_acc": 0.49756081481969805,
+    "n_target_moving": 30338,
+    "R2_all": -0.030065536499023438,
+    "R2_moving": -0.029536128044128418,
+    "n_moving": 30731,
+    "r_carried": 0.0005682599148713052,
+    "speed_ratio": 0.2580668032169342
+   },
+   "ar_output": {
+    "dir_cos_med": 0.06930732727050781,
+    "dir_acc": 0.5167776386050498,
+    "n_target_moving": 30338,
+    "R2_all": -0.02713322639465332,
+    "R2_moving": -0.02514338493347168,
+    "n_moving": 30731,
+    "r_carried": 0.007060696836560965,
+    "speed_ratio": 0.23355159163475037
+   },
+   "transfer_self_probe_on_ar_output": {
+    "dir_cos_med": 0.09667757898569107,
+    "dir_acc": 0.5204364163755026,
+    "n_target_moving": 30338,
+    "R2_all": -0.0030570030212402344,
+    "R2_moving": 0.00404810905456543,
+    "n_moving": 30731,
+    "r_carried": 0.018741393461823463,
+    "speed_ratio": 0.27146580815315247
+   },
+   "self_probe_on_true_block": {
+    "dir_cos_med": 0.8571707010269165,
+    "dir_acc": 0.7906256180367855,
+    "n_target_moving": 30338,
+    "R2_all": 0.10212850570678711,
+    "R2_moving": 0.11779278516769409,
+    "n_moving": 30731,
+    "r_carried": 0.011584208346903324,
+    "speed_ratio": 0.3979571759700775
+   }
+  },
+  "5": {
+   "data_r": 0.034757375717163086,
+   "data_copy_direction": {
+    "dir_cos_med": 0.24271632730960846,
+    "dir_acc": 0.5630817584720151,
+    "n": 24817
+   },
+   "current_block_encoder": {
+    "dir_cos_med": 0.02900819107890129,
+    "dir_acc": 0.5083822849976899,
+    "n_target_moving": 30302,
+    "R2_all": -0.011885762214660645,
+    "R2_moving": -0.009057164192199707,
+    "n_moving": 30762,
+    "r_carried": 0.008767841383814812,
+    "speed_ratio": 0.24050232768058777
+   },
+   "ar_output": {
+    "dir_cos_med": 0.03227173537015915,
+    "dir_acc": 0.5092733152927199,
+    "n_target_moving": 30302,
+    "R2_all": -0.008622050285339355,
+    "R2_moving": -0.0033578872680664062,
+    "n_moving": 30762,
+    "r_carried": -0.0019411420216783881,
+    "speed_ratio": 0.22005411982536316
+   },
+   "transfer_self_probe_on_ar_output": {
+    "dir_cos_med": 0.016190990805625916,
+    "dir_acc": 0.5037291267903109,
+    "n_target_moving": 30302,
+    "R2_all": -0.008394360542297363,
+    "R2_moving": -0.00482022762298584,
+    "n_moving": 30762,
+    "r_carried": 0.0172550268471241,
+    "speed_ratio": 0.27450475096702576
+   },
+   "self_probe_on_true_block": {
+    "dir_cos_med": 0.8464195728302002,
+    "dir_acc": 0.7844366708468088,
+    "n_target_moving": 30302,
+    "R2_all": 0.09582453966140747,
+    "R2_moving": 0.10144174098968506,
+    "n_moving": 30762,
+    "r_carried": 0.017370708286762238,
+    "speed_ratio": 0.3870425224304199
+   }
+  },
+  "6": {
+   "data_r": 0.0027890694327652454,
+   "data_copy_direction": {
+    "dir_cos_med": 0.04404410347342491,
+    "dir_acc": 0.5119191431102521,
+    "n": 24834
+   },
+   "current_block_encoder": {
+    "dir_cos_med": 0.06566381454467773,
+    "dir_acc": 0.5191353187042842,
+    "n_target_moving": 30624,
+    "R2_all": -0.005677342414855957,
+    "R2_moving": -0.0032013654708862305,
+    "n_moving": 30760,
+    "r_carried": 0.007560839876532555,
+    "speed_ratio": 0.2293882817029953
+   },
+   "ar_output": {
+    "dir_cos_med": 0.07910507917404175,
+    "dir_acc": 0.5226619644723093,
+    "n_target_moving": 30624,
+    "R2_all": 0.0006208419799804688,
+    "R2_moving": 0.006207764148712158,
+    "n_moving": 30760,
+    "r_carried": 0.005791286937892437,
+    "speed_ratio": 0.20652025938034058
+   },
+   "transfer_self_probe_on_ar_output": {
+    "dir_cos_med": -0.0830923318862915,
+    "dir_acc": 0.4783176593521421,
+    "n_target_moving": 30624,
+    "R2_all": -0.013331770896911621,
+    "R2_moving": -0.004509091377258301,
+    "n_moving": 30760,
+    "r_carried": 0.015694767236709595,
+    "speed_ratio": 0.2751306891441345
+   },
+   "self_probe_on_true_block": {
+    "dir_cos_med": 0.8524173498153687,
+    "dir_acc": 0.7938871473354232,
+    "n_target_moving": 30624,
+    "R2_all": 0.08924561738967896,
+    "R2_moving": 0.09935635328292847,
+    "n_moving": 30760,
+    "r_carried": 0.0025184061378240585,
+    "speed_ratio": 0.3953075408935547
+   }
+  }
+ }
+}

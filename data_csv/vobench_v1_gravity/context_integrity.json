@@ -1,0 +1,14 @@
+{
+ "n_blocks": 216,
+ "n_arm_comparisons": 720,
+ "n_frames_checked": 34560,
+ "context_frames_raw": [
+  0,
+  47
+ ],
+ "same_inode": 34560,
+ "pixel_equal": 0,
+ "n_mismatch_blocks": 0,
+ "mismatch": {},
+ "seconds": 2.2
+}

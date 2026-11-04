@@ -1,0 +1,31 @@
+{
+ "root": "/workspace/dataset/training_data/v4_velocity_control",
+ "K": 4,
+ "flat": {
+  "families_ok": 1137,
+  "families_kept": 1137,
+  "videos": 5685,
+  "nA": 4548,
+  "nB": 1137,
+  "ind_A": 4686,
+  "ind_B": 1197,
+  "per_level": [
+   1137,
+   1137,
+   1137,
+   1137
+  ]
+ },
+ "ramp": {
+  "families_ok": 1113,
+  "families_candidates_selected": 1200,
+  "videos": 5565,
+  "per_level": [
+   1113,
+   1113,
+   1113,
+   1113
+  ]
+ },
+ "all_videos": 11250
+}

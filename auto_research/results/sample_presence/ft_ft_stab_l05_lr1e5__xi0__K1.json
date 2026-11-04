@@ -1,0 +1,118 @@
+{
+ "run": [
+  "natural_ar_vw_state",
+  "latest.pt"
+ ],
+ "K": 1,
+ "sampler": null,
+ "n": 231,
+ "win_share": [
+  1.0
+ ],
+ "beta_ratio_per_sample": [
+  0.4361353681568628
+ ],
+ "beta_ratio_mean_pred": 0.4361353681568628,
+ "lin_new": {
+  "n": 202,
+  "mean_of_samples": 0.35865598917007446,
+  "mean_pred": 0.35865598447456043,
+  "within_ctx_sd": 0.0,
+  "frac_lt02": 0.19801980198019803,
+  "frac_gt08": 0.019801980198019802,
+  "bimodality": 0.3484998345375061,
+  "bimodality_within": null,
+  "hist": [
+   6,
+   5,
+   8,
+   45,
+   86,
+   39,
+   11,
+   1,
+   1,
+   0
+  ],
+  "per_sample_mean": [
+   0.35865598917007446
+  ]
+ },
+ "lin_old": {
+  "n": 206,
+  "mean_of_samples": 0.41045817732810974,
+  "mean_pred": 0.4104581466396746,
+  "within_ctx_sd": 0.0,
+  "frac_lt02": 0.0970873786407767,
+  "frac_gt08": 0.009708737864077669,
+  "bimodality": 0.5128771066665649,
+  "bimodality_within": null,
+  "hist": [
+   6,
+   1,
+   6,
+   26,
+   99,
+   55,
+   13,
+   0,
+   0,
+   0
+  ],
+  "per_sample_mean": [
+   0.41045817732810974
+  ]
+ },
+ "proj_new": {
+  "n": 168,
+  "mean_of_samples": 0.2506099343299866,
+  "mean_pred": 0.2506099610722491,
+  "within_ctx_sd": 0.0,
+  "frac_lt02": 0.3630952380952381,
+  "frac_gt08": 0.011904761904761904,
+  "bimodality": 0.12776407599449158,
+  "bimodality_within": null,
+  "hist": [
+   3,
+   2,
+   8,
+   106,
+   39,
+   7,
+   1,
+   2,
+   0,
+   0
+  ],
+  "per_sample_mean": [
+   0.2506099343299866
+  ]
+ },
+ "proj_old": {
+  "n": 168,
+  "mean_of_samples": 0.40515926480293274,
+  "mean_pred": 0.40515923712934765,
+  "within_ctx_sd": 0.0,
+  "frac_lt02": 0.041666666666666664,
+  "frac_gt08": 0.017857142857142856,
+  "bimodality": 0.44183602929115295,
+  "bimodality_within": null,
+  "hist": [
+   2,
+   1,
+   1,
+   33,
+   89,
+   32,
+   7,
+   1,
+   1,
+   1
+  ],
+  "per_sample_mean": [
+   0.40515926480293274
+  ]
+ },
+ "new_old_corr_within_ctx": null,
+ "new_plus_old": 0.6557691693305969
+}

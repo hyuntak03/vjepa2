@@ -1,0 +1,39 @@
+{
+ "n_videos": 288,
+ "ctx_all": {
+  "cos_distance_median": {
+   "possible_vs_impossible_same_context": 0.00437,
+   "possible_vs_possible": 0.01342,
+   "impossible_vs_impossible": 0.00163,
+   "different_blocks": 0.10837
+  },
+  "nearest_other_block_same_plausibility": 0.736
+ },
+ "ctx_future": {
+  "cos_distance_median": {
+   "possible_vs_impossible_same_context": 0.0081,
+   "possible_vs_possible": 0.01428,
+   "impossible_vs_impossible": 0.00454,
+   "different_blocks": 0.11866
+  },
+  "nearest_other_block_same_plausibility": 0.74
+ },
+ "tgt_all": {
+  "cos_distance_median": {
+   "possible_vs_impossible_same_context": 0.0045,
+   "possible_vs_possible": 0.01274,
+   "impossible_vs_impossible": 0.00167,
+   "different_blocks": 0.11865
+  },
+  "nearest_other_block_same_plausibility": 0.733
+ },
+ "tgt_future": {
+  "cos_distance_median": {
+   "possible_vs_impossible_same_context": 0.00868,
+   "possible_vs_possible": 0.01403,
+   "impossible_vs_impossible": 0.00363,
+   "different_blocks": 0.13087
+  },
+  "nearest_other_block_same_plausibility": 0.747
+ }
+}

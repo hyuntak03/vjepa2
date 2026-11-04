@@ -1,0 +1,220 @@
+{
+ "moving_A": [
+  {
+   "gif": "moving_A/O1_01_pair1.gif",
+   "pos": "O1_01_2",
+   "imp": "O1_01_1",
+   "vith_release_v4vc": "wrong",
+   "vith_release_v4vc_negimp": "correct"
+  },
+  {
+   "gif": "moving_A/O1_23_pair1.gif",
+   "pos": "O1_23_3",
+   "imp": "O1_23_1",
+   "vith_release_v4vc": "wrong",
+   "vith_release_v4vc_negimp": "correct"
+  },
+  {
+   "gif": "moving_A/O1_24_pair1.gif",
+   "pos": "O1_24_1",
+   "imp": "O1_24_4",
+   "vith_release_v4vc": "correct",
+   "vith_release_v4vc_negimp": "correct"
+  },
+  {
+   "gif": "moving_A/O1_26_pair1.gif",
+   "pos": "O1_26_2",
+   "imp": "O1_26_1",
+   "vith_release_v4vc": "wrong",
+   "vith_release_v4vc_negimp": "correct"
+  },
+  {
+   "gif": "moving_A/O1_27_pair1.gif",
+   "pos": "O1_27_2",
+   "imp": "O1_27_1",
+   "vith_release_v4vc": "correct",
+   "vith_release_v4vc_negimp": "correct"
+  },
+  {
+   "gif": "moving_A/O1_29_pair2.gif",
+   "pos": "O1_29_3",
+   "imp": "O1_29_2",
+   "vith_release_v4vc": "wrong",
+   "vith_release_v4vc_negimp": "correct"
+  },
+  {
+   "gif": "moving_A/O1_04_pair1.gif",
+   "pos": "O1_04_1",
+   "imp": "O1_04_3",
+   "vith_release_v4vc": "wrong",
+   "vith_release_v4vc_negimp": "wrong"
+  },
+  {
+   "gif": "moving_A/O1_05_pair1.gif",
+   "pos": "O1_05_4",
+   "imp": "O1_05_1",
+   "vith_release_v4vc": "wrong",
+   "vith_release_v4vc_negimp": "correct"
+  },
+  {
+   "gif": "moving_A/O1_06_pair2.gif",
+   "pos": "O1_06_2",
+   "imp": "O1_06_4",
+   "vith_release_v4vc": "correct",
+   "vith_release_v4vc_negimp": "correct"
+  },
+  {
+   "gif": "moving_A/O1_09_pair2.gif",
+   "pos": "O1_09_2",
+   "imp": "O1_09_4",
+   "vith_release_v4vc": "wrong",
+   "vith_release_v4vc_negimp": "correct"
+  }
+ ],
+ "moving_B": [
+  {
+   "gif": "moving_B/O1_01_pair2.gif",
+   "pos": "O1_01_4",
+   "imp": "O1_01_3",
+   "vith_release_v4vc": "correct",
+   "vith_release_v4vc_negimp": "correct"
+  },
+  {
+   "gif": "moving_B/O1_23_pair2.gif",
+   "pos": "O1_23_2",
+   "imp": "O1_23_4",
+   "vith_release_v4vc": "correct",
+   "vith_release_v4vc_negimp": "wrong"
+  },
+  {
+   "gif": "moving_B/O1_24_pair2.gif",
+   "pos": "O1_24_3",
+   "imp": "O1_24_2",
+   "vith_release_v4vc": "wrong",
+   "vith_release_v4vc_negimp": "correct"
+  },
+  {
+   "gif": "moving_B/O1_26_pair2.gif",
+   "pos": "O1_26_4",
+   "imp": "O1_26_3",
+   "vith_release_v4vc": "wrong",
+   "vith_release_v4vc_negimp": "correct"
+  },
+  {
+   "gif": "moving_B/O1_27_pair2.gif",
+   "pos": "O1_27_3",
+   "imp": "O1_27_4",
+   "vith_release_v4vc": "correct",
+   "vith_release_v4vc_negimp": "wrong"
+  },
+  {
+   "gif": "moving_B/O1_29_pair1.gif",
+   "pos": "O1_29_4",
+   "imp": "O1_29_1",
+   "vith_release_v4vc": "correct",
+   "vith_release_v4vc_negimp": "correct"
+  },
+  {
+   "gif": "moving_B/O1_04_pair2.gif",
+   "pos": "O1_04_4",
+   "imp": "O1_04_2",
+   "vith_release_v4vc": "correct",
+   "vith_release_v4vc_negimp": "correct"
+  },
+  {
+   "gif": "moving_B/O1_05_pair2.gif",
+   "pos": "O1_05_3",
+   "imp": "O1_05_2",
+   "vith_release_v4vc": "correct",
+   "vith_release_v4vc_negimp": "correct"
+  },
+  {
+   "gif": "moving_B/O1_06_pair1.gif",
+   "pos": "O1_06_3",
+   "imp": "O1_06_1",
+   "vith_release_v4vc": "wrong",
+   "vith_release_v4vc_negimp": "correct"
+  },
+  {
+   "gif": "moving_B/O1_09_pair1.gif",
+   "pos": "O1_09_3",
+   "imp": "O1_09_1",
+   "vith_release_v4vc": "correct",
+   "vith_release_v4vc_negimp": "correct"
+  }
+ ],
+ "static_B": [
+  {
+   "gif": "static_B/O1_14_pair1.gif",
+   "pos": "O1_14_1",
+   "imp": "O1_14_2",
+   "vith_release_v4vc": "correct",
+   "vith_release_v4vc_negimp": "correct"
+  },
+  {
+   "gif": "static_B/O1_18_pair2.gif",
+   "pos": "O1_18_4",
+   "imp": "O1_18_3",
+   "vith_release_v4vc": "correct",
+   "vith_release_v4vc_negimp": "correct"
+  },
+  {
+   "gif": "static_B/O1_03_pair1.gif",
+   "pos": "O1_03_1",
+   "imp": "O1_03_4",
+   "vith_release_v4vc": "correct",
+   "vith_release_v4vc_negimp": "correct"
+  },
+  {
+   "gif": "static_B/O1_22_pair1.gif",
+   "pos": "O1_22_2",
+   "imp": "O1_22_1",
+   "vith_release_v4vc": "correct",
+   "vith_release_v4vc_negimp": "correct"
+  },
+  {
+   "gif": "static_B/O1_08_pair1.gif",
+   "pos": "O1_08_1",
+   "imp": "O1_08_2",
+   "vith_release_v4vc": "correct",
+   "vith_release_v4vc_negimp": "correct"
+  }
+ ],
+ "static_A": [
+  {
+   "gif": "static_A/O1_14_pair2.gif",
+   "pos": "O1_14_4",
+   "imp": "O1_14_3",
+   "vith_release_v4vc": "correct",
+   "vith_release_v4vc_negimp": "correct"
+  },
+  {
+   "gif": "static_A/O1_18_pair1.gif",
+   "pos": "O1_18_2",
+   "imp": "O1_18_1",
+   "vith_release_v4vc": "wrong",
+   "vith_release_v4vc_negimp": "wrong"
+  },
+  {
+   "gif": "static_A/O1_03_pair2.gif",
+   "pos": "O1_03_3",
+   "imp": "O1_03_2",
+   "vith_release_v4vc": "correct",
+   "vith_release_v4vc_negimp": "correct"
+  },
+  {
+   "gif": "static_A/O1_22_pair2.gif",
+   "pos": "O1_22_4",
+   "imp": "O1_22_3",
+   "vith_release_v4vc": "correct",
+   "vith_release_v4vc_negimp": "wrong"
+  },
+  {
+   "gif": "static_A/O1_08_pair2.gif",
+   "pos": "O1_08_3",
+   "imp": "O1_08_4",
+   "vith_release_v4vc": "wrong",
+   "vith_release_v4vc_negimp": "wrong"
+  }
+ ]
+}

@@ -1,0 +1,40 @@
+{
+ "n": 1923,
+ "all_blocks_2_15": {
+  "tf_output": {
+   "velocity_r2": 0.04,
+   "position_r2": 0.835,
+   "follow_ratio_move8px": 0.488
+  },
+  "encoder": {
+   "velocity_r2": 0.892,
+   "position_r2": 0.928,
+   "follow_ratio_move8px": 0.92
+  },
+  "n_moved8": 804
+ },
+ "context_blocks_2_8": {
+  "tf_output_velocity_r2": 0.035,
+  "encoder_velocity_r2": 0.907,
+  "tf_output_follow": 0.49,
+  "encoder_follow": 0.914,
+  "n": 895,
+  "n_moved8": 523
+ },
+ "block_8_rollout_step1_equiv": {
+  "tf_output_velocity_r2": 0.042,
+  "encoder_velocity_r2": 0.906,
+  "tf_output_follow": 0.534,
+  "encoder_follow": 0.873,
+  "n": 139,
+  "n_moved8": 60
+ },
+ "blocks_9_15": {
+  "tf_output_velocity_r2": 0.034,
+  "encoder_velocity_r2": 0.862,
+  "tf_output_follow": 0.484,
+  "encoder_follow": 0.93,
+  "n": 1028,
+  "n_moved8": 281
+ }
+}

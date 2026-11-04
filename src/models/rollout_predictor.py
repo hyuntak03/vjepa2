@@ -171,6 +171,11 @@ class VisionTransformerPredictorPrefix(nn.Module):
         self.n_registers = int(n_registers)
         self.reg_carry = str(kwargs.get("reg_carry", "state"))      # 2026-10-27 ar registers: state (다음 블록으로 넘김) | none
         self.ar_oneshot = bool(kwargs.get("ar_oneshot", False))     # 2026-10-28 kind=ar 인데 미래 K 블록을 한 번에 (굴리지 않음)
+        # 2026-11-04 사용자 ("문맥도 block causal 로 한 걸로 predictor scratch 부터"): ar_oneshot 의 attention 을 전부 블록 인과로.
+        #   블록 b 의 query (문맥 · mask token 모두) 는 블록 <= b 의 key 만 본다 = 블록 AR (forward_seq) 과 같은 마스크. 블록 안은 양방향.
+        self.ar_oneshot_causal = bool(kwargs.get("ar_oneshot_causal", False))
+        if self.ar_oneshot_causal and not self.ar_oneshot:
+            raise ValueError("ar_oneshot_causal 은 ar_oneshot 과 같이 쓴다")
         self.ar_unc = bool(kwargs.get("ar_unc", False))             # 2026-10-28 토큰별 Laplace 척도 b (log b = unc_head(상태)), 손실 = |y−μ|/b + log b
         self.use_activation_checkpointing = use_activation_checkpointing
         self.init_std = init_std
@@ -682,13 +687,19 @@ class VisionTransformerPredictorPrefix(nn.Module):
     # 블록 AR 과 같은 입력 (블록별 LN(target_encoder) 를 predictor_embed + type[0]) · 같은 RoPE 위치 · 같은 출력 LN.
     # 다른 점: 미래 K 블록 자리에 mask token (같은 학습 토큰 하나, 위치는 RoPE 의 절대 토큰 인덱스로) 을 놓고 한 번에 낸다. 자기 예측을 되먹이지 않는다.
     # attention: 전부 양방향 (문맥 ↔ 문맥, 미래 query ↔ 문맥 · 다른 미래 query). 마스크 없음 → flash.
+    #   ar_oneshot_causal (2026-11-04): 전부 블록 인과 — PrefixSpec(1, nb-1) = forward_seq 와 같은 블록 인과 (블록별 dense flash).
     def _ar_oneshot(self, x_ctx, idx_ctx, K):
         S = self.tokens_per_block
         B, N = x_ctx.shape[:2]
         h_ctx = self._ar_embed_obs(x_ctx)
         q = self.mask_tokens[0].to(h_ctx.dtype).expand(B, int(K) * S, -1)
         idx_q = idx_ctx[:, -1:] + 1 + torch.arange(int(K) * S, device=idx_ctx.device)[None]
-        h = self._run_blocks(torch.cat([h_ctx, q], 1), torch.cat([idx_ctx, idx_q], 1), None)
+        spec = None
+        if self.ar_oneshot_causal:
+            if N % S:
+                raise ValueError(f"ar_oneshot_causal: 문맥 토큰 수 {N} 가 블록({S}) 정렬이 아니다")
+            spec = PrefixSpec(1, N // S + int(K) - 1, S, future_causal=True)
+        h = self._run_blocks(torch.cat([h_ctx, q], 1), torch.cat([idx_ctx, idx_q], 1), spec)
         return self._ar_out(self.predictor_norm(h[:, N:]))
 
     # ---------------------------------------------------------------- ar registers (2026-10-27, 사용자 결정)

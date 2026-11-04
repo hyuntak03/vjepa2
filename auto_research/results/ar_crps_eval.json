@@ -1,0 +1,114 @@
+{
+ "n_pairs": 231,
+ "base": {
+  "presence_new_samplemean": 0.46924663160396796,
+  "residual_old_samplemean": 0.3549857456143621,
+  "K": 1,
+  "beta_true": 0.336172330272091,
+  "transport_ratio_per_output": [
+   0.5109594541419025
+  ],
+  "presence_per_output": [
+   0.46924663160396796
+  ],
+  "residual_per_output": [
+   0.3549857456143621
+  ],
+  "corr_presence_residual_across_outputs": null
+ },
+ "aux_w0": {
+  "presence_new_samplemean": 0.8681860124175941,
+  "residual_old_samplemean": 0.21696623887416755,
+  "K": 1,
+  "beta_true": 0.336172330272091,
+  "transport_ratio_per_output": [
+   0.758211725371078
+  ],
+  "presence_per_output": [
+   0.8681860124175941
+  ],
+  "residual_per_output": [
+   0.21696623887416755
+  ],
+  "corr_presence_residual_across_outputs": null
+ },
+ "aux_d005": {
+  "presence_new_samplemean": 0.7257422565985746,
+  "residual_old_samplemean": 0.2963543159465169,
+  "K": 1,
+  "beta_true": 0.336172330272091,
+  "transport_ratio_per_output": [
+   0.6130922132967744
+  ],
+  "presence_per_output": [
+   0.7257422565985746
+  ],
+  "residual_per_output": [
+   0.2963543159465169
+  ],
+  "corr_presence_residual_across_outputs": null
+ },
+ "aux_d02": {
+  "presence_new_samplemean": 0.6288373166191985,
+  "residual_old_samplemean": 0.3543733119965547,
+  "K": 1,
+  "beta_true": 0.336172330272091,
+  "transport_ratio_per_output": [
+   0.5337037041818635
+  ],
+  "presence_per_output": [
+   0.6288373166191985
+  ],
+  "residual_per_output": [
+   0.3543733119965547
+  ],
+  "corr_presence_residual_across_outputs": null
+ },
+ "natural": {
+  "k710": {
+   "data_b": 0.20794074848423513,
+   "base": [
+    0.19986739098295145
+   ],
+   "aux_w0": [
+    0.1959388853731699
+   ],
+   "aux_d005": [
+    0.19711663908926993
+   ],
+   "aux_d02": [
+    0.1963320687609145
+   ]
+  },
+  "ssv2": {
+   "data_b": 0.21093636111669206,
+   "base": [
+    0.20646658448453656
+   ],
+   "aux_w0": [
+    0.20003512611417365
+   ],
+   "aux_d005": [
+    0.20206146165552505
+   ],
+   "aux_d02": [
+    0.20173482907338725
+   ]
+  },
+  "ht100m": {
+   "data_b": 0.21474979176232428,
+   "base": [
+    0.20485673387743186
+   ],
+   "aux_w0": [
+    0.199595144755479
+   ],
+   "aux_d005": [
+    0.20154139795742967
+   ],
+   "aux_d02": [
+    0.20071648528144861
+   ]
+  }
+ }
+}

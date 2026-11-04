@@ -1,0 +1,125 @@
+{
+ "n_train": 29780,
+ "n_val": 2667,
+ "regions": [
+  "object",
+  "ring1",
+  "ring2",
+  "far3plus",
+  "whole"
+ ],
+ "shape": {
+  "object": {
+   "n_train": 29780,
+   "probe_val_acc": 88.0,
+   "reliability": 0.952,
+   "reliability_null": -0.091,
+   "scene_general": 0.817,
+   "scene_general_null": -0.068,
+   "cos_with_whole_frame_concept": 0.311,
+   "cos_with_object_concept": 1.0,
+   "eta2": 0.508
+  },
+  "ring1": {
+   "n_train": 29780,
+   "probe_val_acc": 75.4,
+   "reliability": 0.821,
+   "reliability_null": -0.033,
+   "scene_general": 0.467,
+   "scene_general_null": -0.006,
+   "cos_with_whole_frame_concept": 0.617,
+   "cos_with_object_concept": 0.586,
+   "eta2": 0.104
+  },
+  "ring2": {
+   "n_train": 29780,
+   "probe_val_acc": 68.7,
+   "reliability": 0.768,
+   "reliability_null": -0.112,
+   "scene_general": 0.401,
+   "scene_general_null": -0.158,
+   "cos_with_whole_frame_concept": 0.809,
+   "cos_with_object_concept": 0.283,
+   "eta2": 0.064
+  },
+  "far3plus": {
+   "n_train": 29780,
+   "probe_val_acc": 73.8,
+   "reliability": 0.913,
+   "reliability_null": 0.194,
+   "scene_general": 0.755,
+   "scene_general_null": 0.172,
+   "cos_with_whole_frame_concept": 0.986,
+   "cos_with_object_concept": 0.2,
+   "eta2": 0.108
+  },
+  "whole": {
+   "n_train": 29780,
+   "probe_val_acc": 75.3,
+   "reliability": 0.917,
+   "reliability_null": 0.067,
+   "scene_general": 0.775,
+   "scene_general_null": 0.229,
+   "cos_with_whole_frame_concept": 1.0,
+   "cos_with_object_concept": 0.311,
+   "eta2": 0.114
+  }
+ },
+ "color": {
+  "object": {
+   "n_train": 29780,
+   "probe_val_acc": 96.9,
+   "reliability": 0.965,
+   "reliability_null": 0.05,
+   "scene_general": 0.954,
+   "scene_general_null": -0.085,
+   "cos_with_whole_frame_concept": 0.466,
+   "cos_with_object_concept": 1.0,
+   "eta2": 0.456
+  },
+  "ring1": {
+   "n_train": 29780,
+   "probe_val_acc": 75.7,
+   "reliability": 0.747,
+   "reliability_null": -0.103,
+   "scene_general": 0.665,
+   "scene_general_null": 0.093,
+   "cos_with_whole_frame_concept": 0.668,
+   "cos_with_object_concept": 0.721,
+   "eta2": 0.033
+  },
+  "ring2": {
+   "n_train": 29780,
+   "probe_val_acc": 61.9,
+   "reliability": 0.549,
+   "reliability_null": -0.074,
+   "scene_general": 0.472,
+   "scene_general_null": -0.085,
+   "cos_with_whole_frame_concept": 0.774,
+   "cos_with_object_concept": 0.317,
+   "eta2": 0.017
+  },
+  "far3plus": {
+   "n_train": 29780,
+   "probe_val_acc": 79.9,
+   "reliability": 0.646,
+   "reliability_null": -0.119,
+   "scene_general": 0.625,
+   "scene_general_null": -0.11,
+   "cos_with_whole_frame_concept": 0.977,
+   "cos_with_object_concept": 0.298,
+   "eta2": 0.03
+  },
+  "whole": {
+   "n_train": 29780,
+   "probe_val_acc": 83.1,
+   "reliability": 0.685,
+   "reliability_null": 0.02,
+   "scene_general": 0.661,
+   "scene_general_null": 0.045,
+   "cos_with_whole_frame_concept": 1.0,
+   "cos_with_object_concept": 0.466,
+   "eta2": 0.035
+  }
+ }
+}

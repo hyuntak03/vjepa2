@@ -1,0 +1,109 @@
+{
+ "n_samples": 8280,
+ "n_videos": 600,
+ "shape": {
+  "classes": [
+   "capsule",
+   "cone",
+   "cube",
+   "cylinder",
+   "sphere",
+   "torus"
+  ],
+  "n_samples": [
+   1384,
+   1382,
+   1385,
+   1376,
+   1374,
+   1379
+  ],
+  "n_videos": [
+   100,
+   100,
+   100,
+   100,
+   100,
+   100
+  ],
+  "reliability": 0.93,
+  "reliability_null": -0.243,
+  "background_v11_vs_assets": 0.856,
+  "background_v11_vs_assets_null": -0.19,
+  "static_vs_moving": 0.651,
+  "static_vs_moving_null": -0.087,
+  "visible_vs_occluded_conditions": 0.755,
+  "visible_vs_occluded_conditions_null": -0.373,
+  "readout_object_cells": 99.8,
+  "readout_whole_frame": 95.4,
+  "majority": 16.7,
+  "cos_vs_phys3d_common_classes": {
+   "classes": [
+    "sphere",
+    "cube",
+    "cylinder",
+    "cone",
+    "torus"
+   ],
+   "cos_mean": 0.585
+  },
+  "phys3d_head_on_vobench_object_cells": 78.3
+ },
+ "color": {
+  "classes": [
+   "red",
+   "orange",
+   "yellow",
+   "green",
+   "cyan",
+   "blue",
+   "purple",
+   "magenta"
+  ],
+  "n_samples": [
+   977,
+   1017,
+   1061,
+   1102,
+   1078,
+   1026,
+   995,
+   1024
+  ],
+  "n_videos": [
+   71,
+   74,
+   77,
+   80,
+   78,
+   74,
+   72,
+   74
+  ],
+  "reliability": 0.722,
+  "reliability_null": -0.055,
+  "background_v11_vs_assets": 0.651,
+  "background_v11_vs_assets_null": -0.163,
+  "static_vs_moving": 0.671,
+  "static_vs_moving_null": 0.028,
+  "visible_vs_occluded_conditions": 0.583,
+  "visible_vs_occluded_conditions_null": -0.093,
+  "readout_object_cells": 97.0,
+  "readout_whole_frame": 91.5,
+  "majority": 14.1,
+  "cos_vs_phys3d_common_classes": {
+   "classes": [
+    "red",
+    "orange",
+    "yellow",
+    "green",
+    "cyan",
+    "blue",
+    "purple",
+    "magenta"
+   ],
+   "cos_mean": 0.783
+  },
+  "phys3d_head_on_vobench_object_cells": 72.8
+ }
+}

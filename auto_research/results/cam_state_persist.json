@@ -1,0 +1,386 @@
+{
+ "k710_holdout": {
+  "raw|moving": {
+   "n_cells": 38468,
+   "follow": {
+    "k": 0.278,
+    "R2": 0.112
+   },
+   "same_cell": {
+    "k": 0.267,
+    "R2": 0.104
+   }
+  },
+  "raw|moving_hi": {
+   "n_cells": 30396,
+   "follow": {
+    "k": 0.305,
+    "R2": 0.134
+   },
+   "same_cell": {
+    "k": 0.289,
+    "R2": 0.122
+   }
+  },
+  "cam_removed|moving": {
+   "n_cells": 12482,
+   "follow": {
+    "k": 0.19,
+    "R2": 0.026
+   },
+   "same_cell": {
+    "k": 0.206,
+    "R2": 0.026
+   }
+  },
+  "cam_removed|moving_hi": {
+   "n_cells": 5799,
+   "follow": {
+    "k": 0.327,
+    "R2": 0.08
+   },
+   "same_cell": {
+    "k": 0.295,
+    "R2": 0.062
+   }
+  },
+  "raw|still": {
+   "n_cells": 6973,
+   "follow": {
+    "k": 0.196,
+    "R2": 0.011
+   },
+   "same_cell": {
+    "k": 0.062,
+    "R2": 0.001
+   }
+  },
+  "cam_removed|still": {
+   "n_cells": 4368,
+   "follow": {
+    "k": 0.307,
+    "R2": 0.056
+   },
+   "same_cell": {
+    "k": 0.203,
+    "R2": 0.017
+   }
+  },
+  "raw|moving_lo": {
+   "n_cells": 8072,
+   "follow": {
+    "k": 0.149,
+    "R2": 0.033
+   },
+   "same_cell": {
+    "k": 0.155,
+    "R2": 0.035
+   }
+  },
+  "cam_removed|moving_lo": {
+   "n_cells": 6683,
+   "follow": {
+    "k": 0.068,
+    "R2": 0.003
+   },
+   "same_cell": {
+    "k": 0.111,
+    "R2": 0.007
+   }
+  }
+ },
+ "ht100m": {
+  "raw|moving": {
+   "n_cells": 20710,
+   "follow": {
+    "k": 0.319,
+    "R2": 0.129
+   },
+   "same_cell": {
+    "k": 0.317,
+    "R2": 0.125
+   }
+  },
+  "raw|moving_hi": {
+   "n_cells": 15938,
+   "follow": {
+    "k": 0.422,
+    "R2": 0.216
+   },
+   "same_cell": {
+    "k": 0.412,
+    "R2": 0.206
+   }
+  },
+  "cam_removed|moving": {
+   "n_cells": 6010,
+   "follow": {
+    "k": 0.01,
+    "R2": 0.0
+   },
+   "same_cell": {
+    "k": 0.04,
+    "R2": 0.0
+   }
+  },
+  "cam_removed|moving_hi": {
+   "n_cells": 2141,
+   "follow": {
+    "k": 0.063,
+    "R2": 0.005
+   },
+   "same_cell": {
+    "k": 0.106,
+    "R2": 0.01
+   }
+  },
+  "raw|moving_lo": {
+   "n_cells": 4772,
+   "follow": {
+    "k": -0.161,
+    "R2": 0.04
+   },
+   "same_cell": {
+    "k": -0.163,
+    "R2": 0.039
+   }
+  },
+  "cam_removed|moving_lo": {
+   "n_cells": 3869,
+   "follow": {
+    "k": -0.057,
+    "R2": 0.0
+   },
+   "same_cell": {
+    "k": -0.03,
+    "R2": 0.0
+   }
+  },
+  "raw|still": {
+   "n_cells": 7760,
+   "follow": {
+    "k": 0.061,
+    "R2": 0.001
+   },
+   "same_cell": {
+    "k": 0.079,
+    "R2": 0.001
+   }
+  },
+  "cam_removed|still": {
+   "n_cells": 5423,
+   "follow": {
+    "k": 0.064,
+    "R2": 0.002
+   },
+   "same_cell": {
+    "k": 0.061,
+    "R2": 0.001
+   }
+  }
+ },
+ "ssv2_passive": {
+  "raw|still": {
+   "n_cells": 13977,
+   "follow": {
+    "k": 0.278,
+    "R2": 0.012
+   },
+   "same_cell": {
+    "k": 0.314,
+    "R2": 0.013
+   }
+  },
+  "cam_removed|still": {
+   "n_cells": 3900,
+   "follow": {
+    "k": 0.192,
+    "R2": 0.001
+   },
+   "same_cell": {
+    "k": 0.242,
+    "R2": 0.001
+   }
+  },
+  "raw|moving": {
+   "n_cells": 71145,
+   "follow": {
+    "k": 0.104,
+    "R2": 0.025
+   },
+   "same_cell": {
+    "k": 0.125,
+    "R2": 0.035
+   }
+  },
+  "raw|moving_hi": {
+   "n_cells": 64701,
+   "follow": {
+    "k": 0.111,
+    "R2": 0.03
+   },
+   "same_cell": {
+    "k": 0.126,
+    "R2": 0.039
+   }
+  },
+  "cam_removed|moving": {
+   "n_cells": 10883,
+   "follow": {
+    "k": 0.002,
+    "R2": 0.0
+   },
+   "same_cell": {
+    "k": 0.002,
+    "R2": 0.0
+   }
+  },
+  "cam_removed|moving_hi": {
+   "n_cells": 4296,
+   "follow": {
+    "k": 0.076,
+    "R2": 0.005
+   },
+   "same_cell": {
+    "k": 0.132,
+    "R2": 0.009
+   }
+  },
+  "raw|moving_lo": {
+   "n_cells": 6444,
+   "follow": {
+    "k": 0.041,
+    "R2": 0.002
+   },
+   "same_cell": {
+    "k": 0.11,
+    "R2": 0.013
+   }
+  },
+  "cam_removed|moving_lo": {
+   "n_cells": 6587,
+   "follow": {
+    "k": 0.001,
+    "R2": 0.0
+   },
+   "same_cell": {
+    "k": 0.001,
+    "R2": 0.0
+   }
+  }
+ },
+ "ssv2_actor": {
+  "raw|still": {
+   "n_cells": 11987,
+   "follow": {
+    "k": 0.63,
+    "R2": 0.203
+   },
+   "same_cell": {
+    "k": 0.551,
+    "R2": 0.132
+   }
+  },
+  "cam_removed|still": {
+   "n_cells": 5604,
+   "follow": {
+    "k": 0.667,
+    "R2": 0.004
+   },
+   "same_cell": {
+    "k": 0.568,
+    "R2": 0.002
+   }
+  },
+  "raw|moving": {
+   "n_cells": 63145,
+   "follow": {
+    "k": 0.176,
+    "R2": 0.058
+   },
+   "same_cell": {
+    "k": 0.166,
+    "R2": 0.048
+   }
+  },
+  "raw|moving_hi": {
+   "n_cells": 42800,
+   "follow": {
+    "k": 0.11,
+    "R2": 0.026
+   },
+   "same_cell": {
+    "k": 0.114,
+    "R2": 0.027
+   }
+  },
+  "cam_removed|moving": {
+   "n_cells": 24939,
+   "follow": {
+    "k": 0.357,
+    "R2": 0.117
+   },
+   "same_cell": {
+    "k": 0.25,
+    "R2": 0.049
+   }
+  },
+  "cam_removed|moving_hi": {
+   "n_cells": 8324,
+   "follow": {
+    "k": 0.42,
+    "R2": 0.128
+   },
+   "same_cell": {
+    "k": 0.268,
+    "R2": 0.052
+   }
+  },
+  "raw|moving_lo": {
+   "n_cells": 20345,
+   "follow": {
+    "k": 0.386,
+    "R2": 0.203
+   },
+   "same_cell": {
+    "k": 0.348,
+    "R2": 0.142
+   }
+  },
+  "cam_removed|moving_lo": {
+   "n_cells": 16615,
+   "follow": {
+    "k": 0.322,
+    "R2": 0.111
+   },
+   "same_cell": {
+    "k": 0.238,
+    "R2": 0.048
+   }
+  }
+ },
+ "phys3d": {
+  "raw|still": {
+   "n_cells": 3468,
+   "follow": {
+    "k": 0.946,
+    "R2": 0.615
+   },
+   "same_cell": {
+    "k": 0.494,
+    "R2": 0.062
+   }
+  },
+  "cam_removed|still": {
+   "n_cells": 3462,
+   "follow": {
+    "k": 0.945,
+    "R2": 0.614
+   },
+   "same_cell": {
+    "k": 0.481,
+    "R2": 0.059
+   }
+  }
+ }
+}

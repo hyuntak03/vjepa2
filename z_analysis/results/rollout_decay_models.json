@@ -1,0 +1,327 @@
+{
+ "n_train_samples": 3026,
+ "n_val_samples": 885,
+ "models": {
+  "natural": null,
+  "mix": "natural_ar_vw_state_phys3d_event",
+  "synthetic": "natural_ar_vw_state_phys3d_only"
+ },
+ "natural": {
+  "rollout": {
+   "1": {
+    "position_increment_gain": 0.676,
+    "n_p": 89,
+    "velocity_gain": 0.098,
+    "n_v": 87
+   },
+   "2": {
+    "position_increment_gain": 0.229,
+    "n_p": 69,
+    "velocity_gain": 0.045,
+    "n_v": 74
+   },
+   "3": {
+    "position_increment_gain": 0.258,
+    "n_p": 62,
+    "velocity_gain": 0.02,
+    "n_v": 60
+   },
+   "4": {
+    "position_increment_gain": 0.034,
+    "n_p": 53,
+    "velocity_gain": 0.006,
+    "n_v": 56
+   },
+   "5": {
+    "position_increment_gain": -0.03,
+    "n_p": 49,
+    "velocity_gain": 0.0,
+    "n_v": 59
+   },
+   "6": {
+    "position_increment_gain": -0.037,
+    "n_p": 48,
+    "velocity_gain": 0.005,
+    "n_v": 59
+   },
+   "7": {
+    "position_increment_gain": -0.015,
+    "n_p": 48,
+    "velocity_gain": -0.003,
+    "n_v": 57
+   },
+   "8": {
+    "position_increment_gain": 0.024,
+    "n_p": 51,
+    "velocity_gain": 0.002,
+    "n_v": 63
+   },
+   "p12": 0.339,
+   "p23": 1.127
+  },
+  "teacher_forcing": {
+   "1": {
+    "position_increment_gain": 0.676,
+    "n_p": 89,
+    "velocity_gain": 0.098,
+    "n_v": 87
+   },
+   "2": {
+    "position_increment_gain": 0.656,
+    "n_p": 69,
+    "velocity_gain": 0.102,
+    "n_v": 74
+   },
+   "3": {
+    "position_increment_gain": 0.767,
+    "n_p": 62,
+    "velocity_gain": 0.096,
+    "n_v": 60
+   },
+   "4": {
+    "position_increment_gain": 0.262,
+    "n_p": 53,
+    "velocity_gain": 0.076,
+    "n_v": 56
+   },
+   "5": {
+    "position_increment_gain": 0.284,
+    "n_p": 49,
+    "velocity_gain": 0.06,
+    "n_v": 59
+   },
+   "6": {
+    "position_increment_gain": 0.537,
+    "n_p": 48,
+    "velocity_gain": 0.059,
+    "n_v": 59
+   },
+   "7": {
+    "position_increment_gain": 0.909,
+    "n_p": 48,
+    "velocity_gain": 0.051,
+    "n_v": 57
+   },
+   "8": {
+    "position_increment_gain": 0.631,
+    "n_p": 51,
+    "velocity_gain": 0.072,
+    "n_v": 63
+   },
+   "p12": 0.97,
+   "p23": 1.169
+  }
+ },
+ "mix": {
+  "rollout": {
+   "1": {
+    "position_increment_gain": 0.596,
+    "n_p": 89,
+    "velocity_gain": 0.317,
+    "n_v": 87
+   },
+   "2": {
+    "position_increment_gain": 0.584,
+    "n_p": 69,
+    "velocity_gain": 0.227,
+    "n_v": 74
+   },
+   "3": {
+    "position_increment_gain": 0.355,
+    "n_p": 62,
+    "velocity_gain": 0.217,
+    "n_v": 60
+   },
+   "4": {
+    "position_increment_gain": 0.162,
+    "n_p": 53,
+    "velocity_gain": 0.082,
+    "n_v": 56
+   },
+   "5": {
+    "position_increment_gain": 0.153,
+    "n_p": 49,
+    "velocity_gain": 0.101,
+    "n_v": 59
+   },
+   "6": {
+    "position_increment_gain": 0.116,
+    "n_p": 48,
+    "velocity_gain": 0.121,
+    "n_v": 59
+   },
+   "7": {
+    "position_increment_gain": 0.102,
+    "n_p": 48,
+    "velocity_gain": 0.053,
+    "n_v": 57
+   },
+   "8": {
+    "position_increment_gain": 0.071,
+    "n_p": 51,
+    "velocity_gain": 0.04,
+    "n_v": 63
+   },
+   "p12": 0.98,
+   "p23": 0.608
+  },
+  "teacher_forcing": {
+   "1": {
+    "position_increment_gain": 0.596,
+    "n_p": 89,
+    "velocity_gain": 0.317,
+    "n_v": 87
+   },
+   "2": {
+    "position_increment_gain": 0.61,
+    "n_p": 69,
+    "velocity_gain": 0.287,
+    "n_v": 74
+   },
+   "3": {
+    "position_increment_gain": 0.768,
+    "n_p": 62,
+    "velocity_gain": 0.275,
+    "n_v": 60
+   },
+   "4": {
+    "position_increment_gain": 0.52,
+    "n_p": 53,
+    "velocity_gain": 0.201,
+    "n_v": 56
+   },
+   "5": {
+    "position_increment_gain": 0.643,
+    "n_p": 49,
+    "velocity_gain": 0.328,
+    "n_v": 59
+   },
+   "6": {
+    "position_increment_gain": 0.712,
+    "n_p": 48,
+    "velocity_gain": 0.215,
+    "n_v": 59
+   },
+   "7": {
+    "position_increment_gain": 0.708,
+    "n_p": 48,
+    "velocity_gain": 0.216,
+    "n_v": 57
+   },
+   "8": {
+    "position_increment_gain": 0.447,
+    "n_p": 51,
+    "velocity_gain": 0.195,
+    "n_v": 63
+   },
+   "p12": 1.023,
+   "p23": 1.259
+  }
+ },
+ "synthetic": {
+  "rollout": {
+   "1": {
+    "position_increment_gain": 0.859,
+    "n_p": 89,
+    "velocity_gain": 0.889,
+    "n_v": 87
+   },
+   "2": {
+    "position_increment_gain": 0.993,
+    "n_p": 69,
+    "velocity_gain": 0.937,
+    "n_v": 74
+   },
+   "3": {
+    "position_increment_gain": 0.88,
+    "n_p": 62,
+    "velocity_gain": 0.704,
+    "n_v": 60
+   },
+   "4": {
+    "position_increment_gain": 0.641,
+    "n_p": 53,
+    "velocity_gain": 0.757,
+    "n_v": 56
+   },
+   "5": {
+    "position_increment_gain": 0.872,
+    "n_p": 49,
+    "velocity_gain": 0.788,
+    "n_v": 59
+   },
+   "6": {
+    "position_increment_gain": 1.055,
+    "n_p": 48,
+    "velocity_gain": 0.756,
+    "n_v": 59
+   },
+   "7": {
+    "position_increment_gain": 0.729,
+    "n_p": 48,
+    "velocity_gain": 0.547,
+    "n_v": 57
+   },
+   "8": {
+    "position_increment_gain": 0.557,
+    "n_p": 51,
+    "velocity_gain": 0.753,
+    "n_v": 63
+   },
+   "p12": 1.156,
+   "p23": 0.886
+  },
+  "teacher_forcing": {
+   "1": {
+    "position_increment_gain": 0.859,
+    "n_p": 89,
+    "velocity_gain": 0.889,
+    "n_v": 87
+   },
+   "2": {
+    "position_increment_gain": 0.888,
+    "n_p": 69,
+    "velocity_gain": 0.964,
+    "n_v": 74
+   },
+   "3": {
+    "position_increment_gain": 0.983,
+    "n_p": 62,
+    "velocity_gain": 0.761,
+    "n_v": 60
+   },
+   "4": {
+    "position_increment_gain": 0.695,
+    "n_p": 53,
+    "velocity_gain": 0.883,
+    "n_v": 56
+   },
+   "5": {
+    "position_increment_gain": 0.753,
+    "n_p": 49,
+    "velocity_gain": 0.887,
+    "n_v": 59
+   },
+   "6": {
+    "position_increment_gain": 1.052,
+    "n_p": 48,
+    "velocity_gain": 0.855,
+    "n_v": 59
+   },
+   "7": {
+    "position_increment_gain": 0.966,
+    "n_p": 48,
+    "velocity_gain": 0.709,
+    "n_v": 57
+   },
+   "8": {
+    "position_increment_gain": 0.695,
+    "n_p": 51,
+    "velocity_gain": 0.876,
+    "n_v": 63
+   },
+   "p12": 1.034,
+   "p23": 1.107
+  }
+ }
+}

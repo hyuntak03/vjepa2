@@ -1,0 +1,30 @@
+# =============================================================================
+# AR 기본판 (natural_ar_vw_state, ep70) post-FT — BlenderTrack v4_velocity_control 평면 + 빗면 11,250 편 (2026-11-02, 사용자 지시 "ar 기본판에다가 pft · 2000 step")
+#
+#   GPUS=8 bash z_training/tmux_train.sh v4vc_ar_vw_state_postft
+#
+# 무엇을 바꿨나: vobench_ar_vw_state_postft_g (시트 "AR └ VOBench Post Training") 의 데이터만 v4 로 바꾸고 길이를 2,000 step 으로.
+# 왜: 시트 Object_permanence 의 빈 행 "AR scratch mix real └ V4 Post Training". 비교 대상은
+#     (1) "V-JEPA 2 └ V4 Post Training" (main v4vc_all_s0: 같은 목록 · 같은 창 · lr 5e-5 warmup + cosine · 전역 24 × 4,000 step = 9.6 만 clip)
+#     (2) "AR └ VOBench Post Training" (같은 출발점 · 같은 과제 · 같은 lr · 전역 48)
+# 길이: 전역 48 (GPU 8 × 6) × 2,000 step = 9.6 만 clip (영상당 약 8.5 번) — (1) 과 본 clip 수가 같고 (2) 와 batch 가 같다.
+# 창: 2 장 간격 32 장, 시작 0 또는 1 (main 수집기와 같다), 문맥 8 블록 → 미래 8 블록 rollout. 좌우 반전 0.5 (main 과 같다).
+# =============================================================================
+extends: vobench_ar_vw_state_postft_g
+
+meta:
+  seed: 0
+  save_every_freq: 5            # e5 · e10 · e15 · e20
+
+data:
+  batch_size: 6                 # rank 당 × 8 GPU = 48 (11-02 사용자: 8 장 다 쓴다)
+  num_workers: 6
+  datasets:
+    - {name: blender_track_v4vc_all, weight: 1.0}
+
+optimization:
+  epochs: 20
+  ipe: 100                      # 20 × 100 = 2,000 step (데이터 양과 상관없이 고정)
+
+val:
+  every_epochs: 2               # VOBench late 432 쌍 (학습 전 + 200 step 마다, 한 번 약 80 초)

@@ -1,0 +1,74 @@
+{
+ "natural|enter|blk": {
+  "R2_new": 0.0729,
+  "R2_new_scalar2": 0.0374,
+  "alpha": 10.0,
+  "n_train": 15110,
+  "n_test": 16190
+ },
+ "natural|enter|onl": {
+  "R2_new": 0.0125,
+  "R2_new_scalar2": 0.0077,
+  "alpha": 100.0,
+  "n_train": 15110,
+  "n_test": 16190
+ },
+ "natural|enter|incremental_onl_over_blk": {
+  "dR2_of_ynew": 0.0006,
+  "alpha": 100.0
+ },
+ "natural|static|blk": {
+  "R2_new": 0.0898,
+  "R2_new_scalar2": 0.0844,
+  "alpha": 100.0,
+  "n_train": 11956,
+  "n_test": 14395
+ },
+ "natural|static|onl": {
+  "R2_new": 0.005,
+  "R2_new_scalar2": 0.0042,
+  "alpha": 1000.0,
+  "n_train": 11956,
+  "n_test": 14395
+ },
+ "natural|static|incremental_onl_over_blk": {
+  "dR2_of_ynew": 0.0006,
+  "alpha": 100.0
+ },
+ "phys3d|enter|blk": {
+  "R2_new": 0.3825,
+  "R2_new_scalar2": 0.0819,
+  "alpha": 10.0,
+  "n_train": 561,
+  "n_test": 584
+ },
+ "phys3d|enter|onl": {
+  "R2_new": 0.2965,
+  "R2_new_scalar2": 0.0227,
+  "alpha": 10.0,
+  "n_train": 561,
+  "n_test": 584
+ },
+ "phys3d|enter|incremental_onl_over_blk": {
+  "dR2_of_ynew": 0.0065,
+  "alpha": 100.0
+ },
+ "phys3d|static|blk": {
+  "R2_new": 0.0859,
+  "R2_new_scalar2": 0.0648,
+  "alpha": 1.0,
+  "n_train": 39928,
+  "n_test": 39928
+ },
+ "phys3d|static|onl": {
+  "R2_new": 0.0053,
+  "R2_new_scalar2": 0.0007,
+  "alpha": 10.0,
+  "n_train": 39928,
+  "n_test": 39928
+ },
+ "phys3d|static|incremental_onl_over_blk": {
+  "dR2_of_ynew": 0.0003,
+  "alpha": 100.0
+ }
+}

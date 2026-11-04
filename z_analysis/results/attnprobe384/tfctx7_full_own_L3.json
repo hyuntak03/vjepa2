@@ -1,0 +1,11 @@
+{
+ "layer": 3,
+ "label_block": 7,
+ "val_all": {
+  "shape_x_color": 88.1,
+  "velocity_r2": 0.802,
+  "position_r2": 0.914,
+  "n": 159,
+  "best_epoch": 16
+ }
+}

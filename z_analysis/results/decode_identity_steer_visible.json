@@ -1,0 +1,102 @@
+{
+ "cone/yellow \u2014 flat_static": {
+  "crop_L1_vs_gt_by_step": {
+   "ground truth (latent decoded)": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "AR prediction": [
+    0.0083,
+    0.0127,
+    0.0214
+   ],
+   "AR prediction + 4\u00d7concept at object cells": [
+    0.0113,
+    0.0132,
+    0.0218
+   ]
+  },
+  "steps": [
+   1,
+   4,
+   8
+  ],
+  "file": "primitive/shape/visible/v11_flat_static_cone_yellow_to_cylinder_yellow/pos_a"
+ },
+ "cone/cyan \u2014 flat_static": {
+  "crop_L1_vs_gt_by_step": {
+   "ground truth (latent decoded)": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "AR prediction": [
+    0.0093,
+    0.0138,
+    0.0218
+   ],
+   "AR prediction + 4\u00d7concept at object cells": [
+    0.0102,
+    0.0141,
+    0.0229
+   ]
+  },
+  "steps": [
+   1,
+   4,
+   8
+  ],
+  "file": "primitive/color/visible/v11_flat_static_cone_cyan_to_red/pos_a"
+ },
+ "torus/orange \u2014 flat_vel": {
+  "crop_L1_vs_gt_by_step": {
+   "ground truth (latent decoded)": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "AR prediction": [
+    0.0123,
+    0.0277,
+    0.0252
+   ],
+   "AR prediction + 4\u00d7concept at object cells": [
+    0.0159,
+    0.0283,
+    0.0252
+   ]
+  },
+  "steps": [
+   1,
+   4,
+   8
+  ],
+  "file": "primitive/shape/visible/v11_flat_vel_torus_orange_to_cone_orange/pos_a"
+ },
+ "cylinder/red \u2014 ramp_down": {
+  "crop_L1_vs_gt_by_step": {
+   "ground truth (latent decoded)": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "AR prediction": [
+    0.0071,
+    0.0165,
+    0.0132
+   ],
+   "AR prediction + 4\u00d7concept at object cells": [
+    0.015,
+    0.015,
+    0.0134
+   ]
+  },
+  "steps": [
+   1,
+   4,
+   8
+  ],
+  "file": "primitive/shape/visible/v11_ramp_down_cylinder_red_to_cube_red/pos_a"
+ }
+}

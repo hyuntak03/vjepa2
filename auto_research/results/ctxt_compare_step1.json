@@ -1,0 +1,68 @@
+{
+ "k710_holdout": {
+  "base": {
+   "enter": {
+    "dev": 0.518,
+    "presence": 0.22
+   },
+   "static": {
+    "dev": 0.608,
+    "presence": 0.187
+   }
+  },
+  "ctxt": {
+   "enter": {
+    "dev": 0.537,
+    "presence": 0.232
+   },
+   "static": {
+    "dev": 0.719,
+    "presence": 0.221
+   }
+  }
+ },
+ "ht100m": {
+  "base": {
+   "enter": {
+    "dev": 0.526,
+    "presence": 0.236
+   },
+   "static": {
+    "dev": 0.683,
+    "presence": 0.206
+   }
+  },
+  "ctxt": {
+   "enter": {
+    "dev": 0.55,
+    "presence": 0.255
+   },
+   "static": {
+    "dev": 0.85,
+    "presence": 0.244
+   }
+  }
+ },
+ "phys3d": {
+  "base": {
+   "enter": {
+    "dev": 0.527,
+    "presence": 0.245
+   },
+   "static": {
+    "dev": 0.699,
+    "presence": 0.185
+   }
+  },
+  "ctxt": {
+   "enter": {
+    "dev": 0.585,
+    "presence": 0.294
+   },
+   "static": {
+    "dev": 0.895,
+    "presence": 0.2
+   }
+  }
+ }
+}

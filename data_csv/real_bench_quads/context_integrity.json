@@ -1,0 +1,206 @@
+{
+ "n_pairs": 40,
+ "mismatch": 0,
+ "pairs": [
+  {
+   "video": "10_confuse/confuse1",
+   "pair": "possible_present|impossible_vanish",
+   "context_identical": true
+  },
+  {
+   "video": "10_confuse/confuse1",
+   "pair": "possible_absent|impossible_appear",
+   "context_identical": true
+  },
+  {
+   "video": "2_teaduck/teaduck1",
+   "pair": "possible_present|impossible_vanish",
+   "context_identical": true
+  },
+  {
+   "video": "2_teaduck/teaduck1",
+   "pair": "possible_absent|impossible_appear",
+   "context_identical": true
+  },
+  {
+   "video": "2_teaduck/teaduck2",
+   "pair": "possible_present|impossible_vanish",
+   "context_identical": true
+  },
+  {
+   "video": "2_teaduck/teaduck2",
+   "pair": "possible_absent|impossible_appear",
+   "context_identical": true
+  },
+  {
+   "video": "2_teaduck/teaduck3_reveal",
+   "pair": "possible_present|impossible_vanish",
+   "context_identical": true
+  },
+  {
+   "video": "2_teaduck/teaduck3_reveal",
+   "pair": "possible_absent|impossible_appear",
+   "context_identical": true
+  },
+  {
+   "video": "2_teaduck/teaduck4_reveal",
+   "pair": "possible_present|impossible_vanish",
+   "context_identical": true
+  },
+  {
+   "video": "2_teaduck/teaduck4_reveal",
+   "pair": "possible_absent|impossible_appear",
+   "context_identical": true
+  },
+  {
+   "video": "3_mugduck/mugduck2_reveal",
+   "pair": "possible_present|impossible_vanish",
+   "context_identical": true
+  },
+  {
+   "video": "3_mugduck/mugduck2_reveal",
+   "pair": "possible_absent|impossible_appear",
+   "context_identical": true
+  },
+  {
+   "video": "3_mugduck/mugduck3_reveal",
+   "pair": "possible_present|impossible_vanish",
+   "context_identical": true
+  },
+  {
+   "video": "3_mugduck/mugduck3_reveal",
+   "pair": "possible_absent|impossible_appear",
+   "context_identical": true
+  },
+  {
+   "video": "4_home/chips1_oof",
+   "pair": "possible_present|impossible_vanish",
+   "context_identical": true
+  },
+  {
+   "video": "4_home/chips1_oof",
+   "pair": "possible_absent|impossible_appear",
+   "context_identical": true
+  },
+  {
+   "video": "4_home/pumpcookie1_reveal",
+   "pair": "possible_present|impossible_vanish",
+   "context_identical": true
+  },
+  {
+   "video": "4_home/pumpcookie1_reveal",
+   "pair": "possible_absent|impossible_appear",
+   "context_identical": true
+  },
+  {
+   "video": "5_bagmugduck/bagduck1_move",
+   "pair": "possible_present|impossible_vanish",
+   "context_identical": true
+  },
+  {
+   "video": "5_bagmugduck/bagduck1_move",
+   "pair": "possible_absent|impossible_appear",
+   "context_identical": true
+  },
+  {
+   "video": "5_bagmugduck/mugduck5_stay",
+   "pair": "possible_present|impossible_vanish",
+   "context_identical": true
+  },
+  {
+   "video": "5_bagmugduck/mugduck5_stay",
+   "pair": "possible_absent|impossible_appear",
+   "context_identical": true
+  },
+  {
+   "video": "5_bagmugduck/mugduck6_shuffle",
+   "pair": "possible_present|impossible_vanish",
+   "context_identical": true
+  },
+  {
+   "video": "5_bagmugduck/mugduck6_shuffle",
+   "pair": "possible_absent|impossible_appear",
+   "context_identical": true
+  },
+  {
+   "video": "5_bagmugduck/mugduck7_shuffle",
+   "pair": "possible_present|impossible_vanish",
+   "context_identical": true
+  },
+  {
+   "video": "5_bagmugduck/mugduck7_shuffle",
+   "pair": "possible_absent|impossible_appear",
+   "context_identical": true
+  },
+  {
+   "video": "6_handball/handball1_wave",
+   "pair": "possible_present|impossible_vanish",
+   "context_identical": true
+  },
+  {
+   "video": "6_handball/handball1_wave",
+   "pair": "possible_absent|impossible_appear",
+   "context_identical": true
+  },
+  {
+   "video": "6_handball/handball2_boxoccl",
+   "pair": "possible_present|impossible_vanish",
+   "context_identical": true
+  },
+  {
+   "video": "6_handball/handball2_boxoccl",
+   "pair": "possible_absent|impossible_appear",
+   "context_identical": true
+  },
+  {
+   "video": "6_handball/handball3_occlpick",
+   "pair": "possible_present|impossible_vanish",
+   "context_identical": true
+  },
+  {
+   "video": "6_handball/handball3_occlpick",
+   "pair": "possible_absent|impossible_appear",
+   "context_identical": true
+  },
+  {
+   "video": "7_ballbounce/lightball4_occl1x",
+   "pair": "possible_present|impossible_vanish",
+   "context_identical": true
+  },
+  {
+   "video": "7_ballbounce/lightball4_occl1x",
+   "pair": "possible_absent|impossible_appear",
+   "context_identical": true
+  },
+  {
+   "video": "7_ballbounce/lightball5_occl2x",
+   "pair": "possible_present|impossible_vanish",
+   "context_identical": true
+  },
+  {
+   "video": "7_ballbounce/lightball5_occl2x",
+   "pair": "possible_absent|impossible_appear",
+   "context_identical": true
+  },
+  {
+   "video": "7_ballbounce/lightball6_occl4x",
+   "pair": "possible_present|impossible_vanish",
+   "context_identical": true
+  },
+  {
+   "video": "7_ballbounce/lightball6_occl4x",
+   "pair": "possible_absent|impossible_appear",
+   "context_identical": true
+  },
+  {
+   "video": "8_plantcupball/plantcupball2",
+   "pair": "possible_present|impossible_vanish",
+   "context_identical": true
+  },
+  {
+   "video": "8_plantcupball/plantcupball2",
+   "pair": "possible_absent|impossible_appear",
+   "context_identical": true
+  }
+ ]
+}

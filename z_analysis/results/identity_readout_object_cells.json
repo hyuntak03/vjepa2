@@ -1,0 +1,24 @@
+{
+ "n_train": 18757,
+ "n_val": 2667,
+ "label_check": "8,350 편 모양 · 색 번호 = 클립 json 주 물체 (불일치 0)",
+ "obj": {
+  "shape": 86.2,
+  "color": 96.3,
+  "joint48": 75.5
+ },
+ "full": {
+  "shape": 72.7,
+  "color": 80.6,
+  "joint48": 43.1
+ },
+ "bg": {
+  "shape": 72.9,
+  "color": 78.3,
+  "joint48": 41.5
+ },
+ "val_majority": {
+  "shape": 26.1,
+  "color": 16.1
+ }
+}

@@ -1,0 +1,9437 @@
+{
+ "vob": {
+  "moving|A": {
+   "acc": 67.5,
+   "ci": [
+    63.9,
+    71.4
+   ],
+   "n": 360
+  },
+  "moving|color|A": 62.5,
+  "moving|permanence|A": 70.0,
+  "moving|shape|A": 70.0,
+  "moving|P": {
+   "acc": 58.9,
+   "ci": [
+    55.0,
+    62.5
+   ],
+   "n": 360
+  },
+  "moving|color|P": 56.7,
+  "moving|permanence|P": 58.3,
+  "moving|shape|P": 61.7,
+  "moving|rand": {
+   "acc": 54.7,
+   "ci": [
+    51.7,
+    57.8
+   ],
+   "n": 360
+  },
+  "moving|color|rand": 47.5,
+  "moving|permanence|rand": 62.5,
+  "moving|shape|rand": 54.2,
+  "static|A": {
+   "acc": 65.3,
+   "ci": [
+    55.6,
+    75.0
+   ],
+   "n": 72
+  },
+  "static|color|A": 62.5,
+  "static|permanence|A": 66.7,
+  "static|shape|A": 66.7,
+  "static|P": {
+   "acc": 61.1,
+   "ci": [
+    52.8,
+    69.4
+   ],
+   "n": 72
+  },
+  "static|color|P": 50.0,
+  "static|permanence|P": 58.3,
+  "static|shape|P": 75.0,
+  "static|rand": {
+   "acc": 61.1,
+   "ci": [
+    55.6,
+    68.1
+   ],
+   "n": 72
+  },
+  "static|color|rand": 58.3,
+  "static|permanence|rand": 62.5,
+  "static|shape|rand": 62.5
+ },
+ "ip2": {
+  "all|all": {
+   "n": 253,
+   "acc": 49.40711462450593,
+   "acc_ci": [
+    45.652173913043484,
+    52.96442687747036
+   ],
+   "pair1": 52.17391304347826,
+   "pair2": 46.6403162055336,
+   "one": 0.6640316205533597,
+   "outcome_share": 0.8328165954681758,
+   "mean_i": -0.0026200995614877333,
+   "mean_i_ci": [
+    -0.0054553900311586885,
+    0.00011336544285649839
+   ]
+  },
+  "all|Fixed": {
+   "n": 104,
+   "acc": 48.55769230769231,
+   "acc_ci": [
+    42.30769230769231,
+    54.807692307692314
+   ],
+   "pair1": 50.96153846153846,
+   "pair2": 46.15384615384615,
+   "one": 0.6057692307692307,
+   "outcome_share": 0.8040929621217876,
+   "mean_i": -0.00047031532113368693,
+   "mean_i_ci": [
+    -0.0050062921184759876,
+    0.003948873338791041
+   ]
+  },
+  "all|Moving": {
+   "n": 149,
+   "acc": 50.0,
+   "acc_ci": [
+    45.63758389261745,
+    54.36241610738255
+   ],
+   "pair1": 53.02013422818792,
+   "pair2": 46.97986577181208,
+   "one": 0.7046979865771812,
+   "outcome_share": 0.8518628296796791,
+   "mean_i": -0.004120620105090557,
+   "mean_i_ci": [
+    -0.007512949657120161,
+    -0.0009051219328937915
+   ]
+  },
+  "permanence|all": {
+   "n": 60,
+   "acc": 47.5,
+   "acc_ci": [
+    40.0,
+    55.00000000000001
+   ],
+   "pair1": 53.333333333333336,
+   "pair2": 41.66666666666667,
+   "one": 0.65,
+   "outcome_share": 0.7410345227157855,
+   "mean_i": -0.00023675511280695598,
+   "mean_i_ci": [
+    -0.005611151456832886,
+    0.00471274753411611
+   ]
+  },
+  "permanence|Fixed": {
+   "n": 26,
+   "acc": 44.230769230769226,
+   "acc_ci": [
+    36.53846153846154,
+    51.92307692307693
+   ],
+   "pair1": 42.30769230769231,
+   "pair2": 46.15384615384615,
+   "one": 0.8076923076923077,
+   "outcome_share": 0.7724303403148491,
+   "mean_i": -0.003859083239848797,
+   "mean_i_ci": [
+    -0.013710480469923753,
+    0.004510496671383197
+   ]
+  },
+  "permanence|Moving": {
+   "n": 34,
+   "acc": 50.0,
+   "acc_ci": [
+    38.23529411764706,
+    61.76470588235294
+   ],
+   "pair1": 61.76470588235294,
+   "pair2": 38.23529411764706,
+   "one": 0.5294117647058824,
+   "outcome_share": 0.6721754840404347,
+   "mean_i": 0.002533260513754452,
+   "mean_i_ci": [
+    -0.0028558636412901036,
+    0.008771906004232518
+   ]
+  },
+  "immutability|all": {
+   "n": 60,
+   "acc": 46.666666666666664,
+   "acc_ci": [
+    39.166666666666664,
+    54.16666666666667
+   ],
+   "pair1": 45.0,
+   "pair2": 48.333333333333336,
+   "one": 0.6333333333333333,
+   "outcome_share": 0.6618986695361601,
+   "mean_i": -0.003474399944146474,
+   "mean_i_ci": [
+    -0.008949340383211771,
+    0.001339531441529592
+   ]
+  },
+  "immutability|Fixed": {
+   "n": 26,
+   "acc": 42.30769230769231,
+   "acc_ci": [
+    30.76923076923077,
+    55.769230769230774
+   ],
+   "pair1": 42.30769230769231,
+   "pair2": 42.30769230769231,
+   "one": 0.5384615384615384,
+   "outcome_share": 0.6383511326702421,
+   "mean_i": -0.0009144808237369244,
+   "mean_i_ci": [
+    -0.008569725430928744,
+    0.006994715103736291
+   ]
+  },
+  "immutability|Moving": {
+   "n": 34,
+   "acc": 50.0,
+   "acc_ci": [
+    41.17647058823529,
+    58.82352941176471
+   ],
+   "pair1": 47.05882352941176,
+   "pair2": 52.94117647058824,
+   "one": 0.7058823529411765,
+   "outcome_share": 0.6801674268654319,
+   "mean_i": -0.005431985153871424,
+   "mean_i_ci": [
+    -0.012241837732932147,
+    0.0009615605368333705
+   ]
+  },
+  "continuity|all": {
+   "n": 60,
+   "acc": 52.5,
+   "acc_ci": [
+    44.99999999999999,
+    60.00000000000001
+   ],
+   "pair1": 58.333333333333336,
+   "pair2": 46.666666666666664,
+   "one": 0.6166666666666667,
+   "outcome_share": 0.6091243693633229,
+   "mean_i": -0.003112879395484924,
+   "mean_i_ci": [
+    -0.007523273924986521,
+    0.001331062118212382
+   ]
+  },
+  "continuity|Fixed": {
+   "n": 26,
+   "acc": 53.84615384615385,
+   "acc_ci": [
+    40.38461538461539,
+    69.23076923076923
+   ],
+   "pair1": 65.38461538461539,
+   "pair2": 42.30769230769231,
+   "one": 0.46153846153846156,
+   "outcome_share": 0.47297880728982633,
+   "mean_i": -0.0046013547823979305,
+   "mean_i_ci": [
+    -0.011977703525469853,
+    0.003426743241456839
+   ]
+  },
+  "continuity|Moving": {
+   "n": 34,
+   "acc": 51.470588235294116,
+   "acc_ci": [
+    42.64705882352941,
+    60.29411764705883
+   ],
+   "pair1": 52.94117647058824,
+   "pair2": 50.0,
+   "one": 0.7352941176470589,
+   "outcome_share": 0.7184501764357281,
+   "mean_i": -0.0019746335113749783,
+   "mean_i_ci": [
+    -0.007244243341333726,
+    0.0027199913473690256
+   ]
+  },
+  "solidity|all": {
+   "n": 73,
+   "acc": 50.68493150684932,
+   "acc_ci": [
+    45.20547945205479,
+    56.16438356164384
+   ],
+   "pair1": 52.054794520547944,
+   "pair2": 49.31506849315068,
+   "one": 0.7397260273972602,
+   "outcome_share": 0.8948266431719855,
+   "mean_i": -0.0034718235878095235,
+   "mean_i_ci": [
+    -0.009873917658035069,
+    0.002720842214479838
+   ]
+  },
+  "solidity|Fixed": {
+   "n": 26,
+   "acc": 53.84615384615385,
+   "acc_ci": [
+    42.30769230769231,
+    65.38461538461539
+   ],
+   "pair1": 53.84615384615385,
+   "pair2": 53.84615384615385,
+   "one": 0.6153846153846154,
+   "outcome_share": 0.8872231122968788,
+   "mean_i": 0.007493657561448904,
+   "mean_i_ci": [
+    -0.0025188796795331514,
+    0.017054338867847737
+   ]
+  },
+  "solidity|Moving": {
+   "n": 47,
+   "acc": 48.93617021276596,
+   "acc_ci": [
+    42.5531914893617,
+    55.3191489361702
+   ],
+   "pair1": 51.06382978723404,
+   "pair2": 46.808510638297875,
+   "one": 0.8085106382978723,
+   "outcome_share": 0.8986621156681963,
+   "mean_i": -0.009537834436335463,
+   "mean_i_ci": [
+    -0.016612550045581573,
+    -0.0024334401526349657
+   ]
+  }
+ },
+ "ip2_rows": [
+  {
+   "scene": "0",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.6688999533653259,
+   "n_blocks": 22
+  },
+  {
+   "scene": "0",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.7287230491638184,
+   "n_blocks": 21
+  },
+  {
+   "scene": "0",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.6896604299545288,
+   "n_blocks": 21
+  },
+  {
+   "scene": "0",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.655828595161438,
+   "n_blocks": 22
+  },
+  {
+   "scene": "1",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.8307342529296875,
+   "n_blocks": 6
+  },
+  {
+   "scene": "1",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.784028947353363,
+   "n_blocks": 13
+  },
+  {
+   "scene": "1",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.8305953145027161,
+   "n_blocks": 6
+  },
+  {
+   "scene": "1",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.7798596620559692,
+   "n_blocks": 4
+  },
+  {
+   "scene": "2",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7197927236557007,
+   "n_blocks": 23
+  },
+  {
+   "scene": "2",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7409470677375793,
+   "n_blocks": 24
+  },
+  {
+   "scene": "2",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7228806614875793,
+   "n_blocks": 23
+  },
+  {
+   "scene": "2",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7549372315406799,
+   "n_blocks": 21
+  },
+  {
+   "scene": "3",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.7507518529891968,
+   "n_blocks": 17
+  },
+  {
+   "scene": "3",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.8202496767044067,
+   "n_blocks": 18
+  },
+  {
+   "scene": "3",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.7834307551383972,
+   "n_blocks": 14
+  },
+  {
+   "scene": "3",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.7565106749534607,
+   "n_blocks": 18
+  },
+  {
+   "scene": "4",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.6776653528213501,
+   "n_blocks": 27
+  },
+  {
+   "scene": "4",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7437913417816162,
+   "n_blocks": 27
+  },
+  {
+   "scene": "4",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.6208139061927795,
+   "n_blocks": 25
+  },
+  {
+   "scene": "4",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7369621992111206,
+   "n_blocks": 27
+  },
+  {
+   "scene": "5",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7862192392349243,
+   "n_blocks": 10
+  },
+  {
+   "scene": "5",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.5265321135520935,
+   "n_blocks": 25
+  },
+  {
+   "scene": "5",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7980756759643555,
+   "n_blocks": 12
+  },
+  {
+   "scene": "5",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.5405486822128296,
+   "n_blocks": 25
+  },
+  {
+   "scene": "6",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7256892323493958,
+   "n_blocks": 27
+  },
+  {
+   "scene": "6",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7589545249938965,
+   "n_blocks": 24
+  },
+  {
+   "scene": "6",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.6890334486961365,
+   "n_blocks": 27
+  },
+  {
+   "scene": "6",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.727253258228302,
+   "n_blocks": 26
+  },
+  {
+   "scene": "7",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7796268463134766,
+   "n_blocks": 25
+  },
+  {
+   "scene": "7",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7384611368179321,
+   "n_blocks": 25
+  },
+  {
+   "scene": "7",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7938156723976135,
+   "n_blocks": 27
+  },
+  {
+   "scene": "7",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7496662735939026,
+   "n_blocks": 27
+  },
+  {
+   "scene": "8",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7520026564598083,
+   "n_blocks": 26
+  },
+  {
+   "scene": "8",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7337621450424194,
+   "n_blocks": 23
+  },
+  {
+   "scene": "8",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.761962354183197,
+   "n_blocks": 22
+  },
+  {
+   "scene": "8",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7134659886360168,
+   "n_blocks": 24
+  },
+  {
+   "scene": "9",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.720366358757019,
+   "n_blocks": 22
+  },
+  {
+   "scene": "9",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7204463481903076,
+   "n_blocks": 22
+  },
+  {
+   "scene": "9",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.706186056137085,
+   "n_blocks": 22
+  },
+  {
+   "scene": "9",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7139797210693359,
+   "n_blocks": 22
+  },
+  {
+   "scene": "10",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7352615594863892,
+   "n_blocks": 25
+  },
+  {
+   "scene": "10",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7392501831054688,
+   "n_blocks": 26
+  },
+  {
+   "scene": "10",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7273316979408264,
+   "n_blocks": 27
+  },
+  {
+   "scene": "10",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7113912105560303,
+   "n_blocks": 26
+  },
+  {
+   "scene": "11",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7603782415390015,
+   "n_blocks": 27
+  },
+  {
+   "scene": "11",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7731768488883972,
+   "n_blocks": 27
+  },
+  {
+   "scene": "11",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7627489566802979,
+   "n_blocks": 27
+  },
+  {
+   "scene": "11",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.738724946975708,
+   "n_blocks": 27
+  },
+  {
+   "scene": "12",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7676399946212769,
+   "n_blocks": 27
+  },
+  {
+   "scene": "12",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7561038732528687,
+   "n_blocks": 27
+  },
+  {
+   "scene": "12",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7598361968994141,
+   "n_blocks": 27
+  },
+  {
+   "scene": "12",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7581201195716858,
+   "n_blocks": 27
+  },
+  {
+   "scene": "13",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.739634096622467,
+   "n_blocks": 27
+  },
+  {
+   "scene": "13",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7715049386024475,
+   "n_blocks": 27
+  },
+  {
+   "scene": "13",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7588154673576355,
+   "n_blocks": 27
+  },
+  {
+   "scene": "13",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7508666515350342,
+   "n_blocks": 27
+  },
+  {
+   "scene": "14",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.731885552406311,
+   "n_blocks": 20
+  },
+  {
+   "scene": "14",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7481312155723572,
+   "n_blocks": 19
+  },
+  {
+   "scene": "14",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7344510555267334,
+   "n_blocks": 19
+  },
+  {
+   "scene": "14",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7254993915557861,
+   "n_blocks": 26
+  },
+  {
+   "scene": "15",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7006146311759949,
+   "n_blocks": 18
+  },
+  {
+   "scene": "15",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7328936457633972,
+   "n_blocks": 18
+  },
+  {
+   "scene": "15",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7031645774841309,
+   "n_blocks": 18
+  },
+  {
+   "scene": "15",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.700244665145874,
+   "n_blocks": 21
+  },
+  {
+   "scene": "16",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7203283309936523,
+   "n_blocks": 20
+  },
+  {
+   "scene": "16",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7354076504707336,
+   "n_blocks": 22
+  },
+  {
+   "scene": "16",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7327313423156738,
+   "n_blocks": 20
+  },
+  {
+   "scene": "16",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7241183519363403,
+   "n_blocks": 21
+  },
+  {
+   "scene": "17",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.7323845028877258,
+   "n_blocks": 22
+  },
+  {
+   "scene": "17",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.6397213339805603,
+   "n_blocks": 27
+  },
+  {
+   "scene": "17",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.7475341558456421,
+   "n_blocks": 22
+  },
+  {
+   "scene": "17",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.6585963368415833,
+   "n_blocks": 27
+  },
+  {
+   "scene": "18",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.6919003129005432,
+   "n_blocks": 25
+  },
+  {
+   "scene": "18",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.6675305366516113,
+   "n_blocks": 25
+  },
+  {
+   "scene": "18",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7062762379646301,
+   "n_blocks": 24
+  },
+  {
+   "scene": "18",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.6709893345832825,
+   "n_blocks": 26
+  },
+  {
+   "scene": "19",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.6512738466262817,
+   "n_blocks": 23
+  },
+  {
+   "scene": "19",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.6939871907234192,
+   "n_blocks": 23
+  },
+  {
+   "scene": "19",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.6999784111976624,
+   "n_blocks": 22
+  },
+  {
+   "scene": "19",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.6980425715446472,
+   "n_blocks": 21
+  },
+  {
+   "scene": "20",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.7316117882728577,
+   "n_blocks": 24
+  },
+  {
+   "scene": "20",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.7197352051734924,
+   "n_blocks": 25
+  },
+  {
+   "scene": "20",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.7413216233253479,
+   "n_blocks": 25
+  },
+  {
+   "scene": "20",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.6956494450569153,
+   "n_blocks": 27
+  },
+  {
+   "scene": "21",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7341197729110718,
+   "n_blocks": 25
+  },
+  {
+   "scene": "21",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.714454174041748,
+   "n_blocks": 27
+  },
+  {
+   "scene": "21",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7315253615379333,
+   "n_blocks": 26
+  },
+  {
+   "scene": "21",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7248948216438293,
+   "n_blocks": 27
+  },
+  {
+   "scene": "22",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7287020087242126,
+   "n_blocks": 27
+  },
+  {
+   "scene": "22",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7369579076766968,
+   "n_blocks": 27
+  },
+  {
+   "scene": "22",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7249407768249512,
+   "n_blocks": 27
+  },
+  {
+   "scene": "22",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7408837676048279,
+   "n_blocks": 27
+  },
+  {
+   "scene": "23",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.4725649356842041,
+   "n_blocks": 27
+  },
+  {
+   "scene": "23",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.6276885271072388,
+   "n_blocks": 27
+  },
+  {
+   "scene": "23",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.5631493926048279,
+   "n_blocks": 27
+  },
+  {
+   "scene": "23",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.5664966702461243,
+   "n_blocks": 27
+  },
+  {
+   "scene": "24",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.678080677986145,
+   "n_blocks": 27
+  },
+  {
+   "scene": "24",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.641131579875946,
+   "n_blocks": 27
+  },
+  {
+   "scene": "24",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.592174232006073,
+   "n_blocks": 27
+  },
+  {
+   "scene": "24",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.630142092704773,
+   "n_blocks": 27
+  },
+  {
+   "scene": "25",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.6562520265579224,
+   "n_blocks": 26
+  },
+  {
+   "scene": "25",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.6566097736358643,
+   "n_blocks": 26
+  },
+  {
+   "scene": "25",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.5696943998336792,
+   "n_blocks": 26
+  },
+  {
+   "scene": "25",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.577168881893158,
+   "n_blocks": 26
+  },
+  {
+   "scene": "26",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.5828158259391785,
+   "n_blocks": 21
+  },
+  {
+   "scene": "26",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.5873090624809265,
+   "n_blocks": 23
+  },
+  {
+   "scene": "26",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.5798725485801697,
+   "n_blocks": 22
+  },
+  {
+   "scene": "26",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.583982527256012,
+   "n_blocks": 24
+  },
+  {
+   "scene": "27",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.7011179327964783,
+   "n_blocks": 24
+  },
+  {
+   "scene": "27",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.7029890418052673,
+   "n_blocks": 26
+  },
+  {
+   "scene": "27",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.7342785596847534,
+   "n_blocks": 23
+  },
+  {
+   "scene": "27",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.7055214047431946,
+   "n_blocks": 25
+  },
+  {
+   "scene": "28",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.658561646938324,
+   "n_blocks": 24
+  },
+  {
+   "scene": "28",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.6319561004638672,
+   "n_blocks": 25
+  },
+  {
+   "scene": "28",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.6008560061454773,
+   "n_blocks": 26
+  },
+  {
+   "scene": "28",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.6079920530319214,
+   "n_blocks": 26
+  },
+  {
+   "scene": "29",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.7268980145454407,
+   "n_blocks": 25
+  },
+  {
+   "scene": "29",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.7597499489784241,
+   "n_blocks": 24
+  },
+  {
+   "scene": "29",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.7283803224563599,
+   "n_blocks": 26
+  },
+  {
+   "scene": "29",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.6975990533828735,
+   "n_blocks": 25
+  },
+  {
+   "scene": "30",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.7293663024902344,
+   "n_blocks": 13
+  },
+  {
+   "scene": "30",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.6167405843734741,
+   "n_blocks": 26
+  },
+  {
+   "scene": "30",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.7688653469085693,
+   "n_blocks": 8
+  },
+  {
+   "scene": "30",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.5446156859397888,
+   "n_blocks": 23
+  },
+  {
+   "scene": "31",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.5361500978469849,
+   "n_blocks": 26
+  },
+  {
+   "scene": "31",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.6298260688781738,
+   "n_blocks": 19
+  },
+  {
+   "scene": "31",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.5317808389663696,
+   "n_blocks": 25
+  },
+  {
+   "scene": "31",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.644275426864624,
+   "n_blocks": 18
+  },
+  {
+   "scene": "32",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.6871305108070374,
+   "n_blocks": 22
+  },
+  {
+   "scene": "32",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.6455416083335876,
+   "n_blocks": 22
+  },
+  {
+   "scene": "32",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.747965931892395,
+   "n_blocks": 20
+  },
+  {
+   "scene": "32",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.7013931274414062,
+   "n_blocks": 24
+  },
+  {
+   "scene": "33",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.7033679485321045,
+   "n_blocks": 18
+  },
+  {
+   "scene": "33",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.6265885233879089,
+   "n_blocks": 24
+  },
+  {
+   "scene": "33",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.6783500909805298,
+   "n_blocks": 16
+  },
+  {
+   "scene": "33",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.6238515377044678,
+   "n_blocks": 27
+  },
+  {
+   "scene": "34",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7339246869087219,
+   "n_blocks": 22
+  },
+  {
+   "scene": "34",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7494626641273499,
+   "n_blocks": 22
+  },
+  {
+   "scene": "34",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7556334733963013,
+   "n_blocks": 25
+  },
+  {
+   "scene": "34",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7861834168434143,
+   "n_blocks": 25
+  },
+  {
+   "scene": "35",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.6655467748641968,
+   "n_blocks": 27
+  },
+  {
+   "scene": "35",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7329833507537842,
+   "n_blocks": 27
+  },
+  {
+   "scene": "35",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.6811756491661072,
+   "n_blocks": 27
+  },
+  {
+   "scene": "35",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7198603749275208,
+   "n_blocks": 27
+  },
+  {
+   "scene": "36",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7147000432014465,
+   "n_blocks": 22
+  },
+  {
+   "scene": "36",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7654248476028442,
+   "n_blocks": 20
+  },
+  {
+   "scene": "36",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7411478161811829,
+   "n_blocks": 22
+  },
+  {
+   "scene": "36",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7716749906539917,
+   "n_blocks": 21
+  },
+  {
+   "scene": "37",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.5162371397018433,
+   "n_blocks": 27
+  },
+  {
+   "scene": "37",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.7420838475227356,
+   "n_blocks": 20
+  },
+  {
+   "scene": "37",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.5488255620002747,
+   "n_blocks": 27
+  },
+  {
+   "scene": "37",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.6768101453781128,
+   "n_blocks": 19
+  },
+  {
+   "scene": "38",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.6616156697273254,
+   "n_blocks": 23
+  },
+  {
+   "scene": "38",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.7637788653373718,
+   "n_blocks": 19
+  },
+  {
+   "scene": "38",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.6789858341217041,
+   "n_blocks": 21
+  },
+  {
+   "scene": "38",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.743535041809082,
+   "n_blocks": 16
+  },
+  {
+   "scene": "39",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.7181010842323303,
+   "n_blocks": 13
+  },
+  {
+   "scene": "39",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.758627712726593,
+   "n_blocks": 19
+  },
+  {
+   "scene": "39",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.7415239810943604,
+   "n_blocks": 13
+  },
+  {
+   "scene": "39",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.7437306046485901,
+   "n_blocks": 18
+  },
+  {
+   "scene": "40",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.48997998237609863,
+   "n_blocks": 27
+  },
+  {
+   "scene": "40",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.7295798063278198,
+   "n_blocks": 16
+  },
+  {
+   "scene": "40",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.538680911064148,
+   "n_blocks": 26
+  },
+  {
+   "scene": "40",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.7631618976593018,
+   "n_blocks": 17
+  },
+  {
+   "scene": "41",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.5460407137870789,
+   "n_blocks": 25
+  },
+  {
+   "scene": "41",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7561657428741455,
+   "n_blocks": 26
+  },
+  {
+   "scene": "41",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.5432400107383728,
+   "n_blocks": 26
+  },
+  {
+   "scene": "41",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7495087385177612,
+   "n_blocks": 26
+  },
+  {
+   "scene": "42",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.610676109790802,
+   "n_blocks": 27
+  },
+  {
+   "scene": "42",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.5848910212516785,
+   "n_blocks": 27
+  },
+  {
+   "scene": "42",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.6021187901496887,
+   "n_blocks": 27
+  },
+  {
+   "scene": "42",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.6507992148399353,
+   "n_blocks": 27
+  },
+  {
+   "scene": "43",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.6110990047454834,
+   "n_blocks": 26
+  },
+  {
+   "scene": "43",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7553580403327942,
+   "n_blocks": 25
+  },
+  {
+   "scene": "43",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.5916392803192139,
+   "n_blocks": 24
+  },
+  {
+   "scene": "43",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.775875985622406,
+   "n_blocks": 23
+  },
+  {
+   "scene": "44",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7238897681236267,
+   "n_blocks": 25
+  },
+  {
+   "scene": "44",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.719468891620636,
+   "n_blocks": 24
+  },
+  {
+   "scene": "44",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7219357490539551,
+   "n_blocks": 25
+  },
+  {
+   "scene": "44",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7088302373886108,
+   "n_blocks": 26
+  },
+  {
+   "scene": "45",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.8061749935150146,
+   "n_blocks": 13
+  },
+  {
+   "scene": "45",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.5841297507286072,
+   "n_blocks": 22
+  },
+  {
+   "scene": "45",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7270260453224182,
+   "n_blocks": 17
+  },
+  {
+   "scene": "45",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.682128369808197,
+   "n_blocks": 26
+  },
+  {
+   "scene": "46",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7756526470184326,
+   "n_blocks": 9
+  },
+  {
+   "scene": "46",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.6560630798339844,
+   "n_blocks": 25
+  },
+  {
+   "scene": "46",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.6897017359733582,
+   "n_blocks": 12
+  },
+  {
+   "scene": "46",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.5574421882629395,
+   "n_blocks": 25
+  },
+  {
+   "scene": "47",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7528517246246338,
+   "n_blocks": 16
+  },
+  {
+   "scene": "47",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.6091659665107727,
+   "n_blocks": 24
+  },
+  {
+   "scene": "47",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7331489324569702,
+   "n_blocks": 20
+  },
+  {
+   "scene": "47",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7314115762710571,
+   "n_blocks": 26
+  },
+  {
+   "scene": "48",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.8381489515304565,
+   "n_blocks": 15
+  },
+  {
+   "scene": "48",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7393261790275574,
+   "n_blocks": 24
+  },
+  {
+   "scene": "48",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7759155035018921,
+   "n_blocks": 16
+  },
+  {
+   "scene": "48",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7567140460014343,
+   "n_blocks": 25
+  },
+  {
+   "scene": "49",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7422809600830078,
+   "n_blocks": 27
+  },
+  {
+   "scene": "49",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7817366123199463,
+   "n_blocks": 25
+  },
+  {
+   "scene": "49",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7076229453086853,
+   "n_blocks": 27
+  },
+  {
+   "scene": "49",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.746877908706665,
+   "n_blocks": 27
+  },
+  {
+   "scene": "50",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.725094735622406,
+   "n_blocks": 27
+  },
+  {
+   "scene": "50",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7556835412979126,
+   "n_blocks": 22
+  },
+  {
+   "scene": "50",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7082609534263611,
+   "n_blocks": 27
+  },
+  {
+   "scene": "50",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7577357292175293,
+   "n_blocks": 27
+  },
+  {
+   "scene": "51",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.6786689758300781,
+   "n_blocks": 27
+  },
+  {
+   "scene": "51",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.749707818031311,
+   "n_blocks": 25
+  },
+  {
+   "scene": "51",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.6510351896286011,
+   "n_blocks": 27
+  },
+  {
+   "scene": "51",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7368088960647583,
+   "n_blocks": 26
+  },
+  {
+   "scene": "52",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.6764796376228333,
+   "n_blocks": 27
+  },
+  {
+   "scene": "52",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7795654535293579,
+   "n_blocks": 27
+  },
+  {
+   "scene": "52",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.6559188365936279,
+   "n_blocks": 27
+  },
+  {
+   "scene": "52",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7497473359107971,
+   "n_blocks": 24
+  },
+  {
+   "scene": "53",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7570911645889282,
+   "n_blocks": 26
+  },
+  {
+   "scene": "53",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7101621031761169,
+   "n_blocks": 26
+  },
+  {
+   "scene": "53",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7797160744667053,
+   "n_blocks": 27
+  },
+  {
+   "scene": "53",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7427765727043152,
+   "n_blocks": 27
+  },
+  {
+   "scene": "54",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.601054310798645,
+   "n_blocks": 26
+  },
+  {
+   "scene": "54",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.6049144268035889,
+   "n_blocks": 27
+  },
+  {
+   "scene": "54",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7104052901268005,
+   "n_blocks": 27
+  },
+  {
+   "scene": "54",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.6225868463516235,
+   "n_blocks": 27
+  },
+  {
+   "scene": "55",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7774668335914612,
+   "n_blocks": 25
+  },
+  {
+   "scene": "55",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7290717959403992,
+   "n_blocks": 27
+  },
+  {
+   "scene": "55",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.799591600894928,
+   "n_blocks": 27
+  },
+  {
+   "scene": "55",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7758920192718506,
+   "n_blocks": 27
+  },
+  {
+   "scene": "56",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7554848790168762,
+   "n_blocks": 26
+  },
+  {
+   "scene": "56",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.6565892696380615,
+   "n_blocks": 27
+  },
+  {
+   "scene": "56",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7247198820114136,
+   "n_blocks": 27
+  },
+  {
+   "scene": "56",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.6812050342559814,
+   "n_blocks": 27
+  },
+  {
+   "scene": "57",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7412800192832947,
+   "n_blocks": 27
+  },
+  {
+   "scene": "57",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7685586810112,
+   "n_blocks": 23
+  },
+  {
+   "scene": "57",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7731950879096985,
+   "n_blocks": 24
+  },
+  {
+   "scene": "57",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7181108593940735,
+   "n_blocks": 25
+  },
+  {
+   "scene": "58",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.6836199164390564,
+   "n_blocks": 27
+  },
+  {
+   "scene": "58",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7495743036270142,
+   "n_blocks": 26
+  },
+  {
+   "scene": "58",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7483822107315063,
+   "n_blocks": 26
+  },
+  {
+   "scene": "58",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.710675835609436,
+   "n_blocks": 26
+  },
+  {
+   "scene": "59",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.6957162022590637,
+   "n_blocks": 24
+  },
+  {
+   "scene": "59",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7697128057479858,
+   "n_blocks": 19
+  },
+  {
+   "scene": "59",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7982540726661682,
+   "n_blocks": 18
+  },
+  {
+   "scene": "59",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7522826194763184,
+   "n_blocks": 17
+  },
+  {
+   "scene": "60",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7107961177825928,
+   "n_blocks": 25
+  },
+  {
+   "scene": "60",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.6845973134040833,
+   "n_blocks": 23
+  },
+  {
+   "scene": "60",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7257587909698486,
+   "n_blocks": 22
+  },
+  {
+   "scene": "60",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7190966606140137,
+   "n_blocks": 21
+  },
+  {
+   "scene": "61",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7493667006492615,
+   "n_blocks": 19
+  },
+  {
+   "scene": "61",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7005914449691772,
+   "n_blocks": 19
+  },
+  {
+   "scene": "61",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7244800925254822,
+   "n_blocks": 19
+  },
+  {
+   "scene": "61",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7770010232925415,
+   "n_blocks": 17
+  },
+  {
+   "scene": "62",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7709004282951355,
+   "n_blocks": 24
+  },
+  {
+   "scene": "62",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7282201051712036,
+   "n_blocks": 26
+  },
+  {
+   "scene": "62",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7655278444290161,
+   "n_blocks": 26
+  },
+  {
+   "scene": "62",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7408586740493774,
+   "n_blocks": 25
+  },
+  {
+   "scene": "63",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7460678815841675,
+   "n_blocks": 23
+  },
+  {
+   "scene": "63",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.715337872505188,
+   "n_blocks": 21
+  },
+  {
+   "scene": "63",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7158526182174683,
+   "n_blocks": 20
+  },
+  {
+   "scene": "63",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7341679334640503,
+   "n_blocks": 20
+  },
+  {
+   "scene": "64",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7586081027984619,
+   "n_blocks": 21
+  },
+  {
+   "scene": "64",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7240708470344543,
+   "n_blocks": 20
+  },
+  {
+   "scene": "64",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.6732690930366516,
+   "n_blocks": 19
+  },
+  {
+   "scene": "64",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.6648061871528625,
+   "n_blocks": 20
+  },
+  {
+   "scene": "65",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7402790188789368,
+   "n_blocks": 27
+  },
+  {
+   "scene": "65",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7692752480506897,
+   "n_blocks": 26
+  },
+  {
+   "scene": "65",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7012718319892883,
+   "n_blocks": 27
+  },
+  {
+   "scene": "65",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7687728404998779,
+   "n_blocks": 27
+  },
+  {
+   "scene": "66",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7419020533561707,
+   "n_blocks": 27
+  },
+  {
+   "scene": "66",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7480891942977905,
+   "n_blocks": 26
+  },
+  {
+   "scene": "66",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7466613054275513,
+   "n_blocks": 25
+  },
+  {
+   "scene": "66",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7732900977134705,
+   "n_blocks": 26
+  },
+  {
+   "scene": "67",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7516187429428101,
+   "n_blocks": 23
+  },
+  {
+   "scene": "67",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.729572057723999,
+   "n_blocks": 27
+  },
+  {
+   "scene": "67",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7771037817001343,
+   "n_blocks": 23
+  },
+  {
+   "scene": "67",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7674270868301392,
+   "n_blocks": 25
+  },
+  {
+   "scene": "68",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7654500603675842,
+   "n_blocks": 27
+  },
+  {
+   "scene": "68",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7825345396995544,
+   "n_blocks": 27
+  },
+  {
+   "scene": "68",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7617055177688599,
+   "n_blocks": 27
+  },
+  {
+   "scene": "68",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7451468706130981,
+   "n_blocks": 27
+  },
+  {
+   "scene": "69",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7612050175666809,
+   "n_blocks": 27
+  },
+  {
+   "scene": "69",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7524549961090088,
+   "n_blocks": 27
+  },
+  {
+   "scene": "69",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7677803039550781,
+   "n_blocks": 27
+  },
+  {
+   "scene": "69",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7529000043869019,
+   "n_blocks": 27
+  },
+  {
+   "scene": "70",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7549931406974792,
+   "n_blocks": 27
+  },
+  {
+   "scene": "70",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.76315838098526,
+   "n_blocks": 27
+  },
+  {
+   "scene": "70",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7623453736305237,
+   "n_blocks": 27
+  },
+  {
+   "scene": "70",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7639002799987793,
+   "n_blocks": 27
+  },
+  {
+   "scene": "71",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.775626003742218,
+   "n_blocks": 27
+  },
+  {
+   "scene": "71",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7448959946632385,
+   "n_blocks": 26
+  },
+  {
+   "scene": "71",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7640103101730347,
+   "n_blocks": 25
+  },
+  {
+   "scene": "71",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.736985445022583,
+   "n_blocks": 27
+  },
+  {
+   "scene": "72",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7538997530937195,
+   "n_blocks": 27
+  },
+  {
+   "scene": "72",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7519921064376831,
+   "n_blocks": 27
+  },
+  {
+   "scene": "72",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7521103620529175,
+   "n_blocks": 27
+  },
+  {
+   "scene": "72",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7581828236579895,
+   "n_blocks": 27
+  },
+  {
+   "scene": "73",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7440115809440613,
+   "n_blocks": 27
+  },
+  {
+   "scene": "73",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7518631815910339,
+   "n_blocks": 27
+  },
+  {
+   "scene": "73",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7473494410514832,
+   "n_blocks": 27
+  },
+  {
+   "scene": "73",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7396376132965088,
+   "n_blocks": 27
+  },
+  {
+   "scene": "74",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7359035611152649,
+   "n_blocks": 27
+  },
+  {
+   "scene": "74",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7775108218193054,
+   "n_blocks": 27
+  },
+  {
+   "scene": "74",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7625094056129456,
+   "n_blocks": 27
+  },
+  {
+   "scene": "74",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7415175437927246,
+   "n_blocks": 27
+  },
+  {
+   "scene": "75",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7169146537780762,
+   "n_blocks": 27
+  },
+  {
+   "scene": "75",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7156126499176025,
+   "n_blocks": 27
+  },
+  {
+   "scene": "75",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7362208962440491,
+   "n_blocks": 27
+  },
+  {
+   "scene": "75",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7227795720100403,
+   "n_blocks": 27
+  },
+  {
+   "scene": "76",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7212364673614502,
+   "n_blocks": 27
+  },
+  {
+   "scene": "76",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7730088233947754,
+   "n_blocks": 27
+  },
+  {
+   "scene": "76",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7692161202430725,
+   "n_blocks": 27
+  },
+  {
+   "scene": "76",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.704265832901001,
+   "n_blocks": 27
+  },
+  {
+   "scene": "77",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7511458992958069,
+   "n_blocks": 27
+  },
+  {
+   "scene": "77",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7704480290412903,
+   "n_blocks": 27
+  },
+  {
+   "scene": "77",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7568634152412415,
+   "n_blocks": 27
+  },
+  {
+   "scene": "77",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.752826988697052,
+   "n_blocks": 27
+  },
+  {
+   "scene": "78",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.737338125705719,
+   "n_blocks": 27
+  },
+  {
+   "scene": "78",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7444713711738586,
+   "n_blocks": 27
+  },
+  {
+   "scene": "78",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.741350531578064,
+   "n_blocks": 27
+  },
+  {
+   "scene": "78",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7421115040779114,
+   "n_blocks": 27
+  },
+  {
+   "scene": "79",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7335664629936218,
+   "n_blocks": 25
+  },
+  {
+   "scene": "79",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.6676876544952393,
+   "n_blocks": 26
+  },
+  {
+   "scene": "79",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.6681338548660278,
+   "n_blocks": 27
+  },
+  {
+   "scene": "79",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.6792191863059998,
+   "n_blocks": 26
+  },
+  {
+   "scene": "80",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.6871994733810425,
+   "n_blocks": 26
+  },
+  {
+   "scene": "80",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7072291970252991,
+   "n_blocks": 27
+  },
+  {
+   "scene": "80",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7062993049621582,
+   "n_blocks": 27
+  },
+  {
+   "scene": "80",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.6852946877479553,
+   "n_blocks": 26
+  },
+  {
+   "scene": "81",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.730075478553772,
+   "n_blocks": 25
+  },
+  {
+   "scene": "81",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7011611461639404,
+   "n_blocks": 24
+  },
+  {
+   "scene": "81",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7176346778869629,
+   "n_blocks": 22
+  },
+  {
+   "scene": "81",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.6834604740142822,
+   "n_blocks": 27
+  },
+  {
+   "scene": "82",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7296174168586731,
+   "n_blocks": 23
+  },
+  {
+   "scene": "82",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7445694804191589,
+   "n_blocks": 26
+  },
+  {
+   "scene": "82",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7280396223068237,
+   "n_blocks": 23
+  },
+  {
+   "scene": "82",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.717289388179779,
+   "n_blocks": 27
+  },
+  {
+   "scene": "83",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.708244800567627,
+   "n_blocks": 27
+  },
+  {
+   "scene": "83",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.6988392472267151,
+   "n_blocks": 23
+  },
+  {
+   "scene": "83",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7215417623519897,
+   "n_blocks": 26
+  },
+  {
+   "scene": "83",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7037065029144287,
+   "n_blocks": 26
+  },
+  {
+   "scene": "84",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7503113746643066,
+   "n_blocks": 25
+  },
+  {
+   "scene": "84",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.6474388837814331,
+   "n_blocks": 25
+  },
+  {
+   "scene": "84",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7243155241012573,
+   "n_blocks": 18
+  },
+  {
+   "scene": "84",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.6502968668937683,
+   "n_blocks": 27
+  },
+  {
+   "scene": "85",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7592257261276245,
+   "n_blocks": 26
+  },
+  {
+   "scene": "85",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.6595735549926758,
+   "n_blocks": 23
+  },
+  {
+   "scene": "85",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7404394745826721,
+   "n_blocks": 22
+  },
+  {
+   "scene": "85",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7306668758392334,
+   "n_blocks": 25
+  },
+  {
+   "scene": "86",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7266911864280701,
+   "n_blocks": 22
+  },
+  {
+   "scene": "86",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.6048257350921631,
+   "n_blocks": 26
+  },
+  {
+   "scene": "86",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.6899913549423218,
+   "n_blocks": 26
+  },
+  {
+   "scene": "86",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.6447833776473999,
+   "n_blocks": 26
+  },
+  {
+   "scene": "87",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7139624953269958,
+   "n_blocks": 22
+  },
+  {
+   "scene": "87",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.6603341698646545,
+   "n_blocks": 19
+  },
+  {
+   "scene": "87",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.6828947067260742,
+   "n_blocks": 21
+  },
+  {
+   "scene": "87",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.6692374348640442,
+   "n_blocks": 22
+  },
+  {
+   "scene": "88",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7379065752029419,
+   "n_blocks": 25
+  },
+  {
+   "scene": "88",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.6626142263412476,
+   "n_blocks": 26
+  },
+  {
+   "scene": "88",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7069965600967407,
+   "n_blocks": 27
+  },
+  {
+   "scene": "88",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7408884167671204,
+   "n_blocks": 23
+  },
+  {
+   "scene": "89",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.6981334090232849,
+   "n_blocks": 22
+  },
+  {
+   "scene": "89",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.6488675475120544,
+   "n_blocks": 24
+  },
+  {
+   "scene": "89",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.6569075584411621,
+   "n_blocks": 23
+  },
+  {
+   "scene": "89",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.6805247664451599,
+   "n_blocks": 24
+  },
+  {
+   "scene": "90",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.6781205534934998,
+   "n_blocks": 26
+  },
+  {
+   "scene": "90",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.680383026599884,
+   "n_blocks": 24
+  },
+  {
+   "scene": "90",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.6795349717140198,
+   "n_blocks": 27
+  },
+  {
+   "scene": "90",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.6865398287773132,
+   "n_blocks": 24
+  },
+  {
+   "scene": "91",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.6714383363723755,
+   "n_blocks": 20
+  },
+  {
+   "scene": "91",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.6810877919197083,
+   "n_blocks": 18
+  },
+  {
+   "scene": "91",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7190641164779663,
+   "n_blocks": 19
+  },
+  {
+   "scene": "91",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.627257227897644,
+   "n_blocks": 21
+  },
+  {
+   "scene": "92",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.6012009382247925,
+   "n_blocks": 23
+  },
+  {
+   "scene": "92",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.6519821882247925,
+   "n_blocks": 25
+  },
+  {
+   "scene": "92",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.6183991432189941,
+   "n_blocks": 23
+  },
+  {
+   "scene": "92",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.6340142488479614,
+   "n_blocks": 25
+  },
+  {
+   "scene": "93",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.7247995734214783,
+   "n_blocks": 21
+  },
+  {
+   "scene": "93",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.631786048412323,
+   "n_blocks": 26
+  },
+  {
+   "scene": "93",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.7293766736984253,
+   "n_blocks": 21
+  },
+  {
+   "scene": "93",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.6569141745567322,
+   "n_blocks": 26
+  },
+  {
+   "scene": "94",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.7481508255004883,
+   "n_blocks": 24
+  },
+  {
+   "scene": "94",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.6710236668586731,
+   "n_blocks": 27
+  },
+  {
+   "scene": "94",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.7453489899635315,
+   "n_blocks": 23
+  },
+  {
+   "scene": "94",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.6710140109062195,
+   "n_blocks": 27
+  },
+  {
+   "scene": "95",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.6665374040603638,
+   "n_blocks": 27
+  },
+  {
+   "scene": "95",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.6871894001960754,
+   "n_blocks": 27
+  },
+  {
+   "scene": "95",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.6664062738418579,
+   "n_blocks": 27
+  },
+  {
+   "scene": "95",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.709697961807251,
+   "n_blocks": 27
+  },
+  {
+   "scene": "96",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.7047224044799805,
+   "n_blocks": 26
+  },
+  {
+   "scene": "96",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.6931501030921936,
+   "n_blocks": 26
+  },
+  {
+   "scene": "96",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.6841776371002197,
+   "n_blocks": 26
+  },
+  {
+   "scene": "96",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.6749252676963806,
+   "n_blocks": 27
+  },
+  {
+   "scene": "97",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7353518605232239,
+   "n_blocks": 25
+  },
+  {
+   "scene": "97",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.6966176629066467,
+   "n_blocks": 24
+  },
+  {
+   "scene": "97",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7262629270553589,
+   "n_blocks": 22
+  },
+  {
+   "scene": "97",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7423475384712219,
+   "n_blocks": 23
+  },
+  {
+   "scene": "98",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.682137668132782,
+   "n_blocks": 27
+  },
+  {
+   "scene": "98",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.6846134066581726,
+   "n_blocks": 27
+  },
+  {
+   "scene": "98",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.6916375160217285,
+   "n_blocks": 27
+  },
+  {
+   "scene": "98",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.6778134703636169,
+   "n_blocks": 27
+  },
+  {
+   "scene": "99",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7002615928649902,
+   "n_blocks": 27
+  },
+  {
+   "scene": "99",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.696932315826416,
+   "n_blocks": 25
+  },
+  {
+   "scene": "99",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.6836624145507812,
+   "n_blocks": 27
+  },
+  {
+   "scene": "99",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7303779721260071,
+   "n_blocks": 27
+  },
+  {
+   "scene": "100",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7147513628005981,
+   "n_blocks": 26
+  },
+  {
+   "scene": "100",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.6978021264076233,
+   "n_blocks": 24
+  },
+  {
+   "scene": "100",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.6696813106536865,
+   "n_blocks": 26
+  },
+  {
+   "scene": "100",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7105904817581177,
+   "n_blocks": 27
+  },
+  {
+   "scene": "101",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.6798546314239502,
+   "n_blocks": 21
+  },
+  {
+   "scene": "101",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.6706121563911438,
+   "n_blocks": 20
+  },
+  {
+   "scene": "101",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.6814399361610413,
+   "n_blocks": 21
+  },
+  {
+   "scene": "101",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7183079719543457,
+   "n_blocks": 22
+  },
+  {
+   "scene": "102",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.6768246293067932,
+   "n_blocks": 25
+  },
+  {
+   "scene": "102",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.6753110885620117,
+   "n_blocks": 24
+  },
+  {
+   "scene": "102",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.6554244160652161,
+   "n_blocks": 26
+  },
+  {
+   "scene": "102",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7010312676429749,
+   "n_blocks": 24
+  },
+  {
+   "scene": "103",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7208421230316162,
+   "n_blocks": 22
+  },
+  {
+   "scene": "103",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7230024933815002,
+   "n_blocks": 23
+  },
+  {
+   "scene": "103",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.6935760378837585,
+   "n_blocks": 24
+  },
+  {
+   "scene": "103",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7460562586784363,
+   "n_blocks": 23
+  },
+  {
+   "scene": "104",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.6962822079658508,
+   "n_blocks": 24
+  },
+  {
+   "scene": "104",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7002675533294678,
+   "n_blocks": 22
+  },
+  {
+   "scene": "104",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7187603116035461,
+   "n_blocks": 24
+  },
+  {
+   "scene": "104",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7123966217041016,
+   "n_blocks": 22
+  },
+  {
+   "scene": "105",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.6958325505256653,
+   "n_blocks": 24
+  },
+  {
+   "scene": "105",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.7309797406196594,
+   "n_blocks": 24
+  },
+  {
+   "scene": "105",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.7201294302940369,
+   "n_blocks": 22
+  },
+  {
+   "scene": "105",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.7002704739570618,
+   "n_blocks": 25
+  },
+  {
+   "scene": "106",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.7150969505310059,
+   "n_blocks": 27
+  },
+  {
+   "scene": "106",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.6996366381645203,
+   "n_blocks": 25
+  },
+  {
+   "scene": "106",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.702185869216919,
+   "n_blocks": 25
+  },
+  {
+   "scene": "106",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.6979163885116577,
+   "n_blocks": 26
+  },
+  {
+   "scene": "107",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.7624959945678711,
+   "n_blocks": 26
+  },
+  {
+   "scene": "107",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.7228448390960693,
+   "n_blocks": 26
+  },
+  {
+   "scene": "107",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.7425573468208313,
+   "n_blocks": 23
+  },
+  {
+   "scene": "107",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.7275101542472839,
+   "n_blocks": 26
+  },
+  {
+   "scene": "108",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.7444085478782654,
+   "n_blocks": 23
+  },
+  {
+   "scene": "108",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.6962069272994995,
+   "n_blocks": 26
+  },
+  {
+   "scene": "108",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.7323418259620667,
+   "n_blocks": 23
+  },
+  {
+   "scene": "108",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.7026103138923645,
+   "n_blocks": 24
+  },
+  {
+   "scene": "109",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7114298343658447,
+   "n_blocks": 24
+  },
+  {
+   "scene": "109",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7121337056159973,
+   "n_blocks": 24
+  },
+  {
+   "scene": "109",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7155767679214478,
+   "n_blocks": 25
+  },
+  {
+   "scene": "109",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7012848854064941,
+   "n_blocks": 24
+  },
+  {
+   "scene": "110",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7030563950538635,
+   "n_blocks": 24
+  },
+  {
+   "scene": "110",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.6961879730224609,
+   "n_blocks": 25
+  },
+  {
+   "scene": "110",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7018630504608154,
+   "n_blocks": 26
+  },
+  {
+   "scene": "110",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.6886305809020996,
+   "n_blocks": 25
+  },
+  {
+   "scene": "111",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7505345940589905,
+   "n_blocks": 26
+  },
+  {
+   "scene": "111",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7227621674537659,
+   "n_blocks": 27
+  },
+  {
+   "scene": "111",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7367537021636963,
+   "n_blocks": 26
+  },
+  {
+   "scene": "111",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7378230690956116,
+   "n_blocks": 27
+  },
+  {
+   "scene": "112",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.6791846752166748,
+   "n_blocks": 25
+  },
+  {
+   "scene": "112",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.6765366196632385,
+   "n_blocks": 25
+  },
+  {
+   "scene": "112",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.6785125732421875,
+   "n_blocks": 26
+  },
+  {
+   "scene": "112",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.6741347312927246,
+   "n_blocks": 24
+  },
+  {
+   "scene": "113",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7501654624938965,
+   "n_blocks": 27
+  },
+  {
+   "scene": "113",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7570420503616333,
+   "n_blocks": 27
+  },
+  {
+   "scene": "113",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7230210304260254,
+   "n_blocks": 27
+  },
+  {
+   "scene": "113",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7407020330429077,
+   "n_blocks": 27
+  },
+  {
+   "scene": "114",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.725786566734314,
+   "n_blocks": 27
+  },
+  {
+   "scene": "114",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7241783738136292,
+   "n_blocks": 26
+  },
+  {
+   "scene": "114",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7016664147377014,
+   "n_blocks": 27
+  },
+  {
+   "scene": "114",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.6999885439872742,
+   "n_blocks": 27
+  },
+  {
+   "scene": "115",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7452391386032104,
+   "n_blocks": 27
+  },
+  {
+   "scene": "115",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7710513472557068,
+   "n_blocks": 26
+  },
+  {
+   "scene": "115",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7385000586509705,
+   "n_blocks": 26
+  },
+  {
+   "scene": "115",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7396455407142639,
+   "n_blocks": 27
+  },
+  {
+   "scene": "116",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.6997809410095215,
+   "n_blocks": 27
+  },
+  {
+   "scene": "116",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7113514542579651,
+   "n_blocks": 27
+  },
+  {
+   "scene": "116",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7217543125152588,
+   "n_blocks": 27
+  },
+  {
+   "scene": "116",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7146971821784973,
+   "n_blocks": 27
+  },
+  {
+   "scene": "117",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.5684016942977905,
+   "n_blocks": 27
+  },
+  {
+   "scene": "117",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.7159239053726196,
+   "n_blocks": 26
+  },
+  {
+   "scene": "117",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.5906895995140076,
+   "n_blocks": 26
+  },
+  {
+   "scene": "117",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.48818308115005493,
+   "n_blocks": 26
+  },
+  {
+   "scene": "118",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.5478634238243103,
+   "n_blocks": 27
+  },
+  {
+   "scene": "118",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.6884034276008606,
+   "n_blocks": 26
+  },
+  {
+   "scene": "118",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.6298702955245972,
+   "n_blocks": 27
+  },
+  {
+   "scene": "118",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.6111315488815308,
+   "n_blocks": 27
+  },
+  {
+   "scene": "119",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.49913614988327026,
+   "n_blocks": 27
+  },
+  {
+   "scene": "119",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.6880870461463928,
+   "n_blocks": 26
+  },
+  {
+   "scene": "119",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.5896275043487549,
+   "n_blocks": 27
+  },
+  {
+   "scene": "119",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.5846477150917053,
+   "n_blocks": 26
+  },
+  {
+   "scene": "120",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.6893563270568848,
+   "n_blocks": 27
+  },
+  {
+   "scene": "120",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.5771735906600952,
+   "n_blocks": 26
+  },
+  {
+   "scene": "120",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.5588213205337524,
+   "n_blocks": 26
+  },
+  {
+   "scene": "120",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.6806328892707825,
+   "n_blocks": 27
+  },
+  {
+   "scene": "121",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7054661512374878,
+   "n_blocks": 26
+  },
+  {
+   "scene": "121",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.6408073902130127,
+   "n_blocks": 26
+  },
+  {
+   "scene": "121",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7474262118339539,
+   "n_blocks": 27
+  },
+  {
+   "scene": "121",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7035198211669922,
+   "n_blocks": 27
+  },
+  {
+   "scene": "122",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7479608058929443,
+   "n_blocks": 18
+  },
+  {
+   "scene": "122",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.6884823441505432,
+   "n_blocks": 23
+  },
+  {
+   "scene": "122",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.694608747959137,
+   "n_blocks": 26
+  },
+  {
+   "scene": "122",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.6680652499198914,
+   "n_blocks": 27
+  },
+  {
+   "scene": "123",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.6588167548179626,
+   "n_blocks": 27
+  },
+  {
+   "scene": "123",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.654302179813385,
+   "n_blocks": 26
+  },
+  {
+   "scene": "123",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.5695981383323669,
+   "n_blocks": 26
+  },
+  {
+   "scene": "123",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.6478976607322693,
+   "n_blocks": 27
+  },
+  {
+   "scene": "124",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.6706514358520508,
+   "n_blocks": 26
+  },
+  {
+   "scene": "124",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.6825488209724426,
+   "n_blocks": 25
+  },
+  {
+   "scene": "124",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.6451988220214844,
+   "n_blocks": 20
+  },
+  {
+   "scene": "124",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.6865969300270081,
+   "n_blocks": 21
+  },
+  {
+   "scene": "125",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.6850282549858093,
+   "n_blocks": 19
+  },
+  {
+   "scene": "125",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.6592460870742798,
+   "n_blocks": 22
+  },
+  {
+   "scene": "125",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7014037370681763,
+   "n_blocks": 20
+  },
+  {
+   "scene": "125",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.6249411106109619,
+   "n_blocks": 25
+  },
+  {
+   "scene": "126",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.7450794577598572,
+   "n_blocks": 10
+  },
+  {
+   "scene": "126",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.7142341732978821,
+   "n_blocks": 24
+  },
+  {
+   "scene": "126",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.7521687746047974,
+   "n_blocks": 20
+  },
+  {
+   "scene": "126",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.752582848072052,
+   "n_blocks": 21
+  },
+  {
+   "scene": "127",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.7194192409515381,
+   "n_blocks": 23
+  },
+  {
+   "scene": "127",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.6562615036964417,
+   "n_blocks": 24
+  },
+  {
+   "scene": "127",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.7144020199775696,
+   "n_blocks": 24
+  },
+  {
+   "scene": "127",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.7028332352638245,
+   "n_blocks": 24
+  },
+  {
+   "scene": "128",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.7773019671440125,
+   "n_blocks": 18
+  },
+  {
+   "scene": "128",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.7197748422622681,
+   "n_blocks": 23
+  },
+  {
+   "scene": "128",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.79753577709198,
+   "n_blocks": 20
+  },
+  {
+   "scene": "128",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.7088016867637634,
+   "n_blocks": 24
+  },
+  {
+   "scene": "129",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.8252992630004883,
+   "n_blocks": 13
+  },
+  {
+   "scene": "129",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.833939254283905,
+   "n_blocks": 5
+  },
+  {
+   "scene": "129",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.7873179912567139,
+   "n_blocks": 12
+  },
+  {
+   "scene": "129",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.7983347773551941,
+   "n_blocks": 5
+  },
+  {
+   "scene": "130",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.7074467539787292,
+   "n_blocks": 22
+  },
+  {
+   "scene": "130",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.7037235498428345,
+   "n_blocks": 17
+  },
+  {
+   "scene": "130",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.6729775667190552,
+   "n_blocks": 16
+  },
+  {
+   "scene": "130",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.6873864531517029,
+   "n_blocks": 14
+  },
+  {
+   "scene": "131",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.8276618123054504,
+   "n_blocks": 12
+  },
+  {
+   "scene": "131",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.7673640847206116,
+   "n_blocks": 10
+  },
+  {
+   "scene": "131",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.7576392889022827,
+   "n_blocks": 16
+  },
+  {
+   "scene": "131",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.7222739458084106,
+   "n_blocks": 18
+  },
+  {
+   "scene": "132",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.6787123680114746,
+   "n_blocks": 14
+  },
+  {
+   "scene": "132",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.755664050579071,
+   "n_blocks": 19
+  },
+  {
+   "scene": "132",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.745847225189209,
+   "n_blocks": 18
+  },
+  {
+   "scene": "132",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.7393409609794617,
+   "n_blocks": 20
+  },
+  {
+   "scene": "133",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7146816849708557,
+   "n_blocks": 23
+  },
+  {
+   "scene": "133",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.763502836227417,
+   "n_blocks": 22
+  },
+  {
+   "scene": "133",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7420392632484436,
+   "n_blocks": 21
+  },
+  {
+   "scene": "133",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.778861403465271,
+   "n_blocks": 22
+  },
+  {
+   "scene": "134",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7148878574371338,
+   "n_blocks": 23
+  },
+  {
+   "scene": "134",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7367388010025024,
+   "n_blocks": 25
+  },
+  {
+   "scene": "134",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7613463401794434,
+   "n_blocks": 25
+  },
+  {
+   "scene": "134",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7376172542572021,
+   "n_blocks": 26
+  },
+  {
+   "scene": "135",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7419278621673584,
+   "n_blocks": 22
+  },
+  {
+   "scene": "135",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7733116149902344,
+   "n_blocks": 21
+  },
+  {
+   "scene": "135",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7241660356521606,
+   "n_blocks": 25
+  },
+  {
+   "scene": "135",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7478059530258179,
+   "n_blocks": 22
+  },
+  {
+   "scene": "136",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.8177447319030762,
+   "n_blocks": 16
+  },
+  {
+   "scene": "136",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.7903221845626831,
+   "n_blocks": 13
+  },
+  {
+   "scene": "136",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.8057349920272827,
+   "n_blocks": 13
+  },
+  {
+   "scene": "136",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.7714823484420776,
+   "n_blocks": 15
+  },
+  {
+   "scene": "137",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.7800442576408386,
+   "n_blocks": 12
+  },
+  {
+   "scene": "137",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.7888116240501404,
+   "n_blocks": 16
+  },
+  {
+   "scene": "137",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.8070693016052246,
+   "n_blocks": 8
+  },
+  {
+   "scene": "137",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.7985369563102722,
+   "n_blocks": 16
+  },
+  {
+   "scene": "138",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.7527218461036682,
+   "n_blocks": 26
+  },
+  {
+   "scene": "138",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.7592479586601257,
+   "n_blocks": 27
+  },
+  {
+   "scene": "138",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.7475550174713135,
+   "n_blocks": 27
+  },
+  {
+   "scene": "138",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.7714790105819702,
+   "n_blocks": 27
+  },
+  {
+   "scene": "139",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.7922452688217163,
+   "n_blocks": 11
+  },
+  {
+   "scene": "139",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.7697576284408569,
+   "n_blocks": 16
+  },
+  {
+   "scene": "139",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.6853473782539368,
+   "n_blocks": 21
+  },
+  {
+   "scene": "139",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Fixed",
+   "moved": 0.7857264280319214,
+   "n_blocks": 16
+  },
+  {
+   "scene": "140",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7408343553543091,
+   "n_blocks": 14
+  },
+  {
+   "scene": "140",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7741361260414124,
+   "n_blocks": 20
+  },
+  {
+   "scene": "140",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7465866804122925,
+   "n_blocks": 14
+  },
+  {
+   "scene": "140",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.8264536261558533,
+   "n_blocks": 22
+  },
+  {
+   "scene": "141",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7462828755378723,
+   "n_blocks": 20
+  },
+  {
+   "scene": "141",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7682275176048279,
+   "n_blocks": 23
+  },
+  {
+   "scene": "141",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7334166169166565,
+   "n_blocks": 22
+  },
+  {
+   "scene": "141",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7042022347450256,
+   "n_blocks": 21
+  },
+  {
+   "scene": "142",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.6715052127838135,
+   "n_blocks": 23
+  },
+  {
+   "scene": "142",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7339306473731995,
+   "n_blocks": 26
+  },
+  {
+   "scene": "142",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.6696382164955139,
+   "n_blocks": 23
+  },
+  {
+   "scene": "142",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7733712196350098,
+   "n_blocks": 23
+  },
+  {
+   "scene": "143",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.6850257515907288,
+   "n_blocks": 20
+  },
+  {
+   "scene": "143",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7562900185585022,
+   "n_blocks": 21
+  },
+  {
+   "scene": "143",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.6106327772140503,
+   "n_blocks": 25
+  },
+  {
+   "scene": "143",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.8268007040023804,
+   "n_blocks": 23
+  },
+  {
+   "scene": "144",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7837605476379395,
+   "n_blocks": 6
+  },
+  {
+   "scene": "144",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7676547765731812,
+   "n_blocks": 5
+  },
+  {
+   "scene": "144",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.8003118634223938,
+   "n_blocks": 6
+  },
+  {
+   "scene": "144",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.788733184337616,
+   "n_blocks": 4
+  },
+  {
+   "scene": "145",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7961605191230774,
+   "n_blocks": 11
+  },
+  {
+   "scene": "145",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.6943110823631287,
+   "n_blocks": 17
+  },
+  {
+   "scene": "145",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7626518607139587,
+   "n_blocks": 11
+  },
+  {
+   "scene": "145",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7132992744445801,
+   "n_blocks": 19
+  },
+  {
+   "scene": "146",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7064540386199951,
+   "n_blocks": 15
+  },
+  {
+   "scene": "146",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.6226092576980591,
+   "n_blocks": 19
+  },
+  {
+   "scene": "146",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.6791946291923523,
+   "n_blocks": 14
+  },
+  {
+   "scene": "146",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.541029155254364,
+   "n_blocks": 20
+  },
+  {
+   "scene": "147",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.6128151416778564,
+   "n_blocks": 20
+  },
+  {
+   "scene": "147",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7234240174293518,
+   "n_blocks": 21
+  },
+  {
+   "scene": "147",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.647432804107666,
+   "n_blocks": 17
+  },
+  {
+   "scene": "147",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.709309458732605,
+   "n_blocks": 21
+  },
+  {
+   "scene": "148",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7683797478675842,
+   "n_blocks": 9
+  },
+  {
+   "scene": "148",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7218331098556519,
+   "n_blocks": 14
+  },
+  {
+   "scene": "148",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7481788396835327,
+   "n_blocks": 11
+  },
+  {
+   "scene": "148",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7613489031791687,
+   "n_blocks": 12
+  },
+  {
+   "scene": "149",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7509593963623047,
+   "n_blocks": 23
+  },
+  {
+   "scene": "149",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7222159504890442,
+   "n_blocks": 24
+  },
+  {
+   "scene": "149",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7412111759185791,
+   "n_blocks": 25
+  },
+  {
+   "scene": "149",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7414323091506958,
+   "n_blocks": 21
+  },
+  {
+   "scene": "150",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.6890162825584412,
+   "n_blocks": 27
+  },
+  {
+   "scene": "150",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7451143860816956,
+   "n_blocks": 24
+  },
+  {
+   "scene": "150",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.6852981448173523,
+   "n_blocks": 27
+  },
+  {
+   "scene": "150",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7448533177375793,
+   "n_blocks": 24
+  },
+  {
+   "scene": "151",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7707110047340393,
+   "n_blocks": 26
+  },
+  {
+   "scene": "151",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.761959433555603,
+   "n_blocks": 23
+  },
+  {
+   "scene": "151",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7343233823776245,
+   "n_blocks": 27
+  },
+  {
+   "scene": "151",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7587810754776001,
+   "n_blocks": 22
+  },
+  {
+   "scene": "152",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7619710564613342,
+   "n_blocks": 25
+  },
+  {
+   "scene": "152",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7694898843765259,
+   "n_blocks": 20
+  },
+  {
+   "scene": "152",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7202636003494263,
+   "n_blocks": 25
+  },
+  {
+   "scene": "152",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7577821016311646,
+   "n_blocks": 19
+  },
+  {
+   "scene": "153",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7313750982284546,
+   "n_blocks": 27
+  },
+  {
+   "scene": "153",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7454938292503357,
+   "n_blocks": 23
+  },
+  {
+   "scene": "153",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.744125247001648,
+   "n_blocks": 27
+  },
+  {
+   "scene": "153",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7270422577857971,
+   "n_blocks": 26
+  },
+  {
+   "scene": "154",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.8366926908493042,
+   "n_blocks": 9
+  },
+  {
+   "scene": "154",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.8332453966140747,
+   "n_blocks": 10
+  },
+  {
+   "scene": "154",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.8390524983406067,
+   "n_blocks": 10
+  },
+  {
+   "scene": "154",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.8478454351425171,
+   "n_blocks": 8
+  },
+  {
+   "scene": "154_0",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.8538167476654053,
+   "n_blocks": 11
+  },
+  {
+   "scene": "154_0",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7910102009773254,
+   "n_blocks": 8
+  },
+  {
+   "scene": "154_0",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.8283986449241638,
+   "n_blocks": 13
+  },
+  {
+   "scene": "154_0",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.735882043838501,
+   "n_blocks": 13
+  },
+  {
+   "scene": "155",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.778689980506897,
+   "n_blocks": 26
+  },
+  {
+   "scene": "155",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7225390672683716,
+   "n_blocks": 27
+  },
+  {
+   "scene": "155",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7659363150596619,
+   "n_blocks": 27
+  },
+  {
+   "scene": "155",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7276078462600708,
+   "n_blocks": 27
+  },
+  {
+   "scene": "155_0",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7690543532371521,
+   "n_blocks": 26
+  },
+  {
+   "scene": "155_0",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7237294316291809,
+   "n_blocks": 27
+  },
+  {
+   "scene": "155_0",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7523689866065979,
+   "n_blocks": 26
+  },
+  {
+   "scene": "155_0",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7221522927284241,
+   "n_blocks": 27
+  },
+  {
+   "scene": "156",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7866147756576538,
+   "n_blocks": 25
+  },
+  {
+   "scene": "156",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.6693521738052368,
+   "n_blocks": 25
+  },
+  {
+   "scene": "156",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.8053228855133057,
+   "n_blocks": 25
+  },
+  {
+   "scene": "156",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7490428686141968,
+   "n_blocks": 25
+  },
+  {
+   "scene": "156_0",
+   "pair": "1",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.8150027394294739,
+   "n_blocks": 25
+  },
+  {
+   "scene": "156_0",
+   "pair": "1",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7132055163383484,
+   "n_blocks": 24
+  },
+  {
+   "scene": "156_0",
+   "pair": "2",
+   "imp": true,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.809437096118927,
+   "n_blocks": 24
+  },
+  {
+   "scene": "156_0",
+   "pair": "2",
+   "imp": false,
+   "cond": "solidity",
+   "cam": "Moving",
+   "moved": 0.7917242050170898,
+   "n_blocks": 24
+  },
+  {
+   "scene": "157",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7930525541305542,
+   "n_blocks": 15
+  },
+  {
+   "scene": "157",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7763593792915344,
+   "n_blocks": 21
+  },
+  {
+   "scene": "157",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.782305896282196,
+   "n_blocks": 22
+  },
+  {
+   "scene": "157",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7776618599891663,
+   "n_blocks": 20
+  },
+  {
+   "scene": "158",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7545154094696045,
+   "n_blocks": 26
+  },
+  {
+   "scene": "158",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7691240310668945,
+   "n_blocks": 24
+  },
+  {
+   "scene": "158",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7803542017936707,
+   "n_blocks": 23
+  },
+  {
+   "scene": "158",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7333459258079529,
+   "n_blocks": 22
+  },
+  {
+   "scene": "159",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7576912045478821,
+   "n_blocks": 24
+  },
+  {
+   "scene": "159",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7599124312400818,
+   "n_blocks": 22
+  },
+  {
+   "scene": "159",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7535982131958008,
+   "n_blocks": 20
+  },
+  {
+   "scene": "159",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7701845169067383,
+   "n_blocks": 24
+  },
+  {
+   "scene": "160",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.6754454374313354,
+   "n_blocks": 26
+  },
+  {
+   "scene": "160",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7697312235832214,
+   "n_blocks": 17
+  },
+  {
+   "scene": "160",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7705388069152832,
+   "n_blocks": 24
+  },
+  {
+   "scene": "160",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7297229766845703,
+   "n_blocks": 23
+  },
+  {
+   "scene": "161",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7897061705589294,
+   "n_blocks": 25
+  },
+  {
+   "scene": "161",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7643670439720154,
+   "n_blocks": 25
+  },
+  {
+   "scene": "161",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.8084123134613037,
+   "n_blocks": 24
+  },
+  {
+   "scene": "161",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7738113403320312,
+   "n_blocks": 26
+  },
+  {
+   "scene": "162",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7161592245101929,
+   "n_blocks": 25
+  },
+  {
+   "scene": "162",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7874369025230408,
+   "n_blocks": 22
+  },
+  {
+   "scene": "162",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7452867031097412,
+   "n_blocks": 24
+  },
+  {
+   "scene": "162",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.704272985458374,
+   "n_blocks": 26
+  },
+  {
+   "scene": "163",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7981486320495605,
+   "n_blocks": 24
+  },
+  {
+   "scene": "163",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7843384742736816,
+   "n_blocks": 24
+  },
+  {
+   "scene": "163",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.730287492275238,
+   "n_blocks": 23
+  },
+  {
+   "scene": "163",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.796556293964386,
+   "n_blocks": 24
+  },
+  {
+   "scene": "164",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7743411660194397,
+   "n_blocks": 18
+  },
+  {
+   "scene": "164",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7696784734725952,
+   "n_blocks": 22
+  },
+  {
+   "scene": "164",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.694203794002533,
+   "n_blocks": 25
+  },
+  {
+   "scene": "164",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7873827815055847,
+   "n_blocks": 17
+  },
+  {
+   "scene": "165",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7496459484100342,
+   "n_blocks": 24
+  },
+  {
+   "scene": "165",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7141641974449158,
+   "n_blocks": 27
+  },
+  {
+   "scene": "165",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.791370153427124,
+   "n_blocks": 25
+  },
+  {
+   "scene": "165",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.736825704574585,
+   "n_blocks": 24
+  },
+  {
+   "scene": "166",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7991624474525452,
+   "n_blocks": 26
+  },
+  {
+   "scene": "166",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7974995374679565,
+   "n_blocks": 27
+  },
+  {
+   "scene": "166",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7859070301055908,
+   "n_blocks": 26
+  },
+  {
+   "scene": "166",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7366397976875305,
+   "n_blocks": 27
+  },
+  {
+   "scene": "167",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.8057712912559509,
+   "n_blocks": 26
+  },
+  {
+   "scene": "167",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7990701198577881,
+   "n_blocks": 26
+  },
+  {
+   "scene": "167",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7709096670150757,
+   "n_blocks": 25
+  },
+  {
+   "scene": "167",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7562205791473389,
+   "n_blocks": 26
+  },
+  {
+   "scene": "168",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7743762135505676,
+   "n_blocks": 25
+  },
+  {
+   "scene": "168",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.768119215965271,
+   "n_blocks": 22
+  },
+  {
+   "scene": "168",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7856428027153015,
+   "n_blocks": 23
+  },
+  {
+   "scene": "168",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7844526171684265,
+   "n_blocks": 22
+  },
+  {
+   "scene": "169",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7561966776847839,
+   "n_blocks": 27
+  },
+  {
+   "scene": "169",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7394395470619202,
+   "n_blocks": 27
+  },
+  {
+   "scene": "169",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7264500260353088,
+   "n_blocks": 27
+  },
+  {
+   "scene": "169",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7438451051712036,
+   "n_blocks": 27
+  },
+  {
+   "scene": "170",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7466188073158264,
+   "n_blocks": 27
+  },
+  {
+   "scene": "170",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7476352453231812,
+   "n_blocks": 27
+  },
+  {
+   "scene": "170",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7739583253860474,
+   "n_blocks": 27
+  },
+  {
+   "scene": "170",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7621151804924011,
+   "n_blocks": 27
+  },
+  {
+   "scene": "171",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.747843861579895,
+   "n_blocks": 23
+  },
+  {
+   "scene": "171",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7467243671417236,
+   "n_blocks": 25
+  },
+  {
+   "scene": "171",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7332386374473572,
+   "n_blocks": 22
+  },
+  {
+   "scene": "171",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7351742386817932,
+   "n_blocks": 26
+  },
+  {
+   "scene": "172",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7667545080184937,
+   "n_blocks": 26
+  },
+  {
+   "scene": "172",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.776701033115387,
+   "n_blocks": 27
+  },
+  {
+   "scene": "172",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7796080708503723,
+   "n_blocks": 27
+  },
+  {
+   "scene": "172",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7634913325309753,
+   "n_blocks": 26
+  },
+  {
+   "scene": "173",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7493884563446045,
+   "n_blocks": 27
+  },
+  {
+   "scene": "173",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7506940364837646,
+   "n_blocks": 27
+  },
+  {
+   "scene": "173",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7504763007164001,
+   "n_blocks": 27
+  },
+  {
+   "scene": "173",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.73948734998703,
+   "n_blocks": 27
+  },
+  {
+   "scene": "174",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7269061207771301,
+   "n_blocks": 24
+  },
+  {
+   "scene": "174",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7288786768913269,
+   "n_blocks": 21
+  },
+  {
+   "scene": "174",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7259165644645691,
+   "n_blocks": 23
+  },
+  {
+   "scene": "174",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7254388332366943,
+   "n_blocks": 22
+  },
+  {
+   "scene": "175",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7261739373207092,
+   "n_blocks": 25
+  },
+  {
+   "scene": "175",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.759109616279602,
+   "n_blocks": 27
+  },
+  {
+   "scene": "175",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7528825402259827,
+   "n_blocks": 27
+  },
+  {
+   "scene": "175",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7391169667243958,
+   "n_blocks": 24
+  },
+  {
+   "scene": "176",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7353906035423279,
+   "n_blocks": 27
+  },
+  {
+   "scene": "176",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.751943826675415,
+   "n_blocks": 27
+  },
+  {
+   "scene": "176",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7476086616516113,
+   "n_blocks": 27
+  },
+  {
+   "scene": "176",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7420875430107117,
+   "n_blocks": 27
+  },
+  {
+   "scene": "177",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7046453356742859,
+   "n_blocks": 24
+  },
+  {
+   "scene": "177",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7290943264961243,
+   "n_blocks": 23
+  },
+  {
+   "scene": "177",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7133061289787292,
+   "n_blocks": 24
+  },
+  {
+   "scene": "177",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7067235708236694,
+   "n_blocks": 22
+  },
+  {
+   "scene": "178",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7314032912254333,
+   "n_blocks": 27
+  },
+  {
+   "scene": "178",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7494813203811646,
+   "n_blocks": 21
+  },
+  {
+   "scene": "178",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7597208619117737,
+   "n_blocks": 20
+  },
+  {
+   "scene": "178",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.743276059627533,
+   "n_blocks": 22
+  },
+  {
+   "scene": "179",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7484305500984192,
+   "n_blocks": 26
+  },
+  {
+   "scene": "179",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7064157724380493,
+   "n_blocks": 26
+  },
+  {
+   "scene": "179",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7206434607505798,
+   "n_blocks": 26
+  },
+  {
+   "scene": "179",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7386954426765442,
+   "n_blocks": 27
+  },
+  {
+   "scene": "180",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7331928610801697,
+   "n_blocks": 26
+  },
+  {
+   "scene": "180",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7139888405799866,
+   "n_blocks": 19
+  },
+  {
+   "scene": "180",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7230750322341919,
+   "n_blocks": 20
+  },
+  {
+   "scene": "180",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.6881386637687683,
+   "n_blocks": 26
+  },
+  {
+   "scene": "181",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7439664006233215,
+   "n_blocks": 24
+  },
+  {
+   "scene": "181",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.6259018778800964,
+   "n_blocks": 24
+  },
+  {
+   "scene": "181",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7208511829376221,
+   "n_blocks": 20
+  },
+  {
+   "scene": "181",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7437880039215088,
+   "n_blocks": 27
+  },
+  {
+   "scene": "182",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7511040568351746,
+   "n_blocks": 18
+  },
+  {
+   "scene": "182",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7531793117523193,
+   "n_blocks": 16
+  },
+  {
+   "scene": "182",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7468081116676331,
+   "n_blocks": 16
+  },
+  {
+   "scene": "182",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7352350354194641,
+   "n_blocks": 18
+  },
+  {
+   "scene": "183",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.720461905002594,
+   "n_blocks": 26
+  },
+  {
+   "scene": "183",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.6655769348144531,
+   "n_blocks": 26
+  },
+  {
+   "scene": "183",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7363682389259338,
+   "n_blocks": 25
+  },
+  {
+   "scene": "183",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.6728848218917847,
+   "n_blocks": 25
+  },
+  {
+   "scene": "184",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7218054533004761,
+   "n_blocks": 26
+  },
+  {
+   "scene": "184",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7231886982917786,
+   "n_blocks": 26
+  },
+  {
+   "scene": "184",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7319430708885193,
+   "n_blocks": 23
+  },
+  {
+   "scene": "184",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7430958151817322,
+   "n_blocks": 22
+  },
+  {
+   "scene": "185",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7435605525970459,
+   "n_blocks": 26
+  },
+  {
+   "scene": "185",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.722754180431366,
+   "n_blocks": 27
+  },
+  {
+   "scene": "185",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7572842240333557,
+   "n_blocks": 27
+  },
+  {
+   "scene": "185",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.6944994330406189,
+   "n_blocks": 26
+  },
+  {
+   "scene": "186",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7366488575935364,
+   "n_blocks": 26
+  },
+  {
+   "scene": "186",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7386797666549683,
+   "n_blocks": 27
+  },
+  {
+   "scene": "186",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7242490649223328,
+   "n_blocks": 24
+  },
+  {
+   "scene": "186",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.6737560629844666,
+   "n_blocks": 26
+  },
+  {
+   "scene": "187",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7462252974510193,
+   "n_blocks": 25
+  },
+  {
+   "scene": "187",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7493581175804138,
+   "n_blocks": 22
+  },
+  {
+   "scene": "187",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.75593101978302,
+   "n_blocks": 21
+  },
+  {
+   "scene": "187",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7300708293914795,
+   "n_blocks": 27
+  },
+  {
+   "scene": "188",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7413521409034729,
+   "n_blocks": 19
+  },
+  {
+   "scene": "188",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7185382843017578,
+   "n_blocks": 24
+  },
+  {
+   "scene": "188",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7238093614578247,
+   "n_blocks": 25
+  },
+  {
+   "scene": "188",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7065262794494629,
+   "n_blocks": 17
+  },
+  {
+   "scene": "189",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.6618698835372925,
+   "n_blocks": 26
+  },
+  {
+   "scene": "189",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7012977600097656,
+   "n_blocks": 26
+  },
+  {
+   "scene": "189",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7273755073547363,
+   "n_blocks": 25
+  },
+  {
+   "scene": "189",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.6533733606338501,
+   "n_blocks": 25
+  },
+  {
+   "scene": "190",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7635191679000854,
+   "n_blocks": 21
+  },
+  {
+   "scene": "190",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7330413460731506,
+   "n_blocks": 21
+  },
+  {
+   "scene": "190",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7619472742080688,
+   "n_blocks": 22
+  },
+  {
+   "scene": "190",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7476387023925781,
+   "n_blocks": 25
+  },
+  {
+   "scene": "191",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7408838868141174,
+   "n_blocks": 27
+  },
+  {
+   "scene": "191",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.6614080667495728,
+   "n_blocks": 26
+  },
+  {
+   "scene": "191",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.660085141658783,
+   "n_blocks": 27
+  },
+  {
+   "scene": "191",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.6715283989906311,
+   "n_blocks": 26
+  },
+  {
+   "scene": "192",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.6896132826805115,
+   "n_blocks": 24
+  },
+  {
+   "scene": "192",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.6571329236030579,
+   "n_blocks": 25
+  },
+  {
+   "scene": "192",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.6856295466423035,
+   "n_blocks": 24
+  },
+  {
+   "scene": "192",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.6622238755226135,
+   "n_blocks": 23
+  },
+  {
+   "scene": "193",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.6238041520118713,
+   "n_blocks": 25
+  },
+  {
+   "scene": "193",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7404311299324036,
+   "n_blocks": 27
+  },
+  {
+   "scene": "193",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.6147282123565674,
+   "n_blocks": 25
+  },
+  {
+   "scene": "193",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.6526733040809631,
+   "n_blocks": 26
+  },
+  {
+   "scene": "194",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.6630111336708069,
+   "n_blocks": 24
+  },
+  {
+   "scene": "194",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.6642913818359375,
+   "n_blocks": 27
+  },
+  {
+   "scene": "194",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7103127241134644,
+   "n_blocks": 21
+  },
+  {
+   "scene": "194",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.674258291721344,
+   "n_blocks": 23
+  },
+  {
+   "scene": "195",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.639257550239563,
+   "n_blocks": 26
+  },
+  {
+   "scene": "195",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.6356273889541626,
+   "n_blocks": 27
+  },
+  {
+   "scene": "195",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.6275578737258911,
+   "n_blocks": 26
+  },
+  {
+   "scene": "195",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.6224785447120667,
+   "n_blocks": 27
+  },
+  {
+   "scene": "196",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.759343147277832,
+   "n_blocks": 17
+  },
+  {
+   "scene": "196",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7640413641929626,
+   "n_blocks": 22
+  },
+  {
+   "scene": "196",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7427754402160645,
+   "n_blocks": 19
+  },
+  {
+   "scene": "196",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7411631941795349,
+   "n_blocks": 17
+  },
+  {
+   "scene": "196_0",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7427144646644592,
+   "n_blocks": 15
+  },
+  {
+   "scene": "196_0",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7558494806289673,
+   "n_blocks": 23
+  },
+  {
+   "scene": "196_0",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7423778176307678,
+   "n_blocks": 17
+  },
+  {
+   "scene": "196_0",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7390052080154419,
+   "n_blocks": 17
+  },
+  {
+   "scene": "196_1",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7122707366943359,
+   "n_blocks": 14
+  },
+  {
+   "scene": "196_1",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7322083115577698,
+   "n_blocks": 20
+  },
+  {
+   "scene": "196_1",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7506177425384521,
+   "n_blocks": 21
+  },
+  {
+   "scene": "196_1",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7534071207046509,
+   "n_blocks": 17
+  },
+  {
+   "scene": "197",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7667858600616455,
+   "n_blocks": 24
+  },
+  {
+   "scene": "197",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7531602382659912,
+   "n_blocks": 23
+  },
+  {
+   "scene": "197",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7447012662887573,
+   "n_blocks": 20
+  },
+  {
+   "scene": "197",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7677802443504333,
+   "n_blocks": 23
+  },
+  {
+   "scene": "197_0",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7530588507652283,
+   "n_blocks": 20
+  },
+  {
+   "scene": "197_0",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7428929209709167,
+   "n_blocks": 25
+  },
+  {
+   "scene": "197_0",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7409912943840027,
+   "n_blocks": 24
+  },
+  {
+   "scene": "197_0",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7436017990112305,
+   "n_blocks": 22
+  },
+  {
+   "scene": "197_1",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7311316132545471,
+   "n_blocks": 23
+  },
+  {
+   "scene": "197_1",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7628445029258728,
+   "n_blocks": 22
+  },
+  {
+   "scene": "197_1",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7438022494316101,
+   "n_blocks": 23
+  },
+  {
+   "scene": "197_1",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7129652500152588,
+   "n_blocks": 23
+  },
+  {
+   "scene": "198",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7461246252059937,
+   "n_blocks": 25
+  },
+  {
+   "scene": "198",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.6914495229721069,
+   "n_blocks": 25
+  },
+  {
+   "scene": "198",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7352209687232971,
+   "n_blocks": 25
+  },
+  {
+   "scene": "198",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7125287055969238,
+   "n_blocks": 25
+  },
+  {
+   "scene": "198_0",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7217560410499573,
+   "n_blocks": 24
+  },
+  {
+   "scene": "198_0",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7236016392707825,
+   "n_blocks": 24
+  },
+  {
+   "scene": "198_0",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7261496782302856,
+   "n_blocks": 25
+  },
+  {
+   "scene": "198_0",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7239340543746948,
+   "n_blocks": 22
+  },
+  {
+   "scene": "198_1",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.6870149374008179,
+   "n_blocks": 25
+  },
+  {
+   "scene": "198_1",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.6863916516304016,
+   "n_blocks": 24
+  },
+  {
+   "scene": "198_1",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.6677784323692322,
+   "n_blocks": 24
+  },
+  {
+   "scene": "198_1",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7334929704666138,
+   "n_blocks": 25
+  },
+  {
+   "scene": "199",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.6739434003829956,
+   "n_blocks": 27
+  },
+  {
+   "scene": "199",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.7147625088691711,
+   "n_blocks": 27
+  },
+  {
+   "scene": "199",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.6655082702636719,
+   "n_blocks": 27
+  },
+  {
+   "scene": "199",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.7171544432640076,
+   "n_blocks": 27
+  },
+  {
+   "scene": "200",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.6906834840774536,
+   "n_blocks": 27
+  },
+  {
+   "scene": "200",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.6793407201766968,
+   "n_blocks": 25
+  },
+  {
+   "scene": "200",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.6720315217971802,
+   "n_blocks": 27
+  },
+  {
+   "scene": "200",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.7134661078453064,
+   "n_blocks": 27
+  },
+  {
+   "scene": "201",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.7397215962409973,
+   "n_blocks": 25
+  },
+  {
+   "scene": "201",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.7441939115524292,
+   "n_blocks": 26
+  },
+  {
+   "scene": "201",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.7406339049339294,
+   "n_blocks": 25
+  },
+  {
+   "scene": "201",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.7079711556434631,
+   "n_blocks": 27
+  },
+  {
+   "scene": "202",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.7749729752540588,
+   "n_blocks": 23
+  },
+  {
+   "scene": "202",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.769193708896637,
+   "n_blocks": 22
+  },
+  {
+   "scene": "202",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.7732807397842407,
+   "n_blocks": 21
+  },
+  {
+   "scene": "202",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.7637181282043457,
+   "n_blocks": 21
+  },
+  {
+   "scene": "203",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.6914765238761902,
+   "n_blocks": 25
+  },
+  {
+   "scene": "203",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.7184734344482422,
+   "n_blocks": 24
+  },
+  {
+   "scene": "203",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.7144260406494141,
+   "n_blocks": 23
+  },
+  {
+   "scene": "203",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.7502437829971313,
+   "n_blocks": 25
+  },
+  {
+   "scene": "204",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.6847782731056213,
+   "n_blocks": 27
+  },
+  {
+   "scene": "204",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7164412140846252,
+   "n_blocks": 27
+  },
+  {
+   "scene": "204",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7053961157798767,
+   "n_blocks": 27
+  },
+  {
+   "scene": "204",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.6959870457649231,
+   "n_blocks": 27
+  },
+  {
+   "scene": "205",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.6880505084991455,
+   "n_blocks": 27
+  },
+  {
+   "scene": "205",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.6931055784225464,
+   "n_blocks": 26
+  },
+  {
+   "scene": "205",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.6944609880447388,
+   "n_blocks": 27
+  },
+  {
+   "scene": "205",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.6858922243118286,
+   "n_blocks": 27
+  },
+  {
+   "scene": "206",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.760288417339325,
+   "n_blocks": 23
+  },
+  {
+   "scene": "206",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7354643940925598,
+   "n_blocks": 27
+  },
+  {
+   "scene": "206",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7332909107208252,
+   "n_blocks": 25
+  },
+  {
+   "scene": "206",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.6962655782699585,
+   "n_blocks": 26
+  },
+  {
+   "scene": "207",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7075008749961853,
+   "n_blocks": 23
+  },
+  {
+   "scene": "207",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7402447462081909,
+   "n_blocks": 23
+  },
+  {
+   "scene": "207",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7003213763237,
+   "n_blocks": 25
+  },
+  {
+   "scene": "207",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7234748601913452,
+   "n_blocks": 25
+  },
+  {
+   "scene": "208",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.6983198523521423,
+   "n_blocks": 27
+  },
+  {
+   "scene": "208",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7074840664863586,
+   "n_blocks": 27
+  },
+  {
+   "scene": "208",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7130652070045471,
+   "n_blocks": 24
+  },
+  {
+   "scene": "208",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7005886435508728,
+   "n_blocks": 27
+  },
+  {
+   "scene": "209",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.6853642463684082,
+   "n_blocks": 27
+  },
+  {
+   "scene": "209",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.6237977147102356,
+   "n_blocks": 27
+  },
+  {
+   "scene": "209",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.6645733714103699,
+   "n_blocks": 26
+  },
+  {
+   "scene": "209",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.6860425472259521,
+   "n_blocks": 27
+  },
+  {
+   "scene": "210",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7429932951927185,
+   "n_blocks": 21
+  },
+  {
+   "scene": "210",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7160369753837585,
+   "n_blocks": 22
+  },
+  {
+   "scene": "210",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7222442030906677,
+   "n_blocks": 21
+  },
+  {
+   "scene": "210",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.728604257106781,
+   "n_blocks": 22
+  },
+  {
+   "scene": "211",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7089000344276428,
+   "n_blocks": 21
+  },
+  {
+   "scene": "211",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7135060429573059,
+   "n_blocks": 23
+  },
+  {
+   "scene": "211",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7030476331710815,
+   "n_blocks": 25
+  },
+  {
+   "scene": "211",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7252404093742371,
+   "n_blocks": 22
+  },
+  {
+   "scene": "212",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7363225817680359,
+   "n_blocks": 14
+  },
+  {
+   "scene": "212",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7407338619232178,
+   "n_blocks": 18
+  },
+  {
+   "scene": "212",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7483634948730469,
+   "n_blocks": 14
+  },
+  {
+   "scene": "212",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7323670387268066,
+   "n_blocks": 17
+  },
+  {
+   "scene": "213",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7306728959083557,
+   "n_blocks": 23
+  },
+  {
+   "scene": "213",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.6827920079231262,
+   "n_blocks": 24
+  },
+  {
+   "scene": "213",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.6929622292518616,
+   "n_blocks": 22
+  },
+  {
+   "scene": "213",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.6792518496513367,
+   "n_blocks": 24
+  },
+  {
+   "scene": "214",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7516346573829651,
+   "n_blocks": 27
+  },
+  {
+   "scene": "214",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7601622343063354,
+   "n_blocks": 27
+  },
+  {
+   "scene": "214",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7556617856025696,
+   "n_blocks": 27
+  },
+  {
+   "scene": "214",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7548539042472839,
+   "n_blocks": 27
+  },
+  {
+   "scene": "214_0",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7531864643096924,
+   "n_blocks": 27
+  },
+  {
+   "scene": "214_0",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7541587352752686,
+   "n_blocks": 27
+  },
+  {
+   "scene": "214_0",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7596824765205383,
+   "n_blocks": 27
+  },
+  {
+   "scene": "214_0",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7580118775367737,
+   "n_blocks": 27
+  },
+  {
+   "scene": "214_1",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7196526527404785,
+   "n_blocks": 27
+  },
+  {
+   "scene": "214_1",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7508223652839661,
+   "n_blocks": 27
+  },
+  {
+   "scene": "214_1",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7470443844795227,
+   "n_blocks": 27
+  },
+  {
+   "scene": "214_1",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Moving",
+   "moved": 0.7496865391731262,
+   "n_blocks": 27
+  },
+  {
+   "scene": "215",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.761138379573822,
+   "n_blocks": 27
+  },
+  {
+   "scene": "215",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7473987340927124,
+   "n_blocks": 27
+  },
+  {
+   "scene": "215",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.742023229598999,
+   "n_blocks": 27
+  },
+  {
+   "scene": "215",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7501980066299438,
+   "n_blocks": 27
+  },
+  {
+   "scene": "215_0",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7539271712303162,
+   "n_blocks": 27
+  },
+  {
+   "scene": "215_0",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7445849776268005,
+   "n_blocks": 27
+  },
+  {
+   "scene": "215_0",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7697842121124268,
+   "n_blocks": 27
+  },
+  {
+   "scene": "215_0",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7569519877433777,
+   "n_blocks": 27
+  },
+  {
+   "scene": "215_1",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7520431280136108,
+   "n_blocks": 27
+  },
+  {
+   "scene": "215_1",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7568449378013611,
+   "n_blocks": 27
+  },
+  {
+   "scene": "215_1",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7529160976409912,
+   "n_blocks": 27
+  },
+  {
+   "scene": "215_1",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Moving",
+   "moved": 0.7584866285324097,
+   "n_blocks": 27
+  },
+  {
+   "scene": "216",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7632527947425842,
+   "n_blocks": 27
+  },
+  {
+   "scene": "216",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7611196041107178,
+   "n_blocks": 27
+  },
+  {
+   "scene": "216",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7586392164230347,
+   "n_blocks": 27
+  },
+  {
+   "scene": "216",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7519921660423279,
+   "n_blocks": 27
+  },
+  {
+   "scene": "216_0",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7614530920982361,
+   "n_blocks": 27
+  },
+  {
+   "scene": "216_0",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7631369829177856,
+   "n_blocks": 27
+  },
+  {
+   "scene": "216_0",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7639219760894775,
+   "n_blocks": 27
+  },
+  {
+   "scene": "216_0",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7608578205108643,
+   "n_blocks": 27
+  },
+  {
+   "scene": "216_1",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7613285183906555,
+   "n_blocks": 27
+  },
+  {
+   "scene": "216_1",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7584913969039917,
+   "n_blocks": 27
+  },
+  {
+   "scene": "216_1",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7566010355949402,
+   "n_blocks": 27
+  },
+  {
+   "scene": "216_1",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Moving",
+   "moved": 0.7497783899307251,
+   "n_blocks": 27
+  },
+  {
+   "scene": "217",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.7447510361671448,
+   "n_blocks": 27
+  },
+  {
+   "scene": "217",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.7426078915596008,
+   "n_blocks": 27
+  },
+  {
+   "scene": "217",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.7311595678329468,
+   "n_blocks": 26
+  },
+  {
+   "scene": "217",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.7508403658866882,
+   "n_blocks": 25
+  },
+  {
+   "scene": "218",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.7433567047119141,
+   "n_blocks": 25
+  },
+  {
+   "scene": "218",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.6929550766944885,
+   "n_blocks": 26
+  },
+  {
+   "scene": "218",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.7186352610588074,
+   "n_blocks": 24
+  },
+  {
+   "scene": "218",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.6991896629333496,
+   "n_blocks": 24
+  },
+  {
+   "scene": "219",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.768187940120697,
+   "n_blocks": 25
+  },
+  {
+   "scene": "219",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.7455244064331055,
+   "n_blocks": 24
+  },
+  {
+   "scene": "219",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.7666897773742676,
+   "n_blocks": 24
+  },
+  {
+   "scene": "219",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.7368626594543457,
+   "n_blocks": 24
+  },
+  {
+   "scene": "220",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.7366284132003784,
+   "n_blocks": 20
+  },
+  {
+   "scene": "220",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.756220281124115,
+   "n_blocks": 21
+  },
+  {
+   "scene": "220",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.7486118078231812,
+   "n_blocks": 23
+  },
+  {
+   "scene": "220",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.747569739818573,
+   "n_blocks": 21
+  },
+  {
+   "scene": "221",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7413791418075562,
+   "n_blocks": 27
+  },
+  {
+   "scene": "221",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7378240823745728,
+   "n_blocks": 26
+  },
+  {
+   "scene": "221",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7706508636474609,
+   "n_blocks": 27
+  },
+  {
+   "scene": "221",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7309542298316956,
+   "n_blocks": 25
+  },
+  {
+   "scene": "222",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7214593291282654,
+   "n_blocks": 24
+  },
+  {
+   "scene": "222",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7482964396476746,
+   "n_blocks": 25
+  },
+  {
+   "scene": "222",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7456414103507996,
+   "n_blocks": 24
+  },
+  {
+   "scene": "222",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7158677577972412,
+   "n_blocks": 24
+  },
+  {
+   "scene": "223",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7443404197692871,
+   "n_blocks": 24
+  },
+  {
+   "scene": "223",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7522869110107422,
+   "n_blocks": 24
+  },
+  {
+   "scene": "223",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7378791570663452,
+   "n_blocks": 25
+  },
+  {
+   "scene": "223",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7391963005065918,
+   "n_blocks": 24
+  },
+  {
+   "scene": "224",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.751403272151947,
+   "n_blocks": 22
+  },
+  {
+   "scene": "224",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7600350379943848,
+   "n_blocks": 24
+  },
+  {
+   "scene": "224",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7363433837890625,
+   "n_blocks": 24
+  },
+  {
+   "scene": "224",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7366467118263245,
+   "n_blocks": 20
+  },
+  {
+   "scene": "225",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7176512479782104,
+   "n_blocks": 27
+  },
+  {
+   "scene": "225",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7185879349708557,
+   "n_blocks": 27
+  },
+  {
+   "scene": "225",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.6896780729293823,
+   "n_blocks": 27
+  },
+  {
+   "scene": "225",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.753045916557312,
+   "n_blocks": 27
+  },
+  {
+   "scene": "226",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7442458271980286,
+   "n_blocks": 24
+  },
+  {
+   "scene": "226",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7451986074447632,
+   "n_blocks": 25
+  },
+  {
+   "scene": "226",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7505591511726379,
+   "n_blocks": 25
+  },
+  {
+   "scene": "226",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7576218247413635,
+   "n_blocks": 25
+  },
+  {
+   "scene": "227",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.730072021484375,
+   "n_blocks": 26
+  },
+  {
+   "scene": "227",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7058135867118835,
+   "n_blocks": 27
+  },
+  {
+   "scene": "227",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.6903918981552124,
+   "n_blocks": 27
+  },
+  {
+   "scene": "227",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7155882716178894,
+   "n_blocks": 26
+  },
+  {
+   "scene": "228",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.6638991236686707,
+   "n_blocks": 26
+  },
+  {
+   "scene": "228",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.6918042302131653,
+   "n_blocks": 24
+  },
+  {
+   "scene": "228",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7151994705200195,
+   "n_blocks": 24
+  },
+  {
+   "scene": "228",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.6915813684463501,
+   "n_blocks": 23
+  },
+  {
+   "scene": "229",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.7178398966789246,
+   "n_blocks": 8
+  },
+  {
+   "scene": "229",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.7685012817382812,
+   "n_blocks": 13
+  },
+  {
+   "scene": "229",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.7850152254104614,
+   "n_blocks": 14
+  },
+  {
+   "scene": "229",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.7371690273284912,
+   "n_blocks": 8
+  },
+  {
+   "scene": "230",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.5816938877105713,
+   "n_blocks": 22
+  },
+  {
+   "scene": "230",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.7142253518104553,
+   "n_blocks": 20
+  },
+  {
+   "scene": "230",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.7093492150306702,
+   "n_blocks": 21
+  },
+  {
+   "scene": "230",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.5180147290229797,
+   "n_blocks": 24
+  },
+  {
+   "scene": "231",
+   "pair": "2",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.5932587385177612,
+   "n_blocks": 19
+  },
+  {
+   "scene": "231",
+   "pair": "1",
+   "imp": false,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.7143602967262268,
+   "n_blocks": 14
+  },
+  {
+   "scene": "231",
+   "pair": "1",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.7084675431251526,
+   "n_blocks": 14
+  },
+  {
+   "scene": "231",
+   "pair": "2",
+   "imp": true,
+   "cond": "permanence",
+   "cam": "Fixed",
+   "moved": 0.6362958550453186,
+   "n_blocks": 20
+  },
+  {
+   "scene": "232",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.8011379837989807,
+   "n_blocks": 13
+  },
+  {
+   "scene": "232",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7744045853614807,
+   "n_blocks": 11
+  },
+  {
+   "scene": "232",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.8041001558303833,
+   "n_blocks": 13
+  },
+  {
+   "scene": "232",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7943734526634216,
+   "n_blocks": 11
+  },
+  {
+   "scene": "233",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.6880970001220703,
+   "n_blocks": 22
+  },
+  {
+   "scene": "233",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7044408321380615,
+   "n_blocks": 21
+  },
+  {
+   "scene": "233",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7559861540794373,
+   "n_blocks": 17
+  },
+  {
+   "scene": "233",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7311428189277649,
+   "n_blocks": 19
+  },
+  {
+   "scene": "234",
+   "pair": "1",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7016854882240295,
+   "n_blocks": 17
+  },
+  {
+   "scene": "234",
+   "pair": "2",
+   "imp": false,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7102423310279846,
+   "n_blocks": 14
+  },
+  {
+   "scene": "234",
+   "pair": "1",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.6928406953811646,
+   "n_blocks": 13
+  },
+  {
+   "scene": "234",
+   "pair": "2",
+   "imp": true,
+   "cond": "immutability",
+   "cam": "Fixed",
+   "moved": 0.7415200471878052,
+   "n_blocks": 16
+  },
+  {
+   "scene": "235",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7589102983474731,
+   "n_blocks": 19
+  },
+  {
+   "scene": "235",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7704793810844421,
+   "n_blocks": 19
+  },
+  {
+   "scene": "235",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7684513330459595,
+   "n_blocks": 15
+  },
+  {
+   "scene": "235",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7309558987617493,
+   "n_blocks": 17
+  },
+  {
+   "scene": "236",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.718011200428009,
+   "n_blocks": 27
+  },
+  {
+   "scene": "236",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7375153303146362,
+   "n_blocks": 27
+  },
+  {
+   "scene": "236",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7375350594520569,
+   "n_blocks": 26
+  },
+  {
+   "scene": "236",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7073240280151367,
+   "n_blocks": 26
+  },
+  {
+   "scene": "237",
+   "pair": "1",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.733230471611023,
+   "n_blocks": 16
+  },
+  {
+   "scene": "237",
+   "pair": "1",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7363293170928955,
+   "n_blocks": 19
+  },
+  {
+   "scene": "237",
+   "pair": "2",
+   "imp": true,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.756417453289032,
+   "n_blocks": 15
+  },
+  {
+   "scene": "237",
+   "pair": "2",
+   "imp": false,
+   "cond": "continuity",
+   "cam": "Fixed",
+   "moved": 0.7509610652923584,
+   "n_blocks": 17
+  }
+ ]
+}

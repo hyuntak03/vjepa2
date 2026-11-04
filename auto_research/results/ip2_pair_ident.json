@@ -1,0 +1,23 @@
+{
+ "tok_block|all": 0.8478260869565217,
+ "tok_block|solidity": 0.9383561643835616,
+ "tok_block|Fixed": 0.8221153846153846,
+ "tok_tmean|all": 0.8122529644268774,
+ "tok_tmean|solidity": 0.9383561643835616,
+ "tok_tmean|Fixed": 0.75,
+ "pix|all": 0.8201581027667985,
+ "pix|solidity": 0.9178082191780822,
+ "pix|Fixed": 0.7980769230769231,
+ "tok_block|Moving": 0.8657718120805369,
+ "tok_tmean|Moving": 0.8557046979865772,
+ "pix|Moving": 0.8355704697986577,
+ "tok_block|permanence": 0.8166666666666667,
+ "tok_tmean|permanence": 0.7666666666666667,
+ "pix|permanence": 0.75,
+ "tok_block|immutability": 0.8166666666666667,
+ "tok_tmean|immutability": 0.7583333333333333,
+ "pix|immutability": 0.7916666666666666,
+ "tok_block|continuity": 0.8,
+ "tok_tmean|continuity": 0.7583333333333333,
+ "pix|continuity": 0.8
+}

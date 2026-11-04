@@ -1,0 +1,7 @@
+{
+ "n_train": 46432,
+ "n_val": 1923,
+ "linear_scene_x_position_block": 0.081,
+ "knn20_scene_position_block": 0.173,
+ "copy_previous_block_velocity": -0.362
+}

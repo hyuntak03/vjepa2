@@ -1,0 +1,31 @@
+# =============================================================================
+# AR 기본판 (natural_ar_vw_state, ep70) post-FT — real world permanence 학습 절반의 가능 영상 94 편 (2026-11-02, 사용자: "release · ar 둘 다 real bench 로 PFT, held out")
+#
+#   GPUS=8 bash z_training/tmux_train.sh realbench_ar_vw_state_postft
+#
+# 무엇: vobench_ar_vw_state_postft_g (AR 출발 · 문맥 8 블록 → 미래 8 블록 rollout · lr 5e-5) 의 데이터만 real bench 학습 절반으로.
+# 왜: realbench_release_postft 와 같은 질문을 AR 에서. 비교: AR 기본판 (vast_ar_vw_state) 의 같은 시험 절반 점수.
+# 길이: 30 epoch × 94 편 / 전역 16 (GPU 8 × 2) ≈ 180 step. 전처리: 채점기처럼 256² 로 눌러 줄임 (AR 기본 설정의 square_crop center 를 끈다).
+# =============================================================================
+extends: vobench_ar_vw_state_postft_g
+
+meta:
+  seed: 0
+  save_every_freq: 10
+
+data:
+  n_frames: 32
+  batch_size: 2                 # rank 당 × 8 GPU = 16
+  num_workers: 4
+  datasets:
+    - {name: realbench_perm_train, weight: 1.0}
+  aug:
+    hflip_p: 0.5
+    random_resized_crop: null
+    square_crop: none
+
+optimization:
+  epochs: 30
+
+val:
+  every_epochs: 10

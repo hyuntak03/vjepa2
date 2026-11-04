@@ -1,0 +1,113 @@
+{
+ "n_val": 1165,
+ "shape_acc": 78.5,
+ "color_acc": 83.9,
+ "joint_acc": 54.2,
+ "both_separate_heads_correct": 66.4,
+ "product": 65.9,
+ "joint_head_shape_part_acc": 71.9,
+ "joint_head_color_part_acc": 71.5,
+ "shape_confusions_top": [
+  [
+   "cone→pyramid",
+   59
+  ],
+  [
+   "cylinder→cube",
+   39
+  ],
+  [
+   "cube→cylinder",
+   33
+  ],
+  [
+   "pyramid→cone",
+   29
+  ],
+  [
+   "cube→pyramid",
+   13
+  ],
+  [
+   "cone→cylinder",
+   11
+  ]
+ ],
+ "color_confusions_top": [
+  [
+   "yellow→orange",
+   23
+  ],
+  [
+   "orange→yellow",
+   19
+  ],
+  [
+   "orange→red",
+   13
+  ],
+  [
+   "blue→cyan",
+   10
+  ],
+  [
+   "magenta→purple",
+   10
+  ],
+  [
+   "green→magenta",
+   9
+  ]
+ ],
+ "shape_acc_per_class": {
+  "sphere": 93.9,
+  "cube": 73.9,
+  "cylinder": 65.1,
+  "cone": 48.9,
+  "pyramid": 60.0,
+  "torus": 98.4
+ },
+ "color_acc_per_class": {
+  "red": 88.5,
+  "orange": 81.3,
+  "yellow": 80.6,
+  "green": 84.8,
+  "cyan": 81.3,
+  "blue": 84.9,
+  "purple": 83.0,
+  "magenta": 87.6
+ },
+ "by_object_cells": {
+  "1-2": {
+   "n": 267,
+   "shape": 84.3,
+   "color": 83.1,
+   "joint": 62.2
+  },
+  "3-4": {
+   "n": 688,
+   "shape": 77.2,
+   "color": 81.7,
+   "joint": 50.0
+  },
+  "5-8": {
+   "n": 145,
+   "shape": 75.2,
+   "color": 89.7,
+   "joint": 62.1
+  },
+  "9-16": {
+   "n": 65,
+   "shape": 76.9,
+   "color": 96.9,
+   "joint": 49.2
+  }
+ },
+ "object_cells_quantiles": [
+  2.0,
+  4.0,
+  4.0,
+  4.0,
+  6.0
+ ]
+}

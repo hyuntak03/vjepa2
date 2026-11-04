@@ -1,0 +1,212 @@
+{
+ "frame_diff": {
+  "all": [
+   51.2,
+   506
+  ],
+  "cam=Fixed": [
+   48.6,
+   208
+  ],
+  "cam=Moving": [
+   53.0,
+   298
+  ],
+  "continuity": [
+   48.3,
+   120
+  ],
+  "continuity|pair1": [
+   56.7,
+   60
+  ],
+  "continuity|pair2": [
+   40.0,
+   60
+  ],
+  "immutability": [
+   49.2,
+   120
+  ],
+  "immutability|pair1": [
+   61.7,
+   60
+  ],
+  "immutability|pair2": [
+   36.7,
+   60
+  ],
+  "pair1": [
+   49.4,
+   253
+  ],
+  "pair2": [
+   53.0,
+   253
+  ],
+  "permanence": [
+   52.5,
+   120
+  ],
+  "permanence|pair1": [
+   26.7,
+   60
+  ],
+  "permanence|pair2": [
+   78.3,
+   60
+  ],
+  "solidity": [
+   54.1,
+   146
+  ],
+  "solidity|pair1": [
+   52.1,
+   73
+  ],
+  "solidity|pair2": [
+   56.2,
+   73
+  ]
+ },
+ "blk_still": {
+  "all": [
+   48.8,
+   506
+  ],
+  "cam=Fixed": [
+   53.8,
+   208
+  ],
+  "cam=Moving": [
+   45.3,
+   298
+  ],
+  "continuity": [
+   45.0,
+   120
+  ],
+  "continuity|pair1": [
+   48.3,
+   60
+  ],
+  "continuity|pair2": [
+   41.7,
+   60
+  ],
+  "immutability": [
+   54.2,
+   120
+  ],
+  "immutability|pair1": [
+   46.7,
+   60
+  ],
+  "immutability|pair2": [
+   61.7,
+   60
+  ],
+  "pair1": [
+   45.5,
+   253
+  ],
+  "pair2": [
+   52.2,
+   253
+  ],
+  "permanence": [
+   45.8,
+   120
+  ],
+  "permanence|pair1": [
+   43.3,
+   60
+  ],
+  "permanence|pair2": [
+   48.3,
+   60
+  ],
+  "solidity": [
+   50.0,
+   146
+  ],
+  "solidity|pair1": [
+   43.8,
+   73
+  ],
+  "solidity|pair2": [
+   56.2,
+   73
+  ]
+ },
+ "blk_constvel": {
+  "all": [
+   50.4,
+   506
+  ],
+  "cam=Fixed": [
+   51.4,
+   208
+  ],
+  "cam=Moving": [
+   49.7,
+   298
+  ],
+  "continuity": [
+   47.5,
+   120
+  ],
+  "continuity|pair1": [
+   56.7,
+   60
+  ],
+  "continuity|pair2": [
+   38.3,
+   60
+  ],
+  "immutability": [
+   47.5,
+   120
+  ],
+  "immutability|pair1": [
+   45.0,
+   60
+  ],
+  "immutability|pair2": [
+   50.0,
+   60
+  ],
+  "pair1": [
+   51.0,
+   253
+  ],
+  "pair2": [
+   49.8,
+   253
+  ],
+  "permanence": [
+   53.3,
+   120
+  ],
+  "permanence|pair1": [
+   51.7,
+   60
+  ],
+  "permanence|pair2": [
+   55.0,
+   60
+  ],
+  "solidity": [
+   52.7,
+   146
+  ],
+  "solidity|pair1": [
+   50.7,
+   73
+  ],
+  "solidity|pair2": [
+   54.8,
+   73
+  ]
+ }
+}

@@ -113,6 +113,8 @@ def build_predictor(m: dict, encoder_embed_dim: int, state: Optional[dict], devi
         extra["ar_unc"] = True
     if pc.get("ar_oneshot"):                                  # kind=ar 인데 미래 K 블록 한 번에 (2026-10-28)
         extra["ar_oneshot"] = True
+    if pc.get("ar_oneshot_causal"):                           # 위 + attention 전부 블록 인과 (문맥 포함, 2026-11-04)
+        extra["ar_oneshot_causal"] = True
     if pc.get("reg_carry"):                                   # ar registers 상태 넘김: state | none (2026-10-27)
         extra["reg_carry"] = str(pc["reg_carry"])
     if int(pc.get("hint_cross_dim", 0) or 0):                 # 힌트 cross-attn (2026-10-11, kind=ar 전용)

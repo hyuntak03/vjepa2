@@ -1,0 +1,2886 @@
+{
+ "natural_ar_vw_state": [
+  {
+   "block": "0",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.09216326475143433,
+   "margin_obj": 0.4045642018318176
+  },
+  {
+   "block": "0",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.100075364112854,
+   "margin_obj": 0.3547486960887909
+  },
+  {
+   "block": "1",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.024328112602233887,
+   "margin_obj": 0.1514202356338501
+  },
+  {
+   "block": "1",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.03477409482002258,
+   "margin_obj": 0.20183530449867249
+  },
+  {
+   "block": "10",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.010090649127960205,
+   "margin_obj": 1.055002212524414e-05
+  },
+  {
+   "block": "10",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.006245017051696777,
+   "margin_obj": 0.011223673820495605
+  },
+  {
+   "block": "11",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.020449161529541016,
+   "margin_obj": 0.00017273426055908203
+  },
+  {
+   "block": "11",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.02287757396697998,
+   "margin_obj": 0.017705559730529785
+  },
+  {
+   "block": "12",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "permanence",
+   "full": true,
+   "obj": false,
+   "margin_full": 0.07884705066680908,
+   "margin_obj": -0.016473889350891113
+  },
+  {
+   "block": "12",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.11802110075950623,
+   "margin_obj": 0.3660663068294525
+  },
+  {
+   "block": "13",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.025450468063354492,
+   "margin_obj": 0.03435748815536499
+  },
+  {
+   "block": "13",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.017757058143615723,
+   "margin_obj": 0.023577213287353516
+  },
+  {
+   "block": "14",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.004696846008300781,
+   "margin_obj": 0.0052648186683654785
+  },
+  {
+   "block": "14",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.007029533386230469,
+   "margin_obj": 0.002109050750732422
+  },
+  {
+   "block": "15",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "permanence",
+   "full": true,
+   "obj": false,
+   "margin_full": 0.04636871814727783,
+   "margin_obj": -0.03681105375289917
+  },
+  {
+   "block": "15",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.13071823120117188,
+   "margin_obj": 0.3234160244464874
+  },
+  {
+   "block": "16",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.027461349964141846,
+   "margin_obj": 0.04543709754943848
+  },
+  {
+   "block": "16",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.02943861484527588,
+   "margin_obj": 0.036496877670288086
+  },
+  {
+   "block": "17",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.0191805362701416,
+   "margin_obj": 0.009230315685272217
+  },
+  {
+   "block": "17",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.006528913974761963,
+   "margin_obj": 0.008447825908660889
+  },
+  {
+   "block": "18",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.06162780523300171,
+   "margin_obj": 0.0069487690925598145
+  },
+  {
+   "block": "18",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.09622049331665039,
+   "margin_obj": 0.34327489137649536
+  },
+  {
+   "block": "19",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.013372242450714111,
+   "margin_obj": 0.03397411108016968
+  },
+  {
+   "block": "19",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.0063825249671936035,
+   "margin_obj": 0.0022409558296203613
+  },
+  {
+   "block": "2",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.015584081411361694,
+   "margin_obj": 0.10102352499961853
+  },
+  {
+   "block": "2",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.014610499143600464,
+   "margin_obj": 0.08692243695259094
+  },
+  {
+   "block": "20",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.012853622436523438,
+   "margin_obj": 0.002877652645111084
+  },
+  {
+   "block": "20",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "color",
+   "full": false,
+   "obj": true,
+   "margin_full": -0.003576517105102539,
+   "margin_obj": 0.004303157329559326
+  },
+  {
+   "block": "21",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.06541800498962402,
+   "margin_obj": 0.037887394428253174
+  },
+  {
+   "block": "21",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.12344077229499817,
+   "margin_obj": 0.32957160472869873
+  },
+  {
+   "block": "22",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.022592663764953613,
+   "margin_obj": 0.04029834270477295
+  },
+  {
+   "block": "22",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.033456623554229736,
+   "margin_obj": 0.039543867111206055
+  },
+  {
+   "block": "23",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.0014908909797668457,
+   "margin_obj": 0.01765042543411255
+  },
+  {
+   "block": "23",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.016416192054748535,
+   "margin_obj": 0.004514157772064209
+  },
+  {
+   "block": "24",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "permanence",
+   "full": true,
+   "obj": false,
+   "margin_full": 0.047516822814941406,
+   "margin_obj": -0.0205003023147583
+  },
+  {
+   "block": "24",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.1248808205127716,
+   "margin_obj": 0.36030229926109314
+  },
+  {
+   "block": "25",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "shape",
+   "full": false,
+   "obj": false,
+   "margin_full": -0.002602875232696533,
+   "margin_obj": -0.003664851188659668
+  },
+  {
+   "block": "25",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.0059092044830322266,
+   "margin_obj": 0.009425938129425049
+  },
+  {
+   "block": "26",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.0011178255081176758,
+   "margin_obj": 0.0010659098625183105
+  },
+  {
+   "block": "26",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.0063263773918151855,
+   "margin_obj": 0.014308810234069824
+  },
+  {
+   "block": "27",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "permanence",
+   "full": true,
+   "obj": false,
+   "margin_full": 0.0468297004699707,
+   "margin_obj": -0.024980127811431885
+  },
+  {
+   "block": "27",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.1173332929611206,
+   "margin_obj": 0.35755133628845215
+  },
+  {
+   "block": "28",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.005074024200439453,
+   "margin_obj": 0.002604544162750244
+  },
+  {
+   "block": "28",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.015600264072418213,
+   "margin_obj": 0.07558882236480713
+  },
+  {
+   "block": "29",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "color",
+   "full": true,
+   "obj": false,
+   "margin_full": 0.0033130645751953125,
+   "margin_obj": -0.005842387676239014
+  },
+  {
+   "block": "29",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.019196152687072754,
+   "margin_obj": 0.025148868560791016
+  },
+  {
+   "block": "3",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.0875735878944397,
+   "margin_obj": 0.4177883565425873
+  },
+  {
+   "block": "3",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.08453509211540222,
+   "margin_obj": 0.3285793364048004
+  },
+  {
+   "block": "30",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "permanence",
+   "full": true,
+   "obj": false,
+   "margin_full": 0.06896835565567017,
+   "margin_obj": -0.023895323276519775
+  },
+  {
+   "block": "30",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.11991637945175171,
+   "margin_obj": 0.3393072783946991
+  },
+  {
+   "block": "31",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.002596735954284668,
+   "margin_obj": 0.004099071025848389
+  },
+  {
+   "block": "31",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "shape",
+   "full": false,
+   "obj": true,
+   "margin_full": -0.00042301416397094727,
+   "margin_obj": 0.01054227352142334
+  },
+  {
+   "block": "32",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.01388019323348999,
+   "margin_obj": 0.0033532381057739258
+  },
+  {
+   "block": "32",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "color",
+   "full": false,
+   "obj": true,
+   "margin_full": -0.008195281028747559,
+   "margin_obj": 0.0061604976654052734
+  },
+  {
+   "block": "33",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "permanence",
+   "full": true,
+   "obj": false,
+   "margin_full": 0.0586361289024353,
+   "margin_obj": -0.026324450969696045
+  },
+  {
+   "block": "33",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.12107065320014954,
+   "margin_obj": 0.3481905162334442
+  },
+  {
+   "block": "34",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.008818387985229492,
+   "margin_obj": 0.0565759539604187
+  },
+  {
+   "block": "34",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.016568660736083984,
+   "margin_obj": 0.028554081916809082
+  },
+  {
+   "block": "35",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "color",
+   "full": false,
+   "obj": true,
+   "margin_full": -0.002427339553833008,
+   "margin_obj": 0.004405379295349121
+  },
+  {
+   "block": "35",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.00818413496017456,
+   "margin_obj": 0.00644373893737793
+  },
+  {
+   "block": "36",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.06236329674720764,
+   "margin_obj": 0.30620884895324707
+  },
+  {
+   "block": "36",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.05223768949508667,
+   "margin_obj": 0.25778135657310486
+  },
+  {
+   "block": "37",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.019094496965408325,
+   "margin_obj": 0.13198551535606384
+  },
+  {
+   "block": "37",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.030298471450805664,
+   "margin_obj": 0.15029874444007874
+  },
+  {
+   "block": "38",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.02410903573036194,
+   "margin_obj": 0.11881253123283386
+  },
+  {
+   "block": "38",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.025454580783843994,
+   "margin_obj": 0.12909770011901855
+  },
+  {
+   "block": "39",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.06791162490844727,
+   "margin_obj": 0.30756592750549316
+  },
+  {
+   "block": "39",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.07661837339401245,
+   "margin_obj": 0.24413317441940308
+  },
+  {
+   "block": "4",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.07720032334327698,
+   "margin_obj": 0.2665344774723053
+  },
+  {
+   "block": "4",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.0836808979511261,
+   "margin_obj": 0.2903052866458893
+  },
+  {
+   "block": "40",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.09395524859428406,
+   "margin_obj": 0.2207338809967041
+  },
+  {
+   "block": "40",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.0892629623413086,
+   "margin_obj": 0.2959708869457245
+  },
+  {
+   "block": "41",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.015286386013031006,
+   "margin_obj": 0.08147770166397095
+  },
+  {
+   "block": "41",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.0077301859855651855,
+   "margin_obj": 0.04960259795188904
+  },
+  {
+   "block": "42",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "permanence",
+   "full": true,
+   "obj": false,
+   "margin_full": 0.07756084203720093,
+   "margin_obj": -0.07907962799072266
+  },
+  {
+   "block": "42",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.104747474193573,
+   "margin_obj": 0.33168932795524597
+  },
+  {
+   "block": "43",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.0052697062492370605,
+   "margin_obj": 0.01959472894668579
+  },
+  {
+   "block": "43",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.01680666208267212,
+   "margin_obj": 0.026349782943725586
+  },
+  {
+   "block": "44",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "color",
+   "full": false,
+   "obj": true,
+   "margin_full": -0.003725767135620117,
+   "margin_obj": 0.02355480194091797
+  },
+  {
+   "block": "44",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "color",
+   "full": true,
+   "obj": false,
+   "margin_full": 0.011332720518112183,
+   "margin_obj": -0.019876539707183838
+  },
+  {
+   "block": "45",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.09210863709449768,
+   "margin_obj": 0.03381752967834473
+  },
+  {
+   "block": "45",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.10507002472877502,
+   "margin_obj": 0.29425930976867676
+  },
+  {
+   "block": "46",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.024541795253753662,
+   "margin_obj": 0.01666182279586792
+  },
+  {
+   "block": "46",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.015806734561920166,
+   "margin_obj": 0.08000355958938599
+  },
+  {
+   "block": "47",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.0037674307823181152,
+   "margin_obj": 0.00166398286819458
+  },
+  {
+   "block": "47",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.001439601182937622,
+   "margin_obj": 0.009393692016601562
+  },
+  {
+   "block": "48",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "permanence",
+   "full": true,
+   "obj": false,
+   "margin_full": 0.08854416012763977,
+   "margin_obj": -0.05530071258544922
+  },
+  {
+   "block": "48",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.11538198590278625,
+   "margin_obj": 0.3441965878009796
+  },
+  {
+   "block": "49",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.0110262930393219,
+   "margin_obj": 0.0282132625579834
+  },
+  {
+   "block": "49",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "shape",
+   "full": false,
+   "obj": true,
+   "margin_full": -0.001817464828491211,
+   "margin_obj": 0.0032271146774291992
+  },
+  {
+   "block": "5",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.05790215730667114,
+   "margin_obj": 0.1151164174079895
+  },
+  {
+   "block": "5",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.06886225938796997,
+   "margin_obj": 0.16000378131866455
+  },
+  {
+   "block": "50",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.0077664852142333984,
+   "margin_obj": 0.0074615478515625
+  },
+  {
+   "block": "50",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.017553746700286865,
+   "margin_obj": 0.006480395793914795
+  },
+  {
+   "block": "51",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "permanence",
+   "full": true,
+   "obj": false,
+   "margin_full": 0.08683526515960693,
+   "margin_obj": -0.015483319759368896
+  },
+  {
+   "block": "51",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.13303443789482117,
+   "margin_obj": 0.3634880781173706
+  },
+  {
+   "block": "52",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.024484485387802124,
+   "margin_obj": 0.09013533592224121
+  },
+  {
+   "block": "52",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.029101848602294922,
+   "margin_obj": 0.03750365972518921
+  },
+  {
+   "block": "53",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.0023453831672668457,
+   "margin_obj": 0.001336216926574707
+  },
+  {
+   "block": "53",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.011491864919662476,
+   "margin_obj": 0.018862426280975342
+  },
+  {
+   "block": "54",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "permanence",
+   "full": true,
+   "obj": false,
+   "margin_full": 0.10854142904281616,
+   "margin_obj": -0.03987562656402588
+  },
+  {
+   "block": "54",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.10308179259300232,
+   "margin_obj": 0.3382469415664673
+  },
+  {
+   "block": "55",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "shape",
+   "full": false,
+   "obj": true,
+   "margin_full": -0.005234837532043457,
+   "margin_obj": 0.03653991222381592
+  },
+  {
+   "block": "55",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.03215062618255615,
+   "margin_obj": 0.004338204860687256
+  },
+  {
+   "block": "56",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.0015763640403747559,
+   "margin_obj": 0.007495403289794922
+  },
+  {
+   "block": "56",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.008882284164428711,
+   "margin_obj": 0.0015863776206970215
+  },
+  {
+   "block": "57",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.10213935375213623,
+   "margin_obj": 0.00034886598587036133
+  },
+  {
+   "block": "57",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.10285434126853943,
+   "margin_obj": 0.33901888132095337
+  },
+  {
+   "block": "58",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.06956696510314941,
+   "margin_obj": 0.09065145254135132
+  },
+  {
+   "block": "58",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "shape",
+   "full": false,
+   "obj": true,
+   "margin_full": -0.014641225337982178,
+   "margin_obj": 0.060033440589904785
+  },
+  {
+   "block": "59",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.02287653088569641,
+   "margin_obj": 0.005399346351623535
+  },
+  {
+   "block": "59",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "color",
+   "full": false,
+   "obj": true,
+   "margin_full": -0.016234010457992554,
+   "margin_obj": 0.008507490158081055
+  },
+  {
+   "block": "6",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "permanence",
+   "full": true,
+   "obj": false,
+   "margin_full": 0.0849921703338623,
+   "margin_obj": -0.0404430627822876
+  },
+  {
+   "block": "6",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.11300337314605713,
+   "margin_obj": 0.36325642466545105
+  },
+  {
+   "block": "60",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "permanence",
+   "full": true,
+   "obj": false,
+   "margin_full": 0.07072728872299194,
+   "margin_obj": -0.049716830253601074
+  },
+  {
+   "block": "60",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.07734447717666626,
+   "margin_obj": 0.32799574732780457
+  },
+  {
+   "block": "61",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "shape",
+   "full": false,
+   "obj": false,
+   "margin_full": -0.0033653974533081055,
+   "margin_obj": -0.001909792423248291
+  },
+  {
+   "block": "61",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.005252033472061157,
+   "margin_obj": 0.011246860027313232
+  },
+  {
+   "block": "62",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "color",
+   "full": false,
+   "obj": false,
+   "margin_full": -0.001471400260925293,
+   "margin_obj": -0.0037210583686828613
+  },
+  {
+   "block": "62",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.0039675235748291016,
+   "margin_obj": 0.01556694507598877
+  },
+  {
+   "block": "63",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "permanence",
+   "full": true,
+   "obj": false,
+   "margin_full": 0.0682588517665863,
+   "margin_obj": -0.012653350830078125
+  },
+  {
+   "block": "63",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.09682321548461914,
+   "margin_obj": 0.3340316712856293
+  },
+  {
+   "block": "64",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.008084625005722046,
+   "margin_obj": 0.010179281234741211
+  },
+  {
+   "block": "64",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.02048659324645996,
+   "margin_obj": 0.06730419397354126
+  },
+  {
+   "block": "65",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.004139542579650879,
+   "margin_obj": 0.004765570163726807
+  },
+  {
+   "block": "65",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "color",
+   "full": false,
+   "obj": true,
+   "margin_full": -0.002248525619506836,
+   "margin_obj": 0.0016357898712158203
+  },
+  {
+   "block": "66",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "permanence",
+   "full": true,
+   "obj": false,
+   "margin_full": 0.0460929274559021,
+   "margin_obj": -0.11116129159927368
+  },
+  {
+   "block": "66",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.09257194399833679,
+   "margin_obj": 0.3337958753108978
+  },
+  {
+   "block": "67",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "shape",
+   "full": false,
+   "obj": false,
+   "margin_full": -0.007276415824890137,
+   "margin_obj": -0.02298527956008911
+  },
+  {
+   "block": "67",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.007738888263702393,
+   "margin_obj": 0.04107177257537842
+  },
+  {
+   "block": "68",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.003906518220901489,
+   "margin_obj": 0.005318641662597656
+  },
+  {
+   "block": "68",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.0034262239933013916,
+   "margin_obj": 0.004433870315551758
+  },
+  {
+   "block": "69",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "permanence",
+   "full": true,
+   "obj": false,
+   "margin_full": 0.057350993156433105,
+   "margin_obj": -0.09329915046691895
+  },
+  {
+   "block": "69",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.10353302955627441,
+   "margin_obj": 0.3237176537513733
+  },
+  {
+   "block": "7",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.022467851638793945,
+   "margin_obj": 0.014558732509613037
+  },
+  {
+   "block": "7",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.01995748281478882,
+   "margin_obj": 0.03310692310333252
+  },
+  {
+   "block": "70",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.012618869543075562,
+   "margin_obj": 0.06296437978744507
+  },
+  {
+   "block": "70",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.009936749935150146,
+   "margin_obj": 0.016671180725097656
+  },
+  {
+   "block": "71",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "color",
+   "full": true,
+   "obj": false,
+   "margin_full": 0.005565941333770752,
+   "margin_obj": -0.010737359523773193
+  },
+  {
+   "block": "71",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "color",
+   "full": false,
+   "obj": true,
+   "margin_full": -0.0037993788719177246,
+   "margin_obj": 0.031179487705230713
+  },
+  {
+   "block": "8",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.0036298632621765137,
+   "margin_obj": 0.0017094612121582031
+  },
+  {
+   "block": "8",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.0004963278770446777,
+   "margin_obj": 0.0049544572830200195
+  },
+  {
+   "block": "9",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.07915353775024414,
+   "margin_obj": 0.04801720380783081
+  },
+  {
+   "block": "9",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.13099223375320435,
+   "margin_obj": 0.37523049116134644
+  }
+ ],
+ "natural_ar_vw_state_ctxt_video": [
+  {
+   "block": "0",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.016128063201904297,
+   "margin_obj": 0.28049248456954956
+  },
+  {
+   "block": "0",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.0281561017036438,
+   "margin_obj": 0.1374521255493164
+  },
+  {
+   "block": "1",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.001004934310913086,
+   "margin_obj": 0.040279924869537354
+  },
+  {
+   "block": "1",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.009044349193572998,
+   "margin_obj": 0.12256059050559998
+  },
+  {
+   "block": "10",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.006987810134887695,
+   "margin_obj": 0.012066841125488281
+  },
+  {
+   "block": "10",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "shape",
+   "full": false,
+   "obj": true,
+   "margin_full": -0.004772067070007324,
+   "margin_obj": 0.008411705493927002
+  },
+  {
+   "block": "11",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "color",
+   "full": false,
+   "obj": true,
+   "margin_full": -0.0007956027984619141,
+   "margin_obj": 0.0014663934707641602
+  },
+  {
+   "block": "11",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.00801020860671997,
+   "margin_obj": 0.013735353946685791
+  },
+  {
+   "block": "12",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.046416401863098145,
+   "margin_obj": 0.1744202971458435
+  },
+  {
+   "block": "12",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.0013317465782165527,
+   "margin_obj": 0.15636777877807617
+  },
+  {
+   "block": "13",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.009649515151977539,
+   "margin_obj": 0.05307739973068237
+  },
+  {
+   "block": "13",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.00429689884185791,
+   "margin_obj": 0.036317288875579834
+  },
+  {
+   "block": "14",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.0008436441421508789,
+   "margin_obj": 0.013615667819976807
+  },
+  {
+   "block": "14",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "color",
+   "full": true,
+   "obj": false,
+   "margin_full": 0.0009161233901977539,
+   "margin_obj": -0.00272291898727417
+  },
+  {
+   "block": "15",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.05142331123352051,
+   "margin_obj": 0.11515319347381592
+  },
+  {
+   "block": "15",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.005902230739593506,
+   "margin_obj": 0.12856334447860718
+  },
+  {
+   "block": "16",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.014679908752441406,
+   "margin_obj": 0.06607204675674438
+  },
+  {
+   "block": "16",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.009920299053192139,
+   "margin_obj": 0.06730425357818604
+  },
+  {
+   "block": "17",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.0028926730155944824,
+   "margin_obj": 0.011327028274536133
+  },
+  {
+   "block": "17",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.0008159875869750977,
+   "margin_obj": 0.016387104988098145
+  },
+  {
+   "block": "18",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.032712697982788086,
+   "margin_obj": 0.12663555145263672
+  },
+  {
+   "block": "18",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "permanence",
+   "full": false,
+   "obj": true,
+   "margin_full": -0.0016117691993713379,
+   "margin_obj": 0.13277244567871094
+  },
+  {
+   "block": "19",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.010652303695678711,
+   "margin_obj": 0.04987776279449463
+  },
+  {
+   "block": "19",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "shape",
+   "full": false,
+   "obj": true,
+   "margin_full": -0.0039637088775634766,
+   "margin_obj": 0.007255434989929199
+  },
+  {
+   "block": "2",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "color",
+   "full": false,
+   "obj": true,
+   "margin_full": -0.00016355514526367188,
+   "margin_obj": 0.005296081304550171
+  },
+  {
+   "block": "2",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.0019083023071289062,
+   "margin_obj": 0.025719642639160156
+  },
+  {
+   "block": "20",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.007514536380767822,
+   "margin_obj": 0.002656221389770508
+  },
+  {
+   "block": "20",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "color",
+   "full": false,
+   "obj": true,
+   "margin_full": -0.006158888339996338,
+   "margin_obj": 0.007968246936798096
+  },
+  {
+   "block": "21",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.025684118270874023,
+   "margin_obj": 0.0683373212814331
+  },
+  {
+   "block": "21",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.01417839527130127,
+   "margin_obj": 0.12423717975616455
+  },
+  {
+   "block": "22",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.002278149127960205,
+   "margin_obj": 0.06807965040206909
+  },
+  {
+   "block": "22",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.014897406101226807,
+   "margin_obj": 0.04005599021911621
+  },
+  {
+   "block": "23",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "color",
+   "full": false,
+   "obj": false,
+   "margin_full": -0.004024505615234375,
+   "margin_obj": -0.01491093635559082
+  },
+  {
+   "block": "23",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.007333159446716309,
+   "margin_obj": 0.03648734092712402
+  },
+  {
+   "block": "24",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.03482949733734131,
+   "margin_obj": 0.04954022169113159
+  },
+  {
+   "block": "24",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "permanence",
+   "full": false,
+   "obj": true,
+   "margin_full": -0.0055901408195495605,
+   "margin_obj": 0.14001840353012085
+  },
+  {
+   "block": "25",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "shape",
+   "full": false,
+   "obj": false,
+   "margin_full": -0.002166748046875,
+   "margin_obj": -0.0023649930953979492
+  },
+  {
+   "block": "25",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.003322124481201172,
+   "margin_obj": 0.008767962455749512
+  },
+  {
+   "block": "26",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "color",
+   "full": false,
+   "obj": true,
+   "margin_full": -0.0026644468307495117,
+   "margin_obj": 0.002497255802154541
+  },
+  {
+   "block": "26",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.003809034824371338,
+   "margin_obj": 0.013667881488800049
+  },
+  {
+   "block": "27",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.03562617301940918,
+   "margin_obj": 0.051085591316223145
+  },
+  {
+   "block": "27",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "permanence",
+   "full": false,
+   "obj": true,
+   "margin_full": -0.0007982850074768066,
+   "margin_obj": 0.14725351333618164
+  },
+  {
+   "block": "28",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.0055048465728759766,
+   "margin_obj": 0.03662687540054321
+  },
+  {
+   "block": "28",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.0056836605072021484,
+   "margin_obj": 0.062115371227264404
+  },
+  {
+   "block": "29",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "color",
+   "full": true,
+   "obj": false,
+   "margin_full": 8.982419967651367e-05,
+   "margin_obj": -0.001253962516784668
+  },
+  {
+   "block": "29",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.004179060459136963,
+   "margin_obj": 0.021726012229919434
+  },
+  {
+   "block": "3",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.018008828163146973,
+   "margin_obj": 0.32888826727867126
+  },
+  {
+   "block": "3",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.02564990520477295,
+   "margin_obj": 0.11686146259307861
+  },
+  {
+   "block": "30",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.0456697940826416,
+   "margin_obj": 0.07169640064239502
+  },
+  {
+   "block": "30",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "permanence",
+   "full": false,
+   "obj": true,
+   "margin_full": -0.0053727030754089355,
+   "margin_obj": 0.1332119107246399
+  },
+  {
+   "block": "31",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.002278923988342285,
+   "margin_obj": 0.007131457328796387
+  },
+  {
+   "block": "31",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "shape",
+   "full": false,
+   "obj": true,
+   "margin_full": -0.001079559326171875,
+   "margin_obj": 0.009672462940216064
+  },
+  {
+   "block": "32",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.012928545475006104,
+   "margin_obj": 0.008826613426208496
+  },
+  {
+   "block": "32",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "color",
+   "full": false,
+   "obj": true,
+   "margin_full": -0.01200026273727417,
+   "margin_obj": 0.00046890974044799805
+  },
+  {
+   "block": "33",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.0409662127494812,
+   "margin_obj": 0.062236666679382324
+  },
+  {
+   "block": "33",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "permanence",
+   "full": false,
+   "obj": true,
+   "margin_full": -0.00124359130859375,
+   "margin_obj": 0.13047432899475098
+  },
+  {
+   "block": "34",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "shape",
+   "full": false,
+   "obj": true,
+   "margin_full": -0.006040632724761963,
+   "margin_obj": 0.049682676792144775
+  },
+  {
+   "block": "34",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.01628643274307251,
+   "margin_obj": 0.043397486209869385
+  },
+  {
+   "block": "35",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "color",
+   "full": false,
+   "obj": true,
+   "margin_full": -0.0068759918212890625,
+   "margin_obj": 0.006120204925537109
+  },
+  {
+   "block": "35",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.007598698139190674,
+   "margin_obj": 0.00858539342880249
+  },
+  {
+   "block": "36",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.012459993362426758,
+   "margin_obj": 0.17547139525413513
+  },
+  {
+   "block": "36",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.007035315036773682,
+   "margin_obj": 0.11567997932434082
+  },
+  {
+   "block": "37",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "shape",
+   "full": false,
+   "obj": true,
+   "margin_full": -0.003718256950378418,
+   "margin_obj": 0.05654790997505188
+  },
+  {
+   "block": "37",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.01242285966873169,
+   "margin_obj": 0.07127222418785095
+  },
+  {
+   "block": "38",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "color",
+   "full": false,
+   "obj": true,
+   "margin_full": -0.003903210163116455,
+   "margin_obj": 0.004479825496673584
+  },
+  {
+   "block": "38",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.0072609782218933105,
+   "margin_obj": 0.05434060096740723
+  },
+  {
+   "block": "39",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.010295510292053223,
+   "margin_obj": 0.2181376814842224
+  },
+  {
+   "block": "39",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.019690275192260742,
+   "margin_obj": 0.11380723118782043
+  },
+  {
+   "block": "4",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.008360207080841064,
+   "margin_obj": 0.1168384850025177
+  },
+  {
+   "block": "4",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.026226043701171875,
+   "margin_obj": 0.1807803213596344
+  },
+  {
+   "block": "40",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.02290898561477661,
+   "margin_obj": 0.09054267406463623
+  },
+  {
+   "block": "40",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.019033610820770264,
+   "margin_obj": 0.19989857077598572
+  },
+  {
+   "block": "41",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.00451350212097168,
+   "margin_obj": 0.0492231547832489
+  },
+  {
+   "block": "41",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "color",
+   "full": false,
+   "obj": false,
+   "margin_full": -0.0023053884506225586,
+   "margin_obj": -0.01409122347831726
+  },
+  {
+   "block": "42",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.06424856185913086,
+   "margin_obj": 0.047807276248931885
+  },
+  {
+   "block": "42",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "permanence",
+   "full": false,
+   "obj": true,
+   "margin_full": -0.03018134832382202,
+   "margin_obj": 0.15611708164215088
+  },
+  {
+   "block": "43",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 1.3887882232666016e-05,
+   "margin_obj": 0.023389577865600586
+  },
+  {
+   "block": "43",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.009008646011352539,
+   "margin_obj": 0.04186373949050903
+  },
+  {
+   "block": "44",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "color",
+   "full": false,
+   "obj": true,
+   "margin_full": -0.004929065704345703,
+   "margin_obj": 0.017912328243255615
+  },
+  {
+   "block": "44",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "color",
+   "full": true,
+   "obj": false,
+   "margin_full": 0.005083262920379639,
+   "margin_obj": -0.012763381004333496
+  },
+  {
+   "block": "45",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.057557761669158936,
+   "margin_obj": 0.10546720027923584
+  },
+  {
+   "block": "45",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "permanence",
+   "full": false,
+   "obj": true,
+   "margin_full": -0.01729452610015869,
+   "margin_obj": 0.13750749826431274
+  },
+  {
+   "block": "46",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.013332247734069824,
+   "margin_obj": 0.06490612030029297
+  },
+  {
+   "block": "46",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.005225181579589844,
+   "margin_obj": 0.06288611888885498
+  },
+  {
+   "block": "47",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.0034809112548828125,
+   "margin_obj": 0.00440138578414917
+  },
+  {
+   "block": "47",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "color",
+   "full": false,
+   "obj": true,
+   "margin_full": -0.0022839903831481934,
+   "margin_obj": 0.013286292552947998
+  },
+  {
+   "block": "48",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.057440221309661865,
+   "margin_obj": 0.022966086864471436
+  },
+  {
+   "block": "48",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "permanence",
+   "full": false,
+   "obj": true,
+   "margin_full": -0.01143878698348999,
+   "margin_obj": 0.17732399702072144
+  },
+  {
+   "block": "49",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.009002447128295898,
+   "margin_obj": 0.02650970220565796
+  },
+  {
+   "block": "49",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "shape",
+   "full": false,
+   "obj": true,
+   "margin_full": -0.004041552543640137,
+   "margin_obj": 0.00426560640335083
+  },
+  {
+   "block": "5",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.008554279804229736,
+   "margin_obj": 0.03262138366699219
+  },
+  {
+   "block": "5",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.015798509120941162,
+   "margin_obj": 0.08165115118026733
+  },
+  {
+   "block": "50",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "color",
+   "full": false,
+   "obj": true,
+   "margin_full": -0.00773167610168457,
+   "margin_obj": 0.005188405513763428
+  },
+  {
+   "block": "50",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.008658349514007568,
+   "margin_obj": 0.00800997018814087
+  },
+  {
+   "block": "51",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.060154736042022705,
+   "margin_obj": 0.1146504282951355
+  },
+  {
+   "block": "51",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "permanence",
+   "full": false,
+   "obj": true,
+   "margin_full": -0.008774518966674805,
+   "margin_obj": 0.19447475671768188
+  },
+  {
+   "block": "52",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.01028740406036377,
+   "margin_obj": 0.09991717338562012
+  },
+  {
+   "block": "52",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.0173799991607666,
+   "margin_obj": 0.0640137791633606
+  },
+  {
+   "block": "53",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "color",
+   "full": false,
+   "obj": true,
+   "margin_full": -0.003542661666870117,
+   "margin_obj": 0.002666950225830078
+  },
+  {
+   "block": "53",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.008516967296600342,
+   "margin_obj": 0.022999584674835205
+  },
+  {
+   "block": "54",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.060358643531799316,
+   "margin_obj": 0.055162668228149414
+  },
+  {
+   "block": "54",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "permanence",
+   "full": false,
+   "obj": true,
+   "margin_full": -0.023557186126708984,
+   "margin_obj": 0.1503211259841919
+  },
+  {
+   "block": "55",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "shape",
+   "full": false,
+   "obj": true,
+   "margin_full": -0.008221030235290527,
+   "margin_obj": 0.03924882411956787
+  },
+  {
+   "block": "55",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.015292048454284668,
+   "margin_obj": 0.01864945888519287
+  },
+  {
+   "block": "56",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "color",
+   "full": false,
+   "obj": true,
+   "margin_full": -0.00416642427444458,
+   "margin_obj": 0.01075047254562378
+  },
+  {
+   "block": "56",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.00510936975479126,
+   "margin_obj": 0.0024773478507995605
+  },
+  {
+   "block": "57",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.058161377906799316,
+   "margin_obj": 0.08624792098999023
+  },
+  {
+   "block": "57",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "permanence",
+   "full": false,
+   "obj": true,
+   "margin_full": -0.024259746074676514,
+   "margin_obj": 0.1387263536453247
+  },
+  {
+   "block": "58",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.03975510597229004,
+   "margin_obj": 0.10963279008865356
+  },
+  {
+   "block": "58",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "shape",
+   "full": false,
+   "obj": true,
+   "margin_full": -0.01640695333480835,
+   "margin_obj": 0.027412891387939453
+  },
+  {
+   "block": "59",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.010794401168823242,
+   "margin_obj": 0.006658792495727539
+  },
+  {
+   "block": "59",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "color",
+   "full": false,
+   "obj": true,
+   "margin_full": -0.009650170803070068,
+   "margin_obj": 0.005545556545257568
+  },
+  {
+   "block": "6",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.05193859338760376,
+   "margin_obj": 0.1723654866218567
+  },
+  {
+   "block": "6",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "permanence",
+   "full": false,
+   "obj": true,
+   "margin_full": -0.0170515775680542,
+   "margin_obj": 0.13405102491378784
+  },
+  {
+   "block": "60",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.04925936460494995,
+   "margin_obj": 0.005427658557891846
+  },
+  {
+   "block": "60",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "permanence",
+   "full": false,
+   "obj": true,
+   "margin_full": -0.028743624687194824,
+   "margin_obj": 0.13851237297058105
+  },
+  {
+   "block": "61",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "shape",
+   "full": false,
+   "obj": false,
+   "margin_full": -0.005064606666564941,
+   "margin_obj": -0.009564757347106934
+  },
+  {
+   "block": "61",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.0058934688568115234,
+   "margin_obj": 0.018469929695129395
+  },
+  {
+   "block": "62",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "color",
+   "full": false,
+   "obj": true,
+   "margin_full": -0.0024086833000183105,
+   "margin_obj": 0.0009652376174926758
+  },
+  {
+   "block": "62",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.003292560577392578,
+   "margin_obj": 0.014076709747314453
+  },
+  {
+   "block": "63",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.04945915937423706,
+   "margin_obj": 0.019117653369903564
+  },
+  {
+   "block": "63",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "permanence",
+   "full": false,
+   "obj": true,
+   "margin_full": -0.02150285243988037,
+   "margin_obj": 0.14644300937652588
+  },
+  {
+   "block": "64",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "shape",
+   "full": false,
+   "obj": true,
+   "margin_full": -0.0009541511535644531,
+   "margin_obj": 0.037726640701293945
+  },
+  {
+   "block": "64",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.012794911861419678,
+   "margin_obj": 0.05090576410293579
+  },
+  {
+   "block": "65",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 6.520748138427734e-05,
+   "margin_obj": 0.003433406352996826
+  },
+  {
+   "block": "65",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.00019311904907226562,
+   "margin_obj": 0.00214385986328125
+  },
+  {
+   "block": "66",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.05357271432876587,
+   "margin_obj": 0.006152927875518799
+  },
+  {
+   "block": "66",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "permanence",
+   "full": false,
+   "obj": true,
+   "margin_full": -0.029300034046173096,
+   "margin_obj": 0.12705975770950317
+  },
+  {
+   "block": "67",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "shape",
+   "full": false,
+   "obj": false,
+   "margin_full": -0.0019200444221496582,
+   "margin_obj": -9.763240814208984e-05
+  },
+  {
+   "block": "67",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.0037096738815307617,
+   "margin_obj": 0.02146768569946289
+  },
+  {
+   "block": "68",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "color",
+   "full": false,
+   "obj": true,
+   "margin_full": -0.0006393790245056152,
+   "margin_obj": 0.0026229023933410645
+  },
+  {
+   "block": "68",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.0013845562934875488,
+   "margin_obj": 0.004747271537780762
+  },
+  {
+   "block": "69",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.04526221752166748,
+   "margin_obj": 0.007668554782867432
+  },
+  {
+   "block": "69",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "permanence",
+   "full": false,
+   "obj": true,
+   "margin_full": -0.01988774538040161,
+   "margin_obj": 0.1408124566078186
+  },
+  {
+   "block": "7",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.013610780239105225,
+   "margin_obj": 0.05358678102493286
+  },
+  {
+   "block": "7",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.0009436607360839844,
+   "margin_obj": 0.045545876026153564
+  },
+  {
+   "block": "70",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "shape",
+   "full": false,
+   "obj": true,
+   "margin_full": -0.0006108880043029785,
+   "margin_obj": 0.043495357036590576
+  },
+  {
+   "block": "70",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "shape",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.009922146797180176,
+   "margin_obj": 0.03722506761550903
+  },
+  {
+   "block": "71",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "color",
+   "full": true,
+   "obj": false,
+   "margin_full": 0.006361722946166992,
+   "margin_obj": -0.01104271411895752
+  },
+  {
+   "block": "71",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "color",
+   "full": false,
+   "obj": true,
+   "margin_full": -0.005322575569152832,
+   "margin_obj": 0.02877575159072876
+  },
+  {
+   "block": "8",
+   "dir": "A",
+   "objset": "primitive",
+   "viol": "color",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.004370570182800293,
+   "margin_obj": 0.009771943092346191
+  },
+  {
+   "block": "8",
+   "dir": "B",
+   "objset": "primitive",
+   "viol": "color",
+   "full": false,
+   "obj": true,
+   "margin_full": -0.0035657286643981934,
+   "margin_obj": 0.005745053291320801
+  },
+  {
+   "block": "9",
+   "dir": "A",
+   "objset": "realistic",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.051621079444885254,
+   "margin_obj": 0.206709623336792
+  },
+  {
+   "block": "9",
+   "dir": "B",
+   "objset": "realistic",
+   "viol": "permanence",
+   "full": true,
+   "obj": true,
+   "margin_full": 0.008001208305358887,
+   "margin_obj": 0.1586846113204956
+  }
+ ]
+}

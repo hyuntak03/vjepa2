@@ -1,0 +1,120 @@
+{
+ "ar": {
+  "n_train": 2424,
+  "n_val": 1167,
+  "shape": {
+   "val": 80.805,
+   "null": 20.394,
+   "chance": 16.7,
+   "lambda": 1000.0,
+   "split_half": 0.505,
+   "dims": 5,
+   "energy_share": 0.0421,
+   "energy_null95": 0.1438,
+   "energy_iso": 0.0039
+  },
+  "color": {
+   "val": 90.317,
+   "null": 10.883,
+   "chance": 12.5,
+   "lambda": 100.0,
+   "split_half": 0.387,
+   "dims": 7,
+   "energy_share": 0.0322,
+   "energy_null95": 0.1745,
+   "energy_iso": 0.0055
+  },
+  "position": {
+   "val": 0.959,
+   "null": -0.056,
+   "chance": 0.0,
+   "lambda": 100.0,
+   "split_half": 0.818,
+   "dims": 2,
+   "energy_share": 0.0113,
+   "energy_null95": 0.085,
+   "energy_iso": 0.0016
+  },
+  "vel_between": {
+   "val": 0.475,
+   "null": -0.183,
+   "chance": 0.0,
+   "lambda": 1000.0,
+   "split_half": 0.764,
+   "dims": 2,
+   "energy_share": 0.0166,
+   "energy_null95": 0.0764,
+   "energy_iso": 0.0016
+  },
+  "vel_within": {
+   "val": 0.435,
+   "null": -0.195,
+   "chance": 0.0,
+   "lambda": 100.0,
+   "split_half": 0.813,
+   "dims": 2,
+   "energy_share": 0.0144,
+   "energy_null95": 0.0799,
+   "energy_iso": 0.0016
+  }
+ },
+ "rel": {
+  "n_train": 2424,
+  "n_val": 1167,
+  "shape": {
+   "val": 81.063,
+   "null": 20.308,
+   "chance": 16.7,
+   "lambda": 1000.0,
+   "split_half": 0.504,
+   "dims": 5,
+   "energy_share": 0.0403,
+   "energy_null95": 0.1041,
+   "energy_iso": 0.0039
+  },
+  "color": {
+   "val": 80.377,
+   "null": 10.197,
+   "chance": 12.5,
+   "lambda": 1000.0,
+   "split_half": 0.369,
+   "dims": 7,
+   "energy_share": 0.0359,
+   "energy_null95": 0.1339,
+   "energy_iso": 0.0055
+  },
+  "position": {
+   "val": 0.933,
+   "null": -0.214,
+   "chance": 0.0,
+   "lambda": 100.0,
+   "split_half": 0.847,
+   "dims": 2,
+   "energy_share": 0.0096,
+   "energy_null95": 0.0598,
+   "energy_iso": 0.0016
+  },
+  "vel_between": {
+   "val": 0.547,
+   "null": -0.218,
+   "chance": 0.0,
+   "lambda": 100.0,
+   "split_half": 0.737,
+   "dims": 2,
+   "energy_share": 0.0127,
+   "energy_null95": 0.0587,
+   "energy_iso": 0.0016
+  },
+  "vel_within": {
+   "val": 0.57,
+   "null": -0.238,
+   "chance": 0.0,
+   "lambda": 100.0,
+   "split_half": 0.784,
+   "dims": 2,
+   "energy_share": 0.0126,
+   "energy_null95": 0.0619,
+   "energy_iso": 0.0016
+  }
+ }
+}

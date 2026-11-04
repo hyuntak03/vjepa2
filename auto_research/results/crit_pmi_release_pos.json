@@ -1,0 +1,30 @@
+{
+ "k710_320_holdout": {
+  "pos_judge_rank": [
+   0.5933333333333334,
+   0.5633333333333332,
+   0.6244444444444445
+  ],
+  "pos_judge_true_vs_stop": [
+   0.8083333333333333,
+   0.78,
+   0.835
+  ],
+  "template_adjacent_diff": 0.12220511337121327,
+  "within_position_spread": 0.6449289917945862
+ },
+ "ssv2": {
+  "pos_judge_rank": [
+   0.6155555555555555,
+   0.58,
+   0.648888888888889
+  ],
+  "pos_judge_true_vs_stop": [
+   0.8583333333333333,
+   0.83,
+   0.885
+  ],
+  "template_adjacent_diff": 0.1299536203344663,
+  "within_position_spread": 0.6422823071479797
+ }
+}

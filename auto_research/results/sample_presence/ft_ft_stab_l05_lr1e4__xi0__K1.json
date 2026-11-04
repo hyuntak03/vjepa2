@@ -1,0 +1,118 @@
+{
+ "run": [
+  "natural_ar_vw_state",
+  "latest.pt"
+ ],
+ "K": 1,
+ "sampler": null,
+ "n": 231,
+ "win_share": [
+  1.0
+ ],
+ "beta_ratio_per_sample": [
+  0.4349933860007413
+ ],
+ "beta_ratio_mean_pred": 0.4349933860007413,
+ "lin_new": {
+  "n": 202,
+  "mean_of_samples": 0.2769555449485779,
+  "mean_pred": 0.27695553909669085,
+  "within_ctx_sd": 0.0,
+  "frac_lt02": 0.3217821782178218,
+  "frac_gt08": 0.0049504950495049506,
+  "bimodality": 0.45080554485321045,
+  "bimodality_within": null,
+  "hist": [
+   8,
+   10,
+   29,
+   49,
+   65,
+   31,
+   9,
+   1,
+   0,
+   0
+  ],
+  "per_sample_mean": [
+   0.2769555449485779
+  ]
+ },
+ "lin_old": {
+  "n": 206,
+  "mean_of_samples": 0.34339725971221924,
+  "mean_pred": 0.3433972450755356,
+  "within_ctx_sd": 0.0,
+  "frac_lt02": 0.1553398058252427,
+  "frac_gt08": 0.009708737864077669,
+  "bimodality": 0.5271165370941162,
+  "bimodality_within": null,
+  "hist": [
+   7,
+   4,
+   9,
+   46,
+   88,
+   42,
+   10,
+   0,
+   0,
+   0
+  ],
+  "per_sample_mean": [
+   0.34339725971221924
+  ]
+ },
+ "proj_new": {
+  "n": 168,
+  "mean_of_samples": 0.25609761476516724,
+  "mean_pred": 0.25609760480888544,
+  "within_ctx_sd": 0.0,
+  "frac_lt02": 0.4107142857142857,
+  "frac_gt08": 0.017857142857142856,
+  "bimodality": 0.13633675873279572,
+  "bimodality_within": null,
+  "hist": [
+   5,
+   1,
+   12,
+   90,
+   48,
+   9,
+   1,
+   2,
+   0,
+   0
+  ],
+  "per_sample_mean": [
+   0.25609761476516724
+  ]
+ },
+ "proj_old": {
+  "n": 168,
+  "mean_of_samples": 0.38836392760276794,
+  "mean_pred": 0.3883639361620659,
+  "within_ctx_sd": 0.0,
+  "frac_lt02": 0.05952380952380952,
+  "frac_gt08": 0.023809523809523808,
+  "bimodality": 0.5090304017066956,
+  "bimodality_within": null,
+  "hist": [
+   1,
+   3,
+   3,
+   32,
+   90,
+   30,
+   6,
+   1,
+   1,
+   1
+  ],
+  "per_sample_mean": [
+   0.38836392760276794
+  ]
+ },
+ "new_old_corr_within_ctx": null,
+ "new_plus_old": 0.6444615125656128
+}

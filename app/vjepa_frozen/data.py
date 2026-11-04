@@ -259,6 +259,54 @@ def make_video_csv_dataset(spec: dict, n_frames: int, transform: ClipTransform):
     return VideoDataset(data_paths=[spec["csv"]], dataset_fpcs=[n_frames], **kw)
 
 
+# ----------------------------------------------------------------------------- mp4_list
+class Mp4ListDataset(torch.utils.data.Dataset):
+    """mp4 목록 (한 줄에 절대경로 하나) 에서 **정확히** start, start+stride, … (n_frames 장) 를 읽는다 (2026-11-02).
+
+    왜: video_csv (VideoDataset) 는 영상 길이 = n_frames × stride 일 때 linspace 로 번호를 만들어
+    간격이 2.06 이 된다 (64 장 · stride 2 → 미래 첫 장이 32 가 아니라 33). BlenderTrack v4 처럼
+    "문맥 = 샘플 0–15, 미래 = 16–31" 이 프레임 번호로 정해진 합성 학습셋에서는 그 어긋남이 사건 시점을 옮긴다.
+    spec: {type: mp4_list, csv: <목록>, stride: 2, start: 0 | starts: [..], limit: N, decord_threads: 1}
+    한 줄에 "<mp4 경로>\t<프레임 번호 n_frames 개, 공백 구분>" 처럼 탭 뒤에 번호를 적으면 그 영상은 그 번호를 그대로 읽는다
+    (2026-11-02, real bench 처럼 영상마다 창이 다른 세트 — 채점 index 의 frames 열과 같은 번호). 탭이 없는 줄은 위 규칙.
+    """
+
+    def __init__(self, spec: dict, n_frames: int, transform: ClipTransform):
+        self.spec = spec
+        self.n_frames, self.transform = int(n_frames), transform
+        self.stride = int(spec.get("stride", 1))
+        self.starts = [int(x) for x in (spec.get("starts") or [spec.get("start", 0)])]
+        self.threads = int(spec.get("decord_threads", 1))
+        lines = [ln.rstrip("\n") for ln in open(spec["csv"], encoding="utf-8") if ln.strip()]
+        self.paths = [ln.split("\t", 1)[0].strip() for ln in lines]
+        self.fixed = [np.array([int(t) for t in ln.split("\t", 1)[1].split()], dtype=np.int64) if "\t" in ln else None for ln in lines]
+        for p_, f_ in zip(self.paths, self.fixed):
+            if f_ is not None and len(f_) != self.n_frames:
+                raise ValueError(f"mp4_list {p_}: 프레임 번호 {len(f_)} 개인데 n_frames={self.n_frames}")
+        if spec.get("limit"):
+            self.paths, self.fixed = self.paths[: int(spec["limit"])], self.fixed[: int(spec["limit"])]
+        if not self.paths:
+            raise ValueError(f"mp4_list 가 비어 있다: {spec['csv']}")
+        logger.info(f"[mp4_list] {spec['csv']}: {len(self.paths)} clips, starts={self.starts}, "
+                    f"stride={self.stride}, n_frames={self.n_frames}")
+
+    def __len__(self):
+        return len(self.paths)
+
+    def __getitem__(self, i: int):
+        import decord
+        if self.fixed[i] is not None:
+            idx = self.fixed[i]
+        else:
+            st = random.choice(self.starts)
+            idx = np.arange(st, st + self.n_frames * self.stride, self.stride, dtype=np.int64)
+        vr = decord.VideoReader(self.paths[i], num_threads=self.threads)
+        if idx[-1] >= len(vr):
+            raise IndexError(f"{self.paths[i]}: {len(vr)} 장인데 프레임 {idx[-1]} 이 필요하다")
+        x = self.transform(torch.from_numpy(vr.get_batch(list(idx)).asnumpy()))
+        return [x], 0, [idx]
+
+
 # ----------------------------------------------------------------------------- 합치기
 class WeightedConcat(torch.utils.data.Dataset):
     """여러 데이터셋을 이어 붙이고 샘플 가중치를 낸다 (DistributedWeightedSampler 용)."""
@@ -307,8 +355,12 @@ def build_dataset(cfg_data: dict, n_frames: int, resolution: int) -> WeightedCon
             if grid:
                 raise ValueError("data.window_grid 는 frames_index 데이터셋에서만 된다 (video_csv 는 raw_span 을 못 읽는다)")
             dsets.append(make_video_csv_dataset(s, n_frames, tf))
+        elif t == "mp4_list":
+            if grid:
+                raise ValueError("data.window_grid 는 frames_index 데이터셋에서만 된다 (mp4_list 는 raw_span 을 못 읽는다)")
+            dsets.append(Mp4ListDataset(s, n_frames, tf))
         else:
-            raise ValueError(f"data.datasets[].type={t!r}; frames_index | video_csv")
+            raise ValueError(f"data.datasets[].type={t!r}; frames_index | video_csv | mp4_list")
         weights.append(s.get("weight"))
     use_w = any(w is not None for w in weights)
     if use_w:

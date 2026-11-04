@@ -1,0 +1,45 @@
+{
+ "n_val": 2650,
+ "curve": [
+  {
+   "n_clips": 500,
+   "n_train": 3578,
+   "shape": 64.6,
+   "epoch_shape": "221/300",
+   "color": 50.9,
+   "epoch_color": "189/300"
+  },
+  {
+   "n_clips": 1000,
+   "n_train": 7148,
+   "shape": 69.8,
+   "epoch_shape": "129/240",
+   "color": 67.8,
+   "epoch_color": "237/240"
+  },
+  {
+   "n_clips": 2000,
+   "n_train": 14710,
+   "shape": 72.2,
+   "epoch_shape": "113/120",
+   "color": 77.2,
+   "epoch_color": "116/120"
+  },
+  {
+   "n_clips": 4000,
+   "n_train": 29397,
+   "shape": 75.2,
+   "epoch_shape": "36/60",
+   "color": 82.8,
+   "epoch_color": "57/60"
+  },
+  {
+   "n_clips": 8000,
+   "n_train": 61427,
+   "shape": 81.4,
+   "epoch_shape": "56/60",
+   "color": 87.2,
+   "epoch_color": "58/60"
+  }
+ ]
+}

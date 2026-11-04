@@ -1,0 +1,312 @@
+{
+ "shape_by_scenario": {
+  "container": [
+   66,
+   0,
+   96,
+   8,
+   0,
+   604
+  ],
+  "drop_behind": [
+   495,
+   0,
+   128,
+   0,
+   0,
+   557
+  ],
+  "drop_bounce": [
+   480,
+   11,
+   194,
+   41,
+   24,
+   539
+  ],
+  "ledge_fall": [
+   173,
+   361,
+   183,
+   298,
+   205,
+   1072
+  ],
+  "moving_screen": [
+   965,
+   896,
+   1014,
+   986,
+   1027,
+   557
+  ],
+  "obstacle_bounce": [
+   293,
+   269,
+   110,
+   82,
+   52,
+   1081
+  ],
+  "occ_pass": [
+   440,
+   384,
+   139,
+   278,
+   147,
+   789
+  ],
+  "pendulum": [
+   967,
+   1199,
+   1117,
+   1000,
+   1110,
+   994
+  ],
+  "projectile": [
+   478,
+   28,
+   58,
+   65,
+   60,
+   846
+  ],
+  "ramp_roll": [
+   313,
+   67,
+   142,
+   181,
+   24,
+   580
+  ],
+  "shelf_land": [
+   236,
+   60,
+   138,
+   182,
+   91,
+   908
+  ],
+  "toss_up": [
+   504,
+   0,
+   104,
+   55,
+   31,
+   917
+  ],
+  "wall_bounce": [
+   797,
+   290,
+   169,
+   306,
+   125,
+   989
+  ]
+ },
+ "ar": {
+  "shape": {
+   "1": {
+    "joint_common_on_enc": 79.9,
+    "joint_common_on_pred": 80.5,
+    "joint_perspace_on_enc": 79.9,
+    "joint_perspace_on_pred": 81.7
+   },
+   "2": {
+    "joint_common_on_enc": 77.9,
+    "joint_common_on_pred": 74.8,
+    "joint_perspace_on_enc": 77.9,
+    "joint_perspace_on_pred": 74.8
+   },
+   "3": {
+    "joint_common_on_enc": 79.6,
+    "joint_common_on_pred": 68.9,
+    "joint_perspace_on_enc": 80.8,
+    "joint_perspace_on_pred": 70.7
+   },
+   "4": {
+    "joint_common_on_enc": 76.3,
+    "joint_common_on_pred": 75.0,
+    "joint_perspace_on_enc": 76.9,
+    "joint_perspace_on_pred": 74.4
+   },
+   "5": {
+    "joint_common_on_enc": 76.8,
+    "joint_common_on_pred": 72.6,
+    "joint_perspace_on_enc": 76.2,
+    "joint_perspace_on_pred": 71.4
+   },
+   "6": {
+    "joint_common_on_enc": 75.0,
+    "joint_common_on_pred": 75.6,
+    "joint_perspace_on_enc": 75.0,
+    "joint_perspace_on_pred": 73.8
+   },
+   "7": {
+    "joint_common_on_enc": 78.1,
+    "joint_common_on_pred": 71.9,
+    "joint_perspace_on_enc": 78.7,
+    "joint_perspace_on_pred": 73.6
+   },
+   "8": {
+    "joint_common_on_enc": 72.9,
+    "joint_common_on_pred": 70.7,
+    "joint_perspace_on_enc": 71.8,
+    "joint_perspace_on_pred": 71.3
+   }
+  },
+  "color": {
+   "1": {
+    "joint_common_on_enc": 78.7,
+    "joint_common_on_pred": 75.7,
+    "joint_perspace_on_enc": 82.2,
+    "joint_perspace_on_pred": 75.1
+   },
+   "2": {
+    "joint_common_on_enc": 72.4,
+    "joint_common_on_pred": 70.6,
+    "joint_perspace_on_enc": 74.8,
+    "joint_perspace_on_pred": 72.4
+   },
+   "3": {
+    "joint_common_on_enc": 75.4,
+    "joint_common_on_pred": 69.5,
+    "joint_perspace_on_enc": 76.0,
+    "joint_perspace_on_pred": 71.9
+   },
+   "4": {
+    "joint_common_on_enc": 75.6,
+    "joint_common_on_pred": 62.2,
+    "joint_perspace_on_enc": 76.9,
+    "joint_perspace_on_pred": 62.2
+   },
+   "5": {
+    "joint_common_on_enc": 78.6,
+    "joint_common_on_pred": 63.7,
+    "joint_perspace_on_enc": 79.2,
+    "joint_perspace_on_pred": 67.9
+   },
+   "6": {
+    "joint_common_on_enc": 76.8,
+    "joint_common_on_pred": 67.1,
+    "joint_perspace_on_enc": 77.4,
+    "joint_perspace_on_pred": 68.3
+   },
+   "7": {
+    "joint_common_on_enc": 75.8,
+    "joint_common_on_pred": 64.6,
+    "joint_perspace_on_enc": 76.4,
+    "joint_perspace_on_pred": 61.8
+   },
+   "8": {
+    "joint_common_on_enc": 72.9,
+    "joint_common_on_pred": 60.8,
+    "joint_perspace_on_enc": 75.1,
+    "joint_perspace_on_pred": 64.1
+   }
+  }
+ },
+ "release": {
+  "shape": {
+   "1": {
+    "joint_common_on_enc": 81.1,
+    "joint_common_on_pred": 75.1,
+    "joint_perspace_on_enc": 81.7,
+    "joint_perspace_on_pred": 77.5
+   },
+   "2": {
+    "joint_common_on_enc": 84.7,
+    "joint_common_on_pred": 79.8,
+    "joint_perspace_on_enc": 83.4,
+    "joint_perspace_on_pred": 80.4
+   },
+   "3": {
+    "joint_common_on_enc": 86.8,
+    "joint_common_on_pred": 78.4,
+    "joint_perspace_on_enc": 84.4,
+    "joint_perspace_on_pred": 79.0
+   },
+   "4": {
+    "joint_common_on_enc": 85.9,
+    "joint_common_on_pred": 78.2,
+    "joint_perspace_on_enc": 85.3,
+    "joint_perspace_on_pred": 80.1
+   },
+   "5": {
+    "joint_common_on_enc": 86.3,
+    "joint_common_on_pred": 82.7,
+    "joint_perspace_on_enc": 86.3,
+    "joint_perspace_on_pred": 82.7
+   },
+   "6": {
+    "joint_common_on_enc": 83.5,
+    "joint_common_on_pred": 79.3,
+    "joint_perspace_on_enc": 82.3,
+    "joint_perspace_on_pred": 81.1
+   },
+   "7": {
+    "joint_common_on_enc": 80.9,
+    "joint_common_on_pred": 78.1,
+    "joint_perspace_on_enc": 82.6,
+    "joint_perspace_on_pred": 79.2
+   },
+   "8": {
+    "joint_common_on_enc": 84.5,
+    "joint_common_on_pred": 75.1,
+    "joint_perspace_on_enc": 84.5,
+    "joint_perspace_on_pred": 79.6
+   }
+  },
+  "color": {
+   "1": {
+    "joint_common_on_enc": 72.2,
+    "joint_common_on_pred": 72.8,
+    "joint_perspace_on_enc": 74.0,
+    "joint_perspace_on_pred": 75.1
+   },
+   "2": {
+    "joint_common_on_enc": 76.1,
+    "joint_common_on_pred": 76.7,
+    "joint_perspace_on_enc": 76.1,
+    "joint_perspace_on_pred": 75.5
+   },
+   "3": {
+    "joint_common_on_enc": 76.0,
+    "joint_common_on_pred": 70.1,
+    "joint_perspace_on_enc": 77.2,
+    "joint_perspace_on_pred": 69.5
+   },
+   "4": {
+    "joint_common_on_enc": 71.8,
+    "joint_common_on_pred": 76.9,
+    "joint_perspace_on_enc": 74.4,
+    "joint_perspace_on_pred": 75.6
+   },
+   "5": {
+    "joint_common_on_enc": 77.4,
+    "joint_common_on_pred": 71.4,
+    "joint_perspace_on_enc": 78.0,
+    "joint_perspace_on_pred": 71.4
+   },
+   "6": {
+    "joint_common_on_enc": 83.5,
+    "joint_common_on_pred": 76.8,
+    "joint_perspace_on_enc": 84.8,
+    "joint_perspace_on_pred": 76.8
+   },
+   "7": {
+    "joint_common_on_enc": 82.0,
+    "joint_common_on_pred": 74.2,
+    "joint_perspace_on_enc": 81.5,
+    "joint_perspace_on_pred": 74.2
+   },
+   "8": {
+    "joint_common_on_enc": 78.5,
+    "joint_common_on_pred": 75.1,
+    "joint_perspace_on_enc": 76.2,
+    "joint_perspace_on_pred": 74.6
+   }
+  }
+ }
+}

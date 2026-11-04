@@ -1,0 +1,87 @@
+{
+ "args": {
+  "arm": "P",
+  "steps": 3000,
+  "bs": 16,
+  "lr": 0.0003,
+  "K": 4,
+  "seed": 0,
+  "eval_every": 500,
+  "smoke": 0,
+  "data": "state_obs"
+ },
+ "hist": [
+  {
+   "hidden_err_post": 1.4954248666763306,
+   "hidden_err_prior": 1.411399483680725,
+   "hidden_err_copy": 2.457228899002075,
+   "hidden_ratio_post": 0.608581832683007,
+   "visible_err_post": 0.4778566360473633,
+   "exist_auroc_hidden_vs_none": 0.9935779363953787,
+   "vis_auroc": 0.26692830832406794,
+   "n_hidden": 1163,
+   "n_visible": 2879,
+   "step": 500
+  },
+  {
+   "hidden_err_post": 1.3946075439453125,
+   "hidden_err_prior": 1.333420991897583,
+   "hidden_err_copy": 2.457228899002075,
+   "hidden_ratio_post": 0.5675529636297569,
+   "visible_err_post": 0.38129252195358276,
+   "exist_auroc_hidden_vs_none": 0.9982853761500932,
+   "vis_auroc": 0.4231191269535125,
+   "n_hidden": 1163,
+   "n_visible": 2879,
+   "step": 1000
+  },
+  {
+   "hidden_err_post": 1.3141369819641113,
+   "hidden_err_prior": 1.2640340328216553,
+   "hidden_err_copy": 2.457228899002075,
+   "hidden_ratio_post": 0.5348044630672405,
+   "visible_err_post": 0.34924837946891785,
+   "exist_auroc_hidden_vs_none": 0.9980892562834884,
+   "vis_auroc": 0.6643478478417327,
+   "n_hidden": 1163,
+   "n_visible": 2879,
+   "step": 1500
+  },
+  {
+   "hidden_err_post": 1.2718533277511597,
+   "hidden_err_prior": 1.2335468530654907,
+   "hidden_err_copy": 2.457228899002075,
+   "hidden_ratio_post": 0.5175966017116607,
+   "visible_err_post": 0.3333280086517334,
+   "exist_auroc_hidden_vs_none": 0.9982158510592408,
+   "vis_auroc": 0.7027472664934026,
+   "n_hidden": 1163,
+   "n_visible": 2879,
+   "step": 2000
+  },
+  {
+   "hidden_err_post": 1.1861523389816284,
+   "hidden_err_prior": 1.1530734300613403,
+   "hidden_err_copy": 2.457228899002075,
+   "hidden_ratio_post": 0.4827195136209517,
+   "visible_err_post": 0.32088804244995117,
+   "exist_auroc_hidden_vs_none": 0.9981156448554213,
+   "vis_auroc": 0.7397343321912329,
+   "n_hidden": 1163,
+   "n_visible": 2879,
+   "step": 2500
+  },
+  {
+   "hidden_err_post": 1.1701730489730835,
+   "hidden_err_prior": 1.1424446105957031,
+   "hidden_err_copy": 2.457228899002075,
+   "hidden_ratio_post": 0.4762165419136621,
+   "visible_err_post": 0.3214068114757538,
+   "exist_auroc_hidden_vs_none": 0.9981079042076543,
+   "vis_auroc": 0.7471690395941732,
+   "n_hidden": 1163,
+   "n_visible": 2879,
+   "step": 3000
+  }
+ ]
+}

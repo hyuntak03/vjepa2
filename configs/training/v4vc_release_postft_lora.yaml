@@ -1,0 +1,17 @@
+# =============================================================================
+# 무엇: v4vc_release_postft (릴리즈 출발 · BlenderTrack v4vc 11,250 편 · 전역 48 × 2,000 step · seed 0) 에 context encoder (online `encoder`) LoRA 를 붙여 predictor 와 같이 학습. target encoder 는 얼림.
+# 왜: 2026-11-02 사용자 "그대로 context encoder LoRA 붙여서 같이 학습하는 것까지 해줘. sheet 에 있는 것들 다" — 시트 Object_permanence 의 이어 학습 8 판을 encoder 까지 열어 다시.
+# 비교: v4vc_release_postft (레지스트리 vith_release_v4vc). 다른 것은 LoRA 하나 (rank 8 · alpha 16 · qkv/proj/fc1/fc2 · lr ×10 · act ckpt).
+#
+#   GPUS=8 bash z_training/tmux_train.sh v4vc_release_postft_lora
+# LoRA 설정은 intphys2_vuni_ar_vw_state_postft_lora 와 같다. ⚠️ lr ×10 은 2026-11-02 train.py 수정 뒤에야 WarmupCosine 에서도 실제로 곱해진다.
+# =============================================================================
+extends: v4vc_release_postft
+
+model:
+  encoder_lora:
+    rank: 8
+    alpha: 16
+    targets: [qkv, proj, fc1, fc2]
+    lr_mult: 10
+    act_ckpt: true

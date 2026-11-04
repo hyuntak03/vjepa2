@@ -1,0 +1,334 @@
+{
+ "ar": {
+  "shape": {
+   "1": {
+    "n_val": 169,
+    "ridge_enc_on_enc": 82.2,
+    "ridge_enc_on_pred": 23.1,
+    "ridge_enc_on_pred_restd": 47.9,
+    "ridge_pred_on_pred": 81.1,
+    "centroid_enc_on_enc": 39.6,
+    "centroid_enc_on_pred": 41.4,
+    "centroid_pred_on_pred": 42.6
+   },
+   "2": {
+    "n_val": 163,
+    "ridge_enc_on_enc": 80.4,
+    "ridge_enc_on_pred": 19.0,
+    "ridge_enc_on_pred_restd": 54.6,
+    "ridge_pred_on_pred": 76.1,
+    "centroid_enc_on_enc": 42.9,
+    "centroid_enc_on_pred": 36.2,
+    "centroid_pred_on_pred": 37.4
+   },
+   "3": {
+    "n_val": 167,
+    "ridge_enc_on_enc": 81.4,
+    "ridge_enc_on_pred": 24.0,
+    "ridge_enc_on_pred_restd": 43.1,
+    "ridge_pred_on_pred": 71.9,
+    "centroid_enc_on_enc": 42.5,
+    "centroid_enc_on_pred": 40.1,
+    "centroid_pred_on_pred": 44.3
+   },
+   "4": {
+    "n_val": 156,
+    "ridge_enc_on_enc": 79.5,
+    "ridge_enc_on_pred": 31.4,
+    "ridge_enc_on_pred_restd": 38.5,
+    "ridge_pred_on_pred": 71.8,
+    "centroid_enc_on_enc": 40.4,
+    "centroid_enc_on_pred": 36.5,
+    "centroid_pred_on_pred": 40.4
+   },
+   "5": {
+    "n_val": 168,
+    "ridge_enc_on_enc": 77.4,
+    "ridge_enc_on_pred": 28.6,
+    "ridge_enc_on_pred_restd": 36.3,
+    "ridge_pred_on_pred": 71.4,
+    "centroid_enc_on_enc": 39.3,
+    "centroid_enc_on_pred": 39.3,
+    "centroid_pred_on_pred": 36.9
+   },
+   "6": {
+    "n_val": 164,
+    "ridge_enc_on_enc": 79.3,
+    "ridge_enc_on_pred": 36.0,
+    "ridge_enc_on_pred_restd": 39.0,
+    "ridge_pred_on_pred": 74.4,
+    "centroid_enc_on_enc": 40.9,
+    "centroid_enc_on_pred": 36.0,
+    "centroid_pred_on_pred": 35.4
+   },
+   "7": {
+    "n_val": 178,
+    "ridge_enc_on_enc": 77.0,
+    "ridge_enc_on_pred": 29.8,
+    "ridge_enc_on_pred_restd": 41.6,
+    "ridge_pred_on_pred": 73.0,
+    "centroid_enc_on_enc": 38.2,
+    "centroid_enc_on_pred": 35.4,
+    "centroid_pred_on_pred": 30.9
+   },
+   "8": {
+    "n_val": 181,
+    "ridge_enc_on_enc": 74.6,
+    "ridge_enc_on_pred": 31.5,
+    "ridge_enc_on_pred_restd": 33.1,
+    "ridge_pred_on_pred": 74.0,
+    "centroid_enc_on_enc": 37.0,
+    "centroid_enc_on_pred": 32.6,
+    "centroid_pred_on_pred": 32.0
+   }
+  },
+  "color": {
+   "1": {
+    "n_val": 169,
+    "ridge_enc_on_enc": 80.5,
+    "ridge_enc_on_pred": 23.7,
+    "ridge_enc_on_pred_restd": 34.9,
+    "ridge_pred_on_pred": 76.3,
+    "centroid_enc_on_enc": 21.9,
+    "centroid_enc_on_pred": 21.3,
+    "centroid_pred_on_pred": 23.1
+   },
+   "2": {
+    "n_val": 163,
+    "ridge_enc_on_enc": 79.1,
+    "ridge_enc_on_pred": 16.0,
+    "ridge_enc_on_pred_restd": 33.1,
+    "ridge_pred_on_pred": 69.9,
+    "centroid_enc_on_enc": 17.2,
+    "centroid_enc_on_pred": 21.5,
+    "centroid_pred_on_pred": 19.6
+   },
+   "3": {
+    "n_val": 167,
+    "ridge_enc_on_enc": 76.6,
+    "ridge_enc_on_pred": 25.1,
+    "ridge_enc_on_pred_restd": 27.5,
+    "ridge_pred_on_pred": 72.5,
+    "centroid_enc_on_enc": 19.2,
+    "centroid_enc_on_pred": 18.6,
+    "centroid_pred_on_pred": 16.2
+   },
+   "4": {
+    "n_val": 156,
+    "ridge_enc_on_enc": 83.3,
+    "ridge_enc_on_pred": 19.2,
+    "ridge_enc_on_pred_restd": 30.8,
+    "ridge_pred_on_pred": 61.5,
+    "centroid_enc_on_enc": 23.1,
+    "centroid_enc_on_pred": 19.2,
+    "centroid_pred_on_pred": 16.0
+   },
+   "5": {
+    "n_val": 168,
+    "ridge_enc_on_enc": 79.8,
+    "ridge_enc_on_pred": 20.2,
+    "ridge_enc_on_pred_restd": 30.4,
+    "ridge_pred_on_pred": 68.5,
+    "centroid_enc_on_enc": 23.2,
+    "centroid_enc_on_pred": 25.0,
+    "centroid_pred_on_pred": 19.6
+   },
+   "6": {
+    "n_val": 164,
+    "ridge_enc_on_enc": 76.8,
+    "ridge_enc_on_pred": 20.1,
+    "ridge_enc_on_pred_restd": 26.8,
+    "ridge_pred_on_pred": 65.2,
+    "centroid_enc_on_enc": 20.7,
+    "centroid_enc_on_pred": 26.2,
+    "centroid_pred_on_pred": 17.7
+   },
+   "7": {
+    "n_val": 178,
+    "ridge_enc_on_enc": 77.5,
+    "ridge_enc_on_pred": 11.2,
+    "ridge_enc_on_pred_restd": 29.2,
+    "ridge_pred_on_pred": 60.1,
+    "centroid_enc_on_enc": 20.8,
+    "centroid_enc_on_pred": 25.3,
+    "centroid_pred_on_pred": 21.9
+   },
+   "8": {
+    "n_val": 181,
+    "ridge_enc_on_enc": 74.0,
+    "ridge_enc_on_pred": 18.2,
+    "ridge_enc_on_pred_restd": 29.8,
+    "ridge_pred_on_pred": 62.4,
+    "centroid_enc_on_enc": 23.8,
+    "centroid_enc_on_pred": 27.1,
+    "centroid_pred_on_pred": 21.5
+   }
+  }
+ },
+ "release": {
+  "shape": {
+   "1": {
+    "n_val": 169,
+    "ridge_enc_on_enc": 82.8,
+    "ridge_enc_on_pred": 23.7,
+    "ridge_enc_on_pred_restd": 60.9,
+    "ridge_pred_on_pred": 76.9,
+    "centroid_enc_on_enc": 36.7,
+    "centroid_enc_on_pred": 35.5,
+    "centroid_pred_on_pred": 34.9
+   },
+   "2": {
+    "n_val": 163,
+    "ridge_enc_on_enc": 84.0,
+    "ridge_enc_on_pred": 19.6,
+    "ridge_enc_on_pred_restd": 48.5,
+    "ridge_pred_on_pred": 80.4,
+    "centroid_enc_on_enc": 39.3,
+    "centroid_enc_on_pred": 35.6,
+    "centroid_pred_on_pred": 39.3
+   },
+   "3": {
+    "n_val": 167,
+    "ridge_enc_on_enc": 85.6,
+    "ridge_enc_on_pred": 28.1,
+    "ridge_enc_on_pred_restd": 50.3,
+    "ridge_pred_on_pred": 79.0,
+    "centroid_enc_on_enc": 39.5,
+    "centroid_enc_on_pred": 38.9,
+    "centroid_pred_on_pred": 38.9
+   },
+   "4": {
+    "n_val": 156,
+    "ridge_enc_on_enc": 86.5,
+    "ridge_enc_on_pred": 35.3,
+    "ridge_enc_on_pred_restd": 50.0,
+    "ridge_pred_on_pred": 78.8,
+    "centroid_enc_on_enc": 42.3,
+    "centroid_enc_on_pred": 38.5,
+    "centroid_pred_on_pred": 43.6
+   },
+   "5": {
+    "n_val": 168,
+    "ridge_enc_on_enc": 88.1,
+    "ridge_enc_on_pred": 35.1,
+    "ridge_enc_on_pred_restd": 57.1,
+    "ridge_pred_on_pred": 79.8,
+    "centroid_enc_on_enc": 44.6,
+    "centroid_enc_on_pred": 39.3,
+    "centroid_pred_on_pred": 46.4
+   },
+   "6": {
+    "n_val": 164,
+    "ridge_enc_on_enc": 84.8,
+    "ridge_enc_on_pred": 26.2,
+    "ridge_enc_on_pred_restd": 56.7,
+    "ridge_pred_on_pred": 82.9,
+    "centroid_enc_on_enc": 40.9,
+    "centroid_enc_on_pred": 41.5,
+    "centroid_pred_on_pred": 45.1
+   },
+   "7": {
+    "n_val": 178,
+    "ridge_enc_on_enc": 84.8,
+    "ridge_enc_on_pred": 17.4,
+    "ridge_enc_on_pred_restd": 51.7,
+    "ridge_pred_on_pred": 77.0,
+    "centroid_enc_on_enc": 35.4,
+    "centroid_enc_on_pred": 37.6,
+    "centroid_pred_on_pred": 41.0
+   },
+   "8": {
+    "n_val": 181,
+    "ridge_enc_on_enc": 85.1,
+    "ridge_enc_on_pred": 29.3,
+    "ridge_enc_on_pred_restd": 47.0,
+    "ridge_pred_on_pred": 81.8,
+    "centroid_enc_on_enc": 35.9,
+    "centroid_enc_on_pred": 37.6,
+    "centroid_pred_on_pred": 45.9
+   }
+  },
+  "color": {
+   "1": {
+    "n_val": 169,
+    "ridge_enc_on_enc": 72.8,
+    "ridge_enc_on_pred": 20.1,
+    "ridge_enc_on_pred_restd": 32.0,
+    "ridge_pred_on_pred": 77.5,
+    "centroid_enc_on_enc": 16.6,
+    "centroid_enc_on_pred": 20.1,
+    "centroid_pred_on_pred": 23.1
+   },
+   "2": {
+    "n_val": 163,
+    "ridge_enc_on_enc": 81.0,
+    "ridge_enc_on_pred": 15.3,
+    "ridge_enc_on_pred_restd": 35.0,
+    "ridge_pred_on_pred": 77.3,
+    "centroid_enc_on_enc": 20.2,
+    "centroid_enc_on_pred": 23.9,
+    "centroid_pred_on_pred": 23.3
+   },
+   "3": {
+    "n_val": 167,
+    "ridge_enc_on_enc": 76.6,
+    "ridge_enc_on_pred": 17.4,
+    "ridge_enc_on_pred_restd": 31.1,
+    "ridge_pred_on_pred": 68.3,
+    "centroid_enc_on_enc": 19.2,
+    "centroid_enc_on_pred": 21.6,
+    "centroid_pred_on_pred": 21.0
+   },
+   "4": {
+    "n_val": 156,
+    "ridge_enc_on_enc": 73.7,
+    "ridge_enc_on_pred": 21.2,
+    "ridge_enc_on_pred_restd": 31.4,
+    "ridge_pred_on_pred": 75.6,
+    "centroid_enc_on_enc": 21.8,
+    "centroid_enc_on_pred": 19.9,
+    "centroid_pred_on_pred": 17.9
+   },
+   "5": {
+    "n_val": 168,
+    "ridge_enc_on_enc": 78.0,
+    "ridge_enc_on_pred": 17.9,
+    "ridge_enc_on_pred_restd": 31.5,
+    "ridge_pred_on_pred": 73.2,
+    "centroid_enc_on_enc": 20.2,
+    "centroid_enc_on_pred": 20.2,
+    "centroid_pred_on_pred": 20.2
+   },
+   "6": {
+    "n_val": 164,
+    "ridge_enc_on_enc": 87.8,
+    "ridge_enc_on_pred": 23.8,
+    "ridge_enc_on_pred_restd": 37.8,
+    "ridge_pred_on_pred": 77.4,
+    "centroid_enc_on_enc": 23.8,
+    "centroid_enc_on_pred": 24.4,
+    "centroid_pred_on_pred": 20.1
+   },
+   "7": {
+    "n_val": 178,
+    "ridge_enc_on_enc": 84.3,
+    "ridge_enc_on_pred": 15.7,
+    "ridge_enc_on_pred_restd": 29.8,
+    "ridge_pred_on_pred": 71.9,
+    "centroid_enc_on_enc": 20.8,
+    "centroid_enc_on_pred": 21.3,
+    "centroid_pred_on_pred": 23.6
+   },
+   "8": {
+    "n_val": 181,
+    "ridge_enc_on_enc": 81.2,
+    "ridge_enc_on_pred": 19.9,
+    "ridge_enc_on_pred_restd": 33.7,
+    "ridge_pred_on_pred": 76.2,
+    "centroid_enc_on_enc": 29.8,
+    "centroid_enc_on_pred": 26.0,
+    "centroid_pred_on_pred": 24.3
+   }
+  }
+ }
+}

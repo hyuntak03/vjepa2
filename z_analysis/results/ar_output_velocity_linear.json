@@ -1,0 +1,64 @@
+{
+ "n_train": 8261,
+ "n_val": 1911,
+ "encoder_probe_on_encoder": {
+  "x": {
+   "corr": 0.836,
+   "slope_readout_per_true": 0.731,
+   "R2": 0.697
+  },
+  "y": {
+   "corr": 0.812,
+   "slope_readout_per_true": 0.789,
+   "R2": 0.632
+  },
+  "R2_xy": 0.675
+ },
+ "encoder_probe_on_ar_output": {
+  "x": {
+   "corr": 0.181,
+   "slope_readout_per_true": 0.079,
+   "R2": -0.147
+  },
+  "y": {
+   "corr": 0.234,
+   "slope_readout_per_true": 0.181,
+   "R2": -0.539
+  },
+  "R2_xy": -0.28
+ },
+ "ar_probe_on_ar_output": {
+  "x": {
+   "corr": 0.567,
+   "slope_readout_per_true": 0.328,
+   "R2": 0.319
+  },
+  "y": {
+   "corr": 0.563,
+   "slope_readout_per_true": 0.444,
+   "R2": 0.253
+  },
+  "R2_xy": 0.297
+ },
+ "ar_probe_on_encoder": {
+  "x": {
+   "corr": 0.368,
+   "slope_readout_per_true": 0.419,
+   "R2": -0.539
+  },
+  "y": {
+   "corr": 0.202,
+   "slope_readout_per_true": 0.231,
+   "R2": -1.653
+  },
+  "R2_xy": -0.917
+ },
+ "weight_cos_encoder_vs_ar": {
+  "x": 0.056,
+  "y": 0.069
+ },
+ "encoder_velocity_component_std_ratio_ar_over_enc": [
+  0.499,
+  0.799
+ ]
+}

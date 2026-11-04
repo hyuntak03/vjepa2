@@ -1,0 +1,35 @@
+{
+ "n_clips": 150,
+ "normal": {
+  "tf_one_block_follow_ratio": 1.084,
+  "tf_n_moved8": 265,
+  "tf_output_velocity_r2": 0.371,
+  "rollout_follow_ratio_by_step": {
+   "1": 2.612,
+   "2": 0.737,
+   "3": 0.701,
+   "4": 0.712,
+   "5": 0.826,
+   "6": 0.388,
+   "7": 0.323,
+   "8": 0.323
+  },
+  "rollout_output_velocity_r2": 0.209
+ },
+ "static": {
+  "tf_one_block_follow_ratio": 0.548,
+  "tf_n_moved8": 265,
+  "tf_output_velocity_r2": 0.054,
+  "rollout_follow_ratio_by_step": {
+   "1": 0.317,
+   "2": 0.812,
+   "3": 0.343,
+   "4": 0.269,
+   "5": 0.316,
+   "6": 0.235,
+   "7": 0.057,
+   "8": 0.106
+  },
+  "rollout_output_velocity_r2": 0.006
+ }
+}

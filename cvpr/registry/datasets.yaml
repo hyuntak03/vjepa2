@@ -705,3 +705,65 @@ vobench_v1_split_v2_test_late:   # 2026-10-31 vast. VOBench split v2 test (late 
   plausible_column: plausible
   type_column: condition
   engine: wma
+intphys2_late_final:              # 2026-11-02 (main 2026-10-23 판을 vast 로). 사용자 재라벨 labels_final.csv, 500 쌍. 쌍마다 문맥 16 · 미래 16 프레임 번호가 index 의 frames 열에 있다.
+                                  #   index = z_research/scripts/data/build_intphys2_late_final_index.py (main build.py --final --index-only 와 같은 행, 대응표만 Main/metadata.csv).
+                                  #   시트 Object_permanence "IntPhys 2 late occ" = condition permanence 120 쌍 (Camera Moving 68 · Fixed 52). ⚠️ 문맥이 픽셀로 같지 않다 (따로 렌더)
+  raw_frames: 32
+  cache_tag: intphys2_late_final
+  root: ${CVPR_DATA_CSV}/intphys2_late_final
+  index_csv: index.csv
+  video_root: /workspace/dataset/benchmarks/IntPhys2/Main
+  frames_index_column: frames
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: block_type
+  engine: wma
+real_world_permanence_uniform:    # 2026-11-02 (main 판을 vast 로). 실제 영상 물체 영속 2×2, 95 영상 × 4 = 380 clip · 짝 190 (A = 사라짐 95 · B = 나타남 95).
+                                  #   Rubric Office 20 · MAGICONTROL 10 · Perception Test 50 · HOOT 2 · Physics-IQ 13. 창 = Rubric uniform (문맥 [0, t−1] 균일 16 · 미래 [t, n−1] 균일 16).
+                                  #   index = z_research/scripts/data/build_real_world_permanence_index.py. 시트 Object_permanence "real world permanence"
+  raw_frames: 32
+  cache_tag: real_world_permanence_uniform
+  root: ${CVPR_DATA_CSV}/real_world_permanence_uniform
+  index_csv: index.csv
+  video_root: /workspace/dataset/benchmarks/real_world_permanence
+  frames_index_column: frames
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: condition
+  engine: wma
+intphys1_surrogate:               # 2026-11-03 사용자: "IntPhys1_surrogate eval 해서 시트에". UE 5.4 TestBed (IP1_O1_s16), 200 블록 × 4 팔 (800 mp4), primitive · permanence · late.
+                                  #   motion ip1_throw (움직임 100 블록) · flat_static (정지 100 블록). 짝 A = 사라짐 · B = 나타남, 칸당 100 쌍. index = z_research/scripts/data/build_intphys1_surrogate_index.py
+                                  #   창 = 원본 0, 3, …, 93 (mp4 직독, VOBench v3 와 같은 형식). 시트 칸 = z_research/scripts/analysis/op_cells_surrogate.py
+  raw_frames: 96
+  cache_tag: intphys1_surrogate
+  root: ${CVPR_DATA_CSV}/intphys1_surrogate
+  index_csv: index.csv
+  video_root: /workspace/dataset/benchmarks/IntPhys1_surrogate
+  frames_start: 0
+  frames_stride: 3
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: condition
+  engine: wma
+vobench_v3:                       # 2026-11-02 사용자: "VOBench_v3 로 다 채점". UE 5.4, 840 블록 × 4 팔 (3,360 mp4), 전부 late permanence. 짝 A = 사라짐 · B = 나타남. 칸당 판 102 · 지나가는 가림막 108 쌍
+                                  #   가림막 panel (408 블록) · mover (지나가는 van / 상자, 432 블록). index = z_research/scripts/data/build_vobench_v3_index.py
+                                  #   창 = 원본 0, 3, …, 93 (mp4 직독). 시트 칸 = z_research/scripts/analysis/op_cells_vob3.py
+  raw_frames: 96
+  cache_tag: vobench_v3
+  root: ${CVPR_DATA_CSV}/vobench_v3
+  index_csv: index.csv
+  video_root: /workspace/dataset/benchmarks/VOBench_v3
+  frames_start: 0
+  frames_stride: 3
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: condition
+  engine: wma

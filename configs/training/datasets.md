@@ -496,3 +496,26 @@ type: video_csv
 csv: ${DATA_CSV}/wrop_uni32/train_nonop.csv
 frame_step: 1
 filter_short_videos: true
+
+## blender_track_v4vc_all
+
+**BlenderTrack v4_velocity_control 평면 + 빗면 묶음 = 2,250 묶음 · 11,250 편** (main `predictor_lab` 의 `v4vc_all_s0` 이 쓴 목록, 2026-11-02 vast 로 옮김).
+묶음 = 장면 하나를 고정하고 속도만 4 단계로 바꾼 영상 4 + 같은 장면의 빈 장면 1. 평면 1,137 묶음 (5,685) + 빗면 1,113 묶음 (5,565). 20 fps · 64 장 · 256².
+창은 main 과 같다: 2 장 간격 → 32 장, 시작 프레임 0 또는 1 (main 수집기 `randint(0, T − span)`, span 63), 문맥 = 앞 16 장 (8 블록) · 미래 = 뒤 16 장 (8 블록) (main `lab_v3_base`: strides [2] · context 16 · late_p 0).
+원본 `/workspace/dataset/training_data/v4_velocity_control` (tar 를 푼 것). 목록 만드는 법 `z_training/data/build_v4vc_index.py` (main `compose_v4vc.py` 규칙 그대로, 묶음 · 영상 수 일치 확인).
+⚠️ `video_csv` 가 아니라 `mp4_list` 다 — video_csv 는 64 장 · 간격 2 에서 linspace 로 번호를 만들어 미래 첫 장이 33 이 된다.
+
+type: mp4_list
+csv: ${DATA_CSV}/blender_track_v4vc/arms/all_mp4list.csv
+stride: 2
+starts: [0, 1]
+
+## realbench_perm_train
+
+**real world permanence 학습 절반의 가능 영상 = 47 영상 × 2 (가능 있음 · 가능 없음) = 94 편** (2026-11-02, 사용자: "real bench 로 PFT · held out").
+영상 단위로 나눴다 (출처마다 절반, seed 0) — 시험 절반 48 영상 (96 쌍) 은 학습에 안 들어간다. 불가능 영상은 학습에 안 쓴다.
+창 = 채점과 같은 프레임 번호 (영상마다 문맥 [0, t−1] 균일 16 · 미래 [t, n−1] 균일 16). 640×480 원본 → 채점기처럼 256² 로 눌러 줄인다 (`aug.square_crop: none`).
+만드는 법 `z_training/data/build_realbench_split.py` → `index_train.csv` · `index_test.csv` · `split.json`.
+
+type: mp4_list
+csv: ${DATA_CSV}/real_world_permanence_uniform/train_possible_mp4list.csv

@@ -1,0 +1,24 @@
+{
+ "static": {
+  "n_pairs": 1116,
+  "n_covering": 36,
+  "n_visible": 936,
+  "occ_frac_covering": 0.986,
+  "occ_frac_visible": 0.0,
+  "auroc": 1.0,
+  "corr_dh": 0.013,
+  "slope_on_dh": 0.986,
+  "bg_false_rate": 0.0006
+ },
+ "moving": {
+  "n_pairs": 5580,
+  "n_covering": 180,
+  "n_visible": 4680,
+  "occ_frac_covering": 0.992,
+  "occ_frac_visible": 0.065,
+  "auroc": 1.0,
+  "corr_dh": 0.063,
+  "slope_on_dh": 0.992,
+  "bg_false_rate": 0.0021
+ }
+}

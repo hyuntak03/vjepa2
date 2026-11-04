@@ -1,0 +1,24 @@
+# =============================================================================
+# natural_ar_vw_state + BlenderTrack v4 (같은 장면 · 속도 4 단계) 를 처음부터 (scratch) 섞어 학습 (2026-11-02, 사용자 지시
+#   "ar 학습할 때 v4 껴서 같이 학습해보자 (scratch 부터)")
+#
+#   GPUS=8 bash z_training/tmux_train.sh natural_ar_vw_state_v4vc
+#
+# 짝 실험 = natural_ar_vw_state_vob (VOBench 10 % 섞기, 10-15) 와 같은 방식. 바뀐 것 하나:
+#   step 의 10 % (별도 난수 seed-fixed-step) 를 v4 평면 + 빗면 11,250 편 (blender_track_v4vc_all 과 같은 목록) 의 **고정 창** 으로 채운다.
+#   * 창 = v4 이어 학습 (v4vc_ar_vw_state_postft) 과 같다: 20 fps 원본에서 2 장 간격 32 장, 시작 0 또는 1 (clip 마다), 문맥 16 장 (8 블록) → 미래 16 장
+#   * 공간 변환은 자연 영상과 같은 것 (VOBench 섞기 판과 같다)
+#   * 나머지 90 % step 은 natural_ar_vw_state 와 같은 계획 · 같은 데이터 (같은 seed) — 그 step 들끼리는 batch 가 같다
+# 양: 약 2,058 step × 전역 232 (rank 당 950 // 32 = 29) ≈ 48 만 clip = 영상당 약 42 번 (이어 학습 9.6 만 clip 의 약 5 배)
+# 비교 대상: (1) natural_ar_vw_state ep70 (섞기 없음) (2) v4vc_ar_vw_state_postft (같은 데이터를 다 배운 뒤 2,000 step 이어 학습)
+# ⚠️ 시간 척도: v4 고정 창은 블록 0.2 s (2 장 간격 @ 20 fps), 자연 영상은 fps 4 (블록 0.5 s) — 이어 학습 · 채점과 맞추려고 그대로 둔다
+# =============================================================================
+extends: natural_ar_vw_state
+
+data:
+  var_window:
+    fixed:
+      p: 0.10
+      sources:
+        - {name: v4vc, type: mp4_list, list: "${DATA_CSV}/blender_track_v4vc/arms/all_mp4list.csv",
+           starts: [0, 1], stride: 2, n_frames: 32, context_frames: [16]}

@@ -1,0 +1,86 @@
+{
+ "k710_holdout": {
+  "n_pairs": 900,
+  "frac_cam_moving_ctx": 0.5622222222222222,
+  "inlier_frac_median": 0.91796875,
+  "share_median_moving": 0.9875225024926264,
+  "all": {
+   "n_test": 450,
+   "R2_linear": 0.12345966580169854,
+   "R2_persist": -0.06519315530383807,
+   "c_rms": 1.981573027424302
+  },
+  "cam_moving": {
+   "n_test": 254,
+   "R2_linear": 0.12905222866647492,
+   "R2_persist": -0.06598108818743875,
+   "c_rms": 2.5963268245465927
+  }
+ },
+ "ht100m": {
+  "n_pairs": 960,
+  "frac_cam_moving_ctx": 0.34479166666666666,
+  "inlier_frac_median": 0.94140625,
+  "share_median_moving": 0.9807863593439968,
+  "all": {
+   "n_test": 480,
+   "R2_linear": -0.0013902124141396133,
+   "R2_persist": -0.01608826746399017,
+   "c_rms": 11.891957904689953
+  },
+  "cam_moving": {
+   "n_test": 170,
+   "R2_linear": -0.007632805354718775,
+   "R2_persist": -0.02074681199435413,
+   "c_rms": 19.88549192601471
+  }
+ },
+ "ssv2_passive": {
+  "n_pairs": 1800,
+  "frac_cam_moving_ctx": 0.5805555555555556,
+  "inlier_frac_median": 0.98046875,
+  "share_median_moving": 0.9967591670925633,
+  "all": {
+   "n_test": 900,
+   "R2_linear": -0.20041890449679522,
+   "R2_persist": -1.005749089107197,
+   "c_rms": 5.848162718920989
+  },
+  "cam_moving": {
+   "n_test": 511,
+   "R2_linear": -4.347265723850076,
+   "R2_persist": -21.957611697837052,
+   "c_rms": 1.6716785069602704
+  }
+ },
+ "ssv2_actor": {
+  "n_pairs": 1800,
+  "frac_cam_moving_ctx": 0.5261111111111111,
+  "inlier_frac_median": 0.9296875,
+  "share_median_moving": 0.9545056630677696,
+  "all": {
+   "n_test": 900,
+   "R2_linear": -0.07970491740975816,
+   "R2_persist": -0.761125511496598,
+   "c_rms": 1.9589128119746324
+  },
+  "cam_moving": {
+   "n_test": 474,
+   "R2_linear": -0.08633931064609857,
+   "R2_persist": -0.8092008465354064,
+   "c_rms": 2.6186124764872676
+  }
+ },
+ "phys3d": {
+  "n_pairs": 960,
+  "frac_cam_moving_ctx": 0.0,
+  "inlier_frac_median": 0.9921875,
+  "share_median_moving": null,
+  "all": {
+   "n_test": 480,
+   "R2_linear": -0.02854981499020548,
+   "R2_persist": -1.0386792870165507,
+   "c_rms": 0.04309219580262943
+  }
+ }
+}

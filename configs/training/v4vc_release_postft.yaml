@@ -1,0 +1,35 @@
+# =============================================================================
+# 릴리즈 V-JEPA 2 ViT-H predictor post-FT — BlenderTrack v4_velocity_control 평면 + 빗면 11,250 편, L1 만 (2026-11-02, 사용자 지시)
+#
+#   GPUS=8 bash z_training/tmux_train.sh v4vc_release_postft
+#
+# 무엇: vobench_release_postft (릴리즈 출발 · 문맥 16 장 → 미래 16 장 · lr 5e-5 warmup + cosine · 좌우 반전 0.5) 의 데이터만 v4 로, 길이 2,000 step.
+# 왜: (1) scaffold (main predictor_lab/scaffold, 자리 계산기 비계) 판의 대조 팔 A — 같은 데이터 · 같은 step · 같은 seed, 손실 L1 만.
+#     (2) main 의 "V-JEPA 2 └ V4 Post Training" (v4vc_all_s0, 전역 24 × 4,000 step) 을 이 기계에서 같은 본 clip 수 (9.6 만) 로 다시 낸 판.
+#     (3) 같은 날 올린 AR 판 v4vc_ar_vw_state_postft 와 데이터 · batch · step 이 같다.
+# 창: 2 장 간격 32 장, 시작 0 또는 1 (main 수집기와 같다), 문맥 16 장 (8 블록) → 미래 16 장 (8 블록).
+# =============================================================================
+extends: vobench_release_postft
+
+meta:
+  seed: 0
+  save_every_freq: 5            # e5 · e10 · e15 · e20
+
+data:
+  n_frames: 32
+  batch_size: 6                 # rank 당 × 8 GPU = 48
+  num_workers: 6
+  datasets:
+    - {name: blender_track_v4vc_all, weight: 1.0}
+
+mask:
+  - type: temporal_prefix
+    context_frames: [16]
+    weight: 1.0
+
+optimization:
+  epochs: 20
+  ipe: 100                      # 20 × 100 = 2,000 step
+
+val:
+  every_epochs: 2

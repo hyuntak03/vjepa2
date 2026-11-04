@@ -1,0 +1,155 @@
+{
+ "speed_tok_per_block_mean": 0.7897776256454446,
+ "velocity_r2": {
+  "natural_ar_vw_state": {
+   "ctx_last": {
+    "late": 0.8061870956507168,
+    "visible": 0.8261658156583005
+   },
+   "pred_L4": {
+    "late": 0.8449785360360519,
+    "visible": 0.8833342652127946
+   },
+   "pred_L12": {
+    "late": 0.8919379684924694,
+    "visible": 0.8616214595070142
+   }
+  },
+  "natural_ar_vw_state_ctxt_video": {
+   "ctx_last": {
+    "late": 0.8773707038333045,
+    "visible": 0.9320217130826971
+   },
+   "pred_L4": {
+    "late": 0.8294931658319179,
+    "visible": 0.9344044515054144
+   },
+   "pred_L12": {
+    "late": 0.8913766102938111,
+    "visible": 0.8729087495254527
+   }
+  }
+ },
+ "pos_err": {
+  "natural_ar_vw_state": {
+   "late": [
+    null,
+    1.47,
+    1.94,
+    2.53,
+    3.23,
+    4.02,
+    3.96,
+    4.25
+   ],
+   "visible": [
+    1.15,
+    1.11,
+    1.56,
+    2.02,
+    3.13,
+    4.04,
+    4.36,
+    4.65
+   ]
+  },
+  "natural_ar_vw_state_ctxt_video": {
+   "late": [
+    null,
+    1.15,
+    1.35,
+    1.56,
+    2.24,
+    2.78,
+    3.05,
+    3.45
+   ],
+   "visible": [
+    1.09,
+    1.1,
+    1.13,
+    0.93,
+    1.33,
+    1.89,
+    2.15,
+    2.87
+   ]
+  },
+  "copy": {
+   "late": [
+    null,
+    1.72,
+    2.26,
+    2.67,
+    3.24,
+    3.66,
+    4.32,
+    4.3
+   ],
+   "visible": [
+    1.42,
+    1.91,
+    2.96,
+    3.52,
+    4.04,
+    5.31,
+    5.3,
+    6.15
+   ]
+  },
+  "target": {
+   "late": [
+    null,
+    1.41,
+    1.42,
+    1.33,
+    1.32,
+    1.27,
+    1.21,
+    1.17
+   ],
+   "visible": [
+    1.24,
+    1.35,
+    1.28,
+    1.29,
+    1.32,
+    1.27,
+    1.27,
+    1.2
+   ]
+  }
+ },
+ "pos_err_by_motion": {
+  "flat_acc": {
+   "natural_ar_vw_state": 5.61,
+   "natural_ar_vw_state_ctxt_video": 3.95,
+   "copy": 5.44,
+   "target": 1.33
+  },
+  "flat_dec": {
+   "natural_ar_vw_state": 2.78,
+   "natural_ar_vw_state_ctxt_video": 1.89,
+   "copy": 3.21,
+   "target": 1.29
+  },
+  "flat_vel": {
+   "natural_ar_vw_state": 4.63,
+   "natural_ar_vw_state_ctxt_video": 2.74,
+   "copy": 4.56,
+   "target": 1.22
+  },
+  "ramp_down": {
+   "natural_ar_vw_state": 3.6,
+   "natural_ar_vw_state_ctxt_video": 2.09,
+   "copy": 4.32,
+   "target": 1.16
+  },
+  "ramp_up": {
+   "natural_ar_vw_state": 1.57,
+   "natural_ar_vw_state_ctxt_video": 1.38,
+   "copy": 2.64,
+   "target": 1.32
+  }
+ }
+}

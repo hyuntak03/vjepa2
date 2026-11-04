@@ -1,0 +1,23 @@
+# =============================================================================
+# 무엇: vobench_release_postft_g_e20 (릴리즈 출발 · VOBench split v2 + gravity train 828 clip · 20 epoch · 전역 32) 에 context encoder LoRA 를 붙여 predictor 와 같이 학습. target encoder 는 얼림.
+# 왜: 2026-11-02 사용자 "context encoder LoRA 붙여서 같이 학습 ... sheet 에 있는 것들 다" (시트 "릴리즈 └ VOBench" 행).
+# 비교: vobench_release_postft_g_e20 (vith_release_vobpft_e20). LoRA 말고 다른 것: GPU 4 → 8 이라 rank batch 8 → 4 (전역 32 그대로) · ipe 25 고정 (원판 4 rank 로더 길이, 8 rank 면 26 이 된다 → 총 500 step 그대로).
+#
+#   GPUS=8 bash z_training/tmux_train.sh vobench_release_postft_g_e20_lora
+# LoRA 설정은 intphys2_vuni_ar_vw_state_postft_lora 와 같다. ⚠️ lr ×10 은 2026-11-02 train.py 수정 뒤에야 WarmupCosine 에서도 실제로 곱해진다.
+# =============================================================================
+extends: vobench_release_postft_g_e20
+
+data:
+  batch_size: 4                 # rank 당 × 8 GPU = 32 (원판: 8 × 4 GPU = 32)
+
+optimization:
+  ipe: 25                       # 원판 로더 길이 (828 / 4 rank = 207 → 207 // 8 = 25). 20 × 25 = 500 step
+
+model:
+  encoder_lora:
+    rank: 8
+    alpha: 16
+    targets: [qkv, proj, fc1, fc2]
+    lr_mult: 10
+    act_ckpt: true

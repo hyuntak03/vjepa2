@@ -1,0 +1,43 @@
+{
+ "n": 1923,
+ "encoder_tokens": {
+  "x": {
+   "corr": 0.939,
+   "slope_readout_per_true": 0.876,
+   "R2_raw": 0.882,
+   "R2_after_linear_recalibration": 0.913
+  },
+  "y": {
+   "corr": 0.955,
+   "slope_readout_per_true": 0.907,
+   "R2_raw": 0.911,
+   "R2_after_linear_recalibration": 0.925
+  },
+  "xy": {
+   "corr": 0.945,
+   "slope_readout_per_true": 0.888,
+   "R2_raw": 0.892,
+   "R2_after_linear_recalibration": 0.917
+  }
+ },
+ "natural_ar_tf_output": {
+  "x": {
+   "corr": 0.414,
+   "slope_readout_per_true": 0.034,
+   "R2_raw": 0.058,
+   "R2_after_linear_recalibration": 0.145
+  },
+  "y": {
+   "corr": 0.095,
+   "slope_readout_per_true": 0.006,
+   "R2_raw": 0.004,
+   "R2_after_linear_recalibration": -0.076
+  },
+  "xy": {
+   "corr": 0.324,
+   "slope_readout_per_true": 0.025,
+   "R2_raw": 0.044,
+   "R2_after_linear_recalibration": 0.116
+  }
+ }
+}

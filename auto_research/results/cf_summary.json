@@ -1,0 +1,102 @@
+{
+ "train": {
+  "n_scenes": 300,
+  "n_ok": 298,
+  "n_fail": 2,
+  "attempts_hist": {
+   "0": 88,
+   "1": 67,
+   "2": 32,
+   "3": 22,
+   "4": 12,
+   "5": 20,
+   "6": 13,
+   "7": 14,
+   "8": 5,
+   "9": 4,
+   "10": 5,
+   "11": 1,
+   "12": 2,
+   "13": 1,
+   "14": 1,
+   "15": 1,
+   "16": 1,
+   "17": 3,
+   "18": 1,
+   "20": 1,
+   "21": 1,
+   "23": 2,
+   "29": 1
+  },
+  "retry_reasons": {
+   "no hit": 870,
+   "hit # vs diverge #": 113,
+   "no divergence #": 113,
+   "out of frame off": 5
+  },
+  "t_event_q": [
+   17.0,
+   20.0,
+   22.0,
+   26.0,
+   60.0
+  ],
+  "screen_frac": 0.4865771812080537,
+  "camera": {
+   "static": 87,
+   "pan": 149,
+   "dolly": 62
+  },
+  "obstacle_kind": {
+   "box": 91,
+   "wall": 207
+  },
+  "sec_per_scene": 26.90771812080537,
+  "pre_event_token_maxdiff_max": null
+ },
+ "test": {
+  "n_scenes": 50,
+  "n_ok": 50,
+  "n_fail": 0,
+  "attempts_hist": {
+   "0": 15,
+   "1": 5,
+   "2": 12,
+   "3": 4,
+   "4": 3,
+   "5": 2,
+   "7": 2,
+   "10": 1,
+   "11": 1,
+   "13": 1,
+   "14": 2,
+   "15": 2
+  },
+  "retry_reasons": {
+   "no hit": 149,
+   "hit # vs diverge #": 20,
+   "no divergence #": 13
+  },
+  "t_event_q": [
+   18.0,
+   21.0,
+   22.0,
+   24.0,
+   35.0
+  ],
+  "screen_frac": 0.5,
+  "camera": {
+   "pan": 26,
+   "dolly": 10,
+   "static": 14
+  },
+  "obstacle_kind": {
+   "wall": 32,
+   "box": 18
+  },
+  "sec_per_scene": 57.816,
+  "pre_event_png_maxdiff_max": 0,
+  "n_pairs_checked": 100,
+  "pre_event_token_maxdiff_max": 0.0
+ }
+}

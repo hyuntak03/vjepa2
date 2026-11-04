@@ -489,6 +489,7 @@ def build_from_config(cfg: dict, device: torch.device) -> VJEPA2Bundle:
             n_registers=int(predictor_cfg.get("n_registers", 0)),
             reg_carry=str(predictor_cfg.get("reg_carry", "state")),
             ar_oneshot=bool(predictor_cfg.get("ar_oneshot", False)),
+            ar_oneshot_causal=bool(predictor_cfg.get("ar_oneshot_causal", False)),   # 2026-11-04: 한 번에 예측 + 전부 블록 인과
             ar_unc=bool(predictor_cfg.get("ar_unc", False)),                  # 2026-10-28: 토큰별 Laplace 척도 head (채점은 μ 만)          # 2026-10-28: kind=ar 한 번에 예측          # 2026-10-27: ar registers 상태 넘김
             ar_feedback=str(predictor_cfg.get("ar_feedback", "output")),     # 2026-10-12: kind=ar 상태 되먹임
             gating_residual=bool(predictor_cfg.get("gating_residual", False)),   # 2026-10-17: gate 지름길
@@ -541,6 +542,19 @@ def build_from_config(cfg: dict, device: torch.device) -> VJEPA2Bundle:
     predictor = predictor.to(device=device, dtype=dtype).eval()
     for p in predictor.parameters():
         p.requires_grad_(False)
+    if enc_lora[0] and kind != "ar":
+        # 2026-11-02 (main 385–396 이식): release 판 학습 (app/vjepa_frozen/train.py model.encoder_lora, kind=oneshot) 이 context encoder 에
+        #   LoRA 를 달았다 → 같은 자리에 다시 붙이고 가중치를 읽는다. target encoder 는 그대로. (kind=ar 은 아래 분기가 입력 경로 복사본으로 한다)
+        if not dual_encoder or context_encoder is target_encoder:
+            raise ValueError(f"{pc_path} 에 encoder LoRA 가 있다 — dual_encoder: true (context ≠ target) 로 채점해야 한다")
+        from app.vjepa_frozen import lora as _LR
+        _lc = enc_lora[1] or {}
+        _LR.apply_lora(context_encoder, int(_lc["rank"]), float(_lc["alpha"]), _lc["targets"])
+        _LR.load_lora(context_encoder, enc_lora[0])
+        context_encoder = context_encoder.to(device=device, dtype=dtype).eval()
+        for _p in context_encoder.parameters():
+            _p.requires_grad_(False)
+        logger.info(f"context encoder LoRA <- {pc_path} ({_lc})")
     if kind == "ctx_state":
         predictor = _CtxStateScorer(predictor).eval()
         # 2026-10-16: ctx_target=block 으로 학습한 run 은 타깃도 블록별 target_encoder (문맥은 그대로 창 단위 context encoder)

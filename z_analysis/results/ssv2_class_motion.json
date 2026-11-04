@@ -1,0 +1,620 @@
+{
+ "n_videos_by_group_in_flow_cache": {
+  "other": 134103,
+  "passive": 23892,
+  "actor": 33063
+ },
+ "persistence": {
+  "passive": {
+   "raw": {
+    "n_cells": 11257604,
+    "n_samples": 65433,
+    "lag_0.25s": 0.3871523439884186,
+    "lag_0.5s": 0.10776044428348541
+   },
+   "cam": {
+    "n_cells": 4883935,
+    "n_samples": 65433,
+    "lag_0.25s": 0.20608200132846832,
+    "lag_0.5s": 0.02198808826506138
+   },
+   "n_videos": 22197
+  },
+  "actor": {
+   "raw": {
+    "n_cells": 11299356,
+    "n_samples": 73203,
+    "lag_0.25s": 0.4450821280479431,
+    "lag_0.5s": 0.18809998035430908
+   },
+   "cam": {
+    "n_cells": 5955384,
+    "n_samples": 73203,
+    "lag_0.25s": 0.4317241907119751,
+    "lag_0.5s": 0.12550286948680878
+   },
+   "n_videos": 24648
+  },
+  "other": {
+   "raw": {
+    "n_cells": 2083187,
+    "n_samples": 11916,
+    "lag_0.25s": 0.36190569400787354,
+    "lag_0.5s": 0.10124582052230835
+   },
+   "cam": {
+    "n_cells": 1106451,
+    "n_samples": 11916,
+    "lag_0.25s": 0.2884226143360138,
+    "lag_0.5s": 0.050548896193504333
+   },
+   "n_videos": 4000
+  },
+  "passive_by_template": {
+   "Dropping something behind something": {
+    "n_videos": 897,
+    "raw": {
+     "n_cells": 389763,
+     "n_samples": 2631,
+     "lag_0.25s": 0.32859763503074646,
+     "lag_0.5s": 0.05279822275042534
+    },
+    "cam": {
+     "n_cells": 133830,
+     "n_samples": 2631,
+     "lag_0.25s": 0.275243878364563,
+     "lag_0.5s": 0.04379851371049881
+    }
+   },
+   "Dropping something in front of something": {
+    "n_videos": 1025,
+    "raw": {
+     "n_cells": 457697,
+     "n_samples": 3005,
+     "lag_0.25s": 0.3239547908306122,
+     "lag_0.5s": 0.08819488435983658
+    },
+    "cam": {
+     "n_cells": 156587,
+     "n_samples": 3005,
+     "lag_0.25s": 0.17880263924598694,
+     "lag_0.5s": 0.014244921505451202
+    }
+   },
+   "Dropping something into something": {
+    "n_videos": 1068,
+    "raw": {
+     "n_cells": 445585,
+     "n_samples": 3147,
+     "lag_0.25s": 0.3039238154888153,
+     "lag_0.5s": 0.06107451394200325
+    },
+    "cam": {
+     "n_cells": 161244,
+     "n_samples": 3147,
+     "lag_0.25s": 0.15852129459381104,
+     "lag_0.5s": 0.013231398537755013
+    }
+   },
+   "Dropping something next to something": {
+    "n_videos": 1110,
+    "raw": {
+     "n_cells": 476803,
+     "n_samples": 3258,
+     "lag_0.25s": 0.288845419883728,
+     "lag_0.5s": 0.053684353828430176
+    },
+    "cam": {
+     "n_cells": 129363,
+     "n_samples": 3258,
+     "lag_0.25s": 0.1342703402042389,
+     "lag_0.5s": 0.003984897397458553
+    }
+   },
+   "Dropping something onto something": {
+    "n_videos": 1338,
+    "raw": {
+     "n_cells": 599645,
+     "n_samples": 3900,
+     "lag_0.25s": 0.37402141094207764,
+     "lag_0.5s": 0.1263367086648941
+    },
+    "cam": {
+     "n_cells": 209417,
+     "n_samples": 3900,
+     "lag_0.25s": 0.1441422551870346,
+     "lag_0.5s": 0.010764628648757935
+    }
+   },
+   "Letting something roll along a flat surface": {
+    "n_videos": 941,
+    "raw": {
+     "n_cells": 478875,
+     "n_samples": 2745,
+     "lag_0.25s": 0.5221924185752869,
+     "lag_0.5s": 0.22099970281124115
+    },
+    "cam": {
+     "n_cells": 212654,
+     "n_samples": 2745,
+     "lag_0.25s": 0.3470953702926636,
+     "lag_0.5s": 0.0784832313656807
+    }
+   },
+   "Letting something roll down a slanted surface": {
+    "n_videos": 749,
+    "raw": {
+     "n_cells": 327345,
+     "n_samples": 2195,
+     "lag_0.25s": 0.4734824597835541,
+     "lag_0.5s": 0.21195869147777557
+    },
+    "cam": {
+     "n_cells": 137865,
+     "n_samples": 2195,
+     "lag_0.25s": 0.3176968991756439,
+     "lag_0.5s": 0.07820780575275421
+    }
+   },
+   "Letting something roll up a slanted surface, so it rolls back down": {
+    "n_videos": 389,
+    "raw": {
+     "n_cells": 183743,
+     "n_samples": 1149,
+     "lag_0.25s": 0.3752440810203552,
+     "lag_0.5s": 0.07894005626440048
+    },
+    "cam": {
+     "n_cells": 80414,
+     "n_samples": 1149,
+     "lag_0.25s": 0.12497854232788086,
+     "lag_0.5s": 0.00958232581615448
+    }
+   },
+   "Lifting something up completely, then letting it drop down": {
+    "n_videos": 1500,
+    "raw": {
+     "n_cells": 876862,
+     "n_samples": 4487,
+     "lag_0.25s": 0.36975187063217163,
+     "lag_0.5s": 0.06406159698963165
+    },
+    "cam": {
+     "n_cells": 490527,
+     "n_samples": 4487,
+     "lag_0.25s": 0.21225914359092712,
+     "lag_0.5s": 0.02005687542259693
+    }
+   },
+   "Something falling like a feather or paper": {
+    "n_videos": 1438,
+    "raw": {
+     "n_cells": 747182,
+     "n_samples": 4256,
+     "lag_0.25s": 0.48183807730674744,
+     "lag_0.5s": 0.20378825068473816
+    },
+    "cam": {
+     "n_cells": 328329,
+     "n_samples": 4256,
+     "lag_0.25s": 0.2422090619802475,
+     "lag_0.5s": 0.047672729939222336
+    }
+   },
+   "Something falling like a rock": {
+    "n_videos": 1500,
+    "raw": {
+     "n_cells": 722291,
+     "n_samples": 4414,
+     "lag_0.25s": 0.40183618664741516,
+     "lag_0.5s": 0.13259229063987732
+    },
+    "cam": {
+     "n_cells": 291819,
+     "n_samples": 4414,
+     "lag_0.25s": 0.1477828472852707,
+     "lag_0.5s": 0.009512222371995449
+    }
+   },
+   "Throwing something": {
+    "n_videos": 1500,
+    "raw": {
+     "n_cells": 862583,
+     "n_samples": 4436,
+     "lag_0.25s": 0.2833978235721588,
+     "lag_0.5s": 0.04498426988720894
+    },
+    "cam": {
+     "n_cells": 311777,
+     "n_samples": 4436,
+     "lag_0.25s": 0.0735236331820488,
+     "lag_0.5s": 0.0034471384715288877
+    }
+   },
+   "Throwing something against something": {
+    "n_videos": 1340,
+    "raw": {
+     "n_cells": 813230,
+     "n_samples": 3964,
+     "lag_0.25s": 0.3276890516281128,
+     "lag_0.5s": 0.032086052000522614
+    },
+    "cam": {
+     "n_cells": 341545,
+     "n_samples": 3964,
+     "lag_0.25s": 0.0985211730003357,
+     "lag_0.5s": 0.005954368505626917
+    }
+   },
+   "Throwing something in the air and letting it fall": {
+    "n_videos": 884,
+    "raw": {
+     "n_cells": 515155,
+     "n_samples": 2627,
+     "lag_0.25s": 0.3902609050273895,
+     "lag_0.5s": 0.07069570571184158
+    },
+    "cam": {
+     "n_cells": 247817,
+     "n_samples": 2627,
+     "lag_0.25s": 0.1524198055267334,
+     "lag_0.5s": 0.016932465136051178
+    }
+   },
+   "Throwing something onto a surface": {
+    "n_videos": 943,
+    "raw": {
+     "n_cells": 519869,
+     "n_samples": 2772,
+     "lag_0.25s": 0.32657894492149353,
+     "lag_0.5s": 0.06291040033102036
+    },
+    "cam": {
+     "n_cells": 192286,
+     "n_samples": 2772,
+     "lag_0.25s": 0.17092937231063843,
+     "lag_0.5s": 0.01364990510046482
+    }
+   },
+   "Rolling something on a flat surface": {
+    "n_videos": 1429,
+    "raw": {
+     "n_cells": 839150,
+     "n_samples": 4217,
+     "lag_0.25s": 0.4518357515335083,
+     "lag_0.5s": 0.17448857426643372
+    },
+    "cam": {
+     "n_cells": 458120,
+     "n_samples": 4217,
+     "lag_0.25s": 0.3373269736766815,
+     "lag_0.5s": 0.051136646419763565
+    }
+   },
+   "Something colliding with something and both are being deflected": {
+    "n_videos": 533,
+    "raw": {
+     "n_cells": 203597,
+     "n_samples": 1541,
+     "lag_0.25s": 0.23776546120643616,
+     "lag_0.5s": 0.06095556542277336
+    },
+    "cam": {
+     "n_cells": 89179,
+     "n_samples": 1541,
+     "lag_0.25s": 0.12139280140399933,
+     "lag_0.5s": 0.003315484616905451
+    }
+   },
+   "Something being deflected from something": {
+    "n_videos": 391,
+    "raw": {
+     "n_cells": 156086,
+     "n_samples": 1108,
+     "lag_0.25s": 0.3126837909221649,
+     "lag_0.5s": 0.038117483258247375
+    },
+    "cam": {
+     "n_cells": 59815,
+     "n_samples": 1108,
+     "lag_0.25s": 0.18649178743362427,
+     "lag_0.5s": 0.0027555483393371105
+    }
+   },
+   "Pushing something so that it falls off the table": {
+    "n_videos": 1500,
+    "raw": {
+     "n_cells": 858431,
+     "n_samples": 4463,
+     "lag_0.25s": 0.5433889627456665,
+     "lag_0.5s": 0.23490582406520844
+    },
+    "cam": {
+     "n_cells": 471965,
+     "n_samples": 4463,
+     "lag_0.25s": 0.3293972909450531,
+     "lag_0.5s": 0.06247086077928543
+    }
+   },
+   "Putting something on the edge of something so it is not supported and falls down": {
+    "n_videos": 565,
+    "raw": {
+     "n_cells": 253715,
+     "n_samples": 1673,
+     "lag_0.25s": 0.3593906760215759,
+     "lag_0.5s": 0.09671663492918015
+    },
+    "cam": {
+     "n_cells": 119289,
+     "n_samples": 1673,
+     "lag_0.25s": 0.1714639961719513,
+     "lag_0.5s": 0.007671073079109192
+    }
+   },
+   "Putting something onto something else that cannot support it so it falls down": {
+    "n_videos": 394,
+    "raw": {
+     "n_cells": 183922,
+     "n_samples": 1172,
+     "lag_0.25s": 0.3334507346153259,
+     "lag_0.5s": 0.06198619306087494
+    },
+    "cam": {
+     "n_cells": 77493,
+     "n_samples": 1172,
+     "lag_0.25s": 0.1486504077911377,
+     "lag_0.5s": 0.002743965480476618
+    }
+   },
+   "Lifting a surface with something on it until it starts sliding down": {
+    "n_videos": 356,
+    "raw": {
+     "n_cells": 158720,
+     "n_samples": 1062,
+     "lag_0.25s": 0.5560685396194458,
+     "lag_0.5s": 0.2749328911304474
+    },
+    "cam": {
+     "n_cells": 97901,
+     "n_samples": 1062,
+     "lag_0.25s": 0.48455512523651123,
+     "lag_0.5s": 0.16405777633190155
+    }
+   },
+   "Putting something that can't roll onto a slanted surface, so it slides down": {
+    "n_videos": 407,
+    "raw": {
+     "n_cells": 174981,
+     "n_samples": 1211,
+     "lag_0.25s": 0.3252803385257721,
+     "lag_0.5s": 0.09165938943624496
+    },
+    "cam": {
+     "n_cells": 72319,
+     "n_samples": 1211,
+     "lag_0.25s": 0.22716400027275085,
+     "lag_0.5s": 0.01908140443265438
+    }
+   }
+  }
+ },
+ "ar_output": {
+  "n_videos": {
+   "other": 800,
+   "passive": 800,
+   "actor": 800
+  },
+  "teacher_forcing": {
+   "passive": {
+    "copy_flow": {
+     "acc": 0.6108146708190347,
+     "cos_med": 0.42035335302352905,
+     "n": 100826
+    },
+    "current_block": {
+     "acc": 0.5761509927994763,
+     "cos_med": 0.25354307889938354,
+     "n": 100826
+    },
+    "ar_output": {
+     "acc": 0.5913157320532403,
+     "cos_med": 0.30836722254753113,
+     "n": 100826
+    }
+   },
+   "actor": {
+    "copy_flow": {
+     "acc": 0.6190449793230374,
+     "cos_med": 0.4852907657623291,
+     "n": 90197
+    },
+    "current_block": {
+     "acc": 0.5603179706642127,
+     "cos_med": 0.2141301929950714,
+     "n": 90197
+    },
+    "ar_output": {
+     "acc": 0.590086144771999,
+     "cos_med": 0.32128968834877014,
+     "n": 90197
+    }
+   },
+   "other": {
+    "copy_flow": {
+     "acc": 0.5934933129075498,
+     "cos_med": 0.3579915463924408,
+     "n": 99221
+    },
+    "current_block": {
+     "acc": 0.5431612259501517,
+     "cos_med": 0.14204849302768707,
+     "n": 99221
+    },
+    "ar_output": {
+     "acc": 0.5493695890990818,
+     "cos_med": 0.16274520754814148,
+     "n": 99221
+    }
+   }
+  },
+  "rollout_step_1": {
+   "passive": {
+    "copy_flow": {
+     "acc": 0.5828275089869762,
+     "cos_med": 0.35675856471061707,
+     "n": 16969
+    },
+    "current_block": {
+     "acc": 0.5769933407979256,
+     "cos_med": 0.26400360465049744,
+     "n": 16969
+    },
+    "ar_output": {
+     "acc": 0.5873651953562379,
+     "cos_med": 0.3138689696788788,
+     "n": 16969
+    }
+   },
+   "actor": {
+    "copy_flow": {
+     "acc": 0.6413272808643948,
+     "cos_med": 0.5700039863586426,
+     "n": 15641
+    },
+    "current_block": {
+     "acc": 0.5669074867335848,
+     "cos_med": 0.23817120492458344,
+     "n": 15641
+    },
+    "ar_output": {
+     "acc": 0.6067386995716386,
+     "cos_med": 0.3960098624229431,
+     "n": 15641
+    }
+   },
+   "other": {
+    "copy_flow": {
+     "acc": 0.6150639896677234,
+     "cos_med": 0.43658798933029175,
+     "n": 17034
+    },
+    "current_block": {
+     "acc": 0.5355759070095104,
+     "cos_med": 0.11806954443454742,
+     "n": 17034
+    },
+    "ar_output": {
+     "acc": 0.5777856052600681,
+     "cos_med": 0.24061214923858643,
+     "n": 17034
+    }
+   }
+  },
+  "rollout_step_2": {
+   "passive": {
+    "copy_flow": {
+     "acc": 0.5247093023255814,
+     "cos_med": 0.07745179533958435,
+     "n": 17200
+    },
+    "current_block": {
+     "acc": 0.591046511627907,
+     "cos_med": 0.2888367772102356,
+     "n": 17200
+    },
+    "ar_output": {
+     "acc": 0.5987209302325581,
+     "cos_med": 0.31411510705947876,
+     "n": 17200
+    }
+   },
+   "actor": {
+    "copy_flow": {
+     "acc": 0.5532364969679876,
+     "cos_med": 0.24547702074050903,
+     "n": 14182
+    },
+    "current_block": {
+     "acc": 0.5404033281624595,
+     "cos_med": 0.13523262739181519,
+     "n": 14182
+    },
+    "ar_output": {
+     "acc": 0.5564800451276266,
+     "cos_med": 0.21357034146785736,
+     "n": 14182
+    }
+   },
+   "other": {
+    "copy_flow": {
+     "acc": 0.5276399716513112,
+     "cos_med": 0.12747949361801147,
+     "n": 16932
+    },
+    "current_block": {
+     "acc": 0.5067918733758564,
+     "cos_med": 0.020336512476205826,
+     "n": 16932
+    },
+    "ar_output": {
+     "acc": 0.5196078431372549,
+     "cos_med": 0.058140188455581665,
+     "n": 16932
+    }
+   }
+  },
+  "rollout_step_3": {
+   "passive": {
+    "copy_flow": {
+     "acc": 0.4892090979581287,
+     "cos_med": -0.0375121533870697,
+     "n": 15476
+    },
+    "current_block": {
+     "acc": 0.5237141380201602,
+     "cos_med": 0.07116013765335083,
+     "n": 15476
+    },
+    "ar_output": {
+     "acc": 0.5215818040837426,
+     "cos_med": 0.06750355660915375,
+     "n": 15476
+    }
+   },
+   "actor": {
+    "copy_flow": {
+     "acc": 0.4944041669599493,
+     "cos_med": -0.025782089680433273,
+     "n": 14207
+    },
+    "current_block": {
+     "acc": 0.4948968818188217,
+     "cos_med": -0.01793823577463627,
+     "n": 14207
+    },
+    "ar_output": {
+     "acc": 0.5215738720349123,
+     "cos_med": 0.06934110075235367,
+     "n": 14207
+    }
+   },
+   "other": {
+    "copy_flow": {
+     "acc": 0.4680946578592958,
+     "cos_med": -0.10024186223745346,
+     "n": 15593
+    },
+    "current_block": {
+     "acc": 0.5123452831398705,
+     "cos_med": 0.04300355538725853,
+     "n": 15593
+    },
+    "ar_output": {
+     "acc": 0.5249150259731931,
+     "cos_med": 0.07577792555093765,
+     "n": 15593
+    }
+   }
+  }
+ }
+}

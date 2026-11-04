@@ -1,0 +1,66 @@
+{
+ "n_vobench": 1200,
+ "shape": {
+  "classes": [
+   "sphere",
+   "cube",
+   "cylinder",
+   "cone",
+   "torus"
+  ],
+  "n_per_class": [
+   205,
+   202,
+   191,
+   207,
+   192
+  ],
+  "cos_vobench_vs_phys3d": {
+   "sphere": 0.6880000233650208,
+   "cube": 0.5680000185966492,
+   "cylinder": 0.42399999499320984,
+   "cone": 0.5609999895095825,
+   "torus": 0.4699999988079071
+  },
+  "cos_mean": 0.542,
+  "vobench_split_half_reliability": 0.846,
+  "null_cos_mean": 0.022,
+  "norm_ratio_vobench_over_phys3d": 1.307
+ },
+ "color": {
+  "classes": [
+   "red",
+   "orange",
+   "yellow",
+   "green",
+   "cyan",
+   "blue",
+   "purple",
+   "magenta"
+  ],
+  "n_per_class": [
+   144,
+   168,
+   144,
+   153,
+   146,
+   149,
+   141,
+   155
+  ],
+  "cos_vobench_vs_phys3d": {
+   "red": 0.4020000100135803,
+   "orange": 0.7300000190734863,
+   "yellow": 0.7020000219345093,
+   "green": 0.7260000109672546,
+   "cyan": 0.6129999756813049,
+   "blue": 0.6380000114440918,
+   "purple": 0.6240000128746033,
+   "magenta": 0.6809999942779541
+  },
+  "cos_mean": 0.639,
+  "vobench_split_half_reliability": 0.503,
+  "null_cos_mean": 0.054,
+  "norm_ratio_vobench_over_phys3d": 1.055
+ }
+}

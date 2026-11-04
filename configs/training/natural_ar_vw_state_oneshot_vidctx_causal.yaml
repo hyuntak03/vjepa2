@@ -1,0 +1,20 @@
+# =============================================================================
+# 영상 문맥 · 한 번에 예측 (mask token) · 창 정답 + **attention 전부 블록 인과** (2026-11-04, 사용자 결정)
+#   사용자: "context 는 video 로 줘야지. 글고 loss 도 그냥 한번에 하고" · "L1 은 mask 부분에만" · 시작점 = scratch
+#
+#   GPUS=8 bash z_training/tmux_train.sh natural_ar_vw_state_oneshot_vidctx_causal
+#
+# natural_ar_vw_state_oneshot_vidctx (시트 "predictor만 scratch 부터 다시 학습 (VMX0.8) | future prediction") 와 다른 점 하나: attention 마스크.
+#   블록 b 의 query (문맥 토큰 · 미래 mask token 모두) 는 블록 <= b 의 key 만 본다. 블록 안 256 토큰끼리는 양방향.
+#   (src/models/rollout_predictor.py _ar_oneshot, model.predictor.ar_oneshot_causal — PrefixSpec(1, nb-1) = 블록 AR 과 같은 마스크)
+# 같은 것: 문맥 = target_encoder 문맥 pass (문맥 C 블록 토큰만 넣음 = 미래 안 봄) · 정답 = 클립 전체 pass (LN) ·
+#   L1 = 미래 K 블록 (mask token 자리) 만 · 데이터 K710 · SSv2 · HowTo 1 % (1:1:1, fps 4) · 창 · 70 epoch WSD · seed 0 · val VOBench late.
+# ⚠️ 문맥이 영상 pass 라 encoder 안에서 문맥 프레임끼리 이미 섞인다 — 문맥 토큰끼리의 블록 인과는 predictor 의 섞임만 막는다.
+#   실질 차이는 미래 mask token 의 블록 인과 (미래 블록 t 는 문맥 + 미래 <= t 만 본다).
+# 먼저 돌린 블록 문맥판 natural_ar_vw_state_oneshot_causal 은 e14 (16 epoch 중간) 에서 멈췄다 (사용자: 문맥은 영상으로).
+# =============================================================================
+extends: natural_ar_vw_state_oneshot_vidctx
+
+model:
+  predictor:
+    ar_oneshot_causal: true

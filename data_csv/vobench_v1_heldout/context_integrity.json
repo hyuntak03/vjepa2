@@ -1,0 +1,27 @@
+{
+ "n_pairs": 1440,
+ "n_frames_checked": 23040,
+ "context_frames_raw": [
+  0,
+  3,
+  6,
+  9,
+  12,
+  15,
+  18,
+  21,
+  24,
+  27,
+  30,
+  33,
+  36,
+  39,
+  42,
+  45
+ ],
+ "same_inode": 0,
+ "pixel_equal": 23040,
+ "n_mismatch_pairs": 0,
+ "mismatch": {},
+ "seconds": 88.2
+}

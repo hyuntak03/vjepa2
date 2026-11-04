@@ -1,0 +1,398 @@
+{
+ "ar": {
+  "shape": {
+   "1": {
+    "n_val": 169,
+    "val_majority": 24.9,
+    "enc_head_on_enc": 78.1,
+    "enc_head_on_pred": 18.9,
+    "enc_head_on_pred_top_answer_share": 99.4,
+    "pred_head_on_pred": 72.2,
+    "epoch_enc_head": 231,
+    "epoch_pred_head": 227,
+    "feat_norm_enc": 21.748,
+    "feat_norm_pred": 29.84
+   },
+   "2": {
+    "n_val": 163,
+    "val_majority": 25.8,
+    "enc_head_on_enc": 77.3,
+    "enc_head_on_pred": 20.2,
+    "enc_head_on_pred_top_answer_share": 98.8,
+    "pred_head_on_pred": 71.2,
+    "epoch_enc_head": 258,
+    "epoch_pred_head": 250,
+    "feat_norm_enc": 21.732,
+    "feat_norm_pred": 30.686
+   },
+   "3": {
+    "n_val": 167,
+    "val_majority": 24.6,
+    "enc_head_on_enc": 77.8,
+    "enc_head_on_pred": 22.2,
+    "enc_head_on_pred_top_answer_share": 98.2,
+    "pred_head_on_pred": 66.5,
+    "epoch_enc_head": 298,
+    "epoch_pred_head": 205,
+    "feat_norm_enc": 21.753,
+    "feat_norm_pred": 31.169
+   },
+   "4": {
+    "n_val": 156,
+    "val_majority": 26.3,
+    "enc_head_on_enc": 80.8,
+    "enc_head_on_pred": 26.3,
+    "enc_head_on_pred_top_answer_share": 99.4,
+    "pred_head_on_pred": 70.5,
+    "epoch_enc_head": 296,
+    "epoch_pred_head": 252,
+    "feat_norm_enc": 21.738,
+    "feat_norm_pred": 31.438
+   },
+   "5": {
+    "n_val": 168,
+    "val_majority": 26.2,
+    "enc_head_on_enc": 69.6,
+    "enc_head_on_pred": 23.2,
+    "enc_head_on_pred_top_answer_share": 98.2,
+    "pred_head_on_pred": 68.5,
+    "epoch_enc_head": 236,
+    "epoch_pred_head": 257,
+    "feat_norm_enc": 21.767,
+    "feat_norm_pred": 31.94
+   },
+   "6": {
+    "n_val": 164,
+    "val_majority": 28.7,
+    "enc_head_on_enc": 75.6,
+    "enc_head_on_pred": 22.6,
+    "enc_head_on_pred_top_answer_share": 99.4,
+    "pred_head_on_pred": 70.7,
+    "epoch_enc_head": 276,
+    "epoch_pred_head": 205,
+    "feat_norm_enc": 21.746,
+    "feat_norm_pred": 32.125
+   },
+   "7": {
+    "n_val": 178,
+    "val_majority": 29.2,
+    "enc_head_on_enc": 67.4,
+    "enc_head_on_pred": 20.8,
+    "enc_head_on_pred_top_answer_share": 100.0,
+    "pred_head_on_pred": 68.0,
+    "epoch_enc_head": 299,
+    "epoch_pred_head": 234,
+    "feat_norm_enc": 21.734,
+    "feat_norm_pred": 32.343
+   },
+   "8": {
+    "n_val": 181,
+    "val_majority": 26.0,
+    "enc_head_on_enc": 70.7,
+    "enc_head_on_pred": 19.9,
+    "enc_head_on_pred_top_answer_share": 100.0,
+    "pred_head_on_pred": 68.5,
+    "epoch_enc_head": 260,
+    "epoch_pred_head": 256,
+    "feat_norm_enc": 21.669,
+    "feat_norm_pred": 32.604
+   }
+  },
+  "color": {
+   "1": {
+    "n_val": 169,
+    "val_majority": 18.3,
+    "enc_head_on_enc": 72.8,
+    "enc_head_on_pred": 21.3,
+    "enc_head_on_pred_top_answer_share": 75.7,
+    "pred_head_on_pred": 69.8,
+    "epoch_enc_head": 251,
+    "epoch_pred_head": 293,
+    "feat_norm_enc": 21.748,
+    "feat_norm_pred": 29.84
+   },
+   "2": {
+    "n_val": 163,
+    "val_majority": 16.6,
+    "enc_head_on_enc": 73.6,
+    "enc_head_on_pred": 35.0,
+    "enc_head_on_pred_top_answer_share": 42.9,
+    "pred_head_on_pred": 63.8,
+    "epoch_enc_head": 262,
+    "epoch_pred_head": 299,
+    "feat_norm_enc": 21.732,
+    "feat_norm_pred": 30.686
+   },
+   "3": {
+    "n_val": 167,
+    "val_majority": 16.2,
+    "enc_head_on_enc": 75.4,
+    "enc_head_on_pred": 26.9,
+    "enc_head_on_pred_top_answer_share": 64.7,
+    "pred_head_on_pred": 62.3,
+    "epoch_enc_head": 226,
+    "epoch_pred_head": 256,
+    "feat_norm_enc": 21.753,
+    "feat_norm_pred": 31.169
+   },
+   "4": {
+    "n_val": 156,
+    "val_majority": 19.9,
+    "enc_head_on_enc": 76.3,
+    "enc_head_on_pred": 21.2,
+    "enc_head_on_pred_top_answer_share": 51.3,
+    "pred_head_on_pred": 61.5,
+    "epoch_enc_head": 230,
+    "epoch_pred_head": 278,
+    "feat_norm_enc": 21.738,
+    "feat_norm_pred": 31.438
+   },
+   "5": {
+    "n_val": 168,
+    "val_majority": 17.3,
+    "enc_head_on_enc": 76.2,
+    "enc_head_on_pred": 18.5,
+    "enc_head_on_pred_top_answer_share": 42.9,
+    "pred_head_on_pred": 60.1,
+    "epoch_enc_head": 242,
+    "epoch_pred_head": 297,
+    "feat_norm_enc": 21.767,
+    "feat_norm_pred": 31.94
+   },
+   "6": {
+    "n_val": 164,
+    "val_majority": 18.3,
+    "enc_head_on_enc": 78.0,
+    "enc_head_on_pred": 13.4,
+    "enc_head_on_pred_top_answer_share": 89.0,
+    "pred_head_on_pred": 61.6,
+    "epoch_enc_head": 243,
+    "epoch_pred_head": 284,
+    "feat_norm_enc": 21.746,
+    "feat_norm_pred": 32.125
+   },
+   "7": {
+    "n_val": 178,
+    "val_majority": 16.3,
+    "enc_head_on_enc": 67.4,
+    "enc_head_on_pred": 14.0,
+    "enc_head_on_pred_top_answer_share": 91.6,
+    "pred_head_on_pred": 61.2,
+    "epoch_enc_head": 294,
+    "epoch_pred_head": 276,
+    "feat_norm_enc": 21.734,
+    "feat_norm_pred": 32.343
+   },
+   "8": {
+    "n_val": 181,
+    "val_majority": 16.0,
+    "enc_head_on_enc": 71.3,
+    "enc_head_on_pred": 16.6,
+    "enc_head_on_pred_top_answer_share": 86.2,
+    "pred_head_on_pred": 55.8,
+    "epoch_enc_head": 246,
+    "epoch_pred_head": 284,
+    "feat_norm_enc": 21.669,
+    "feat_norm_pred": 32.604
+   }
+  }
+ },
+ "release": {
+  "shape": {
+   "1": {
+    "n_val": 169,
+    "val_majority": 24.9,
+    "enc_head_on_enc": 79.3,
+    "enc_head_on_pred": 40.2,
+    "enc_head_on_pred_top_answer_share": 56.2,
+    "pred_head_on_pred": 77.5,
+    "epoch_enc_head": 202,
+    "epoch_pred_head": 178,
+    "feat_norm_enc": 19.46,
+    "feat_norm_pred": 18.524
+   },
+   "2": {
+    "n_val": 163,
+    "val_majority": 25.8,
+    "enc_head_on_enc": 76.7,
+    "enc_head_on_pred": 19.0,
+    "enc_head_on_pred_top_answer_share": 100.0,
+    "pred_head_on_pred": 75.5,
+    "epoch_enc_head": 278,
+    "epoch_pred_head": 187,
+    "feat_norm_enc": 21.221,
+    "feat_norm_pred": 19.249
+   },
+   "3": {
+    "n_val": 167,
+    "val_majority": 24.6,
+    "enc_head_on_enc": 76.0,
+    "enc_head_on_pred": 50.9,
+    "enc_head_on_pred_top_answer_share": 45.5,
+    "pred_head_on_pred": 74.9,
+    "epoch_enc_head": 219,
+    "epoch_pred_head": 286,
+    "feat_norm_enc": 20.062,
+    "feat_norm_pred": 18.745
+   },
+   "4": {
+    "n_val": 156,
+    "val_majority": 26.3,
+    "enc_head_on_enc": 80.1,
+    "enc_head_on_pred": 46.2,
+    "enc_head_on_pred_top_answer_share": 42.3,
+    "pred_head_on_pred": 79.5,
+    "epoch_enc_head": 288,
+    "epoch_pred_head": 219,
+    "feat_norm_enc": 19.061,
+    "feat_norm_pred": 18.16
+   },
+   "5": {
+    "n_val": 168,
+    "val_majority": 26.2,
+    "enc_head_on_enc": 81.5,
+    "enc_head_on_pred": 37.5,
+    "enc_head_on_pred_top_answer_share": 73.8,
+    "pred_head_on_pred": 75.0,
+    "epoch_enc_head": 234,
+    "epoch_pred_head": 235,
+    "feat_norm_enc": 19.036,
+    "feat_norm_pred": 18.971
+   },
+   "6": {
+    "n_val": 164,
+    "val_majority": 28.7,
+    "enc_head_on_enc": 86.6,
+    "enc_head_on_pred": 46.3,
+    "enc_head_on_pred_top_answer_share": 39.0,
+    "pred_head_on_pred": 74.4,
+    "epoch_enc_head": 243,
+    "epoch_pred_head": 240,
+    "feat_norm_enc": 20.178,
+    "feat_norm_pred": 19.683
+   },
+   "7": {
+    "n_val": 178,
+    "val_majority": 29.2,
+    "enc_head_on_enc": 80.3,
+    "enc_head_on_pred": 42.1,
+    "enc_head_on_pred_top_answer_share": 48.3,
+    "pred_head_on_pred": 76.4,
+    "epoch_enc_head": 105,
+    "epoch_pred_head": 261,
+    "feat_norm_enc": 19.076,
+    "feat_norm_pred": 18.439
+   },
+   "8": {
+    "n_val": 181,
+    "val_majority": 26.0,
+    "enc_head_on_enc": 82.3,
+    "enc_head_on_pred": 49.2,
+    "enc_head_on_pred_top_answer_share": 39.2,
+    "pred_head_on_pred": 75.7,
+    "epoch_enc_head": 171,
+    "epoch_pred_head": 265,
+    "feat_norm_enc": 20.642,
+    "feat_norm_pred": 20.503
+   }
+  },
+  "color": {
+   "1": {
+    "n_val": 169,
+    "val_majority": 18.3,
+    "enc_head_on_enc": 69.8,
+    "enc_head_on_pred": 35.5,
+    "enc_head_on_pred_top_answer_share": 41.4,
+    "pred_head_on_pred": 73.4,
+    "epoch_enc_head": 284,
+    "epoch_pred_head": 238,
+    "feat_norm_enc": 19.46,
+    "feat_norm_pred": 18.524
+   },
+   "2": {
+    "n_val": 163,
+    "val_majority": 16.6,
+    "enc_head_on_enc": 73.6,
+    "enc_head_on_pred": 26.4,
+    "enc_head_on_pred_top_answer_share": 66.9,
+    "pred_head_on_pred": 73.6,
+    "epoch_enc_head": 242,
+    "epoch_pred_head": 209,
+    "feat_norm_enc": 21.221,
+    "feat_norm_pred": 19.249
+   },
+   "3": {
+    "n_val": 167,
+    "val_majority": 16.2,
+    "enc_head_on_enc": 74.3,
+    "enc_head_on_pred": 28.7,
+    "enc_head_on_pred_top_answer_share": 59.3,
+    "pred_head_on_pred": 67.1,
+    "epoch_enc_head": 284,
+    "epoch_pred_head": 291,
+    "feat_norm_enc": 20.062,
+    "feat_norm_pred": 18.745
+   },
+   "4": {
+    "n_val": 156,
+    "val_majority": 19.9,
+    "enc_head_on_enc": 76.3,
+    "enc_head_on_pred": 19.9,
+    "enc_head_on_pred_top_answer_share": 88.5,
+    "pred_head_on_pred": 74.4,
+    "epoch_enc_head": 271,
+    "epoch_pred_head": 260,
+    "feat_norm_enc": 19.061,
+    "feat_norm_pred": 18.16
+   },
+   "5": {
+    "n_val": 168,
+    "val_majority": 17.3,
+    "enc_head_on_enc": 74.4,
+    "enc_head_on_pred": 25.0,
+    "enc_head_on_pred_top_answer_share": 58.9,
+    "pred_head_on_pred": 72.6,
+    "epoch_enc_head": 270,
+    "epoch_pred_head": 260,
+    "feat_norm_enc": 19.036,
+    "feat_norm_pred": 18.971
+   },
+   "6": {
+    "n_val": 164,
+    "val_majority": 18.3,
+    "enc_head_on_enc": 79.3,
+    "enc_head_on_pred": 31.1,
+    "enc_head_on_pred_top_answer_share": 36.0,
+    "pred_head_on_pred": 76.8,
+    "epoch_enc_head": 201,
+    "epoch_pred_head": 270,
+    "feat_norm_enc": 20.178,
+    "feat_norm_pred": 19.683
+   },
+   "7": {
+    "n_val": 178,
+    "val_majority": 16.3,
+    "enc_head_on_enc": 74.7,
+    "enc_head_on_pred": 17.4,
+    "enc_head_on_pred_top_answer_share": 96.1,
+    "pred_head_on_pred": 69.1,
+    "epoch_enc_head": 256,
+    "epoch_pred_head": 273,
+    "feat_norm_enc": 19.076,
+    "feat_norm_pred": 18.439
+   },
+   "8": {
+    "n_val": 181,
+    "val_majority": 16.0,
+    "enc_head_on_enc": 76.8,
+    "enc_head_on_pred": 18.2,
+    "enc_head_on_pred_top_answer_share": 76.8,
+    "pred_head_on_pred": 69.6,
+    "epoch_enc_head": 227,
+    "epoch_pred_head": 287,
+    "feat_norm_enc": 20.642,
+    "feat_norm_pred": 20.503
+   }
+  }
+ }
+}

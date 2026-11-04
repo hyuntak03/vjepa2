@@ -287,7 +287,43 @@ vast_tube_cd64:                   # tube 기준선 (릴리즈 레시피 · onesh
   base: vith
   predictor_checkpoint: ${CVPR_REPO}/z_training/runs/k710_ssv2_how_ep70_cooldown64/latest.pt
   predictor.kind: oneshot
-vast_ar_vw_state_vob:             # 상태 되먹임 + VOBench 학습 split 10 % (고정 창, 2026-10-15). 평가는 held-out 만
+vast_ar_oneshot_vidctx:           # predictor scratch · 미래 K 블록 한 번에 (mask token, 양방향) · 문맥 = target_encoder 문맥 pass (영상) · 정답 = 창 전체 pass. 데이터 · 창 = natural_ar_vw_state (configs/training/natural_ar_vw_state_oneshot_vidctx.yaml). 10-28 e40 에서 멈춤 → 11-03 70 ep 까지 재개
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/natural_ar_vw_state_oneshot_vidctx/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+  predictor.ar_oneshot: true
+  predictor.ar_input: video
+  predictor.ar_target: window
+vast_ar_oneshot_vidctx_e40:       # 위와 같은 run 의 epoch 40 체크포인트 (재개 전 마지막)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/natural_ar_vw_state_oneshot_vidctx/e40.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+  predictor.ar_oneshot: true
+  predictor.ar_input: video
+  predictor.ar_target: window
+vast_ar_oneshot_causal:           # ⚠️ 2026-11-04 19:20 KST e14 에서 멈춤 (사용자: 문맥은 영상으로 → vast_ar_oneshot_vidctx_causal). 블록 문맥판: 한 번에 예측 (mask token) + attention 전부 블록 인과 (문맥 포함). 입력 · 정답 = 블록별 (블록 AR 과 같다). configs/training/natural_ar_vw_state_oneshot_causal.yaml
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/natural_ar_vw_state_oneshot_causal/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+  predictor.ar_oneshot: true
+  predictor.ar_oneshot_causal: true
+vast_ar_oneshot_vidctx_causal:    # 2026-11-04 사용자: 영상 문맥 · 한 번에 예측 (mask token) · 창 정답 · L1 은 mask 자리만 + attention 전부 블록 인과, scratch. vast_ar_oneshot_vidctx 와 attention 만 다르다 (configs/training/natural_ar_vw_state_oneshot_vidctx_causal.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/natural_ar_vw_state_oneshot_vidctx_causal/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+  predictor.ar_oneshot: true
+  predictor.ar_oneshot_causal: true
+  predictor.ar_input: video
+  predictor.ar_target: window
+vith_release_pretrain_pft:        # 릴리즈 predictor + V-JEPA 2 사전학습 마스크 레시피 그대로 이어 학습 (configs/training/release_postft_pretrain.yaml, 70 ep, 10-29). 2026-11-03 Object_permanence 네 벤치 채점용
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/release_postft_pretrain/latest.pt
+  predictor.kind: oneshot
+vast_ar_vw_state_vob:            # 상태 되먹임 + VOBench 학습 split 10 % (고정 창, 2026-10-15). 평가는 held-out 만
   base: vith
   predictor_checkpoint: ${CVPR_REPO}/z_training/runs/natural_ar_vw_state_vob/latest.pt
   predictor.kind: ar
@@ -411,6 +447,15 @@ vast_ek100_fill1029:              # 2026-10-29 사용자: 시트 "EK100 subset" 
     predictor_checkpoint: ${CVPR_REPO}/z_training/runs/natural_ar_vw_state_phys3d_only/latest.pt
   - name: ar_i2vupft_lora         # 시트 "AR predictor w/ IntPhys2 (violation 16/16)" LoRA 행 — 입력 경로 encoder 에 LoRA
     predictor_checkpoint: ${CVPR_REPO}/z_training/runs/intphys2_vuni_ar_vw_state_postft_lora/latest.pt
+vast_ek100_negimp1104:            # 2026-11-04 사용자 "AR + v4 + neg 이거 Ek100 평가해볼래?" — cap16b96 (8 GPU × 12 = 96). 같은 기계 · 같은 실행의 대조 두 팔 (AR 기본판 · AR + v4) 을 같이 둔다 (이 기계 값은 main 보다 ~1.5 낮다)
+  base: vith
+  predictor_group:
+  - name: ar_vast_ep70            # 시트 "AR predictor" (main 값 48.88 / 49.01 / 33.10 — 이 기계 재현)
+    predictor_checkpoint: ${CVPR_REPO}/z_training/runs/natural_ar_vw_state/latest.pt
+  - name: ar_v4vc                 # 시트 Object_permanence "AR └ blender_v4 Post Training"
+    predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4vc_ar_vw_state_postft/latest.pt
+  - name: ar_v4vc_negimp          # 시트 Object_permanence "AR └ blender_v4 Post Training w/ negative loss"
+    predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4vc_ar_vw_state_negimp/latest.pt
 vast_aux_sup:                     # 2026-10-31 릴리즈 predictor 고정 + 보조 기억 모듈 + 절대 칸 감독 (phys3d_perm_v1, e9 에서 멈춤). analysis/intphys2/model.py 가 ckpt arch.aux 로 AuxRelease 를 짓는다
   base: vith
   predictor_checkpoint: ${CVPR_REPO}/z_training/runs/release_aux_perm_sup/latest.pt
@@ -455,3 +500,74 @@ vast_imgseg_inpath:               # ③ 점유 추측을 은닉에 ŝ · e_mask 
   base: vith
   predictor_checkpoint: ${CVPR_REPO}/z_training/runs/imagine_seg_v1_inpath/latest.pt
   predictor.kind: oneshot
+# ── 2026-11-02 BlenderTrack v4_velocity_control post-FT (평면 + 빗면 11,250 편, 전역 48 × 2,000 step, seed 0) — 시트 Object_permanence 의 "└ V4 Post Training"
+vast_ar_vw_state_v4vc:            # AR 기본판 (vast_ar_vw_state, ep70) 에서 출발 (configs/training/v4vc_ar_vw_state_postft.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4vc_ar_vw_state_postft/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_v4vc_scratch:    # 처음부터 학습 · v4 10 % 섞기 (configs/training/natural_ar_vw_state_v4vc.yaml, 11-02 사용자 "scratch 부터 v4 껴서")
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/natural_ar_vw_state_v4vc/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vith_release_v4vc:                # 릴리즈 predictor 에서 출발, L1 만 (configs/training/v4vc_release_postft.yaml) — scaffold 판의 대조 팔 A
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4vc_release_postft/latest.pt
+vith_release_scaffold_v4vc:       # 릴리즈 + scaffold (자리 계산기 비계, 학습 때만 — 저장물 predictor 는 릴리즈 구조). 팔 A (vith_release_v4vc) 와 데이터 · batch · step · seed 같음
+  base: vith                      #   run 은 worktree vjepa2_scaffold (브랜치 vast-scaffold) — z_training/runs/v4vc_release_scaffold 는 그쪽으로 가는 심볼릭 링크
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4vc_release_scaffold/latest.pt
+# ── 2026-11-02 real world permanence 학습 절반 (47 영상의 가능 영상 94 편) post-FT, 30 epoch × 전역 16. 채점은 보류한 시험 절반 (48 영상 · 96 쌍) 으로 읽는다
+vith_release_realbench:           # 릴리즈 출발 (configs/training/realbench_release_postft.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/realbench_release_postft/latest.pt
+vast_ar_vw_state_realbench:       # AR 기본판 출발 (configs/training/realbench_ar_vw_state_postft.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/realbench_ar_vw_state_postft/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+# ── 2026-11-02 v4vc + 불가능 미래 음의 손실 (negimp): 영상마다 0.5 로 불가능 짝 (vanish · appear · swap, 문맥 일치), 불가능 손실 max(0, 1 − L1)
+#    run 은 worktree vjepa2_negloss (브랜치 vast-negloss) — z_training/runs/<run> 은 그쪽으로 가는 심볼릭 링크. 대조 = vith_release_v4vc · vast_ar_vw_state_v4vc
+vith_release_v4vc_negimp:         # 릴리즈 출발 (configs/training/v4vc_release_negimp.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4vc_release_negimp/latest.pt
+vast_ar_vw_state_v4vc_negimp:     # AR 기본판 출발 (configs/training/v4vc_ar_vw_state_negimp.yaml), 불가능 L1 = 굴린 예측 L1
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4vc_ar_vw_state_negimp/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+# ── 2026-11-02 encoder LoRA 같이 학습 (사용자: "context encoder LoRA 붙여서 같이 학습 ... sheet 에 있는 것들 다"). rank 8 · alpha 16 · qkv/proj/fc1/fc2 · lr ×10 · act ckpt.
+#    릴리즈 = context encoder (online `encoder`) 에 LoRA / AR = 입력 경로 (블록별 target_encoder 복사본) 에 LoRA. 타깃 encoder 는 둘 다 얼림.
+#    채점기 (analysis/intphys2/model.py) 가 체크포인트의 encoder_lora 를 읽어 문맥 encoder 를 다시 만든다. config = configs/training/<run>.yaml. 문서 z_training/docs/LORA_PFT_2026-11-02.md
+vith_release_v4vc_lora:           # 릴리즈 └ V4 — 대조 vith_release_v4vc
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4vc_release_postft_lora/latest.pt
+vith_release_v4vc_negimp_lora:    # 릴리즈 └ V4 + 음의 손실 — 대조 vith_release_v4vc_negimp. run 은 worktree vjepa2_negloss (심볼릭 링크)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4vc_release_negimp_lora/latest.pt
+vith_release_vobpft_e20_lora:     # 릴리즈 └ VOBench — 대조 vith_release_vobpft_e20 (GPU 8 × 4 = 전역 32, 500 step 그대로)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/vobench_release_postft_g_e20_lora/latest.pt
+vith_release_realbench_lora:      # 릴리즈 └ real permanence — 대조 vith_release_realbench (채점은 보류 절반 rwpT)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/realbench_release_postft_lora/latest.pt
+vast_ar_vw_state_v4vc_lora:       # AR └ V4 — 대조 vast_ar_vw_state_v4vc
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4vc_ar_vw_state_postft_lora/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_v4vc_negimp_lora: # AR └ V4 + 음의 손실 — 대조 vast_ar_vw_state_v4vc_negimp. run 은 worktree vjepa2_negloss (심볼릭 링크)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4vc_ar_vw_state_negimp_lora/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_vobpft_lora:     # AR └ VOBench — 대조 vast_ar_vw_state_vobpft (GPU 8 × 6 = 전역 48, 510 step 그대로)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/vobench_ar_vw_state_postft_g_lora/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_realbench_lora:  # AR └ real permanence — 대조 vast_ar_vw_state_realbench (채점은 보류 절반 rwpT)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/realbench_ar_vw_state_postft_lora/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state

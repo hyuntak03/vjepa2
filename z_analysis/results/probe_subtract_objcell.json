@@ -1,0 +1,44 @@
+{
+ "encoder": {
+  "shape": {
+   "original": 89.8,
+   "subtract_a1": 17.2,
+   "n_val": 1363,
+   "val_majority": 26.1
+  },
+  "color": {
+   "original": 96.6,
+   "subtract_a1": 16.6,
+   "n_val": 1363,
+   "val_majority": 16.3
+  }
+ },
+ "ar_rollout_s12": {
+  "shape": {
+   "original": 77.2,
+   "subtract_a1": 23.1,
+   "n_val": 333,
+   "val_majority": 25.2
+  },
+  "color": {
+   "original": 83.8,
+   "subtract_a1": 23.7,
+   "n_val": 333,
+   "val_majority": 17.4
+  }
+ },
+ "ar_rollout_s68": {
+  "shape": {
+   "original": 66.5,
+   "subtract_a1": 15.7,
+   "n_val": 534,
+   "val_majority": 27.3
+  },
+  "color": {
+   "original": 54.1,
+   "subtract_a1": 14.8,
+   "n_val": 534,
+   "val_majority": 15.9
+  }
+ }
+}

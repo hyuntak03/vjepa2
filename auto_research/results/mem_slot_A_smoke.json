@@ -1,0 +1,27 @@
+{
+ "args": {
+  "arm": "A",
+  "steps": 3000,
+  "bs": 16,
+  "lr": 0.0003,
+  "K": 4,
+  "seed": 0,
+  "eval_every": 500,
+  "smoke": 1,
+  "data": "synth"
+ },
+ "hist": [
+  {
+   "hidden_err_post": 1.3485697507858276,
+   "hidden_err_prior": 1.3246694803237915,
+   "hidden_err_copy": 1.3371732234954834,
+   "hidden_ratio_post": 1.0085228503608177,
+   "visible_err_post": 1.4003608226776123,
+   "exist_auroc_hidden_vs_none": 0.5434027777777778,
+   "vis_auroc": 0.784331797235023,
+   "n_hidden": 30,
+   "n_visible": 93,
+   "step": 20
+  }
+ ]
+}

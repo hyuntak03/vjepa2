@@ -1,0 +1,127 @@
+{
+ "n": {
+  "train_target": 8409,
+  "train_pred": 5567,
+  "val_target": 1923,
+  "val_pred": 1363
+ },
+ "encoder_form_probe_on_target": {
+  "velocity_r2": 0.88,
+  "position_r2": 0.944
+ },
+ "encoder_form_probe_on_release_pred": {
+  "all": {
+   "velocity_r2": 0.148,
+   "position_r2": 0.598,
+   "n": 1363
+  },
+  "1": {
+   "velocity_r2": 0.506,
+   "follow": 0.773,
+   "n": 169,
+   "n_moved16": 25
+  },
+  "2": {
+   "velocity_r2": 0.353,
+   "follow": 0.702,
+   "n": 164,
+   "n_moved16": 43
+  },
+  "3": {
+   "velocity_r2": 0.134,
+   "follow": 0.532,
+   "n": 169,
+   "n_moved16": 52
+  },
+  "4": {
+   "velocity_r2": 0.031,
+   "follow": 0.501,
+   "n": 158,
+   "n_moved16": 51
+  },
+  "5": {
+   "velocity_r2": 0.041,
+   "follow": 0.534,
+   "n": 169,
+   "n_moved16": 49
+  },
+  "6": {
+   "velocity_r2": -0.018,
+   "follow": 0.34,
+   "n": 166,
+   "n_moved16": 43
+  },
+  "7": {
+   "velocity_r2": -0.032,
+   "follow": 0.201,
+   "n": 181,
+   "n_moved16": 43
+  },
+  "8": {
+   "velocity_r2": -0.032,
+   "follow": 0.304,
+   "n": 187,
+   "n_moved16": 53
+  }
+ },
+ "own_probe_on_release_pred": {
+  "all": {
+   "velocity_r2": 0.225,
+   "position_r2": 0.735,
+   "n": 1363
+  },
+  "1": {
+   "velocity_r2": 0.725,
+   "follow": 0.625,
+   "n": 169,
+   "n_moved16": 25
+  },
+  "2": {
+   "velocity_r2": 0.675,
+   "follow": 0.83,
+   "n": 164,
+   "n_moved16": 43
+  },
+  "3": {
+   "velocity_r2": 0.179,
+   "follow": 0.706,
+   "n": 169,
+   "n_moved16": 52
+  },
+  "4": {
+   "velocity_r2": 0.129,
+   "follow": 0.749,
+   "n": 158,
+   "n_moved16": 51
+  },
+  "5": {
+   "velocity_r2": 0.21,
+   "follow": 0.712,
+   "n": 169,
+   "n_moved16": 49
+  },
+  "6": {
+   "velocity_r2": -0.049,
+   "follow": 0.57,
+   "n": 166,
+   "n_moved16": 43
+  },
+  "7": {
+   "velocity_r2": -0.591,
+   "follow": 0.382,
+   "n": 181,
+   "n_moved16": 43
+  },
+  "8": {
+   "velocity_r2": -0.048,
+   "follow": 0.418,
+   "n": 187,
+   "n_moved16": 53
+  }
+ },
+ "encoder_form_probe_on_target_future_blocks": {
+  "velocity_r2": 0.853,
+  "position_r2": 0.943,
+  "n": 1167
+ }
+}

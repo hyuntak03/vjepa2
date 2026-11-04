@@ -1,0 +1,798 @@
+{
+ "h": {
+  "n_train": 2720,
+  "n_test": 2832,
+  "shape": 60.3,
+  "color": 61.1,
+  "pos": 0.698,
+  "vel": 0.678,
+  "overlap": {
+   "shape-vel": {
+    "weight": 0.0025,
+    "weight_null95": 0.0073,
+    "pattern": 0.1521,
+    "pattern_null95": 0.3425
+   },
+   "color-vel": {
+    "weight": 0.0029,
+    "weight_null95": 0.0091,
+    "pattern": 0.1471,
+    "pattern_null95": 0.394
+   },
+   "shape-pos": {
+    "weight": 0.0087,
+    "weight_null95": 0.0071,
+    "pattern": 0.139,
+    "pattern_null95": 0.3501
+   },
+   "color-pos": {
+    "weight": 0.0129,
+    "weight_null95": 0.0094,
+    "pattern": 0.0963,
+    "pattern_null95": 0.3981
+   },
+   "pos-vel": {
+    "weight": 0.002,
+    "weight_null95": 0.0036,
+    "pattern": 0.0921,
+    "pattern_null95": 0.2216
+   },
+   "shape-color": {
+    "weight": 0.0133,
+    "weight_null95": 0.0079,
+    "pattern": 0.2571,
+    "pattern_null95": 0.2863
+   }
+  },
+  "split_half_reliability": {
+   "shape": {
+    "weight": 0.0246,
+    "pattern": 0.4567
+   },
+   "color": {
+    "weight": 0.0348,
+    "pattern": 0.3463
+   },
+   "pos": {
+    "weight": 0.0887,
+    "pattern": 0.8335
+   },
+   "vel": {
+    "weight": 0.173,
+    "pattern": 0.6197
+   }
+  },
+  "shape_by_speed": {
+   "fit_slow->slow": 50.5,
+   "fit_slow->fast": 55.7,
+   "fit_all->slow": 54.2,
+   "fit_all->fast": 66.4
+  },
+  "color_by_speed": {
+   "fit_slow->slow": 47.8,
+   "fit_slow->fast": 51.0,
+   "fit_all->slow": 55.5,
+   "fit_all->fast": 66.5
+  },
+  "speed_median_px": 4.19
+ },
+ "h__scen_removed": {
+  "n_train": 2720,
+  "n_test": 2832,
+  "shape": 65.0,
+  "color": 62.3,
+  "pos": 0.682,
+  "vel": 0.673,
+  "overlap": {
+   "shape-vel": {
+    "weight": 0.0039,
+    "weight_null95": 0.0076,
+    "pattern": 0.1613,
+    "pattern_null95": 0.3394
+   },
+   "color-vel": {
+    "weight": 0.0036,
+    "weight_null95": 0.0088,
+    "pattern": 0.2246,
+    "pattern_null95": 0.386
+   },
+   "shape-pos": {
+    "weight": 0.005,
+    "weight_null95": 0.0071,
+    "pattern": 0.2161,
+    "pattern_null95": 0.3604
+   },
+   "color-pos": {
+    "weight": 0.0064,
+    "weight_null95": 0.0089,
+    "pattern": 0.1625,
+    "pattern_null95": 0.4111
+   },
+   "pos-vel": {
+    "weight": 0.0026,
+    "weight_null95": 0.0041,
+    "pattern": 0.1502,
+    "pattern_null95": 0.2295
+   },
+   "shape-color": {
+    "weight": 0.0156,
+    "weight_null95": 0.0078,
+    "pattern": 0.2494,
+    "pattern_null95": 0.2762
+   }
+  },
+  "split_half_reliability": {
+   "shape": {
+    "weight": 0.0147,
+    "pattern": 0.4884
+   },
+   "color": {
+    "weight": 0.0275,
+    "pattern": 0.3796
+   },
+   "pos": {
+    "weight": 0.0826,
+    "pattern": 0.886
+   },
+   "vel": {
+    "weight": 0.1603,
+    "pattern": 0.7719
+   }
+  },
+  "shape_by_speed": {
+   "fit_slow->slow": 50.7,
+   "fit_slow->fast": 52.2,
+   "fit_all->slow": 58.7,
+   "fit_all->fast": 71.2
+  },
+  "color_by_speed": {
+   "fit_slow->slow": 45.2,
+   "fit_slow->fast": 46.6,
+   "fit_all->slow": 58.6,
+   "fit_all->fast": 65.9
+  },
+  "speed_median_px": 4.19
+ },
+ "tf_base": {
+  "n_train": 2485,
+  "n_test": 2593,
+  "shape": 56.7,
+  "color": 47.6,
+  "pos": 0.566,
+  "vel": 0.251,
+  "overlap": {
+   "shape-vel": {
+    "weight": 0.0071,
+    "weight_null95": 0.0071,
+    "pattern": 0.2637,
+    "pattern_null95": 0.3559
+   },
+   "color-vel": {
+    "weight": 0.0088,
+    "weight_null95": 0.009,
+    "pattern": 0.1797,
+    "pattern_null95": 0.4326
+   },
+   "shape-pos": {
+    "weight": 0.0067,
+    "weight_null95": 0.007,
+    "pattern": 0.1096,
+    "pattern_null95": 0.3439
+   },
+   "color-pos": {
+    "weight": 0.033,
+    "weight_null95": 0.0089,
+    "pattern": 0.1167,
+    "pattern_null95": 0.4302
+   },
+   "pos-vel": {
+    "weight": 0.0107,
+    "weight_null95": 0.0035,
+    "pattern": 0.2618,
+    "pattern_null95": 0.2284
+   },
+   "shape-color": {
+    "weight": 0.0287,
+    "weight_null95": 0.0076,
+    "pattern": 0.2827,
+    "pattern_null95": 0.316
+   }
+  },
+  "split_half_reliability": {
+   "shape": {
+    "weight": 0.0473,
+    "pattern": 0.4509
+   },
+   "color": {
+    "weight": 0.0493,
+    "pattern": 0.384
+   },
+   "pos": {
+    "weight": 0.1199,
+    "pattern": 0.6974
+   },
+   "vel": {
+    "weight": 0.1786,
+    "pattern": 0.5257
+   }
+  },
+  "shape_by_speed": {
+   "fit_slow->slow": 52.5,
+   "fit_slow->fast": 51.0,
+   "fit_all->slow": 54.3,
+   "fit_all->fast": 59.0
+  },
+  "color_by_speed": {
+   "fit_slow->slow": 40.7,
+   "fit_slow->fast": 38.3,
+   "fit_all->slow": 46.1,
+   "fit_all->fast": 49.2
+  },
+  "speed_median_px": 3.58
+ },
+ "tf_base__scen_removed": {
+  "n_train": 2485,
+  "n_test": 2593,
+  "shape": 60.5,
+  "color": 47.7,
+  "pos": 0.526,
+  "vel": 0.23,
+  "overlap": {
+   "shape-vel": {
+    "weight": 0.0049,
+    "weight_null95": 0.0079,
+    "pattern": 0.3078,
+    "pattern_null95": 0.3633
+   },
+   "color-vel": {
+    "weight": 0.0156,
+    "weight_null95": 0.0095,
+    "pattern": 0.2796,
+    "pattern_null95": 0.41
+   },
+   "shape-pos": {
+    "weight": 0.009,
+    "weight_null95": 0.0071,
+    "pattern": 0.2372,
+    "pattern_null95": 0.3259
+   },
+   "color-pos": {
+    "weight": 0.0327,
+    "weight_null95": 0.0091,
+    "pattern": 0.1524,
+    "pattern_null95": 0.4039
+   },
+   "pos-vel": {
+    "weight": 0.0125,
+    "weight_null95": 0.0039,
+    "pattern": 0.4699,
+    "pattern_null95": 0.247
+   },
+   "shape-color": {
+    "weight": 0.025,
+    "weight_null95": 0.0078,
+    "pattern": 0.3135,
+    "pattern_null95": 0.3055
+   }
+  },
+  "split_half_reliability": {
+   "shape": {
+    "weight": 0.0381,
+    "pattern": 0.4667
+   },
+   "color": {
+    "weight": 0.0465,
+    "pattern": 0.3569
+   },
+   "pos": {
+    "weight": 0.1062,
+    "pattern": 0.7325
+   },
+   "vel": {
+    "weight": 0.1624,
+    "pattern": 0.6144
+   }
+  },
+  "shape_by_speed": {
+   "fit_slow->slow": 52.3,
+   "fit_slow->fast": 50.6,
+   "fit_all->slow": 59.1,
+   "fit_all->fast": 62.0
+  },
+  "color_by_speed": {
+   "fit_slow->slow": 39.2,
+   "fit_slow->fast": 38.5,
+   "fit_all->slow": 46.9,
+   "fit_all->fast": 48.4
+  },
+  "speed_median_px": 3.58
+ },
+ "roll_base": {
+  "n_train": 1907,
+  "n_test": 1943,
+  "shape": 46.9,
+  "color": 32.0,
+  "pos": -0.649,
+  "vel": 0.027,
+  "overlap": {
+   "shape-vel": {
+    "weight": 0.0005,
+    "weight_null95": 0.0065,
+    "pattern": 0.0773,
+    "pattern_null95": 0.357
+   },
+   "color-vel": {
+    "weight": 0.0021,
+    "weight_null95": 0.0089,
+    "pattern": 0.2377,
+    "pattern_null95": 0.4182
+   },
+   "shape-pos": {
+    "weight": 0.0378,
+    "weight_null95": 0.0073,
+    "pattern": 0.2195,
+    "pattern_null95": 0.3342
+   },
+   "color-pos": {
+    "weight": 0.0177,
+    "weight_null95": 0.0096,
+    "pattern": 0.3585,
+    "pattern_null95": 0.4326
+   },
+   "pos-vel": {
+    "weight": 0.0079,
+    "weight_null95": 0.0036,
+    "pattern": 0.0279,
+    "pattern_null95": 0.2166
+   },
+   "shape-color": {
+    "weight": 0.0434,
+    "weight_null95": 0.0073,
+    "pattern": 0.3004,
+    "pattern_null95": 0.3288
+   }
+  },
+  "split_half_reliability": {
+   "shape": {
+    "weight": 0.0244,
+    "pattern": 0.401
+   },
+   "color": {
+    "weight": 0.0318,
+    "pattern": 0.3204
+   },
+   "pos": {
+    "weight": 0.0286,
+    "pattern": 0.3501
+   },
+   "vel": {
+    "weight": 0.1885,
+    "pattern": 0.3763
+   }
+  },
+  "shape_by_speed": {
+   "fit_slow->slow": 43.1,
+   "fit_slow->fast": 47.1,
+   "fit_all->slow": 42.0,
+   "fit_all->fast": 51.9
+  },
+  "color_by_speed": {
+   "fit_slow->slow": 21.4,
+   "fit_slow->fast": 30.7,
+   "fit_all->slow": 29.7,
+   "fit_all->fast": 34.4
+  },
+  "speed_median_px": 2.05
+ },
+ "roll_base__scen_removed": {
+  "n_train": 1907,
+  "n_test": 1943,
+  "shape": 47.6,
+  "color": 31.8,
+  "pos": -0.864,
+  "vel": 0.027,
+  "overlap": {
+   "shape-vel": {
+    "weight": 0.0004,
+    "weight_null95": 0.0071,
+    "pattern": 0.1532,
+    "pattern_null95": 0.3475
+   },
+   "color-vel": {
+    "weight": 0.0024,
+    "weight_null95": 0.0094,
+    "pattern": 0.2238,
+    "pattern_null95": 0.417
+   },
+   "shape-pos": {
+    "weight": 0.0281,
+    "weight_null95": 0.007,
+    "pattern": 0.2552,
+    "pattern_null95": 0.3337
+   },
+   "color-pos": {
+    "weight": 0.0231,
+    "weight_null95": 0.0091,
+    "pattern": 0.2768,
+    "pattern_null95": 0.4341
+   },
+   "pos-vel": {
+    "weight": 0.0125,
+    "weight_null95": 0.0038,
+    "pattern": 0.073,
+    "pattern_null95": 0.2248
+   },
+   "shape-color": {
+    "weight": 0.0427,
+    "weight_null95": 0.0074,
+    "pattern": 0.3062,
+    "pattern_null95": 0.3094
+   }
+  },
+  "split_half_reliability": {
+   "shape": {
+    "weight": 0.0134,
+    "pattern": 0.3815
+   },
+   "color": {
+    "weight": 0.0334,
+    "pattern": 0.3573
+   },
+   "pos": {
+    "weight": 0.0238,
+    "pattern": 0.1293
+   },
+   "vel": {
+    "weight": 0.1905,
+    "pattern": 0.373
+   }
+  },
+  "shape_by_speed": {
+   "fit_slow->slow": 37.7,
+   "fit_slow->fast": 45.5,
+   "fit_all->slow": 41.7,
+   "fit_all->fast": 53.5
+  },
+  "color_by_speed": {
+   "fit_slow->slow": 21.3,
+   "fit_slow->fast": 29.7,
+   "fit_all->slow": 29.2,
+   "fit_all->fast": 34.5
+  },
+  "speed_median_px": 2.05
+ },
+ "tf_syn": {
+  "n_train": 2485,
+  "n_test": 2593,
+  "shape": 56.9,
+  "color": 44.5,
+  "pos": 0.694,
+  "vel": 0.536,
+  "overlap": {
+   "shape-vel": {
+    "weight": 0.004,
+    "weight_null95": 0.0072,
+    "pattern": 0.2405,
+    "pattern_null95": 0.4219
+   },
+   "color-vel": {
+    "weight": 0.0146,
+    "weight_null95": 0.0094,
+    "pattern": 0.2365,
+    "pattern_null95": 0.5025
+   },
+   "shape-pos": {
+    "weight": 0.0241,
+    "weight_null95": 0.0076,
+    "pattern": 0.1441,
+    "pattern_null95": 0.4355
+   },
+   "color-pos": {
+    "weight": 0.0343,
+    "weight_null95": 0.0085,
+    "pattern": 0.119,
+    "pattern_null95": 0.5309
+   },
+   "pos-vel": {
+    "weight": 0.0008,
+    "weight_null95": 0.0039,
+    "pattern": 0.2249,
+    "pattern_null95": 0.2518
+   },
+   "shape-color": {
+    "weight": 0.0471,
+    "weight_null95": 0.0075,
+    "pattern": 0.3261,
+    "pattern_null95": 0.3735
+   }
+  },
+  "split_half_reliability": {
+   "shape": {
+    "weight": 0.0663,
+    "pattern": 0.4861
+   },
+   "color": {
+    "weight": 0.0547,
+    "pattern": 0.4056
+   },
+   "pos": {
+    "weight": 0.1303,
+    "pattern": 0.8389
+   },
+   "vel": {
+    "weight": 0.3725,
+    "pattern": 0.5461
+   }
+  },
+  "shape_by_speed": {
+   "fit_slow->slow": 50.4,
+   "fit_slow->fast": 52.1,
+   "fit_all->slow": 52.8,
+   "fit_all->fast": 61.0
+  },
+  "color_by_speed": {
+   "fit_slow->slow": 36.6,
+   "fit_slow->fast": 40.2,
+   "fit_all->slow": 41.2,
+   "fit_all->fast": 47.9
+  },
+  "speed_median_px": 3.58
+ },
+ "tf_syn__scen_removed": {
+  "n_train": 2485,
+  "n_test": 2593,
+  "shape": 58.3,
+  "color": 44.1,
+  "pos": 0.669,
+  "vel": 0.515,
+  "overlap": {
+   "shape-vel": {
+    "weight": 0.0064,
+    "weight_null95": 0.0072,
+    "pattern": 0.2849,
+    "pattern_null95": 0.454
+   },
+   "color-vel": {
+    "weight": 0.0183,
+    "weight_null95": 0.0095,
+    "pattern": 0.3038,
+    "pattern_null95": 0.4933
+   },
+   "shape-pos": {
+    "weight": 0.0307,
+    "weight_null95": 0.0075,
+    "pattern": 0.2752,
+    "pattern_null95": 0.397
+   },
+   "color-pos": {
+    "weight": 0.0301,
+    "weight_null95": 0.0082,
+    "pattern": 0.2343,
+    "pattern_null95": 0.4797
+   },
+   "pos-vel": {
+    "weight": 0.0015,
+    "weight_null95": 0.0038,
+    "pattern": 0.4379,
+    "pattern_null95": 0.2933
+   },
+   "shape-color": {
+    "weight": 0.0484,
+    "weight_null95": 0.008,
+    "pattern": 0.329,
+    "pattern_null95": 0.3671
+   }
+  },
+  "split_half_reliability": {
+   "shape": {
+    "weight": 0.0521,
+    "pattern": 0.5394
+   },
+   "color": {
+    "weight": 0.0497,
+    "pattern": 0.4154
+   },
+   "pos": {
+    "weight": 0.1178,
+    "pattern": 0.8694
+   },
+   "vel": {
+    "weight": 0.3519,
+    "pattern": 0.592
+   }
+  },
+  "shape_by_speed": {
+   "fit_slow->slow": 48.9,
+   "fit_slow->fast": 53.2,
+   "fit_all->slow": 54.2,
+   "fit_all->fast": 62.4
+  },
+  "color_by_speed": {
+   "fit_slow->slow": 38.7,
+   "fit_slow->fast": 40.4,
+   "fit_all->slow": 41.5,
+   "fit_all->fast": 46.8
+  },
+  "speed_median_px": 3.58
+ },
+ "roll_syn": {
+  "n_train": 1907,
+  "n_test": 1943,
+  "shape": 49.4,
+  "color": 34.0,
+  "pos": 0.499,
+  "vel": 0.362,
+  "overlap": {
+   "shape-vel": {
+    "weight": 0.0034,
+    "weight_null95": 0.008,
+    "pattern": 0.1767,
+    "pattern_null95": 0.4431
+   },
+   "color-vel": {
+    "weight": 0.0076,
+    "weight_null95": 0.009,
+    "pattern": 0.2585,
+    "pattern_null95": 0.5288
+   },
+   "shape-pos": {
+    "weight": 0.0116,
+    "weight_null95": 0.0073,
+    "pattern": 0.1134,
+    "pattern_null95": 0.4361
+   },
+   "color-pos": {
+    "weight": 0.0212,
+    "weight_null95": 0.0089,
+    "pattern": 0.2187,
+    "pattern_null95": 0.5217
+   },
+   "pos-vel": {
+    "weight": 0.0059,
+    "weight_null95": 0.0034,
+    "pattern": 0.0741,
+    "pattern_null95": 0.2985
+   },
+   "shape-color": {
+    "weight": 0.0237,
+    "weight_null95": 0.008,
+    "pattern": 0.3291,
+    "pattern_null95": 0.3897
+   }
+  },
+  "split_half_reliability": {
+   "shape": {
+    "weight": 0.0311,
+    "pattern": 0.4409
+   },
+   "color": {
+    "weight": 0.0395,
+    "pattern": 0.3425
+   },
+   "pos": {
+    "weight": 0.0687,
+    "pattern": 0.7217
+   },
+   "vel": {
+    "weight": 0.1521,
+    "pattern": 0.2566
+   }
+  },
+  "shape_by_speed": {
+   "fit_slow->slow": 43.7,
+   "fit_slow->fast": 50.0,
+   "fit_all->slow": 46.2,
+   "fit_all->fast": 52.7
+  },
+  "color_by_speed": {
+   "fit_slow->slow": 28.2,
+   "fit_slow->fast": 33.2,
+   "fit_all->slow": 29.9,
+   "fit_all->fast": 38.1
+  },
+  "speed_median_px": 2.05
+ },
+ "roll_syn__scen_removed": {
+  "n_train": 1907,
+  "n_test": 1943,
+  "shape": 50.6,
+  "color": 34.5,
+  "pos": 0.411,
+  "vel": 0.335,
+  "overlap": {
+   "shape-vel": {
+    "weight": 0.005,
+    "weight_null95": 0.0065,
+    "pattern": 0.3431,
+    "pattern_null95": 0.4236
+   },
+   "color-vel": {
+    "weight": 0.0081,
+    "weight_null95": 0.0083,
+    "pattern": 0.3489,
+    "pattern_null95": 0.4824
+   },
+   "shape-pos": {
+    "weight": 0.0115,
+    "weight_null95": 0.0068,
+    "pattern": 0.2342,
+    "pattern_null95": 0.4457
+   },
+   "color-pos": {
+    "weight": 0.0249,
+    "weight_null95": 0.0093,
+    "pattern": 0.1819,
+    "pattern_null95": 0.4828
+   },
+   "pos-vel": {
+    "weight": 0.0099,
+    "weight_null95": 0.0031,
+    "pattern": 0.0958,
+    "pattern_null95": 0.2666
+   },
+   "shape-color": {
+    "weight": 0.0252,
+    "weight_null95": 0.0077,
+    "pattern": 0.3367,
+    "pattern_null95": 0.3606
+   }
+  },
+  "split_half_reliability": {
+   "shape": {
+    "weight": 0.0265,
+    "pattern": 0.4283
+   },
+   "color": {
+    "weight": 0.035,
+    "pattern": 0.3983
+   },
+   "pos": {
+    "weight": 0.0707,
+    "pattern": 0.4889
+   },
+   "vel": {
+    "weight": 0.1357,
+    "pattern": 0.3182
+   }
+  },
+  "shape_by_speed": {
+   "fit_slow->slow": 43.7,
+   "fit_slow->fast": 48.9,
+   "fit_all->slow": 48.0,
+   "fit_all->fast": 53.3
+  },
+  "color_by_speed": {
+   "fit_slow->slow": 27.3,
+   "fit_slow->fast": 30.6,
+   "fit_all->slow": 30.4,
+   "fit_all->fast": 38.7
+  },
+  "speed_median_px": 2.05
+ },
+ "pattern_vs_h": {
+  "tf_base": {
+   "shape": 0.582,
+   "color": 0.558,
+   "pos": 0.581,
+   "vel": 0.166
+  },
+  "roll_base": {
+   "shape": 0.464,
+   "color": 0.408,
+   "pos": 0.221,
+   "vel": 0.071
+  },
+  "tf_syn": {
+   "shape": 0.778,
+   "color": 0.696,
+   "pos": 0.833,
+   "vel": 0.601
+  },
+  "roll_syn": {
+   "shape": 0.678,
+   "color": 0.572,
+   "pos": 0.653,
+   "vel": 0.565
+  }
+ }
+}

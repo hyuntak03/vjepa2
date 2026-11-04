@@ -1,0 +1,23 @@
+# =============================================================================
+# 무엇: vobench_ar_vw_state_postft_g (AR 기본판 출발 · VOBench split v2 + gravity train 828 clip · 30 epoch · 전역 48) 에 입력 경로 encoder LoRA 를 붙여 같이 학습. 타깃 encoder 는 얼림.
+# 왜: 2026-11-02 사용자 "context encoder LoRA 붙여서 같이 학습 ... sheet 에 있는 것들 다" (시트 "AR └ VOBench" 행).
+# 비교: vobench_ar_vw_state_postft_g (vast_ar_vw_state_vobpft). LoRA 말고 다른 것: GPU 4 → 8 이라 rank batch 12 → 6 (전역 48 그대로). ipe 17 은 원판과 같다 (8 rank 로더도 17).
+#
+#   GPUS=8 bash z_training/tmux_train.sh vobench_ar_vw_state_postft_g_lora
+# LoRA 설정은 intphys2_vuni_ar_vw_state_postft_lora 와 같다. ⚠️ lr ×10 은 2026-11-02 train.py 수정 뒤에야 WarmupCosine 에서도 실제로 곱해진다.
+# =============================================================================
+extends: vobench_ar_vw_state_postft_g
+
+data:
+  batch_size: 6                 # rank 당 × 8 GPU = 48 (원판: 12 × 4 GPU = 48)
+
+optimization:
+  ipe: 17                       # 원판 로더 길이 (828 / 4 rank = 207 → 207 // 12 = 17). 30 × 17 = 510 step
+
+model:
+  encoder_lora:
+    rank: 8
+    alpha: 16
+    targets: [qkv, proj, fc1, fc2]
+    lr_mult: 10
+    act_ckpt: true

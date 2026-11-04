@@ -1,0 +1,33 @@
+{
+ "n": 584,
+ "truth": {
+  "centroid_progress_med": 0.646,
+  "sigma_along_px_med": 34.6,
+  "sigma_perp_px_med": 36.4,
+  "along_over_perp_med": 0.957
+ },
+ "two_block_average": {
+  "centroid_progress_med": 0.454,
+  "sigma_along_px_med": 34.8,
+  "sigma_perp_px_med": 36.6,
+  "along_over_perp_med": 0.958
+ },
+ "natural": {
+  "centroid_progress_med": 0.418,
+  "sigma_along_px_med": 33.1,
+  "sigma_perp_px_med": 35.7,
+  "along_over_perp_med": 0.939
+ },
+ "phys3d_only": {
+  "centroid_progress_med": 0.638,
+  "sigma_along_px_med": 33.8,
+  "sigma_perp_px_med": 35.4,
+  "along_over_perp_med": 0.962
+ },
+ "mix_event": {
+  "centroid_progress_med": 0.511,
+  "sigma_along_px_med": 34.3,
+  "sigma_perp_px_med": 36.0,
+  "along_over_perp_med": 0.958
+ }
+}

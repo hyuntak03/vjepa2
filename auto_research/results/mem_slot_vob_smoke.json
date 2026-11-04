@@ -1,0 +1,321 @@
+{
+ "summary": {
+  "A_smoke|main": {
+   "moving": {
+    "acc": 83.3,
+    "n": 6
+   },
+   "moving|permanence": {
+    "acc": 50.0,
+    "n": 2
+   },
+   "moving|shape": {
+    "acc": 100.0,
+    "n": 2
+   },
+   "moving|color": {
+    "acc": 100.0,
+    "n": 2
+   }
+  },
+  "A_smoke|e1": {
+   "moving": {
+    "acc": 66.7,
+    "n": 6
+   },
+   "moving|permanence": {
+    "acc": 100.0,
+    "n": 2
+   },
+   "moving|shape": {
+    "acc": 50.0,
+    "n": 2
+   },
+   "moving|color": {
+    "acc": 50.0,
+    "n": 2
+   }
+  },
+  "A_smoke|e1_fallback": {
+   "moving": {
+    "acc": 50.0,
+    "n": 6
+   }
+  },
+  "rand|main": {
+   "moving": {
+    "acc": 83.3,
+    "n": 6
+   },
+   "moving|permanence": {
+    "acc": 50.0,
+    "n": 2
+   },
+   "moving|shape": {
+    "acc": 100.0,
+    "n": 2
+   },
+   "moving|color": {
+    "acc": 100.0,
+    "n": 2
+   }
+  },
+  "rand|e1": {
+   "moving": {
+    "acc": 83.3,
+    "n": 6
+   },
+   "moving|permanence": {
+    "acc": 100.0,
+    "n": 2
+   },
+   "moving|shape": {
+    "acc": 100.0,
+    "n": 2
+   },
+   "moving|color": {
+    "acc": 50.0,
+    "n": 2
+   }
+  },
+  "rand|e1_fallback": {
+   "moving": {
+    "acc": 0.0,
+    "n": 6
+   }
+  }
+ },
+ "rows": [
+  {
+   "meta": {
+    "i": 0,
+    "block_id": "105",
+    "motion": "flat_vel",
+    "violation": "permanence",
+    "objset": "realistic",
+    "files": {
+     "pos_a": "realistic/permanence/late_k1/v11_flat_vel_basketball/pos_a",
+     "pos_b": "realistic/permanence/late_k1/v11_flat_vel_basketball/pos_b",
+     "imp_ab": "realistic/permanence/late_k1/v11_flat_vel_basketball/imp_ab",
+     "imp_ba": "realistic/permanence/late_k1/v11_flat_vel_basketball/imp_ba"
+    }
+   },
+   "scores": {
+    "A_smoke": {
+     "pos_a": {
+      "main": 0.3577243685722351,
+      "e1": 0.2383687049150467,
+      "e1_fallback": 0.0,
+      "k": 2,
+      "t_last_vis": 3
+     },
+     "pos_b": {
+      "main": 0.2248990833759308,
+      "e1": 0.24331405386328697,
+      "e1_fallback": 1.0,
+      "k": 2,
+      "t_last_vis": 3
+     },
+     "imp_ab": {
+      "main": 0.330258309841156,
+      "e1": 0.2864961624145508,
+      "e1_fallback": 1.0,
+      "k": 2,
+      "t_last_vis": 3
+     },
+     "imp_ba": {
+      "main": 0.4237897992134094,
+      "e1": 0.2628575265407562,
+      "e1_fallback": 0.0,
+      "k": 2,
+      "t_last_vis": 3
+     }
+    },
+    "rand": {
+     "pos_a": {
+      "main": 0.3577803671360016,
+      "e1": 0.4015648290514946,
+      "e1_fallback": 0.0,
+      "k": 0,
+      "t_last_vis": 7
+     },
+     "pos_b": {
+      "main": 0.2250635176897049,
+      "e1": 0.3024522699415684,
+      "e1_fallback": 0.0,
+      "k": 0,
+      "t_last_vis": 7
+     },
+     "imp_ab": {
+      "main": 0.33048486709594727,
+      "e1": 0.42385273799300194,
+      "e1_fallback": 0.0,
+      "k": 0,
+      "t_last_vis": 7
+     },
+     "imp_ba": {
+      "main": 0.4239046573638916,
+      "e1": 0.31647511944174767,
+      "e1_fallback": 0.0,
+      "k": 0,
+      "t_last_vis": 7
+     }
+    }
+   }
+  },
+  {
+   "meta": {
+    "i": 1,
+    "block_id": "106",
+    "motion": "flat_vel",
+    "violation": "shape",
+    "objset": "realistic",
+    "files": {
+     "pos_a": "realistic/shape/late_k1/v11_flat_vel_bus_to_car/pos_a",
+     "pos_b": "realistic/shape/late_k1/v11_flat_vel_bus_to_car/pos_b",
+     "imp_ab": "realistic/shape/late_k1/v11_flat_vel_bus_to_car/imp_ab",
+     "imp_ba": "realistic/shape/late_k1/v11_flat_vel_bus_to_car/imp_ba"
+    }
+   },
+   "scores": {
+    "A_smoke": {
+     "pos_a": {
+      "main": 0.3435969650745392,
+      "e1": 0.29271890223026276,
+      "e1_fallback": 1.0,
+      "k": 2,
+      "t_last_vis": 3
+     },
+     "pos_b": {
+      "main": 0.3508176803588867,
+      "e1": 0.28505848720669746,
+      "e1_fallback": 1.0,
+      "k": 2,
+      "t_last_vis": 3
+     },
+     "imp_ab": {
+      "main": 0.36419403553009033,
+      "e1": 0.2957591190934181,
+      "e1_fallback": 1.0,
+      "k": 2,
+      "t_last_vis": 3
+     },
+     "imp_ba": {
+      "main": 0.35970786213874817,
+      "e1": 0.27625589445233345,
+      "e1_fallback": 1.0,
+      "k": 2,
+      "t_last_vis": 3
+     }
+    },
+    "rand": {
+     "pos_a": {
+      "main": 0.3436637818813324,
+      "e1": 0.33277566730976105,
+      "e1_fallback": 0.0,
+      "k": 0,
+      "t_last_vis": 7
+     },
+     "pos_b": {
+      "main": 0.35093358159065247,
+      "e1": 0.34780988842248917,
+      "e1_fallback": 0.0,
+      "k": 0,
+      "t_last_vis": 7
+     },
+     "imp_ab": {
+      "main": 0.36431431770324707,
+      "e1": 0.34922079369425774,
+      "e1_fallback": 0.0,
+      "k": 0,
+      "t_last_vis": 7
+     },
+     "imp_ba": {
+      "main": 0.3598126769065857,
+      "e1": 0.34990794211626053,
+      "e1_fallback": 0.0,
+      "k": 0,
+      "t_last_vis": 7
+     }
+    }
+   }
+  },
+  {
+   "meta": {
+    "i": 2,
+    "block_id": "107",
+    "motion": "flat_vel",
+    "violation": "color",
+    "objset": "realistic",
+    "files": {
+     "pos_a": "realistic/color/late_k1/v11_flat_vel_tennis_ball_to_cyan/pos_a",
+     "pos_b": "realistic/color/late_k1/v11_flat_vel_tennis_ball_to_cyan/pos_b",
+     "imp_ab": "realistic/color/late_k1/v11_flat_vel_tennis_ball_to_cyan/imp_ab",
+     "imp_ba": "realistic/color/late_k1/v11_flat_vel_tennis_ball_to_cyan/imp_ba"
+    }
+   },
+   "scores": {
+    "A_smoke": {
+     "pos_a": {
+      "main": 0.3601666986942291,
+      "e1": 0.22033727169036865,
+      "e1_fallback": 0.0,
+      "k": 2,
+      "t_last_vis": 3
+     },
+     "pos_b": {
+      "main": 0.35778874158859253,
+      "e1": 0.22740693390369415,
+      "e1_fallback": 0.0,
+      "k": 2,
+      "t_last_vis": 3
+     },
+     "imp_ab": {
+      "main": 0.366196870803833,
+      "e1": 0.23688648641109467,
+      "e1_fallback": 0.0,
+      "k": 2,
+      "t_last_vis": 3
+     },
+     "imp_ba": {
+      "main": 0.3676491379737854,
+      "e1": 0.21939769387245178,
+      "e1_fallback": 0.0,
+      "k": 2,
+      "t_last_vis": 3
+     }
+    },
+    "rand": {
+     "pos_a": {
+      "main": 0.3601963222026825,
+      "e1": 0.3635749723762274,
+      "e1_fallback": 0.0,
+      "k": 0,
+      "t_last_vis": 7
+     },
+     "pos_b": {
+      "main": 0.35781925916671753,
+      "e1": 0.3620600663125515,
+      "e1_fallback": 0.0,
+      "k": 0,
+      "t_last_vis": 7
+     },
+     "imp_ab": {
+      "main": 0.3662108778953552,
+      "e1": 0.3692100699990988,
+      "e1_fallback": 0.0,
+      "k": 0,
+      "t_last_vis": 7
+     },
+     "imp_ba": {
+      "main": 0.36770400404930115,
+      "e1": 0.3566272631287575,
+      "e1_fallback": 0.0,
+      "k": 0,
+      "t_last_vis": 7
+     }
+    }
+   }
+  }
+ ]
+}

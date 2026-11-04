@@ -1,0 +1,294 @@
+{
+ "natural|blk": {
+  "frac_global_pos": 0.0002,
+  "frac_screen": 0.0192,
+  "mu_norm_rel": 0.5147,
+  "raw|sta": {
+   "theta": 114.72,
+   "cos": -0.3938,
+   "step": 0.6686,
+   "adj_cos": 0.7148,
+   "n": 25993
+  },
+  "raw|mov": {
+   "theta": 118.5,
+   "cos": -0.4656,
+   "step": 0.9839,
+   "adj_cos": 0.4963,
+   "n": 24453
+  },
+  "minus_global_mu|sta": {
+   "theta": 114.72,
+   "cos": -0.3938,
+   "step": 0.7703,
+   "adj_cos": 0.6208,
+   "n": 25993
+  },
+  "minus_global_mu|mov": {
+   "theta": 118.51,
+   "cos": -0.4657,
+   "step": 1.1692,
+   "adj_cos": 0.2941,
+   "n": 24453
+  },
+  "minus_screen|sta": {
+   "theta": 114.77,
+   "cos": -0.3944,
+   "step": 0.8253,
+   "adj_cos": 0.5652,
+   "n": 25993
+  },
+  "minus_screen|mov": {
+   "theta": 118.76,
+   "cos": -0.4693,
+   "step": 1.2424,
+   "adj_cos": 0.2043,
+   "n": 24453
+  }
+ },
+ "natural|twin": {
+  "frac_global_pos": 0.0147,
+  "frac_screen": 0.0513,
+  "mu_norm_rel": 0.4136,
+  "raw|sta": {
+   "theta": 119.33,
+   "cos": -0.4826,
+   "step": 1.0973,
+   "adj_cos": 0.386,
+   "n": 25993
+  },
+  "raw|mov": {
+   "theta": 118.71,
+   "cos": -0.4743,
+   "step": 1.1172,
+   "adj_cos": 0.3648,
+   "n": 24453
+  },
+  "minus_global_mu|sta": {
+   "theta": 119.49,
+   "cos": -0.485,
+   "step": 1.1882,
+   "adj_cos": 0.2824,
+   "n": 25993
+  },
+  "minus_global_mu|mov": {
+   "theta": 118.9,
+   "cos": -0.4772,
+   "step": 1.2216,
+   "adj_cos": 0.2416,
+   "n": 24453
+  },
+  "minus_screen|sta": {
+   "theta": 119.66,
+   "cos": -0.4877,
+   "step": 1.2552,
+   "adj_cos": 0.2019,
+   "n": 25993
+  },
+  "minus_screen|mov": {
+   "theta": 119.36,
+   "cos": -0.4843,
+   "step": 1.2839,
+   "adj_cos": 0.1629,
+   "n": 24453
+  }
+ },
+ "natural|owin": {
+  "frac_global_pos": 0.0156,
+  "frac_screen": 0.0518,
+  "mu_norm_rel": 0.4203,
+  "raw|sta": {
+   "theta": 119.39,
+   "cos": -0.4837,
+   "step": 1.0987,
+   "adj_cos": 0.3847,
+   "n": 25993
+  },
+  "raw|mov": {
+   "theta": 118.75,
+   "cos": -0.4751,
+   "step": 1.1189,
+   "adj_cos": 0.363,
+   "n": 24453
+  },
+  "minus_global_mu|sta": {
+   "theta": 119.56,
+   "cos": -0.4861,
+   "step": 1.1949,
+   "adj_cos": 0.275,
+   "n": 25993
+  },
+  "minus_global_mu|mov": {
+   "theta": 118.95,
+   "cos": -0.478,
+   "step": 1.2262,
+   "adj_cos": 0.2359,
+   "n": 24453
+  },
+  "minus_screen|sta": {
+   "theta": 119.75,
+   "cos": -0.489,
+   "step": 1.2591,
+   "adj_cos": 0.1979,
+   "n": 25993
+  },
+  "minus_screen|mov": {
+   "theta": 119.42,
+   "cos": -0.4852,
+   "step": 1.2856,
+   "adj_cos": 0.1608,
+   "n": 24453
+  }
+ },
+ "natural|tpre": {
+  "frac_global_pos": 0.0049,
+  "frac_screen": 0.0269,
+  "mu_norm_rel": 0.4642,
+  "raw|sta": {
+   "theta": 118.17,
+   "cos": -0.4576,
+   "step": 0.9953,
+   "adj_cos": 0.4762,
+   "n": 25993
+  },
+  "raw|mov": {
+   "theta": 118.36,
+   "cos": -0.4666,
+   "step": 1.0482,
+   "adj_cos": 0.4343,
+   "n": 24453
+  },
+  "minus_global_mu|sta": {
+   "theta": 118.28,
+   "cos": -0.4594,
+   "step": 1.1055,
+   "adj_cos": 0.3535,
+   "n": 25993
+  },
+  "minus_global_mu|mov": {
+   "theta": 118.51,
+   "cos": -0.4689,
+   "step": 1.1833,
+   "adj_cos": 0.2762,
+   "n": 24453
+  },
+  "minus_screen|sta": {
+   "theta": 118.47,
+   "cos": -0.4628,
+   "step": 1.1822,
+   "adj_cos": 0.2639,
+   "n": 25993
+  },
+  "minus_screen|mov": {
+   "theta": 118.9,
+   "cos": -0.475,
+   "step": 1.2598,
+   "adj_cos": 0.1833,
+   "n": 24453
+  }
+ },
+ "phys3d|blk": {
+  "frac_global_pos": 0.0013,
+  "frac_screen": 0.0176,
+  "mu_norm_rel": 0.5966,
+  "raw|sta": {
+   "theta": 114.05,
+   "cos": -0.3874,
+   "step": 0.6999,
+   "adj_cos": 0.698,
+   "n": 34134
+  },
+  "minus_global_mu|sta": {
+   "theta": 114.08,
+   "cos": -0.3879,
+   "step": 0.8909,
+   "adj_cos": 0.5104,
+   "n": 34134
+  },
+  "minus_screen|sta": {
+   "theta": 114.07,
+   "cos": -0.3876,
+   "step": 0.8965,
+   "adj_cos": 0.503,
+   "n": 34134
+  }
+ },
+ "phys3d|twin": {
+  "frac_global_pos": 0.0471,
+  "frac_screen": 0.0606,
+  "mu_norm_rel": 0.5274,
+  "raw|sta": {
+   "theta": 118.47,
+   "cos": -0.4702,
+   "step": 1.0775,
+   "adj_cos": 0.4079,
+   "n": 34134
+  },
+  "minus_global_mu|sta": {
+   "theta": 118.83,
+   "cos": -0.4756,
+   "step": 1.2543,
+   "adj_cos": 0.2056,
+   "n": 34134
+  },
+  "minus_screen|sta": {
+   "theta": 118.95,
+   "cos": -0.4776,
+   "step": 1.2654,
+   "adj_cos": 0.191,
+   "n": 34134
+  }
+ },
+ "phys3d|owin": {
+  "frac_global_pos": 0.0486,
+  "frac_screen": 0.0617,
+  "mu_norm_rel": 0.5309,
+  "raw|sta": {
+   "theta": 118.54,
+   "cos": -0.4713,
+   "step": 1.0774,
+   "adj_cos": 0.4084,
+   "n": 34134
+  },
+  "minus_global_mu|sta": {
+   "theta": 118.93,
+   "cos": -0.4772,
+   "step": 1.2563,
+   "adj_cos": 0.2038,
+   "n": 34134
+  },
+  "minus_screen|sta": {
+   "theta": 119.05,
+   "cos": -0.4792,
+   "step": 1.2667,
+   "adj_cos": 0.1903,
+   "n": 34134
+  }
+ },
+ "phys3d|tpre": {
+  "frac_global_pos": 0.0163,
+  "frac_screen": 0.026,
+  "mu_norm_rel": 0.5506,
+  "raw|sta": {
+   "theta": 117.86,
+   "cos": -0.4559,
+   "step": 1.0152,
+   "adj_cos": 0.4635,
+   "n": 34134
+  },
+  "minus_global_mu|sta": {
+   "theta": 118.05,
+   "cos": -0.4592,
+   "step": 1.2132,
+   "adj_cos": 0.2322,
+   "n": 34134
+  },
+  "minus_screen|sta": {
+   "theta": 118.22,
+   "cos": -0.462,
+   "step": 1.2286,
+   "adj_cos": 0.2138,
+   "n": 34134
+  }
+ }
+}

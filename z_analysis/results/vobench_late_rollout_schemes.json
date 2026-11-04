@@ -1,0 +1,33 @@
+{
+ "n_pairs": 432,
+ "8step": {
+  "all": 76.4,
+  "objset=primitive": 76.9,
+  "objset=realistic": 75.9,
+  "motion=moving": 73.3,
+  "motion=static": 91.7,
+  "violation=color": 68.1,
+  "violation=permanence": 95.8,
+  "violation=shape": 65.3
+ },
+ "2step": {
+  "all": 58.3,
+  "objset=primitive": 58.3,
+  "objset=realistic": 58.3,
+  "motion=moving": 55.8,
+  "motion=static": 70.8,
+  "violation=color": 52.8,
+  "violation=permanence": 70.1,
+  "violation=shape": 52.1
+ },
+ "1step": {
+  "all": 56.5,
+  "objset=primitive": 56.9,
+  "objset=realistic": 56.0,
+  "motion=moving": 54.7,
+  "motion=static": 65.3,
+  "violation=color": 52.1,
+  "violation=permanence": 63.2,
+  "violation=shape": 54.2
+ }
+}

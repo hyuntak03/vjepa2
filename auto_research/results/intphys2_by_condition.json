@@ -1,0 +1,1745 @@
+{
+ "natural_ar_vw_state": {
+  "per_w": {
+   "w16": {
+    "file": "natural_ar_vw_state/eval/intphys2_main_latest_w16/per_video.csv",
+    "bestC": 12,
+    "at_bestC": {
+     "all": [
+      51.58102766798419,
+      506
+     ],
+     "permanence": [
+      50.0,
+      120
+     ],
+     "immutability": [
+      48.333333333333336,
+      120
+     ],
+     "continuity": [
+      54.166666666666664,
+      120
+     ],
+     "solidity": [
+      53.42465753424658,
+      146
+     ],
+     "permanence|Fixed": [
+      55.76923076923077,
+      52
+     ],
+     "permanence|Moving": [
+      45.588235294117645,
+      68
+     ],
+     "immutability|Fixed": [
+      50.0,
+      52
+     ],
+     "immutability|Moving": [
+      47.05882352941177,
+      68
+     ],
+     "continuity|Fixed": [
+      53.84615384615385,
+      52
+     ],
+     "continuity|Moving": [
+      54.411764705882355,
+      68
+     ],
+     "solidity|Fixed": [
+      46.15384615384615,
+      52
+     ],
+     "solidity|Moving": [
+      57.4468085106383,
+      94
+     ],
+     "cam=Fixed": [
+      51.44230769230769,
+      208
+     ],
+     "cam=Moving": [
+      51.67785234899329,
+      298
+     ]
+    },
+    "meanC": {
+     "all": 50.09881422924901,
+     "permanence": 48.888888888888886,
+     "immutability": 47.083333333333336,
+     "continuity": 50.138888888888886,
+     "solidity": 53.53881278538813,
+     "permanence|Fixed": 54.8076923076923,
+     "permanence|Moving": 44.36274509803922,
+     "immutability|Fixed": 50.32051282051282,
+     "immutability|Moving": 44.607843137254896,
+     "continuity|Fixed": 52.243589743589745,
+     "continuity|Moving": 48.529411764705884,
+     "solidity|Fixed": 47.11538461538461,
+     "solidity|Moving": 57.09219858156029,
+     "cam=Fixed": 51.12179487179487,
+     "cam=Moving": 49.38478747203579
+    },
+    "maxC": {
+     "all": 51.58102766798419,
+     "permanence": 51.666666666666664,
+     "immutability": 49.166666666666664,
+     "continuity": 54.166666666666664,
+     "solidity": 55.47945205479452,
+     "permanence|Fixed": 55.76923076923077,
+     "permanence|Moving": 48.529411764705884,
+     "immutability|Fixed": 55.76923076923077,
+     "immutability|Moving": 47.05882352941177,
+     "continuity|Fixed": 55.76923076923077,
+     "continuity|Moving": 54.411764705882355,
+     "solidity|Fixed": 51.92307692307692,
+     "solidity|Moving": 59.57446808510638,
+     "cam=Fixed": 53.84615384615385,
+     "cam=Moving": 51.67785234899329
+    },
+    "n": {
+     "all": 506,
+     "permanence": 120,
+     "immutability": 120,
+     "continuity": 120,
+     "solidity": 146,
+     "permanence|Fixed": 52,
+     "permanence|Moving": 68,
+     "immutability|Fixed": 52,
+     "immutability|Moving": 68,
+     "continuity|Fixed": 52,
+     "continuity|Moving": 68,
+     "solidity|Fixed": 52,
+     "solidity|Moving": 94,
+     "cam=Fixed": 208,
+     "cam=Moving": 298
+    }
+   },
+   "w32": {
+    "file": "natural_ar_vw_state/eval/intphys2_main_latest_w32/per_video.csv",
+    "bestC": 8,
+    "at_bestC": {
+     "all": [
+      51.58102766798419,
+      506
+     ],
+     "permanence": [
+      50.0,
+      120
+     ],
+     "immutability": [
+      46.666666666666664,
+      120
+     ],
+     "continuity": [
+      54.166666666666664,
+      120
+     ],
+     "solidity": [
+      54.794520547945204,
+      146
+     ],
+     "permanence|Fixed": [
+      57.69230769230769,
+      52
+     ],
+     "permanence|Moving": [
+      44.11764705882353,
+      68
+     ],
+     "immutability|Fixed": [
+      55.76923076923077,
+      52
+     ],
+     "immutability|Moving": [
+      39.705882352941174,
+      68
+     ],
+     "continuity|Fixed": [
+      59.61538461538461,
+      52
+     ],
+     "continuity|Moving": [
+      50.0,
+      68
+     ],
+     "solidity|Fixed": [
+      48.07692307692308,
+      52
+     ],
+     "solidity|Moving": [
+      58.51063829787234,
+      94
+     ],
+     "cam=Fixed": [
+      55.28846153846154,
+      208
+     ],
+     "cam=Moving": [
+      48.993288590604024,
+      298
+     ]
+    },
+    "meanC": {
+     "all": 50.09881422924901,
+     "permanence": 48.611111111111114,
+     "immutability": 46.80555555555555,
+     "continuity": 52.083333333333336,
+     "solidity": 52.3972602739726,
+     "permanence|Fixed": 54.48717948717948,
+     "permanence|Moving": 44.11764705882353,
+     "immutability|Fixed": 51.28205128205128,
+     "immutability|Moving": 43.38235294117647,
+     "continuity|Fixed": 57.05128205128205,
+     "continuity|Moving": 48.28431372549019,
+     "solidity|Fixed": 47.11538461538462,
+     "solidity|Moving": 55.319148936170215,
+     "cam=Fixed": 52.48397435897436,
+     "cam=Moving": 48.43400447427293
+    },
+    "maxC": {
+     "all": 51.58102766798419,
+     "permanence": 50.0,
+     "immutability": 50.0,
+     "continuity": 54.166666666666664,
+     "solidity": 54.794520547945204,
+     "permanence|Fixed": 57.69230769230769,
+     "permanence|Moving": 45.588235294117645,
+     "immutability|Fixed": 55.76923076923077,
+     "immutability|Moving": 47.05882352941177,
+     "continuity|Fixed": 59.61538461538461,
+     "continuity|Moving": 50.0,
+     "solidity|Fixed": 48.07692307692308,
+     "solidity|Moving": 58.51063829787234,
+     "cam=Fixed": 55.28846153846154,
+     "cam=Moving": 49.66442953020134
+    },
+    "n": {
+     "all": 506,
+     "permanence": 120,
+     "immutability": 120,
+     "continuity": 120,
+     "solidity": 146,
+     "permanence|Fixed": 52,
+     "permanence|Moving": 68,
+     "immutability|Fixed": 52,
+     "immutability|Moving": 68,
+     "continuity|Fixed": 52,
+     "continuity|Moving": 68,
+     "solidity|Fixed": 52,
+     "solidity|Moving": 94,
+     "cam=Fixed": 208,
+     "cam=Moving": 298
+    }
+   },
+   "w48": {
+    "file": "natural_ar_vw_state/eval/intphys2_main_latest_w48/per_video.csv",
+    "bestC": 36,
+    "at_bestC": {
+     "all": [
+      51.77865612648221,
+      506
+     ],
+     "permanence": [
+      48.333333333333336,
+      120
+     ],
+     "immutability": [
+      51.666666666666664,
+      120
+     ],
+     "continuity": [
+      50.833333333333336,
+      120
+     ],
+     "solidity": [
+      55.47945205479452,
+      146
+     ],
+     "permanence|Fixed": [
+      51.92307692307692,
+      52
+     ],
+     "permanence|Moving": [
+      45.588235294117645,
+      68
+     ],
+     "immutability|Fixed": [
+      63.46153846153846,
+      52
+     ],
+     "immutability|Moving": [
+      42.64705882352941,
+      68
+     ],
+     "continuity|Fixed": [
+      59.61538461538461,
+      52
+     ],
+     "continuity|Moving": [
+      44.11764705882353,
+      68
+     ],
+     "solidity|Fixed": [
+      50.0,
+      52
+     ],
+     "solidity|Moving": [
+      58.51063829787234,
+      94
+     ],
+     "cam=Fixed": [
+      56.25,
+      208
+     ],
+     "cam=Moving": [
+      48.65771812080537,
+      298
+     ]
+    },
+    "meanC": {
+     "all": 50.06587615283268,
+     "permanence": 46.25,
+     "immutability": 49.02777777777778,
+     "continuity": 52.083333333333336,
+     "solidity": 52.3972602739726,
+     "permanence|Fixed": 51.602564102564095,
+     "permanence|Moving": 42.15686274509804,
+     "immutability|Fixed": 58.65384615384615,
+     "immutability|Moving": 41.666666666666664,
+     "continuity|Fixed": 57.05128205128205,
+     "continuity|Moving": 48.28431372549019,
+     "solidity|Fixed": 47.756410256410255,
+     "solidity|Moving": 54.964539007092206,
+     "cam=Fixed": 53.76602564102564,
+     "cam=Moving": 47.48322147651007
+    },
+    "maxC": {
+     "all": 51.77865612648221,
+     "permanence": 49.166666666666664,
+     "immutability": 52.5,
+     "continuity": 55.0,
+     "solidity": 55.47945205479452,
+     "permanence|Fixed": 55.76923076923077,
+     "permanence|Moving": 45.588235294117645,
+     "immutability|Fixed": 63.46153846153846,
+     "immutability|Moving": 44.11764705882353,
+     "continuity|Fixed": 61.53846153846154,
+     "continuity|Moving": 50.0,
+     "solidity|Fixed": 51.92307692307692,
+     "solidity|Moving": 58.51063829787234,
+     "cam=Fixed": 56.25,
+     "cam=Moving": 48.65771812080537
+    },
+    "n": {
+     "all": 506,
+     "permanence": 120,
+     "immutability": 120,
+     "continuity": 120,
+     "solidity": 146,
+     "permanence|Fixed": 52,
+     "permanence|Moving": 68,
+     "immutability|Fixed": 52,
+     "immutability|Moving": 68,
+     "continuity|Fixed": 52,
+     "continuity|Moving": 68,
+     "solidity|Fixed": 52,
+     "solidity|Moving": 94,
+     "cam=Fixed": 208,
+     "cam=Moving": 298
+    }
+   }
+  },
+  "pooled_mean": {
+   "all": 50.08783487044357,
+   "permanence": 47.916666666666664,
+   "immutability": 47.638888888888886,
+   "continuity": 51.43518518518519,
+   "solidity": 52.77777777777778,
+   "permanence|Fixed": 53.63247863247863,
+   "permanence|Moving": 43.54575163398693,
+   "immutability|Fixed": 53.41880341880342,
+   "immutability|Moving": 43.21895424836602,
+   "continuity|Fixed": 55.44871794871795,
+   "continuity|Moving": 48.36601307189542,
+   "solidity|Fixed": 47.32905982905983,
+   "solidity|Moving": 55.7919621749409,
+   "cam=Fixed": 52.45726495726496,
+   "cam=Moving": 48.43400447427293
+  }
+ },
+ "k710_ssv2_how_ep70_cooldown64": {
+  "per_w": {
+   "w16": {
+    "file": "k710_ssv2_how_ep70_cooldown64/eval/intphys2_main_latest_w16_vb8/per_video.csv",
+    "bestC": 10,
+    "at_bestC": {
+     "all": [
+      53.55731225296443,
+      506
+     ],
+     "permanence": [
+      54.166666666666664,
+      120
+     ],
+     "immutability": [
+      51.666666666666664,
+      120
+     ],
+     "continuity": [
+      59.166666666666664,
+      120
+     ],
+     "solidity": [
+      50.0,
+      146
+     ],
+     "permanence|Fixed": [
+      50.0,
+      52
+     ],
+     "permanence|Moving": [
+      57.35294117647059,
+      68
+     ],
+     "immutability|Fixed": [
+      51.92307692307692,
+      52
+     ],
+     "immutability|Moving": [
+      51.470588235294116,
+      68
+     ],
+     "continuity|Fixed": [
+      59.61538461538461,
+      52
+     ],
+     "continuity|Moving": [
+      58.8235294117647,
+      68
+     ],
+     "solidity|Fixed": [
+      51.92307692307692,
+      52
+     ],
+     "solidity|Moving": [
+      48.93617021276596,
+      94
+     ],
+     "cam=Fixed": [
+      53.36538461538461,
+      208
+     ],
+     "cam=Moving": [
+      53.691275167785236,
+      298
+     ]
+    },
+    "meanC": {
+     "all": 51.811594202898554,
+     "permanence": 54.583333333333336,
+     "immutability": 48.47222222222222,
+     "continuity": 53.19444444444445,
+     "solidity": 51.14155251141553,
+     "permanence|Fixed": 52.88461538461539,
+     "permanence|Moving": 55.88235294117647,
+     "immutability|Fixed": 50.0,
+     "immutability|Moving": 47.30392156862745,
+     "continuity|Fixed": 51.92307692307693,
+     "continuity|Moving": 54.166666666666664,
+     "solidity|Fixed": 50.32051282051282,
+     "solidity|Moving": 51.59574468085106,
+     "cam=Fixed": 51.28205128205128,
+     "cam=Moving": 52.18120805369128
+    },
+    "maxC": {
+     "all": 53.55731225296443,
+     "permanence": 59.166666666666664,
+     "immutability": 51.666666666666664,
+     "continuity": 59.166666666666664,
+     "solidity": 54.10958904109589,
+     "permanence|Fixed": 59.61538461538461,
+     "permanence|Moving": 58.8235294117647,
+     "immutability|Fixed": 51.92307692307692,
+     "immutability|Moving": 51.470588235294116,
+     "continuity|Fixed": 59.61538461538461,
+     "continuity|Moving": 58.8235294117647,
+     "solidity|Fixed": 53.84615384615385,
+     "solidity|Moving": 57.4468085106383,
+     "cam=Fixed": 53.36538461538461,
+     "cam=Moving": 53.691275167785236
+    },
+    "n": {
+     "all": 506,
+     "permanence": 120,
+     "immutability": 120,
+     "continuity": 120,
+     "solidity": 146,
+     "permanence|Fixed": 52,
+     "permanence|Moving": 68,
+     "immutability|Fixed": 52,
+     "immutability|Moving": 68,
+     "continuity|Fixed": 52,
+     "continuity|Moving": 68,
+     "solidity|Fixed": 52,
+     "solidity|Moving": 94,
+     "cam=Fixed": 208,
+     "cam=Moving": 298
+    }
+   },
+   "w32": {
+    "file": "k710_ssv2_how_ep70_cooldown64/eval/intphys2_main_latest_w32_vb8/per_video.csv",
+    "bestC": 24,
+    "at_bestC": {
+     "all": [
+      54.1501976284585,
+      506
+     ],
+     "permanence": [
+      55.0,
+      120
+     ],
+     "immutability": [
+      51.666666666666664,
+      120
+     ],
+     "continuity": [
+      60.833333333333336,
+      120
+     ],
+     "solidity": [
+      50.0,
+      146
+     ],
+     "permanence|Fixed": [
+      61.53846153846154,
+      52
+     ],
+     "permanence|Moving": [
+      50.0,
+      68
+     ],
+     "immutability|Fixed": [
+      55.76923076923077,
+      52
+     ],
+     "immutability|Moving": [
+      48.529411764705884,
+      68
+     ],
+     "continuity|Fixed": [
+      57.69230769230769,
+      52
+     ],
+     "continuity|Moving": [
+      63.23529411764706,
+      68
+     ],
+     "solidity|Fixed": [
+      48.07692307692308,
+      52
+     ],
+     "solidity|Moving": [
+      51.06382978723404,
+      94
+     ],
+     "cam=Fixed": [
+      55.76923076923077,
+      208
+     ],
+     "cam=Moving": [
+      53.02013422818792,
+      298
+     ]
+    },
+    "meanC": {
+     "all": 52.66798418972332,
+     "permanence": 52.36111111111111,
+     "immutability": 48.333333333333336,
+     "continuity": 60.0,
+     "solidity": 50.45662100456621,
+     "permanence|Fixed": 59.93589743589744,
+     "permanence|Moving": 46.568627450980394,
+     "immutability|Fixed": 54.166666666666664,
+     "immutability|Moving": 43.872549019607845,
+     "continuity|Fixed": 57.37179487179487,
+     "continuity|Moving": 62.009803921568626,
+     "solidity|Fixed": 47.43589743589744,
+     "solidity|Moving": 52.12765957446808,
+     "cam=Fixed": 54.72756410256411,
+     "cam=Moving": 51.230425055928414
+    },
+    "maxC": {
+     "all": 54.1501976284585,
+     "permanence": 55.0,
+     "immutability": 52.5,
+     "continuity": 62.5,
+     "solidity": 51.36986301369863,
+     "permanence|Fixed": 61.53846153846154,
+     "permanence|Moving": 50.0,
+     "immutability|Fixed": 61.53846153846154,
+     "immutability|Moving": 48.529411764705884,
+     "continuity|Fixed": 65.38461538461539,
+     "continuity|Moving": 66.17647058823529,
+     "solidity|Fixed": 50.0,
+     "solidity|Moving": 53.191489361702125,
+     "cam=Fixed": 56.25,
+     "cam=Moving": 53.02013422818792
+    },
+    "n": {
+     "all": 506,
+     "permanence": 120,
+     "immutability": 120,
+     "continuity": 120,
+     "solidity": 146,
+     "permanence|Fixed": 52,
+     "permanence|Moving": 68,
+     "immutability|Fixed": 52,
+     "immutability|Moving": 68,
+     "continuity|Fixed": 52,
+     "continuity|Moving": 68,
+     "solidity|Fixed": 52,
+     "solidity|Moving": 94,
+     "cam=Fixed": 208,
+     "cam=Moving": 298
+    }
+   },
+   "w48": {
+    "file": "k710_ssv2_how_ep70_cooldown64/eval/intphys2_main_latest_w48_vb8/per_video.csv",
+    "bestC": 30,
+    "at_bestC": {
+     "all": [
+      54.74308300395257,
+      506
+     ],
+     "permanence": [
+      52.5,
+      120
+     ],
+     "immutability": [
+      50.0,
+      120
+     ],
+     "continuity": [
+      62.5,
+      120
+     ],
+     "solidity": [
+      54.10958904109589,
+      146
+     ],
+     "permanence|Fixed": [
+      55.76923076923077,
+      52
+     ],
+     "permanence|Moving": [
+      50.0,
+      68
+     ],
+     "immutability|Fixed": [
+      63.46153846153846,
+      52
+     ],
+     "immutability|Moving": [
+      39.705882352941174,
+      68
+     ],
+     "continuity|Fixed": [
+      53.84615384615385,
+      52
+     ],
+     "continuity|Moving": [
+      69.11764705882354,
+      68
+     ],
+     "solidity|Fixed": [
+      50.0,
+      52
+     ],
+     "solidity|Moving": [
+      56.38297872340426,
+      94
+     ],
+     "cam=Fixed": [
+      55.76923076923077,
+      208
+     ],
+     "cam=Moving": [
+      54.02684563758389,
+      298
+     ]
+    },
+    "meanC": {
+     "all": 53.12911725955204,
+     "permanence": 49.583333333333336,
+     "immutability": 50.138888888888886,
+     "continuity": 60.416666666666664,
+     "solidity": 52.51141552511416,
+     "permanence|Fixed": 53.205128205128204,
+     "permanence|Moving": 46.81372549019608,
+     "immutability|Fixed": 59.93589743589744,
+     "immutability|Moving": 42.64705882352941,
+     "continuity|Fixed": 50.32051282051282,
+     "continuity|Moving": 68.13725490196079,
+     "solidity|Fixed": 49.35897435897436,
+     "solidity|Moving": 54.25531914893617,
+     "cam=Fixed": 53.205128205128204,
+     "cam=Moving": 53.07606263982103
+    },
+    "maxC": {
+     "all": 54.74308300395257,
+     "permanence": 52.5,
+     "immutability": 53.333333333333336,
+     "continuity": 63.333333333333336,
+     "solidity": 54.794520547945204,
+     "permanence|Fixed": 57.69230769230769,
+     "permanence|Moving": 50.0,
+     "immutability|Fixed": 63.46153846153846,
+     "immutability|Moving": 47.05882352941177,
+     "continuity|Fixed": 53.84615384615385,
+     "continuity|Moving": 72.05882352941177,
+     "solidity|Fixed": 51.92307692307692,
+     "solidity|Moving": 57.4468085106383,
+     "cam=Fixed": 55.76923076923077,
+     "cam=Moving": 55.369127516778526
+    },
+    "n": {
+     "all": 506,
+     "permanence": 120,
+     "immutability": 120,
+     "continuity": 120,
+     "solidity": 146,
+     "permanence|Fixed": 52,
+     "permanence|Moving": 68,
+     "immutability|Fixed": 52,
+     "immutability|Moving": 68,
+     "continuity|Fixed": 52,
+     "continuity|Moving": 68,
+     "solidity|Fixed": 52,
+     "solidity|Moving": 94,
+     "cam=Fixed": 208,
+     "cam=Moving": 298
+    }
+   }
+  },
+  "pooled_mean": {
+   "all": 52.53623188405797,
+   "permanence": 52.175925925925924,
+   "immutability": 48.98148148148148,
+   "continuity": 57.870370370370374,
+   "solidity": 51.36986301369863,
+   "permanence|Fixed": 55.34188034188034,
+   "permanence|Moving": 49.754901960784316,
+   "immutability|Fixed": 54.700854700854705,
+   "immutability|Moving": 44.6078431372549,
+   "continuity|Fixed": 53.205128205128204,
+   "continuity|Moving": 61.437908496732035,
+   "solidity|Fixed": 49.03846153846154,
+   "solidity|Moving": 52.659574468085104,
+   "cam=Fixed": 53.0715811965812,
+   "cam=Moving": 52.162565249813575
+  }
+ },
+ "natural_ar_vw_state_phys2d_single": {
+  "per_w": {
+   "w16": {
+    "file": "natural_ar_vw_state_phys2d_single/eval/intphys2_main_latest_w16/per_video.csv",
+    "bestC": 14,
+    "at_bestC": {
+     "all": [
+      50.59288537549407,
+      506
+     ],
+     "permanence": [
+      50.0,
+      120
+     ],
+     "immutability": [
+      45.0,
+      120
+     ],
+     "continuity": [
+      53.333333333333336,
+      120
+     ],
+     "solidity": [
+      53.42465753424658,
+      146
+     ],
+     "permanence|Fixed": [
+      51.92307692307692,
+      52
+     ],
+     "permanence|Moving": [
+      48.529411764705884,
+      68
+     ],
+     "immutability|Fixed": [
+      42.30769230769231,
+      52
+     ],
+     "immutability|Moving": [
+      47.05882352941177,
+      68
+     ],
+     "continuity|Fixed": [
+      53.84615384615385,
+      52
+     ],
+     "continuity|Moving": [
+      52.94117647058823,
+      68
+     ],
+     "solidity|Fixed": [
+      48.07692307692308,
+      52
+     ],
+     "solidity|Moving": [
+      56.38297872340426,
+      94
+     ],
+     "cam=Fixed": [
+      49.03846153846154,
+      208
+     ],
+     "cam=Moving": [
+      51.67785234899329,
+      298
+     ]
+    },
+    "meanC": {
+     "all": 48.94598155467721,
+     "permanence": 48.19444444444445,
+     "immutability": 44.02777777777778,
+     "continuity": 48.88888888888889,
+     "solidity": 53.65296803652968,
+     "permanence|Fixed": 52.56410256410256,
+     "permanence|Moving": 44.85294117647059,
+     "immutability|Fixed": 48.07692307692307,
+     "immutability|Moving": 40.931372549019606,
+     "continuity|Fixed": 50.32051282051282,
+     "continuity|Moving": 47.79411764705882,
+     "solidity|Fixed": 50.32051282051282,
+     "solidity|Moving": 55.49645390070922,
+     "cam=Fixed": 50.32051282051282,
+     "cam=Moving": 47.986577181208055
+    },
+    "maxC": {
+     "all": 50.59288537549407,
+     "permanence": 50.0,
+     "immutability": 45.833333333333336,
+     "continuity": 53.333333333333336,
+     "solidity": 54.794520547945204,
+     "permanence|Fixed": 55.76923076923077,
+     "permanence|Moving": 48.529411764705884,
+     "immutability|Fixed": 50.0,
+     "immutability|Moving": 47.05882352941177,
+     "continuity|Fixed": 53.84615384615385,
+     "continuity|Moving": 52.94117647058823,
+     "solidity|Fixed": 51.92307692307692,
+     "solidity|Moving": 56.38297872340426,
+     "cam=Fixed": 51.44230769230769,
+     "cam=Moving": 51.67785234899329
+    },
+    "n": {
+     "all": 506,
+     "permanence": 120,
+     "immutability": 120,
+     "continuity": 120,
+     "solidity": 146,
+     "permanence|Fixed": 52,
+     "permanence|Moving": 68,
+     "immutability|Fixed": 52,
+     "immutability|Moving": 68,
+     "continuity|Fixed": 52,
+     "continuity|Moving": 68,
+     "solidity|Fixed": 52,
+     "solidity|Moving": 94,
+     "cam=Fixed": 208,
+     "cam=Moving": 298
+    }
+   },
+   "w32": {
+    "file": "natural_ar_vw_state_phys2d_single/eval/intphys2_main_latest_w32_vb4/per_video.csv",
+    "bestC": 16,
+    "at_bestC": {
+     "all": [
+      49.80237154150198,
+      506
+     ],
+     "permanence": [
+      45.833333333333336,
+      120
+     ],
+     "immutability": [
+      47.5,
+      120
+     ],
+     "continuity": [
+      51.666666666666664,
+      120
+     ],
+     "solidity": [
+      53.42465753424658,
+      146
+     ],
+     "permanence|Fixed": [
+      55.76923076923077,
+      52
+     ],
+     "permanence|Moving": [
+      38.23529411764706,
+      68
+     ],
+     "immutability|Fixed": [
+      51.92307692307692,
+      52
+     ],
+     "immutability|Moving": [
+      44.11764705882353,
+      68
+     ],
+     "continuity|Fixed": [
+      57.69230769230769,
+      52
+     ],
+     "continuity|Moving": [
+      47.05882352941177,
+      68
+     ],
+     "solidity|Fixed": [
+      51.92307692307692,
+      52
+     ],
+     "solidity|Moving": [
+      54.255319148936174,
+      94
+     ],
+     "cam=Fixed": [
+      54.32692307692308,
+      208
+     ],
+     "cam=Moving": [
+      46.644295302013425,
+      298
+     ]
+    },
+    "meanC": {
+     "all": 49.14361001317523,
+     "permanence": 46.80555555555555,
+     "immutability": 44.861111111111114,
+     "continuity": 51.80555555555555,
+     "solidity": 52.3972602739726,
+     "permanence|Fixed": 54.166666666666664,
+     "permanence|Moving": 41.1764705882353,
+     "immutability|Fixed": 49.67948717948718,
+     "immutability|Moving": 41.1764705882353,
+     "continuity|Fixed": 58.333333333333336,
+     "continuity|Moving": 46.81372549019608,
+     "solidity|Fixed": 48.39743589743589,
+     "solidity|Moving": 54.60992907801418,
+     "cam=Fixed": 52.644230769230774,
+     "cam=Moving": 46.70022371364653
+    },
+    "maxC": {
+     "all": 49.80237154150198,
+     "permanence": 48.333333333333336,
+     "immutability": 48.333333333333336,
+     "continuity": 54.166666666666664,
+     "solidity": 54.10958904109589,
+     "permanence|Fixed": 59.61538461538461,
+     "permanence|Moving": 42.64705882352941,
+     "immutability|Fixed": 53.84615384615385,
+     "immutability|Moving": 45.588235294117645,
+     "continuity|Fixed": 61.53846153846154,
+     "continuity|Moving": 48.529411764705884,
+     "solidity|Fixed": 53.84615384615385,
+     "solidity|Moving": 58.51063829787234,
+     "cam=Fixed": 54.32692307692308,
+     "cam=Moving": 47.986577181208055
+    },
+    "n": {
+     "all": 506,
+     "permanence": 120,
+     "immutability": 120,
+     "continuity": 120,
+     "solidity": 146,
+     "permanence|Fixed": 52,
+     "permanence|Moving": 68,
+     "immutability|Fixed": 52,
+     "immutability|Moving": 68,
+     "continuity|Fixed": 52,
+     "continuity|Moving": 68,
+     "solidity|Fixed": 52,
+     "solidity|Moving": 94,
+     "cam=Fixed": 208,
+     "cam=Moving": 298
+    }
+   },
+   "w48": {
+    "file": "natural_ar_vw_state_phys2d_single/eval/intphys2_main_latest_w48_vb4/per_video.csv",
+    "bestC": 42,
+    "at_bestC": {
+     "all": [
+      51.77865612648221,
+      506
+     ],
+     "permanence": [
+      48.333333333333336,
+      120
+     ],
+     "immutability": [
+      50.833333333333336,
+      120
+     ],
+     "continuity": [
+      52.5,
+      120
+     ],
+     "solidity": [
+      54.794520547945204,
+      146
+     ],
+     "permanence|Fixed": [
+      55.76923076923077,
+      52
+     ],
+     "permanence|Moving": [
+      42.64705882352941,
+      68
+     ],
+     "immutability|Fixed": [
+      55.76923076923077,
+      52
+     ],
+     "immutability|Moving": [
+      47.05882352941177,
+      68
+     ],
+     "continuity|Fixed": [
+      57.69230769230769,
+      52
+     ],
+     "continuity|Moving": [
+      48.529411764705884,
+      68
+     ],
+     "solidity|Fixed": [
+      50.0,
+      52
+     ],
+     "solidity|Moving": [
+      57.4468085106383,
+      94
+     ],
+     "cam=Fixed": [
+      54.80769230769231,
+      208
+     ],
+     "cam=Moving": [
+      49.66442953020134,
+      298
+     ]
+    },
+    "meanC": {
+     "all": 50.032938076416336,
+     "permanence": 47.083333333333336,
+     "immutability": 47.361111111111114,
+     "continuity": 50.833333333333336,
+     "solidity": 53.99543378995434,
+     "permanence|Fixed": 54.8076923076923,
+     "permanence|Moving": 41.1764705882353,
+     "immutability|Fixed": 54.8076923076923,
+     "immutability|Moving": 41.666666666666664,
+     "continuity|Fixed": 57.37179487179487,
+     "continuity|Moving": 45.833333333333336,
+     "solidity|Fixed": 50.0,
+     "solidity|Moving": 56.20567375886525,
+     "cam=Fixed": 54.24679487179487,
+     "cam=Moving": 47.091722595078295
+    },
+    "maxC": {
+     "all": 51.77865612648221,
+     "permanence": 48.333333333333336,
+     "immutability": 50.833333333333336,
+     "continuity": 53.333333333333336,
+     "solidity": 55.47945205479452,
+     "permanence|Fixed": 57.69230769230769,
+     "permanence|Moving": 44.11764705882353,
+     "immutability|Fixed": 61.53846153846154,
+     "immutability|Moving": 47.05882352941177,
+     "continuity|Fixed": 61.53846153846154,
+     "continuity|Moving": 48.529411764705884,
+     "solidity|Fixed": 51.92307692307692,
+     "solidity|Moving": 57.4468085106383,
+     "cam=Fixed": 56.73076923076923,
+     "cam=Moving": 49.66442953020134
+    },
+    "n": {
+     "all": 506,
+     "permanence": 120,
+     "immutability": 120,
+     "continuity": 120,
+     "solidity": 146,
+     "permanence|Fixed": 52,
+     "permanence|Moving": 68,
+     "immutability|Fixed": 52,
+     "immutability|Moving": 68,
+     "continuity|Fixed": 52,
+     "continuity|Moving": 68,
+     "solidity|Fixed": 52,
+     "solidity|Moving": 94,
+     "cam=Fixed": 208,
+     "cam=Moving": 298
+    }
+   }
+  },
+  "pooled_mean": {
+   "all": 49.37417654808959,
+   "permanence": 47.361111111111114,
+   "immutability": 45.416666666666664,
+   "continuity": 50.50925925925926,
+   "solidity": 53.34855403348554,
+   "permanence|Fixed": 53.84615384615384,
+   "permanence|Moving": 42.40196078431373,
+   "immutability|Fixed": 50.85470085470085,
+   "immutability|Moving": 41.25816993464052,
+   "continuity|Fixed": 55.34188034188034,
+   "continuity|Moving": 46.81372549019608,
+   "solidity|Fixed": 49.57264957264957,
+   "solidity|Moving": 55.43735224586289,
+   "cam=Fixed": 52.40384615384616,
+   "cam=Moving": 47.25950782997763
+  }
+ },
+ "natural_ar_vw_state_phys3d_event": {
+  "per_w": {
+   "w16": {
+    "file": "natural_ar_vw_state_phys3d_event/eval/intphys2_main_e68run_w16/per_video.csv",
+    "bestC": 14,
+    "at_bestC": {
+     "all": [
+      50.39525691699605,
+      506
+     ],
+     "permanence": [
+      52.5,
+      120
+     ],
+     "immutability": [
+      42.5,
+      120
+     ],
+     "continuity": [
+      52.5,
+      120
+     ],
+     "solidity": [
+      53.42465753424658,
+      146
+     ],
+     "permanence|Fixed": [
+      55.76923076923077,
+      52
+     ],
+     "permanence|Moving": [
+      50.0,
+      68
+     ],
+     "immutability|Fixed": [
+      44.23076923076923,
+      52
+     ],
+     "immutability|Moving": [
+      41.1764705882353,
+      68
+     ],
+     "continuity|Fixed": [
+      53.84615384615385,
+      52
+     ],
+     "continuity|Moving": [
+      51.470588235294116,
+      68
+     ],
+     "solidity|Fixed": [
+      48.07692307692308,
+      52
+     ],
+     "solidity|Moving": [
+      56.38297872340426,
+      94
+     ],
+     "cam=Fixed": [
+      50.48076923076923,
+      208
+     ],
+     "cam=Moving": [
+      50.33557046979866,
+      298
+     ]
+    },
+    "meanC": {
+     "all": 49.63768115942029,
+     "permanence": 49.30555555555555,
+     "immutability": 45.27777777777778,
+     "continuity": 49.44444444444445,
+     "solidity": 53.65296803652968,
+     "permanence|Fixed": 54.48717948717948,
+     "permanence|Moving": 45.34313725490196,
+     "immutability|Fixed": 50.96153846153846,
+     "immutability|Moving": 40.931372549019606,
+     "continuity|Fixed": 49.67948717948718,
+     "continuity|Moving": 49.264705882352935,
+     "solidity|Fixed": 50.0,
+     "solidity|Moving": 55.67375886524823,
+     "cam=Fixed": 51.28205128205128,
+     "cam=Moving": 48.489932885906036
+    },
+    "maxC": {
+     "all": 50.39525691699605,
+     "permanence": 52.5,
+     "immutability": 50.0,
+     "continuity": 52.5,
+     "solidity": 55.47945205479452,
+     "permanence|Fixed": 55.76923076923077,
+     "permanence|Moving": 50.0,
+     "immutability|Fixed": 53.84615384615385,
+     "immutability|Moving": 47.05882352941177,
+     "continuity|Fixed": 53.84615384615385,
+     "continuity|Moving": 51.470588235294116,
+     "solidity|Fixed": 51.92307692307692,
+     "solidity|Moving": 58.51063829787234,
+     "cam=Fixed": 52.40384615384615,
+     "cam=Moving": 50.33557046979866
+    },
+    "n": {
+     "all": 506,
+     "permanence": 120,
+     "immutability": 120,
+     "continuity": 120,
+     "solidity": 146,
+     "permanence|Fixed": 52,
+     "permanence|Moving": 68,
+     "immutability|Fixed": 52,
+     "immutability|Moving": 68,
+     "continuity|Fixed": 52,
+     "continuity|Moving": 68,
+     "solidity|Fixed": 52,
+     "solidity|Moving": 94,
+     "cam=Fixed": 208,
+     "cam=Moving": 298
+    }
+   },
+   "w32": {
+    "file": "natural_ar_vw_state_phys3d_event/eval/intphys2_main_latest_w32/per_video.csv",
+    "bestC": 8,
+    "at_bestC": {
+     "all": [
+      50.19762845849802,
+      506
+     ],
+     "permanence": [
+      45.833333333333336,
+      120
+     ],
+     "immutability": [
+      47.5,
+      120
+     ],
+     "continuity": [
+      52.5,
+      120
+     ],
+     "solidity": [
+      54.10958904109589,
+      146
+     ],
+     "permanence|Fixed": [
+      55.76923076923077,
+      52
+     ],
+     "permanence|Moving": [
+      38.23529411764706,
+      68
+     ],
+     "immutability|Fixed": [
+      53.84615384615385,
+      52
+     ],
+     "immutability|Moving": [
+      42.64705882352941,
+      68
+     ],
+     "continuity|Fixed": [
+      59.61538461538461,
+      52
+     ],
+     "continuity|Moving": [
+      47.05882352941177,
+      68
+     ],
+     "solidity|Fixed": [
+      50.0,
+      52
+     ],
+     "solidity|Moving": [
+      56.38297872340426,
+      94
+     ],
+     "cam=Fixed": [
+      54.80769230769231,
+      208
+     ],
+     "cam=Moving": [
+      46.97986577181208,
+      298
+     ]
+    },
+    "meanC": {
+     "all": 49.83530961791831,
+     "permanence": 47.5,
+     "immutability": 47.22222222222222,
+     "continuity": 51.52777777777778,
+     "solidity": 52.51141552511415,
+     "permanence|Fixed": 56.730769230769226,
+     "permanence|Moving": 40.44117647058823,
+     "immutability|Fixed": 53.205128205128204,
+     "immutability|Moving": 42.64705882352941,
+     "continuity|Fixed": 56.08974358974359,
+     "continuity|Moving": 48.03921568627451,
+     "solidity|Fixed": 49.03846153846154,
+     "solidity|Moving": 54.43262411347518,
+     "cam=Fixed": 53.76602564102564,
+     "cam=Moving": 47.0917225950783
+    },
+    "maxC": {
+     "all": 50.19762845849802,
+     "permanence": 49.166666666666664,
+     "immutability": 50.0,
+     "continuity": 52.5,
+     "solidity": 54.10958904109589,
+     "permanence|Fixed": 59.61538461538461,
+     "permanence|Moving": 45.588235294117645,
+     "immutability|Fixed": 57.69230769230769,
+     "immutability|Moving": 47.05882352941177,
+     "continuity|Fixed": 59.61538461538461,
+     "continuity|Moving": 50.0,
+     "solidity|Fixed": 50.0,
+     "solidity|Moving": 56.38297872340426,
+     "cam=Fixed": 55.28846153846154,
+     "cam=Moving": 48.65771812080537
+    },
+    "n": {
+     "all": 506,
+     "permanence": 120,
+     "immutability": 120,
+     "continuity": 120,
+     "solidity": 146,
+     "permanence|Fixed": 52,
+     "permanence|Moving": 68,
+     "immutability|Fixed": 52,
+     "immutability|Moving": 68,
+     "continuity|Fixed": 52,
+     "continuity|Moving": 68,
+     "solidity|Fixed": 52,
+     "solidity|Moving": 94,
+     "cam=Fixed": 208,
+     "cam=Moving": 298
+    }
+   }
+  },
+  "pooled_mean": {
+   "all": 49.736495388669304,
+   "permanence": 48.40277777777778,
+   "immutability": 46.25,
+   "continuity": 50.486111111111114,
+   "solidity": 53.082191780821915,
+   "permanence|Fixed": 55.60897435897436,
+   "permanence|Moving": 42.892156862745104,
+   "immutability|Fixed": 52.083333333333336,
+   "immutability|Moving": 41.78921568627451,
+   "continuity|Fixed": 52.88461538461539,
+   "continuity|Moving": 48.65196078431373,
+   "solidity|Fixed": 49.519230769230774,
+   "solidity|Moving": 55.0531914893617,
+   "cam=Fixed": 52.52403846153846,
+   "cam=Moving": 47.79082774049217
+  }
+ },
+ "natural_ar_vw_state_vob": {
+  "per_w": {
+   "w16": {
+    "file": "natural_ar_vw_state_vob/eval/intphys2_main_latest_w16_vb8/per_video.csv",
+    "bestC": 12,
+    "at_bestC": {
+     "all": [
+      52.17391304347826,
+      506
+     ],
+     "permanence": [
+      50.833333333333336,
+      120
+     ],
+     "immutability": [
+      49.166666666666664,
+      120
+     ],
+     "continuity": [
+      55.0,
+      120
+     ],
+     "solidity": [
+      53.42465753424658,
+      146
+     ],
+     "permanence|Fixed": [
+      57.69230769230769,
+      52
+     ],
+     "permanence|Moving": [
+      45.588235294117645,
+      68
+     ],
+     "immutability|Fixed": [
+      51.92307692307692,
+      52
+     ],
+     "immutability|Moving": [
+      47.05882352941177,
+      68
+     ],
+     "continuity|Fixed": [
+      51.92307692307692,
+      52
+     ],
+     "continuity|Moving": [
+      57.35294117647059,
+      68
+     ],
+     "solidity|Fixed": [
+      48.07692307692308,
+      52
+     ],
+     "solidity|Moving": [
+      56.38297872340426,
+      94
+     ],
+     "cam=Fixed": [
+      52.40384615384615,
+      208
+     ],
+     "cam=Moving": [
+      52.013422818791945,
+      298
+     ]
+    },
+    "meanC": {
+     "all": 50.16469038208169,
+     "permanence": 48.88888888888889,
+     "immutability": 47.083333333333336,
+     "continuity": 50.55555555555555,
+     "solidity": 53.42465753424657,
+     "permanence|Fixed": 56.730769230769226,
+     "permanence|Moving": 42.892156862745104,
+     "immutability|Fixed": 50.64102564102564,
+     "immutability|Moving": 44.36274509803922,
+     "continuity|Fixed": 50.641025641025635,
+     "continuity|Moving": 50.490196078431374,
+     "solidity|Fixed": 49.03846153846154,
+     "solidity|Moving": 55.85106382978723,
+     "cam=Fixed": 51.76282051282052,
+     "cam=Moving": 49.049217002237135
+    },
+    "maxC": {
+     "all": 52.17391304347826,
+     "permanence": 50.833333333333336,
+     "immutability": 49.166666666666664,
+     "continuity": 55.833333333333336,
+     "solidity": 54.794520547945204,
+     "permanence|Fixed": 59.61538461538461,
+     "permanence|Moving": 48.529411764705884,
+     "immutability|Fixed": 53.84615384615385,
+     "immutability|Moving": 47.05882352941177,
+     "continuity|Fixed": 55.76923076923077,
+     "continuity|Moving": 57.35294117647059,
+     "solidity|Fixed": 51.92307692307692,
+     "solidity|Moving": 58.51063829787234,
+     "cam=Fixed": 52.88461538461539,
+     "cam=Moving": 52.013422818791945
+    },
+    "n": {
+     "all": 506,
+     "permanence": 120,
+     "immutability": 120,
+     "continuity": 120,
+     "solidity": 146,
+     "permanence|Fixed": 52,
+     "permanence|Moving": 68,
+     "immutability|Fixed": 52,
+     "immutability|Moving": 68,
+     "continuity|Fixed": 52,
+     "continuity|Moving": 68,
+     "solidity|Fixed": 52,
+     "solidity|Moving": 94,
+     "cam=Fixed": 208,
+     "cam=Moving": 298
+    }
+   },
+   "w32": {
+    "file": "natural_ar_vw_state_vob/eval/intphys2_main_latest_w32_vb8/per_video.csv",
+    "bestC": 8,
+    "at_bestC": {
+     "all": [
+      50.98814229249012,
+      506
+     ],
+     "permanence": [
+      50.833333333333336,
+      120
+     ],
+     "immutability": [
+      49.166666666666664,
+      120
+     ],
+     "continuity": [
+      51.666666666666664,
+      120
+     ],
+     "solidity": [
+      52.054794520547944,
+      146
+     ],
+     "permanence|Fixed": [
+      59.61538461538461,
+      52
+     ],
+     "permanence|Moving": [
+      44.11764705882353,
+      68
+     ],
+     "immutability|Fixed": [
+      57.69230769230769,
+      52
+     ],
+     "immutability|Moving": [
+      42.64705882352941,
+      68
+     ],
+     "continuity|Fixed": [
+      55.76923076923077,
+      52
+     ],
+     "continuity|Moving": [
+      48.529411764705884,
+      68
+     ],
+     "solidity|Fixed": [
+      50.0,
+      52
+     ],
+     "solidity|Moving": [
+      53.191489361702125,
+      94
+     ],
+     "cam=Fixed": [
+      55.76923076923077,
+      208
+     ],
+     "cam=Moving": [
+      47.651006711409394,
+      298
+     ]
+    },
+    "meanC": {
+     "all": 49.275362318840585,
+     "permanence": 48.333333333333336,
+     "immutability": 46.94444444444445,
+     "continuity": 50.97222222222222,
+     "solidity": 50.57077625570776,
+     "permanence|Fixed": 56.730769230769226,
+     "permanence|Moving": 41.911764705882355,
+     "immutability|Fixed": 51.60256410256411,
+     "immutability|Moving": 43.38235294117647,
+     "continuity|Fixed": 55.769230769230774,
+     "continuity|Moving": 47.30392156862745,
+     "solidity|Fixed": 46.47435897435898,
+     "solidity|Moving": 52.83687943262411,
+     "cam=Fixed": 52.644230769230774,
+     "cam=Moving": 46.92393736017897
+    },
+    "maxC": {
+     "all": 50.98814229249012,
+     "permanence": 50.833333333333336,
+     "immutability": 51.666666666666664,
+     "continuity": 51.666666666666664,
+     "solidity": 52.054794520547944,
+     "permanence|Fixed": 59.61538461538461,
+     "permanence|Moving": 45.588235294117645,
+     "immutability|Fixed": 57.69230769230769,
+     "immutability|Moving": 47.05882352941177,
+     "continuity|Fixed": 57.69230769230769,
+     "continuity|Moving": 50.0,
+     "solidity|Fixed": 50.0,
+     "solidity|Moving": 54.255319148936174,
+     "cam=Fixed": 55.76923076923077,
+     "cam=Moving": 47.986577181208055
+    },
+    "n": {
+     "all": 506,
+     "permanence": 120,
+     "immutability": 120,
+     "continuity": 120,
+     "solidity": 146,
+     "permanence|Fixed": 52,
+     "permanence|Moving": 68,
+     "immutability|Fixed": 52,
+     "immutability|Moving": 68,
+     "continuity|Fixed": 52,
+     "continuity|Moving": 68,
+     "solidity|Fixed": 52,
+     "solidity|Moving": 94,
+     "cam=Fixed": 208,
+     "cam=Moving": 298
+    }
+   },
+   "w48": {
+    "file": "natural_ar_vw_state_vob/eval/intphys2_main_latest_w48_vb8/per_video.csv",
+    "bestC": 36,
+    "at_bestC": {
+     "all": [
+      50.98814229249012,
+      506
+     ],
+     "permanence": [
+      48.333333333333336,
+      120
+     ],
+     "immutability": [
+      51.666666666666664,
+      120
+     ],
+     "continuity": [
+      50.833333333333336,
+      120
+     ],
+     "solidity": [
+      52.73972602739726,
+      146
+     ],
+     "permanence|Fixed": [
+      51.92307692307692,
+      52
+     ],
+     "permanence|Moving": [
+      45.588235294117645,
+      68
+     ],
+     "immutability|Fixed": [
+      63.46153846153846,
+      52
+     ],
+     "immutability|Moving": [
+      42.64705882352941,
+      68
+     ],
+     "continuity|Fixed": [
+      55.76923076923077,
+      52
+     ],
+     "continuity|Moving": [
+      47.05882352941177,
+      68
+     ],
+     "solidity|Fixed": [
+      48.07692307692308,
+      52
+     ],
+     "solidity|Moving": [
+      55.319148936170215,
+      94
+     ],
+     "cam=Fixed": [
+      54.80769230769231,
+      208
+     ],
+     "cam=Moving": [
+      48.32214765100671,
+      298
+     ]
+    },
+    "meanC": {
+     "all": 50.14822134387352,
+     "permanence": 46.111111111111114,
+     "immutability": 51.18055555555555,
+     "continuity": 51.38888888888889,
+     "solidity": 51.598173515981735,
+     "permanence|Fixed": 52.243589743589745,
+     "permanence|Moving": 41.42156862745098,
+     "immutability|Fixed": 60.416666666666664,
+     "immutability|Moving": 44.11764705882353,
+     "continuity|Fixed": 54.166666666666664,
+     "continuity|Moving": 49.26470588235295,
+     "solidity|Fixed": 47.11538461538461,
+     "solidity|Moving": 54.07801418439717,
+     "cam=Fixed": 53.48557692307693,
+     "cam=Moving": 47.81879194630872
+    },
+    "maxC": {
+     "all": 50.98814229249012,
+     "permanence": 48.333333333333336,
+     "immutability": 54.166666666666664,
+     "continuity": 53.333333333333336,
+     "solidity": 52.73972602739726,
+     "permanence|Fixed": 55.76923076923077,
+     "permanence|Moving": 45.588235294117645,
+     "immutability|Fixed": 65.38461538461539,
+     "immutability|Moving": 47.05882352941177,
+     "continuity|Fixed": 55.76923076923077,
+     "continuity|Moving": 52.94117647058823,
+     "solidity|Fixed": 50.0,
+     "solidity|Moving": 55.319148936170215,
+     "cam=Fixed": 54.80769230769231,
+     "cam=Moving": 48.65771812080537
+    },
+    "n": {
+     "all": 506,
+     "permanence": 120,
+     "immutability": 120,
+     "continuity": 120,
+     "solidity": 146,
+     "permanence|Fixed": 52,
+     "permanence|Moving": 68,
+     "immutability|Fixed": 52,
+     "immutability|Moving": 68,
+     "continuity|Fixed": 52,
+     "continuity|Moving": 68,
+     "solidity|Fixed": 52,
+     "solidity|Moving": 94,
+     "cam=Fixed": 208,
+     "cam=Moving": 298
+    }
+   }
+  },
+  "pooled_mean": {
+   "all": 49.86275801493193,
+   "permanence": 47.77777777777778,
+   "immutability": 48.40277777777778,
+   "continuity": 50.97222222222222,
+   "solidity": 51.86453576864536,
+   "permanence|Fixed": 55.23504273504273,
+   "permanence|Moving": 42.07516339869281,
+   "immutability|Fixed": 54.22008547008547,
+   "immutability|Moving": 43.954248366013076,
+   "continuity|Fixed": 53.52564102564102,
+   "continuity|Moving": 49.01960784313726,
+   "solidity|Fixed": 47.542735042735046,
+   "solidity|Moving": 54.255319148936174,
+   "cam=Fixed": 52.63087606837607,
+   "cam=Moving": 47.930648769574944
+  }
+ }
+}
