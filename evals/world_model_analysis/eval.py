@@ -600,6 +600,7 @@ def run_surprise_intphys1(ds, cfg, device):
 #   object          물체가 있어야 할 자리 주변 토큰만
 #   post_divergence divergence_frame 이후 tubelet 만
 #   object_postdiv  위 둘의 교집합
+#   far_bg          물체 중심 칸에서 Chebyshev 거리 >= far_min (기본 3) 칸 떨어진 토큰만 (2026-11-05, 미래 블록마다)
 #
 # ★ 마스크는 video 가 아니라 **block 단위**로 만든다.
 #   문맥일치 쌍 (pos_obj, imp_vanish) 은 미래에 물체가 있는 쪽과 없는 쪽이다.
@@ -611,7 +612,7 @@ def run_surprise_intphys1(ds, cfg, device):
 # 토큰 배치는 PatchEmbed3D 그대로 — tubelet 이 바깥, 그 안에서 spatial.
 #   t = tub_local * spatial + (py * grid + px),  tub_local = (frame - ctx) // tubelet
 # ---------------------------------------------------------------------------
-_SUBSET_KEYS = ("all", "object", "post_divergence", "object_postdiv")
+_SUBSET_KEYS = ("all", "object", "post_divergence", "object_postdiv", "far_bg")
 
 
 def _frames_table(root: str):
@@ -650,6 +651,7 @@ def _token_subset_masks(ds, cfg, ctx: int, tubelet: int, spatial: int):
     assert grid * grid == spatial, f"spatial={spatial} 가 정사각 격자가 아니다"
     patch = res / grid
     radius = int(TS.get("object_radius", 1))
+    far_min = int(TS.get("far_min", 3))                    # far_bg: 물체 중심 칸에서 이 거리 (칸) 이상
 
     frames = _frames_table(ds.root)
     if frames is None:
@@ -664,6 +666,7 @@ def _token_subset_masks(ds, cfg, ctx: int, tubelet: int, spatial: int):
     cover = defaultdict(list)
     for bid, recs in by_block.items():
         obj = np.zeros((n_tub, grid, grid), dtype=bool)
+        near = np.zeros((n_tub, grid, grid), dtype=bool)   # far_bg 의 여집합: 중심 칸에서 거리 < far_min
         for r in recs:
             for f, x, y, present in frames.get(r.video_id, ()):
                 if not present or f < ctx or f >= N:
@@ -673,7 +676,10 @@ def _token_subset_masks(ds, cfg, ctx: int, tubelet: int, spatial: int):
                 x0, x1 = max(0, px - radius), min(grid, px + radius + 1)
                 y0, y1 = max(0, py - radius), min(grid, py + radius + 1)
                 obj[tb, y0:y1, x0:x1] = True
+                g = far_min - 1
+                near[tb, max(0, py - g):min(grid, py + g + 1), max(0, px - g):min(grid, px + g + 1)] = True
         obj = obj.reshape(n_tub, spatial)
+        far = ~near.reshape(n_tub, spatial)
 
         dv = int(recs[0].raw.get("divergence_frame") or 0)
         post = np.zeros((n_tub, spatial), dtype=bool)
@@ -682,7 +688,7 @@ def _token_subset_masks(ds, cfg, ctx: int, tubelet: int, spatial: int):
                 post[tb] = True
 
         built = {"all": np.ones((n_tub, spatial), dtype=bool), "object": obj,
-                 "post_divergence": post, "object_postdiv": obj & post}
+                 "post_divergence": post, "object_postdiv": obj & post, "far_bg": far}
         for m in modes:
             v = built[m].reshape(-1)
             if not v.any():
@@ -713,6 +719,14 @@ def run_surprise(ds, cfg, device):
                                      spatial_tokens=spatial, batch_size=bs, device=device)
     masks, modes = _token_subset_masks(ds, cfg, ctx, ts, spatial)
     kind, exp = S.get("distance", "l1"), float(S.get("loss_exp", 1.0))
+    # 2026-11-05 (splice 대조): target_future_only = 정답을 미래 N−ctx 장만 target encoder 에 넣어 만든다 (문맥 · 이음을 안 본다).
+    #   RoPE 는 상대 위치라 미래만 넣어도 토큰 배치 (tubelet 바깥 · spatial 안) 가 ti 와 같다.
+    # copy_baseline = 복사 기준선: 문맥 마지막 tubelet 토큰 (LN) 을 미래 tubelet 전부에. future_only 면 문맥도 문맥 ctx 장만 넣은 pass.
+    #   per_video_surprise 에 'copy_<mode>' 로 같이 남는다.
+    fut_only = bool(S.get("target_future_only", False))
+    copy_bl = bool(S.get("copy_baseline", False))
+    if (fut_only or copy_bl) and not (kind == "l1" and exp == 1.0):
+        raise ValueError("target_future_only · copy_baseline 은 distance=l1, loss_exp=1.0 에서만 쓴다")
 
     # Match the Garrido/IntPhys numerical path when requested: keep checkpoint
     # weights in FP32, but execute encoder/predictor/target forward in FP16.
@@ -746,12 +760,22 @@ def run_surprise(ds, cfg, device):
             with ac:
                 z = bundle.context_encoder(x, masks=[ci[:n]])
                 p = bundle.predictor(z, ci[:n], ti[:n], mask_index=int(S.get("mask_index", 0)))
-                h = bundle.target_encoder(x)
-                h = torch.gather(h, 1, ti[:n].unsqueeze(-1).expand(-1, -1, h.size(-1)))
+                if fut_only:
+                    h = bundle.target_encoder(x[:, :, ctx:N].contiguous())
+                    if h.size(1) != ti.size(1):
+                        raise ValueError(f"target_future_only: 미래 pass 토큰 {h.size(1)} != 타깃 {ti.size(1)}")
+                    hc = bundle.target_encoder(x[:, :, :ctx].contiguous())[:, -spatial:] if copy_bl else None
+                else:
+                    hf = bundle.target_encoder(x)
+                    h = torch.gather(hf, 1, ti[:n].unsqueeze(-1).expand(-1, -1, hf.size(-1)))
+                    hc = hf[:, ci.size(1) - spatial: ci.size(1)] if copy_bl else None
+                    del hf
                 if S.get("target_layer_norm", True):
                     h = torch.nn.functional.layer_norm(h, (h.size(-1),))
+                    if hc is not None:
+                        hc = torch.nn.functional.layer_norm(hc, (hc.size(-1),))
             p = p.float()
-            if modes == ["all"]:                       # 기존 경로 그대로 (수치 보존)
+            if modes == ["all"] and not (fut_only or copy_bl):   # 기존 경로 그대로 (수치 보존)
                 for k, i in enumerate(chunk):
                     out[ds.records[i].video_id] = {"all": float(
                         _distance(p[k : k + 1], h[k : k + 1].float(), kind, loss_exp=exp))}
@@ -759,10 +783,17 @@ def run_surprise(ds, cfg, device):
                 # 토큰별 오차 e[t] = mean_D |p-h|. subset 점수 = 선택된 t 의 평균.
                 # mask 가 전체면 mean(e) == mean_{t,d}|p-h| 라 'all' 이 기존 값과 정확히 같다.
                 e = (p - h.float()).abs().mean(-1).cpu().numpy()          # (n, T)
+                ec = None
+                if hc is not None:                                        # 복사: 문맥 마지막 tubelet 을 미래 tubelet 수만큼 반복
+                    pc = hc.float().repeat(1, h.size(1) // spatial, 1)
+                    ec = (pc - h.float()).abs().mean(-1).cpu().numpy()
                 for k, i in enumerate(chunk):
                     vid = ds.records[i].video_id
                     out[vid] = {m: float(e[k].mean() if masks[m] is None else e[k][masks[m][vid]].mean())
                                 for m in modes}
+                    if ec is not None:
+                        out[vid].update({f"copy_{m}": float(ec[k].mean() if masks[m] is None else ec[k][masks[m][vid]].mean())
+                                         for m in modes})
             if (s // bs) % 20 == 0:                  # rank0 만 찍으면 어느 rank 가 느린지 안 보인다
                 logger.info(f"[surprise] rank{rank} {s+n}/{len(idx)} "
                             f"({time.time()-t_all:.0f}s 경과)")
