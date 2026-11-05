@@ -1,0 +1,18 @@
+# =============================================================================
+# 무엇: v4vc_release_negimp (릴리즈 출발 · v4vc + 불가능 미래 음의 손실 max(0, 1 − L1) · 전역 48 × 2,000 step) 에 context encoder (online `encoder`) LoRA 를 붙여 predictor 와 같이 학습. target encoder 는 얼림.
+# 왜: 2026-11-02 사용자 "context encoder LoRA 붙여서 같이 학습 ... sheet 에 있는 것들 다" (시트 "릴리즈 └ V4 + 음의 손실" 행). 음의 손실 분기와 LoRA 가 같이 돈다.
+# 비교: v4vc_release_negimp (vith_release_v4vc_negimp). 다른 것은 LoRA 하나 (rank 8 · alpha 16 · qkv/proj/fc1/fc2 · lr ×10 · act ckpt).
+#
+#   (worktree vjepa2_negloss 에서) GPUS=8 bash z_training/tmux_train.sh v4vc_release_negimp_lora
+#   run 폴더는 원래 체크아웃 vjepa2/z_training/runs/v4vc_release_negimp_lora 에서 심볼릭 링크로 가리킨다 (기존 negimp 판과 같다).
+# LoRA 설정은 intphys2_vuni_ar_vw_state_postft_lora 와 같다. ⚠️ lr ×10 은 2026-11-02 train.py 수정 뒤에야 WarmupCosine 에서도 실제로 곱해진다.
+# =============================================================================
+extends: v4vc_release_negimp
+
+model:
+  encoder_lora:
+    rank: 8
+    alpha: 16
+    targets: [qkv, proj, fc1, fc2]
+    lr_mult: 10
+    act_ckpt: true

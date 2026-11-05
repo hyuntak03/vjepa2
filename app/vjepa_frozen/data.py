@@ -289,6 +289,11 @@ class Mp4ListDataset(torch.utils.data.Dataset):
             raise ValueError(f"mp4_list 가 비어 있다: {spec['csv']}")
         logger.info(f"[mp4_list] {spec['csv']}: {len(self.paths)} clips, starts={self.starts}, "
                     f"stride={self.stride}, n_frames={self.n_frames}")
+        self.neg = None
+        if spec.get("negimp"):
+            from app.vjepa_frozen.negimp import ImpTable
+            self.neg = ImpTable(spec["negimp"], self.paths, self.starts, self.stride, self.n_frames)
+            logger.info(f"[mp4_list] negimp: {self.neg.describe()}")
 
     def __len__(self):
         return len(self.paths)
@@ -300,6 +305,15 @@ class Mp4ListDataset(torch.utils.data.Dataset):
         else:
             st = random.choice(self.starts)
             idx = np.arange(st, st + self.n_frames * self.stride, self.stride, dtype=np.int64)
+        if self.neg is not None:          # 2026-11-02 negimp: 불가능 짝 (문맥 = 이 영상, 미래 = 짝 영상). code 0 가능 · 1 vanish · 2 appear · 3 swap
+            if self.fixed[i] is not None:
+                raise ValueError("negimp 는 프레임 번호를 고정한 mp4_list 줄 (탭) 과 같이 쓰지 않는다")
+            code, fut = self.neg.draw(i)
+            if code:
+                n_c = self.neg.n_ctx
+                xc = decord.VideoReader(self.paths[i], num_threads=self.threads).get_batch(list(idx[:n_c])).asnumpy()
+                xf = decord.VideoReader(self.paths[fut], num_threads=self.threads).get_batch(list(idx[n_c:])).asnumpy()
+                return [self.transform(torch.from_numpy(np.concatenate([xc, xf])))], code, [idx]
         vr = decord.VideoReader(self.paths[i], num_threads=self.threads)
         if idx[-1] >= len(vr):
             raise IndexError(f"{self.paths[i]}: {len(vr)} 장인데 프레임 {idx[-1]} 이 필요하다")
@@ -610,13 +624,16 @@ class WindowGridCollator:
 class TrainCollator:
     """DataLoader collate_fn. worker 안에서 마스크를 뽑는다 (block3d 의 step 카운터가 공유 Value 라 그래도 된다)."""
 
-    def __init__(self, mask_sampler: Optional[MaskSampler] = None, with_rows: bool = False):
+    def __init__(self, mask_sampler: Optional[MaskSampler] = None, with_rows: bool = False, with_imp: bool = False):
         # None 이면 마스크를 **학습 루프가** 만든다 (rank 동기화. MaskSampler docstring 참고).
         self.mask_sampler = mask_sampler
         self.with_rows = with_rows   # 2026-10-31: csv 둘째 열 (라벨) = 행 번호 → info["row"] 로 넘긴다 (보조 모듈 물체 칸 감독, model.aux.sup)
+        self.with_imp = with_imp     # 2026-11-02 negimp: 둘째 값 = 불가능 종류 코드 (0 가능) → info["imp"]
 
     def __call__(self, batch):
         clips = torch.stack([b[0][0] for b in batch])            # (B, 3, T, H, W)
+        if self.mask_sampler is None and self.with_imp:
+            return clips, None, None, {"imp": torch.tensor([int(b[1]) for b in batch], dtype=torch.long)}
         if self.mask_sampler is None:
             return clips, None, None, ({"row": torch.tensor([int(b[1]) for b in batch])} if self.with_rows else None)
         enc, pred, info = self.mask_sampler(len(batch))

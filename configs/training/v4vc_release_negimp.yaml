@@ -1,0 +1,13 @@
+# 무엇을 바꿨나: v4vc_release_postft 에 불가능 미래 샘플 (vanish · appear · swap, 이음 = 프레임 32) 을 영상마다 확률 0.5 로 섞고, 그 샘플에 max(0, 1 − L1) 음의 손실.
+# 왜: 사용자 지시 (2026-11-02) "release, ar 둘 다 v4 로 학습하는데, impossible 도 넣고 impossible 은 1−L1 으로 negative loss" — 불가능 미래에서 멀어지는 압력을 직접 준다.
+# 비교: v4vc_release_postft (같은 출발 · 데이터 목록 · batch 48 · 2,000 step · seed 0 · lr 5e-5, 손실 L1 만). 짝 정의 · 손실은 app/vjepa_frozen/negimp.py, 문서 z_training/docs/NEGIMP_V4_2026-11-02.md
+#
+#   GPUS=8 bash z_training/tmux_train.sh v4vc_release_negimp
+extends: v4vc_release_postft
+
+negimp:
+  families: ${DATA_CSV}/blender_track_v4vc_negimp/families.json   # z_training/data/build_v4vc_imp_index.py
+  p: 0.5              # 영상마다 불가능으로 바꿀 확률 (문맥 = 뽑힌 영상 자신, 짝을 만들 수 있는 영상만)
+  swap_frac: 0.5      # 단계 영상 문맥: swap 0.5 · vanish 0.5 (빈 장면 문맥은 appear)
+  context_frames: 16  # 이음 앞 샘플 수 = 문맥 16 장
+  margin: 1.0         # 불가능 손실 = max(0, 1 − L1)

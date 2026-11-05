@@ -204,6 +204,23 @@ def main(args, resume_preempt=False):
         raise ValueError("kind=ar 는 loss.target_layer_norm=true 가 전제다 (입력·타깃·출력이 모두 LN 공간)")
     O = cfg["optimization"]
     V = cfg.get("val")
+    # ── negimp (2026-11-02, 사용자 지시): 불가능 미래 (문맥 · 미래 이어 붙임) 에 max(0, margin − L1). app/vjepa_frozen/negimp.py
+    NEG = cfg.get("negimp") or None
+    if NEG:
+        from app.vjepa_frozen import negimp as NI
+        _bad = [n for n, v in (("var_window", D.get("var_window")), ("window_grid", D.get("window_grid")), ("mask_mode=all", str(cfg.get("mask_mode", "sample")) == "all"),
+                               ("model.aux", MD.get("aux")), ("state_head", cfg.get("state_head")), ("motion", cfg.get("motion")), ("latent_action", cfg.get("latent_action")),
+                               ("hint", HINT), ("delta_weight", delta_weight), ("dyn_weight", dyn_weight),
+                               ("tf_span", tf_span != "all"), ("gating", GATING), ("ar_input", ar_input != "block"), ("ar_oneshot", AR_ONESHOT)) if v]
+        if kind not in ("oneshot", "ar") or _bad:
+            raise ValueError(f"negimp 는 kind=oneshot | ar 기본 경로 전용이다 (kind {kind}, 같이 못 쓰는 것 {_bad})")
+        if any(s.get("type") != "mp4_list" for s in D["datasets"]):
+            raise ValueError("negimp 는 data.datasets 가 전부 mp4_list 여야 한다")
+        if str(NEG.get("ar_terms", "rollout")) not in ("rollout", "sum"):
+            raise ValueError(f"negimp.ar_terms 는 rollout | sum: {NEG.get('ar_terms')!r}")
+        for s in D["datasets"]:
+            s["negimp"] = {k: NEG[k] for k in ("families", "p", "swap_frac", "context_frames") if k in NEG}
+        NEG_MARGIN, NEG_TERMS, NEG_CTX = float(NEG.get("margin", 1.0)), str(NEG.get("ar_terms", "rollout")), int(NEG.get("context_frames", 16))
 
     random.seed(seed); np.random.seed(seed); torch.manual_seed(seed)
     torch.backends.cudnn.benchmark = True
@@ -425,7 +442,7 @@ def main(args, resume_preempt=False):
         collator = WindowGridCollator(grid, sampler_masks, dataset.transform)
         logger.info(f"window_grid: {grid.describe()} | raw_span {grid.raw_span} jitter {grid.jitter}")
     else:
-        collator = TrainCollator(None, with_rows=bool((MD.get("aux") or {}).get("sup")))   # 마스크는 아래 루프가 step 당 한 번 만든다
+        collator = TrainCollator(None, with_rows=bool((MD.get("aux") or {}).get("sup")), with_imp=bool(NEG))   # 마스크는 아래 루프가 step 당 한 번 만든다
     _restore_affinity('before build_loader')   # DataLoader worker 가 여기서 mask 를 상속한다
     if VW:
         # 로더는 resume 뒤에 만든다 (start_step 이 필요하다). ipe 는 config 로 고정해야 한다
@@ -630,6 +647,7 @@ def main(args, resume_preempt=False):
         logger.info(f"Epoch {epoch + 1}/{num_epochs}")
         loss_meter, it_meter, gpu_meter, data_meter = AverageMeter(), AverageMeter(), AverageMeter(), AverageMeter()
         jl_meter, sl_meter = AverageMeter(), AverageMeter()                       # 팔 C 전용 (tf / rollout)
+        neg_ep = None                                                             # negimp: epoch 합 (rank 합친 것)
         for itr in range(ipe):
             t_it = time.time()
             if VW:                               # 가변 창: 로더가 (C, K, 데이터셋, B) 를 정해 W 장 정확히 준다 (자르지 않는다)
@@ -644,6 +662,7 @@ def main(args, resume_preempt=False):
                     loader_it = iter(loader)
                     clips, m_enc, m_pred, info = next(loader_it)
             occ_rows = info.pop("row") if (not VW and isinstance(info, dict) and "row" in info) else None   # model.aux.sup
+            imp_codes = info.pop("imp").to(device, non_blocking=True) if (NEG and isinstance(info, dict) and "imp" in info) else None   # negimp
             if VW:
                 pass
             elif m_enc is None and mask_all:       # 릴리즈 사전학습: 스펙 전부 (창 = n_frames 전체, 자르지 않는다)
@@ -668,6 +687,9 @@ def main(args, resume_preempt=False):
                     o = sampler_masks.rng.randint(0, sampler_masks.T - n_blk)
                     clips = clips[:, :, o * tubelet: (o + n_blk) * tubelet]
                     info = {**info, "win_blocks": n_blk, "win_offset": o}
+            if NEG:      # 이음은 문맥 끝 바로 뒤여야 한다 (창을 자르거나 문맥 길이가 다르면 불가능 샘플의 뜻이 바뀐다)
+                if imp_codes is None or int(info.get("context_frames", -1)) != NEG_CTX or int(info.get("win_offset", 0)) != 0 or clips.size(2) != n_frames:
+                    raise RuntimeError(f"negimp: 문맥 {info.get('context_frames')} (기대 {NEG_CTX}) · 창 offset {info.get('win_offset', 0)} · 길이 {clips.size(2)} · 코드 {imp_codes is not None}")
             clips = normalize_clips(clips.to(device, non_blocking=True))   # uint8 전송 -> GPU 정규화
             occ_flip = None
             if AUXSUP and float(AUXSUP.get("hflip_p", 0.5)) > 0:      # 2026-10-31: 반전을 라벨과 함께 (샘플마다)
@@ -781,7 +803,12 @@ def main(args, resume_preempt=False):
                 with _ac():
                     lab = info.get("labels") if state_head is not None else None    # 2026-10-19: 합성 (phys2d_sup) step 에만 있다
                     outs = {} if (lab is not None or motion_mod is not None) else None
-                    if lam_mod is not None:        # 2026-10-24: latent action — 정답 쌍 z 로 변조한 TF + rollout L1 + β·KL
+                    if NEG:                        # 2026-11-02 negimp: 가능 = TF + 굴린 L1, 불가능 = max(0, margin − 굴린 L1)
+                        # 2026-11-02 encoder LoRA 같이 (사용자: "context encoder LoRA 붙여서 같이 학습"): 입력 = LoRA 복사본 블록별 (grad), 타깃 = h (얼림)
+                        h_in = AR.encode_blocks(in_enc, clips.to(enc_dtype), tubelet) if in_enc is not None else None
+                        loss, jl, sl, R, aux["neg_st"] = NI.ar_loss(predictor, h, spatial, int(info["context_blocks"]), int(info["predict_blocks"]),
+                                                                     loss_exp, rollout_steps, imp_codes, NEG_MARGIN, NEG_TERMS, h_in=h_in)
+                    elif lam_mod is not None:      # 2026-10-24: latent action — 정답 쌍 z 로 변조한 TF + rollout L1 + β·KL
                         loss, jl, sl, R, aux["lam"] = LAM.lam_losses(predictor, h, spatial, int(info["context_blocks"]),
                                                                      int(info["predict_blocks"]), loss_exp, rollout_steps, float(LA.get("beta", 1e-4)))
                     else:
@@ -1074,7 +1101,10 @@ def main(args, resume_preempt=False):
                         occ_lg = auxo["occ"]
                     else:
                         p = predictor(z, m_enc, m_pred, mask_index=int(info.get("mask_index", mask_index)))   # (B, M, D); block3d 는 스펙별 mask token
-                loss = (p.float() - h.float()).abs().pow(loss_exp).mean() / loss_exp
+                if NEG:      # 2026-11-02: 가능 L1 · 불가능 max(0, margin − L1), 샘플 평균
+                    loss, aux["neg_st"] = NI.release_loss(p, h, imp_codes, NEG_MARGIN, loss_exp)
+                else:
+                    loss = (p.float() - h.float()).abs().pow(loss_exp).mean() / loss_exp
                 if AUXSUP:
                     lg = occ_lg.float()                                              # (B, M, 3) — binary 는 (B, M, 1)
                     if OCC_BIN:   # 점유 = 보이는 물체 ∪ 가려진 물체, 모르는 칸 (−1) 은 뺀다. BCE + dice (imagine-seg 계획 §4.2)
@@ -1147,6 +1177,13 @@ def main(args, resume_preempt=False):
             (loss, lr_now, wd_now), gpu_ms = gpu_timer(train_step_ar if is_ar else (train_step_ctx_ar if is_ctx_ar else (
                 train_step_ctx_state if is_ctx_state else (train_step_all if mask_all else train_step))))
             step += 1
+            if NEG:      # negimp: 가능 · 불가능 L1 합을 rank 끼리 더해 로그 (손실에는 영향 없음)
+                _st = aux.pop("neg_st")
+                if world_size > 1:
+                    torch.distributed.all_reduce(_st)
+                _st = _st.cpu()
+                neg_ep = _st if neg_ep is None else neg_ep + _st
+                aux["neg"] = NI.summarize(_st)
             if is_seq:
                 jl_meter.update(aux["jloss"]); sl_meter.update(aux["sloss"])
             it_ms = (time.time() - t_it) * 1000
@@ -1218,6 +1255,11 @@ def main(args, resume_preempt=False):
                         ar_s += " disp %.3f (0이동 %.3f)" % (aux["disp"], aux["disp0"])
                     if "p_ce" in aux:   # predictor 출력 p 의 칸 분류 CE · 보이는 / 가려진 물체 칸 재현율
                         ar_s += " pocc %.3f pvis R %.2f phid R %.2f" % (aux["p_ce"], aux["p_r1"], aux["p_r2"])
+                if NEG and aux.get("neg"):   # 2026-11-02 negimp (전 rank): 가능 L1 · 불가능 L1 (종류별) · 불가능 손실 · hinge 활성 비율 · 불가능 수
+                    g_ = aux["neg"]
+                    ar_s += " | neg pos %.4f imp %.4f (v %.4f a %.4f s %.4f) iloss %.4f act %.2f n_imp %d/%d" % (
+                        g_["pos_l1"], g_["imp_l1"], g_["l1_vanish"], g_["l1_appear"], g_["l1_swap"], g_["imp_loss"], g_["hinge_act"],
+                        g_["n_imp"], g_["n_imp"] + g_["n_pos"])
                 if CTX_HOLE:   # 2026-10-16: 이 step 의 구멍 비율 (문맥 토큰 중) · 가려진 문맥 토큰 복원 손실 (구멍 없는 step 은 0)
                     ar_s += " hole %.2f rec %.4f" % (aux.pop("hole_frac", 0.0), aux.pop("rloss", 0.0))
                 logger.info("[%d, %5d] loss %.4f (avg %.4f)%s | mask %s C=%s | lr %.2e wd %.2e | mem %.1fG | iter %.0f ms gpu %.0f ms data %.0f ms"
@@ -1229,6 +1271,8 @@ def main(args, resume_preempt=False):
                 gc.collect()
 
         logger.info(f"epoch {epoch + 1} avg loss {loss_meter.avg:.4f}" + (f" (tf {jl_meter.avg:.4f} ar {sl_meter.avg:.4f})" if is_seq else ""))
+        if NEG and neg_ep is not None and rank == 0:
+            logger.info("epoch %d negimp %s" % (epoch + 1, json.dumps({k: round(v, 4) for k, v in NI.summarize(neg_ep).items()})))
         if rank == 0:
             _extra = {"state_head": state_head.state_dict(), "state_head_cfg": SH} if state_head is not None else None
             if lora_params:             # 2026-10-25: 채점기가 문맥 (입력) encoder 를 다시 만든다 (analysis/intphys2/model.py, kind=ar · 2026-11-02 release = context encoder)
@@ -1250,6 +1294,8 @@ def main(args, resume_preempt=False):
                        "val": res, "time": time.strftime("%Y-%m-%d %H:%M:%S")}
                 if is_seq:
                     rec.update(train_jloss=jl_meter.avg, train_sloss=sl_meter.avg)
+                if NEG and neg_ep is not None:
+                    rec["neg"] = NI.summarize(neg_ep)          # 2026-11-02: epoch 전체 (전 rank) 가능 · 불가능 L1, 불가능 손실
                 if hasattr(pred_mod, "gates"):
                     rec["aux_gates"] = pred_mod.gates()                 # 2026-10-30 보조 모듈 gate (0 이면 릴리즈 그대로)
                 f.write(json.dumps(rec) + "\n")
