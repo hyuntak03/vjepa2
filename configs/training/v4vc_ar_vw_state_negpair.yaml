@@ -1,0 +1,14 @@
+# =============================================================================
+# negimp 짝 손실 (paired) · 결과 비율 1 : 1 : 1 (2026-11-05, 사용자: "{AR v4 negative loss lambda 1} 이렇게 학습좀 해봐. 이거 고려해서")
+#   ① 짝 손실: 같은 문맥 X 의 굴린 예측 p 하나를 가능 미래 · 불가능 미래 둘 다와 비교.
+#      손실 = TF + 굴린 L1(p, 가능) + λ · [굴린 L1(p, 가능) − 굴린 L1(p, 불가능)], λ = 1 (app/vjepa_frozen/negimp.py ar_pair_loss)
+#   ② 결과 비율: 불가능 종류 vanish : appear : swap = 1 : 1 : 1 (appear 차례면 문맥 = 빈 장면 B). 11-02 판은 0.20 : 0.10 : 0.20 (+ 가능 0.5)
+# v4vc_ar_vw_state_negimp (11-02, 짝 없음 · hinge max(0, 1 − L1)) 와 데이터 · step (2,000 × 48) · seed · 시작점 (AR 기본판 ep70) 같음.
+#   GPUS=8 bash z_training/tmux_train.sh v4vc_ar_vw_state_negpair
+# =============================================================================
+extends: v4vc_ar_vw_state_negimp
+
+negimp:
+  mode: paired
+  weight: 1.0
+  type_w: [1, 1, 1]

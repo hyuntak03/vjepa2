@@ -221,6 +221,12 @@ def main(args, resume_preempt=False):
         for s in D["datasets"]:
             s["negimp"] = {k: NEG[k] for k in ("families", "p", "swap_frac", "context_frames") if k in NEG}
         NEG_MARGIN, NEG_TERMS, NEG_CTX = float(NEG.get("margin", 1.0)), str(NEG.get("ar_terms", "rollout")), int(NEG.get("context_frames", 16))
+        NEG_W = float(NEG.get("weight", 1.0))      # λ (2026-11-05): 불가능 쪽 손실 가중. 1.0 = 11-02 판
+        NEG_MODE = str(NEG.get("mode", "single"))  # 2026-11-05: paired = 짝 손실 (app/vjepa_frozen/negimp.py)
+        if NEG_MODE == "paired" and kind != "ar":
+            raise ValueError("negimp.mode=paired 는 지금 kind=ar 만 (릴리즈 판은 아직)")
+        for s in D["datasets"]:
+            s["negimp"].update({k: NEG[k] for k in ("mode", "type_w") if k in NEG})
 
     random.seed(seed); np.random.seed(seed); torch.manual_seed(seed)
     torch.backends.cudnn.benchmark = True
@@ -663,6 +669,8 @@ def main(args, resume_preempt=False):
                     clips, m_enc, m_pred, info = next(loader_it)
             occ_rows = info.pop("row") if (not VW and isinstance(info, dict) and "row" in info) else None   # model.aux.sup
             imp_codes = info.pop("imp").to(device, non_blocking=True) if (NEG and isinstance(info, dict) and "imp" in info) else None   # negimp
+            # negimp paired: 불가능 클립도 가능 클립과 똑같이 GPU 에서 정규화한다 (2026-11-05 버그 수정 — 처음 판은 uint8 0–255 를 그대로 encoder 에 넣었다)
+            imp_clip = normalize_clips(info.pop("imp_clip").to(device, non_blocking=True)) if (NEG and isinstance(info, dict) and "imp_clip" in info) else None
             if VW:
                 pass
             elif m_enc is None and mask_all:       # 릴리즈 사전학습: 스펙 전부 (창 = n_frames 전체, 자르지 않는다)
@@ -806,8 +814,18 @@ def main(args, resume_preempt=False):
                     if NEG:                        # 2026-11-02 negimp: 가능 = TF + 굴린 L1, 불가능 = max(0, margin − 굴린 L1)
                         # 2026-11-02 encoder LoRA 같이 (사용자: "context encoder LoRA 붙여서 같이 학습"): 입력 = LoRA 복사본 블록별 (grad), 타깃 = h (얼림)
                         h_in = AR.encode_blocks(in_enc, clips.to(enc_dtype), tubelet) if in_enc is not None else None
-                        loss, jl, sl, R, aux["neg_st"] = NI.ar_loss(predictor, h, spatial, int(info["context_blocks"]), int(info["predict_blocks"]),
-                                                                     loss_exp, rollout_steps, imp_codes, NEG_MARGIN, NEG_TERMS, h_in=h_in)
+                        if NEG_MODE == "paired":   # 2026-11-05 짝 손실: 불가능 클립의 미래 블록만 블록별로 (문맥 블록은 가능 클립과 같다)
+                            _C, _K = int(info["context_blocks"]), int(info["predict_blocks"])
+                            if imp_clip is None:
+                                raise RuntimeError("negimp paired: 불가능 클립이 없다 (collator)")
+                            with torch.no_grad():
+                                h_imp = AR.encode_blocks(tgt_enc, imp_clip.to(enc_dtype)[:, :, _C * tubelet: (_C + _K) * tubelet], tubelet)
+                            loss, jl, sl, R, aux["neg_st"] = NI.ar_pair_loss(predictor, h, h_imp, spatial, _C, _K, loss_exp, rollout_steps,
+                                                                              imp_codes, weight=NEG_W, h_in=h_in)
+                        else:
+                            loss, jl, sl, R, aux["neg_st"] = NI.ar_loss(predictor, h, spatial, int(info["context_blocks"]), int(info["predict_blocks"]),
+                                                                         loss_exp, rollout_steps, imp_codes, NEG_MARGIN, NEG_TERMS, h_in=h_in,
+                                                                         weight=NEG_W)
                     elif lam_mod is not None:      # 2026-10-24: latent action — 정답 쌍 z 로 변조한 TF + rollout L1 + β·KL
                         loss, jl, sl, R, aux["lam"] = LAM.lam_losses(predictor, h, spatial, int(info["context_blocks"]),
                                                                      int(info["predict_blocks"]), loss_exp, rollout_steps, float(LA.get("beta", 1e-4)))
@@ -1102,7 +1120,7 @@ def main(args, resume_preempt=False):
                     else:
                         p = predictor(z, m_enc, m_pred, mask_index=int(info.get("mask_index", mask_index)))   # (B, M, D); block3d 는 스펙별 mask token
                 if NEG:      # 2026-11-02: 가능 L1 · 불가능 max(0, margin − L1), 샘플 평균
-                    loss, aux["neg_st"] = NI.release_loss(p, h, imp_codes, NEG_MARGIN, loss_exp)
+                    loss, aux["neg_st"] = NI.release_loss(p, h, imp_codes, NEG_MARGIN, loss_exp, weight=NEG_W)
                 else:
                     loss = (p.float() - h.float()).abs().pow(loss_exp).mean() / loss_exp
                 if AUXSUP:

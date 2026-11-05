@@ -305,6 +305,19 @@ class Mp4ListDataset(torch.utils.data.Dataset):
         else:
             st = random.choice(self.starts)
             idx = np.arange(st, st + self.n_frames * self.stride, self.stride, dtype=np.int64)
+        if self.neg is not None and self.neg.mode == "paired":   # 2026-11-05 짝 손실: [가능 클립, 불가능 클립] (같은 증강)
+            if self.fixed[i] is not None:
+                raise ValueError("negimp 는 프레임 번호를 고정한 mp4_list 줄 (탭) 과 같이 쓰지 않는다")
+            code, x, y = self.neg.draw_pair(i)
+            n_c = self.neg.n_ctx
+            xa = decord.VideoReader(self.paths[x], num_threads=self.threads).get_batch(list(idx)).asnumpy()
+            xf = (decord.VideoReader(self.paths[y], num_threads=self.threads).get_batch(list(idx[n_c:])).asnumpy()
+                  if y is not None else xa[n_c:])
+            t = self.transform(torch.from_numpy(np.concatenate([xa, xf])))            # (3, T + T−n_c, H, W) 한 번에 → 같은 결정
+            T = len(idx)
+            pos = t[:, :T].contiguous()
+            impc = torch.cat([t[:, :n_c], t[:, T:]], dim=1).contiguous()
+            return [pos, impc], code, [idx]
         if self.neg is not None:          # 2026-11-02 negimp: 불가능 짝 (문맥 = 이 영상, 미래 = 짝 영상). code 0 가능 · 1 vanish · 2 appear · 3 swap
             if self.fixed[i] is not None:
                 raise ValueError("negimp 는 프레임 번호를 고정한 mp4_list 줄 (탭) 과 같이 쓰지 않는다")
@@ -633,7 +646,10 @@ class TrainCollator:
     def __call__(self, batch):
         clips = torch.stack([b[0][0] for b in batch])            # (B, 3, T, H, W)
         if self.mask_sampler is None and self.with_imp:
-            return clips, None, None, {"imp": torch.tensor([int(b[1]) for b in batch], dtype=torch.long)}
+            info = {"imp": torch.tensor([int(b[1]) for b in batch], dtype=torch.long)}
+            if len(batch[0][0]) > 1:                              # 2026-11-05 negimp paired: 불가능 클립
+                info["imp_clip"] = torch.stack([b[0][1] for b in batch])
+            return clips, None, None, info
         if self.mask_sampler is None:
             return clips, None, None, ({"row": torch.tensor([int(b[1]) for b in batch])} if self.with_rows else None)
         enc, pred, info = self.mask_sampler(len(batch))

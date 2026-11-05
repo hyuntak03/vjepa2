@@ -1,0 +1,9 @@
+# =============================================================================
+# negimp λ ablation (2026-11-05, 사용자: "lambda ablation 0.5, 1, 2 ... 지금 돌려봐") — 불가능 쪽 손실 가중 λ = 0.5.
+# v4vc_release_negimp (λ = 1, 11-02) 와 다른 것은 negimp.weight 하나 (app/vjepa_frozen/negimp.py: 불가능 손실 × λ). 데이터 · step · seed · margin 같음.
+#   GPUS=8 bash z_training/tmux_train.sh v4vc_release_negimp_w05
+# =============================================================================
+extends: v4vc_release_negimp
+
+negimp:
+  weight: 0.5

@@ -536,6 +536,27 @@ vast_ar_vw_state_v4vc_negimp:     # AR 기본판 출발 (configs/training/v4vc_a
   predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4vc_ar_vw_state_negimp/latest.pt
   predictor.kind: ar
   predictor.ar_feedback: state
+vith_release_v4vc_negimp_w05:     # 2026-11-05 λ ablation: 불가능 손실 가중 0.5 (configs/training/v4vc_release_negimp_w05.yaml). 나머지는 vith_release_v4vc_negimp (λ 1) 과 같다
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4vc_release_negimp_w05/latest.pt
+vith_release_v4vc_negimp_w2:      # λ 2
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4vc_release_negimp_w2/latest.pt
+vast_ar_vw_state_v4vc_negimp_w05: # λ 0.5 (configs/training/v4vc_ar_vw_state_negimp_w05.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4vc_ar_vw_state_negimp_w05/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_v4vc_negimp_w2:  # λ 2
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4vc_ar_vw_state_negimp_w2/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_v4vc_negpair:    # 2026-11-05 짝 손실 (같은 문맥 예측을 가능 · 불가능 둘 다와) + 불가능 종류 1 : 1 : 1, λ 1 (configs/training/v4vc_ar_vw_state_negpair.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4vc_ar_vw_state_negpair/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
 # ── 2026-11-02 encoder LoRA 같이 학습 (사용자: "context encoder LoRA 붙여서 같이 학습 ... sheet 에 있는 것들 다"). rank 8 · alpha 16 · qkv/proj/fc1/fc2 · lr ×10 · act ckpt.
 #    릴리즈 = context encoder (online `encoder`) 에 LoRA / AR = 입력 경로 (블록별 target_encoder 복사본) 에 LoRA. 타깃 encoder 는 둘 다 얼림.
 #    채점기 (analysis/intphys2/model.py) 가 체크포인트의 encoder_lora 를 읽어 문맥 encoder 를 다시 만든다. config = configs/training/<run>.yaml. 문서 z_training/docs/LORA_PFT_2026-11-02.md
