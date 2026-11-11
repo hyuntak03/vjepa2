@@ -1,0 +1,39 @@
+# 2026-11-08 사용자 "나름 느낌있네. 이걸로 이제 negative loss 학습해볼래?" — 시간 누적 하이브리드 scratch (e43) 에서 v4bc4 음의 손실 이어 학습.
+#   출발: natural_ar_vw_state_tmem e43 (사용자 지시로 70 ep 전에 멈춘 판, z_training/runs/natural_ar_vw_state_tmem/e43.pt = 멈출 때 latest.pt 복사).
+#   레시피: v4bc4_ar_vw_state_negimp (real 72.1 기준판) 와 같다 — v4bc4 · λ 1 · p 0.5 · 20 ep × 100 step · 전체 batch 48 · lr 5e-5.
+#   다른 것: predictor 구조 (누적 층 9 : 전역 층 3, mem_period 4 + attn_out_gate) 와 출발 체크포인트 (AR scratch e70 → 하이브리드 e43).
+#   대조: vast_ar_vw_state_v4bc4_negimp (real 72.1 · IP2 late 60.0 · 공식 IP1 84.4 / IP2 53.2).
+#   val = real world permanence 매 epoch (기준판의 VOBench v1 late 대신, 사용자 지시). 학습 · 손실과는 무관.
+#   GPUS=8 bash z_training/tmux_train.sh v4bc4_tmem_negimp
+extends: v4bc4_ar_vw_state_negimp
+
+model:
+  predictor_init_checkpoint: /workspace/world_model/vjepa2/z_training/runs/natural_ar_vw_state_tmem/e43.pt
+  predictor:
+    mem_period: 4
+    attn_out_gate: true
+
+val:                            # 2026-11-08 사용자 "training val 로 real bench 성능 보여주도록" — 95 장면 × 4 = 380 클립 (채점기와 같은 로더), 매 epoch — 95 장면 × 4 = 380 클립 (채점기와 같은 로더 · 같은 창), 매 epoch (약 34 초)
+  dataset: null
+  n_frames: 32
+  context_length: 16
+  batch_size: 4
+  every_epochs: 1
+  at_start: true
+  n_blocks_per_type: 1000
+  seed: 0
+  data:
+    root: ${DATA_CSV}/real_world_permanence_uniform
+    index_csv: index.csv
+    video_root: /workspace/dataset/benchmarks/real_world_permanence
+    frames_index_column: frames
+    block_column: block_id
+    pair_column: pair_id
+    plausible_column: plausible
+    variant_column: variant
+    type_column: condition
+    frames_root: null           # 부모 (IntPhys1 dev PNG) 에서 상속되는 키를 지운다
+    frames_pattern: null
+    frames_start: null
+    frames_stride: null
+    raw_frames: null

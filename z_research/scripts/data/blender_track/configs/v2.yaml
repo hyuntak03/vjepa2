@@ -1,0 +1,97 @@
+# BlenderTrack v2 — 축 다섯 개를 교차한 칸 (324) 마다 같은 수의 clip (2026-11-01, 사용자 설계).
+#   축: 가림 타이밍 (early · mid · late) × 가림 형태 (fixed · moving · object) × 운동 · 장소 (12) × 카메라 (front · oblique · high)
+#       + 방해 물체 수 (0 · 1 · 2–3) 는 칸 안에서 균등. 모양 · 색 · 크기 · 배경 · 조명은 칸 안에서 무작위.
+#   창 = 20 fps × 64 장, 간격 2 → 32 샘플 (문맥 16 + 미래 16). 학습 · 시험은 칸마다 80 / 20 (seed 분리).
+#   bash z_research/scripts/data/blender_track/pipeline.sh z_research/scripts/data/blender_track/configs/v2.yaml
+name: v2
+design: gen_design_v2
+out: /data/hyuntak/project/2026/2027_cvpr/nfs_cache/blender_track/v2
+fps: 20
+frames: 64
+size: 256
+g: 3.5                       # m/s² — 축소 세계 (자유낙하 · 던짐이 3.2 초 창 안에 들어오게, VOBench gravity 3.75 와 비슷). 모든 칸이 같은 g
+
+cells:
+  timing: [early, mid, late]
+  form: [fixed, moving, object]
+  motion: [air_accel, air_reverse, air_bounce, flat_static, flat_const, flat_decel, flat_wall, ramp_static, ramp_decel, ramp_accel, ramp_reverse, ramp_wall]
+  camera: [front, oblique, high]
+  count: [0, 1, 2]           # 방해 물체 (움직이는 다른 물체) 수, 2 = 2–3. 칸 안에서 균등
+
+splits:                      # 칸 324 × 200 = 64,800 (train 160 · test 40 / 칸)
+  train: {seed: 30, n: 51840}
+  test:  {seed: 31, n: 12960}
+  smoke: {seed: 39, n: 324}  # 칸마다 1 개
+
+timing:                      # 샘플 번호 (0–31, 문맥 0–15 · 미래 16–31). aim = 가림막을 놓을 때 겨냥하는 구간, 나머지 = 받아들이는 범위
+  early: {aim_start: [3, 5], aim_len: [2, 4], start: [2, 6], end_max: 10, vis_after: [14, 15], half_after: [12, 13]}
+  mid:   {aim_start: [7, 10], aim_len: [2, 3], start: [6, 11], end_max: 13, vis_after: [15, 15]}
+  late:  {aim_start: [11, 14], aim_end: [17, 25], start: [9, 14], end: [16, 27]}
+
+camera:
+  front:   {h: [1.2, 2.6], pitch: [-14, -2], lens: [18, 32], depth: [4.0, 12.0]}
+  oblique: {h: [3.0, 6.0], pitch: [-32, -20], lens: [20, 32]}
+  high:    {h: [6.0, 11.0], pitch: [-55, -40], lens: [22, 34]}
+
+objects:
+  shapes: [sphere, cube, cone, cylinder, torus, pyramid, capsule]
+  px: [28, 62]               # 출발 깊이에서 화면 지름. 11-01: [22, 56] (화면 중앙값 28 px) 은 작다 (사용자) → 키움
+  min_px_median: 24
+  min_px: 14
+  max_px_median: 100
+  shadows: false
+  n_clutter: [0, 1, 2]       # 움직이지 않는 잡동사니 (축 아님, 기록만)
+  clutter_depth: [6.0, 18.0]
+
+motion:
+  speed_frac: [0.10, 0.40]   # 평면 운동 속력 (그 깊이 화면 폭 / 초)
+  heading_deg: [-30, 30]
+  spin_p: 0.3
+  spin_deg_s: [-120, 120]
+  decel_stop_s: [0.8, 4.5]   # 마찰 감속이 멈추는 시각 (창 3.2 초 안 · 밖 둘 다)
+  restitution: [0.35, 0.7]
+  wall_t: [0.25, 0.75]       # 벽에 닿는 시각 (창 길이 대비)
+  air_hspeed_frac: [0.0, 0.12]
+  air_z0: [3.0, 7.0]         # 자유낙하 시작 높이 (m)
+  toss_vz: [2.5, 5.0]        # 위로 던짐 속력 (m/s, g 3.5 → 꼭대기 0.9–3.6 m)
+  ramp_deg: [8, 22]
+  ramp_len: [4.0, 10.0]
+  ramp_max_height: 3.0        # 경사로 = 직각삼각형 쐐기 (11-01, 판 하나는 떠 보인다)
+  ramp_wall_dist: [0.5, 2.5]
+
+occluders:
+  gap: [0.4, 1.8]            # target 앞 거리 (m)
+  slide_speed_frac: [0.06, 0.5]
+  slide_pass_below_frac: 0.02
+  slide_same_p: 0.55
+  slide_ratio_fast: [1.6, 3.0]
+  slide_ratio_slow: [0.15, 0.6]
+  slide_ratio_opp: [0.4, 2.0]
+  object_shapes: [cube, cylinder, sphere, capsule]
+  object_screen_ratio: [1.1, 1.8]   # 화면 크기 비 (가리는 물체 / target, 가림 구간 중앙값). 11-01: 실제 크기 비 [1, 2] 는 카메라에 가까워 화면에서 중앙값 2.3 배 · 3 배 넘음 18 % (사용자: 너무 크다)
+  object_air_p: {front: 0.0, oblique: 0.35, high: 0.75}   # 가리는 물체를 공중 포물선으로 던질 비율 (가파른 시점에서는 땅 위 물체가 못 가림)
+  object_air_z0_min: 0.3     # 공중 가림 물체는 첫 장부터 이미 날고 있다 (바닥 높이 ≥ 0.3 m). 11-01 사용자: 바닥에서 갑자기 점프해서 가리는 건 이상하다
+  object_lane_p: 0.5         # 경사로 target 이면 같은 쐐기 앞 차선에서 공이 굴러 오르내리며 가리는 비율 (11-01)
+  object_gap: [0.05, 0.6]    # 가리는 물체와 target 사이 (m)
+  fixed_sub_w: {trapdoor: 0.3, panel: 0.3, box: 0.2, beam: 0.3, roof: 0.3}   # 고정 가림막 하위 종류 무게 (가로대 = 공중 세로 운동만 · 지붕 = 비스듬 · 위 카메라만)
+
+render:
+  samples: 8
+  denoise: true
+  jpeg_quality: 95
+  crf: 17
+  gop: 8
+  gpus_per_node: 8
+  workers_per_gpu: 3
+  threads: 3
+  nodes: [vll6, vll4]         # 11-01: vll7 (Blackwell) 은 쓰지 않는다 (사용자). 첫 노드가 스모크도 맡는다
+  node_gpus: [7, 6]
+  claim: true
+  smoke_gpus: 2              # 스모크 (칸마다 1 개 = 324) 를 그릴 GPU 수 (첫 노드)
+
+checks:
+  n_per_cell: 6              # 렌더 전 검사: 칸마다 설계 수 (324 × 6 = 1,944)
+  max_attempt_mean: 1200     # 축 수준마다 평균 재시도. 11-01: 다른 물체 가림은 화면 크기 비 ≤ 1.8 · 점프 금지 때문에 기하로 어렵다 (object 757)
+  max_design_fail_rate: 0.02 # 설계 실패 비율 상한 (11-01 실측 0.8 %: 정지 경사 target × 다른 물체 가림 × 낮은 · 비스듬 카메라 칸이 33–67 % 실패 → 그 칸은 얇다)
+  design_streams: 4          # 렌더 때 clip 하나에 시도 1,500 × 4 줄기까지 (실패 clip 이 CPU 를 오래 잡지 않게)
+  render_timing_pass_min: 0.9   # 렌더 라벨로 다시 잰 가림 타이밍이 칸 정의를 지키는 비율 (설계는 근사라 렌더로 확인)

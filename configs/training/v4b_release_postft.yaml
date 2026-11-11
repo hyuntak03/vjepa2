@@ -1,0 +1,8 @@
+# v4b (2026-11-06, 사용자 "그럼 긴 가림을 넣어봐"): v4vc_release_postft 와 데이터만 다르다 — 가림을 길게 한 v4 (blender_track_v4b_all). 손실 L1 만.
+#   같은 출발 · batch 48 · 2,000 step · seed 0 · lr. 데이터 설명 configs/training/datasets.md 의 blender_track_v4b_all.
+#   GPUS=8 bash z_training/tmux_train.sh v4b_release_postft
+extends: v4vc_release_postft
+
+data:
+  datasets:
+    - {name: blender_track_v4b_all, weight: 1.0}

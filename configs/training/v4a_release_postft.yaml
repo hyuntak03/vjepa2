@@ -1,0 +1,8 @@
+# v4a (2026-11-05, 사용자 데이터 계획 A): v4vc_release_postft 와 데이터만 다르다 — v4 전체 + 평면 trapdoor 309 묶음에 정지 물체 단계 (blender_track_v4a_all, 11,559 편). 가림막은 v4 그대로.
+#   손실 L1 만 (대조 팔). 같은 출발 · batch 48 · 2,000 step · seed 0 · lr. 데이터 설명 configs/training/datasets.md 의 blender_track_v4a_all.
+#   GPUS=8 bash z_training/tmux_train.sh v4a_release_postft
+extends: v4vc_release_postft
+
+data:
+  datasets:
+    - {name: blender_track_v4a_all, weight: 1.0}

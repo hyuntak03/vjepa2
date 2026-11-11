@@ -271,6 +271,37 @@ class _ArBlockEncoder(nn.Module):
         return h
 
 
+
+class _CausalCtxEncoder(nn.Module):
+    """릴리즈 사다리 R1 (2026-11-06, trinity 세션과 함께): 앞만 보는 문맥 인코딩. 블록 t 토큰 = 프레임 0 … 2t+1 만 넣은 통과의 마지막 블록 토큰.
+    뒤 블록 (예: 가려진 마지막 문맥 블록) 이 앞 블록 토큰을 바꾸지 못한다. 시간 위치 (RoPE) 는 프레임 0 부터라 창 통과와 같은 절대 위치.
+    masks=[idx] 는 문맥 토큰 (블록 순서 · 블록당 S) 만 고른다고 보고, 필요한 블록까지만 통과한다 (블록 수만큼 통과)."""
+
+    def __init__(self, enc: nn.Module, tubelet: int):
+        super().__init__()
+        self.enc, self.tubelet = enc, int(tubelet)
+        self.embed_dim = enc.embed_dim
+
+    def _encode(self, x):
+        h = self.enc(x)
+        return h[-1] if isinstance(h, list) else h
+
+    def forward(self, x, masks=None):
+        B, Cc, T, H, W = x.shape
+        nb = T // self.tubelet
+        m = None if masks is None else (masks[0] if isinstance(masks, list) else masks)
+        first = self._encode(x[:, :, : self.tubelet])
+        S = first.size(1)
+        need = nb if m is None else int(m.max().item()) // S + 1
+        outs = [first]
+        for t in range(1, need):
+            outs.append(self._encode(x[:, :, : (t + 1) * self.tubelet])[:, -S:])
+        h = torch.cat(outs, dim=1)
+        if m is not None:
+            h = torch.gather(h, 1, m.unsqueeze(-1).expand(-1, -1, h.size(-1)))
+        return h
+
+
 class _ArScorer(nn.Module):
     """kind=ar predictor 를 채점기 규약 `predictor(z, ctx_idx, tgt_idx)` 로 감싼다 (2026-10-11).
     z = 문맥 블록별 encoder 토큰 → affine-free LN (학습 입력과 같다) → 힌트 없이 K 블록 KV rollout (출력 LN).
@@ -488,13 +519,22 @@ def build_from_config(cfg: dict, device: torch.device) -> VJEPA2Bundle:
             use_rope=use_rope, use_sdpa=True, mask_mode=kind,
             n_registers=int(predictor_cfg.get("n_registers", 0)),
             reg_carry=str(predictor_cfg.get("reg_carry", "state")),
+            time_scale=str(predictor_cfg.get("time_scale", "none") or "none"),   # 2026-11-06 what–when 분리 (헤드별 시간 RoPE 척도)
+            vo_time=str(predictor_cfg.get("vo_time", "none") or "none"),         # 2026-11-06 시간을 value · 출력에
+            time_pairs=str(predictor_cfg.get("time_pairs", "none") or "none"),   # 2026-11-07 Harmonic 시간 RoPE (회전 짝 일부만)
+            past_gate=bool(predictor_cfg.get("past_gate", False)),               # 2026-11-07 now/past gate
+            mem_period=int(predictor_cfg.get("mem_period", 0) or 0),           # 2026-11-08 시간 누적 하이브리드 (누적 층 : 전역 층)
+            attn_out_gate=bool(predictor_cfg.get("attn_out_gate", False)),       # 2026-11-08 Qwen 출력 게이트
             ar_oneshot=bool(predictor_cfg.get("ar_oneshot", False)),
             ar_oneshot_causal=bool(predictor_cfg.get("ar_oneshot_causal", False)),   # 2026-11-04: 한 번에 예측 + 전부 블록 인과
             ar_unc=bool(predictor_cfg.get("ar_unc", False)),                  # 2026-10-28: 토큰별 Laplace 척도 head (채점은 μ 만)          # 2026-10-28: kind=ar 한 번에 예측          # 2026-10-27: ar registers 상태 넘김
             ar_feedback=str(predictor_cfg.get("ar_feedback", "output")),     # 2026-10-12: kind=ar 상태 되먹임
             gating_residual=bool(predictor_cfg.get("gating_residual", False)),   # 2026-10-17: gate 지름길
             gating_anchor=str(predictor_cfg.get("gating_anchor", "last_obs")),    # 2026-10-18: rollout anchor 규칙
-            gating_out_ln=bool(predictor_cfg.get("gating_out_ln", False)))        # 2026-10-18: 출력 LN
+            gating_out_ln=bool(predictor_cfg.get("gating_out_ln", False)),        # 2026-10-18: 출력 LN
+            gating_fixed=bool(predictor_cfg.get("gating_fixed", False)),          # 2026-11-07: g ≡ 1 (Δ 예측)
+            **{k: predictor_cfg[k] for k in ("slot_n", "slot_iters", "slot_layers", "slot_heads", "slot_gain", "slot_gate_bias")
+               if predictor_cfg.get(k) is not None})                               # 2026-11-07: slot 메모리 (src/models/slot_memory.py)
         logger.info(f"predictor kind={kind} (src/models/rollout_predictor.py)")
     # model.predictor_checkpoint — predictor 만 다른 파일에서 읽는다 (app/vjepa_frozen 학습 run 의
     # latest.pt / e{N}.pt). encoder 는 위 `checkpoint` 그대로. 통짜 파일을 만들 필요가 없다.
@@ -509,7 +549,7 @@ def build_from_config(cfg: dict, device: torch.device) -> VJEPA2Bundle:
             raise KeyError(f"{pc_path}: 'predictor' 키가 없다 (keys={list(pstate)[:8]})")
         psd = _clean_backbone_key(pstate["predictor"])
         # 힌트 cross-attn (2026-10-11) 은 학습 전용 — 채점은 힌트 없이 하므로 그 가중치는 버린다 (모델에도 안 만든다)
-        hint_keys = [k for k in psd if k.startswith(("hint_attn.", "dyn_head.", "recon_proj."))]   # 2026-10-17: 복원 머리도 학습 전용   # 2026-10-14: 움직임 헤드도 학습 전용
+        hint_keys = [k for k in psd if k.startswith(("hint_attn.", "dyn_head.", "recon_proj.", "mtp_layers.", "mtp_norms.", "mtp_projs."))]   # 2026-11-07: 다중 블록 예측 head 도 학습 전용   # 2026-10-17: 복원 머리도 학습 전용   # 2026-10-14: 움직임 헤드도 학습 전용
         if hint_keys:
             for k in hint_keys:
                 psd.pop(k)
@@ -636,6 +676,29 @@ def build_from_config(cfg: dict, device: torch.device) -> VJEPA2Bundle:
             encoder = target_encoder
         logger.info(f"predictor kind=ar: 문맥 = {'target_encoder 문맥 pass (영상)' if ar_input == 'video' else '블록별 target_encoder'}, "
                     f"타깃 = {ar_target} (힌트 없음, KV rollout)")
+
+    # 2026-11-06 릴리즈 사다리 (R1 · R2): model.ctx_encoding = window (기본, 예전과 같다) | causal (앞만 보는 문맥) | block (블록마다 따로).
+    #   릴리즈 (kind=oneshot) 의 문맥 encoder 만 바꾼다. 정답 (target_encoder 창 통과) 은 그대로.
+    ctx_encoding = str(cfg.get("ctx_encoding", "window"))
+    if ctx_encoding not in ("window", "causal", "block"):
+        raise ValueError(f"model.ctx_encoding 은 window | causal | block: {ctx_encoding!r}")
+    if ctx_encoding != "window":
+        # 2026-11-06 (cvpr_auto 2×2): 영상 문맥 one-shot (kind=ar · ar_input=video · ar_oneshot) 도 허용 — 문맥 pass 를 인과 / 블록별로 바꾼다.
+        #   영상 문맥 AR (한 걸음씩, ar_input=video) 도 같은 이유로 허용 (cvpr_auto: 통째 입력 + 한 걸음씩 판).
+        _vid = kind == "ar" and str(predictor_cfg.get("ar_input", "block")) == "video"
+        # 2026-11-06 (사용자 "(1) 해봐"): 블록 AR (ar_input=block) 에 시간 순 인코딩 입력 — 블록 t 입력 = 프레임 1..2t 를 넣은 통과의 마지막 블록.
+        #   predictor · 정답 (블록별) 은 그대로, 문맥 입력만 바꾼다. 블록별 래퍼 안의 원래 encoder 를 꺼내 인과 래퍼로 감싼다.
+        _blk_ar = kind == "ar" and not _vid and isinstance(context_encoder, _ArBlockEncoder)
+        if kind != "oneshot" and not _vid and not _blk_ar:
+            raise ValueError("model.ctx_encoding 은 kind=oneshot · 영상 문맥 판 · 블록 AR 에서만")
+        if _blk_ar:
+            if ctx_encoding != "causal":
+                raise ValueError("블록 AR 의 ctx_encoding 은 causal 만 (block 은 이미 블록별이다)")
+            context_encoder = _CausalCtxEncoder(context_encoder.enc, tubelet_size).eval()
+        else:
+            context_encoder = (_CausalCtxEncoder(context_encoder, tubelet_size) if ctx_encoding == "causal"
+                               else _ArBlockEncoder(context_encoder, tubelet_size)).eval()
+        logger.info(f"릴리즈 사다리: 문맥 인코딩 = {ctx_encoding} (context_encoder_key={context_key})")
 
     del state  # release the fp32 checkpoint copy on CPU
 

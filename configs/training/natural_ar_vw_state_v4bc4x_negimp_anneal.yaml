@@ -1,0 +1,14 @@
+# =============================================================================
+# scratch 한 번의 학습인데 위반 데이터 (v4bc4x 음의 손실) 는 학습률 감쇠 구간 (마지막 8 epoch) 에만 (2026-11-11, 사용자 "scratch 부터 될 가능성 · negative 를 너무 많이 봐서 그런가?")
+#
+#   AR 기준판 (natural_ar_vw_state) 의 e62 (감쇠 직전, optimizer 포함) 를 이 run 폴더의 latest.pt 로 두고 이어 돈다 → epoch 63–70 만 자연 + v4bc4x 음의 손실.
+#   = 처음부터 학습한 판에서 음의 손실을 마지막 11 % 에만 켠 것과 같다. AR 과 같은 일정 (70 epoch · WSD 감쇠 7 · lr 5.2e-4) · 같은 자연 영상 토큰 예산 950.
+#   음의 손실 · 데이터는 실패한 scratch 판 (natural_ar_vw_state_v4bc4x_negimp_vanish_app02_mix: 처음부터 끝까지) 과 같다 — 시점만 다르다.
+#   GPUS=8 bash z_training/tmux_train.sh natural_ar_vw_state_v4bc4x_negimp_anneal   (run 폴더에 e62 → latest.pt 를 먼저 둘 것)
+# =============================================================================
+extends: natural_ar_vw_state_v4bc4x_negimp_vanish_app02_mix
+data:
+  var_window:
+    token_budget: 950
+val:
+  every_epochs: 1

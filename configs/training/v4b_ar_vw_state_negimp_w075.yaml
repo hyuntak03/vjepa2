@@ -1,0 +1,8 @@
+# 자동 탐색 묶음 1 (2026-11-06): v4b_ar_vw_state_negimp 와 λ 만 다르다 (1 → 0.75).
+#   왜 [토큰별 이론]: 짝 없음은 배경 당김 0.5 − 0.5λ · 물체 문턱 q* = (1 − λ)/2. λ 0.5 (당김 0.25, q* 0.25) 는 합성 손해 없이 real 66.3, λ 1 (당김 0, q* 0) 은 real 71.6 · 합성 손해 (v4).
+#        λ 0.75 = 당김 0.125 · q* 0.125 — 배경을 조금 붙잡은 채 문턱을 낮춘다.
+#   GPUS=8 bash z_training/tmux_train.sh v4b_ar_vw_state_negimp_w075
+extends: v4b_ar_vw_state_negimp
+
+negimp:
+  weight: 0.75

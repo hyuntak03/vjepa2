@@ -1,0 +1,11 @@
+# 자동 탐색 묶음 4 (2026-11-06): 챔피언 v4bc2 짝 없음 λ 0.75 (real95 73.7) 주변 — 데이터 blender_track_v4bc2_all, λ 0.85.
+#   GPUS=8 bash z_training/tmux_train.sh v4bc2_ar_vw_state_negimp_w085
+extends: v4b_ar_vw_state_negimp
+
+data:
+  datasets:
+    - {name: blender_track_v4bc2_all, weight: 1.0}
+
+negimp:
+  families: ${DATA_CSV}/blender_track_v4bc2_negimp/families.json
+  weight: 0.85

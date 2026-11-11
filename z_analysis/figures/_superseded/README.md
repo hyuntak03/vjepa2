@@ -1,0 +1,1 @@
+- `vobench_v3_timing_vanish_release.{pdf,png}` (2026-11-09): 판 가림막 · 움직이는 물체 · 사라짐 짝만 막대 하나. 사용자 요청으로 사라짐 · 나타남을 나누고 움직임 · 정지를 합친 `../vobench_v3_timing_release.{pdf,png}` 로 대체. 다시 그리려면 `plot_vobench_v3_timing.py --motion moving` (지금은 두 짝을 같이 그린다).

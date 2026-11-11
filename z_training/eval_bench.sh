@@ -29,7 +29,7 @@ I2_SPLIT=${I2_SPLIT:-Main}        # 2026-10-22: MainVuniTest = IntPhys2 violatio
 KIND_SET=$("$PY" - "$RUN/config.yaml" <<'PY'
 import yaml, sys
 pc = (yaml.safe_load(open(sys.argv[1])).get("model") or {}).get("predictor") or {}
-print(" ".join(f"model.predictor.{k}={pc[k]}" for k in ("kind", "n_registers", "ar_feedback", "ctx_target", "ctx_input", "ctx_encoder", "gating_residual", "gating_anchor", "gating_out_ln", "ar_input", "ar_target") if k in pc))   # ctx_target: 2026-10-16 (빠져서 ctx_state 를 창 타깃으로 잘못 채점했다)
+print(" ".join(f"model.predictor.{k}={pc[k]}" for k in ("kind", "n_registers", "ar_feedback", "ctx_target", "ctx_input", "ctx_encoder", "gating_residual", "gating_anchor", "gating_out_ln", "gating_fixed", "ar_input", "ar_target", "time_scale", "vo_time", "time_pairs", "past_gate", "mem_period", "attn_out_gate", "slot_n", "slot_iters", "slot_layers", "slot_heads", "slot_gain", "slot_gate_bias") if k in pc))   # ctx_target: 2026-10-16 (빠져서 ctx_state 를 창 타깃으로 잘못 채점했다)
 PY
 )
 LOGD="$RUN/eval/logs"; mkdir -p "$LOGD"

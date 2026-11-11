@@ -1,0 +1,107 @@
+# BlenderTrack v3t (2026-11-01) — v3 와 같은 규칙 (실제 크기 · late 만 · 요인 균형 · 네 팔) 에 가림막만 trapdoor (VOBench late 와 같은 꼴:
+#   바닥에 누운 판이 가림 직전 일어서고 가림 구간 동안 서 있다가 다시 눕는다). 왜: v3 팔 15 개가 VOBench 사라짐을 하나도 못 올렸고
+#   (11–19 % vs release 17 %), trapdoor 가 있던 v1 (47 %) · v2 late (42 %) 만 올렸다. 같은 UE 렌더라도 지나가는 상자 가림 (VO_moving_occluder) 으로는 옮겨 갔다.
+#   상황 12 = 물체 셋 2 × (평면 × 카메라 정면 · 측면 × target 움직임 · 정지 + 빗면 × 카메라 2 × 움직임). 위 카메라는 솟는 판이 못 가려 뺀다.
+# BlenderTrack v3 — 물체 영속 (object permanence) 학습셋. 물리적으로 자연스러운 장면만 (2026-11-01, 사용자 설계).
+#   가림 타이밍은 전부 late (문맥 끝 샘플 15 에서 target 이 완전히 가려짐 → 미래에서 다시 보임).
+#   축: 가림 종류 (가림막 · 다른 물체) × 가림 움직임 (정지 · 움직임) × target (움직임 · 정지 · 없음 = 빈 장면) × 카메라 (정면 · 측면 · 위)
+#       (정지 가림 × 정지 target 은 가림이 생길 수 없어 뺀다 → 카메라마다 10 상황, 모두 30 상황)
+#     + 물체 수 (장면의 움직일 수 있는 물체 총수, target · 가리는 물체 포함) 0 · 1 · 2 · 3
+#   실제 축척: 중력 9.81 · 물체 15–40 cm · 카메라 1–4 m. 그림자 켬. 실내 · 실외 환경맵 (Blender 내장 HDRI).
+#   창 = 20 fps × 64 장, 간격 2 → 32 샘플 (문맥 16 + 미래 16).
+#   설계 확인 (상황마다 하나): python gen_design_v3.py --config configs/v3.yaml --preview
+name: v3t
+design: gen_design_v3
+out: /data/hyuntak/project/2026/2027_cvpr/nfs_cache/blender_track/v3t
+fps: 20
+frames: 64
+size: 256
+g: 9.81
+
+cells:
+  objset: [primitive, realistic]       # 단색 기본 도형 / 무늬 있는 실제 물건 (농구공 · 축구공 · 비치볼 · 종이 상자 · 나무 상자 · 페인트 통 · 쓰레기통 · 교통 고깔) — VOBench 와 같은 나눔
+  place: [flat, ramp]                  # 평면 / 빗면 (빗면은 target 이 움직이는 상황만: 내려감 = 꼭대기 근처에서 놓음 · 올라감 = 아래에서 굴려 올림)
+  occ_type: [barrier]          # 가림막 (판 · 낮은 벽 · 탁자) / 다른 물체 (상자 · 통 · 공)
+  occ_motion: [trapdoor]         # 가리는 것이 서 있음 / 움직임 (레일 위 판 · 굴러가는 공)
+  target: [moving, static, none]       # target 이 굴러 · 미끄러져 지나감 / 제자리 / 없음 (빈 장면 — 처음부터 없으면 끝까지 없다)
+  camera: [front, side]
+  count: [0, 1, 2, 3]                  # 움직일 수 있는 물체 총수 (가능한 값만 — 칸마다 다름)
+
+splits:
+  preview: {seed: 92, n: 20}           # 상황마다 하나 (사용자 확인용, 11-01 2 차: 물체 셋 2 × (평면 25 + 빗면 10))
+  # 본 데이터 (11-01): 장면 (block) 단위. 렌더 번호 i → 장면 i // 2 의 팔 A (짝수, target 있음) · B (홀수, target 만 뺌). n = 2 × 장면 수.
+  #   네 팔 (pos_a · pos_b · imp_ab 사라짐 · imp_ba 나타남) 은 렌더 뒤 프레임 32 (문맥 끝 다음) 에서 이어 붙인다 (compose_arms_v3.py).
+  #   후보 (candidates) 를 요인표대로 설계 → 성공한 것 중 요인 분포가 가장 고르게 blocks_per_situation 개를 고른다 (select_blocks_v3.py)
+  train: {seed: 60, blocks_per_situation: 134, candidates: 335, n: 8040}   # n = 2 × candidates × 상황 수 (렌더 번호 범위, 안 고른 장면은 .fail 로 건너뜀)
+  test: {seed: 61, blocks_per_situation: 40, candidates: 100, n: 2400}
+  probe: {seed: 69, blocks_per_situation: 2, candidates: 6, n: 144}      # 본 렌더 전 확인
+infeasible: []                         # 상황 키 목록 (objset|place|camera|occ_type|occ_motion|target) — 설계 가능 검사 뒤 채운다
+
+timing:                                # 샘플 번호 (문맥 0–15 · 미래 16–31). late 만
+  late: {start: [9, 15], end: [16, 27], short_p: 0.5, short_side: [0, 2], long_before: [0, 5], long_after: [3, 10]}
+
+camera:                                # 장면 가운데 (target 이 가려지는 자리) 를 본다. 거리는 target 화면 크기로 정한다
+  front: {h: [0.25, 0.7], azim: [-10, 10], lens: [35, 55]}               # 눈높이 · 낮게, 운동이 화면을 가로지름
+  side:  {h: [0.25, 0.7], azim: [30, 60], lens: [32, 50]}                # 눈높이에서 운동 방향을 30–60° 비껴 봄 (11-01 사용자 (가): 내려다보면 다른 물체 가림이 1.8 배 안에서 불가)
+  bird:  {pitch: [-70, -50], azim: [-30, 30], lens: [28, 40]}            # 위에서 내려다봄 — 가림막 (탁자 · 판 · 레일 판) 만 (다른 물체 가림은 4 배로도 불가)
+  jitter_deg: 3
+
+objects:
+  target_px: [32, 58]                  # target 화면 지름 (가려지는 자리에서) — 너무 작지 않게
+  min_px: 22
+  extra_min_px: 28                     # 그 밖 물체: 너무 작지 않게 (target 과 같은 범위)
+  extra_visible_min: 0.7               # 그 밖 물체: 창의 70 % 이상 보임 (가림막 뒤에 숨어 있으면 버림)
+  extra_max_hidden: 0.1                # 그 밖 물체: 어느 순간에도 10 % 넘게 가려지지 않는다 (11-01 사용자: 판 위로 튀어나온 반쯤 가려진 물체)
+  min_hue_diff: 0.167                  # target 과 가리는 물체 · 그 밖 물체: 같은 모양이면 색상 60° 이상 차이 (realistic 은 다른 물건)
+  moving_shapes: {sphere: 0.6, cube: 0.25, cylinder: 0.15}          # 공은 구르고 상자 · 통은 미끄러진다
+  static_shapes: [sphere, cube, cylinder, cone, torus, capsule, pyramid]
+  size_m: [0.15, 0.40]
+  roll_speed: [0.35, 1.3]              # m/s (구름 저항으로 천천히 줄어듦)
+  roll_mu: [0.004, 0.02]               # 구름 감속 = mu · g
+  slide_speed: [0.6, 1.6]
+  slide_mu: [0.03, 0.08]             # 11-01: 0.05–0.18 은 가림막에 닿기 전에 멈춤 (매끈한 바닥)
+  heading_deg: [-12, 12]               # 장면 x 축 (가로) 기준
+  shadows: true
+
+ramp:                                  # 빗면 (나무 · 칠한 쐐기, 실제 축척)
+  deg: [5, 12]                         # 11-01: 8–16° 는 내려감이 문맥 끝 전에 너무 빨라짐 (성공 0 %)
+  len: [1.2, 2.6]
+  max_h: 0.6
+  up_p: 0.5                            # 올라감 (아래에서 굴려 올려 꼭대기에서 되돌아옴) 비율, 나머지 = 내려감 (꼭대기 근처에서 놓음)
+  apex_s: [0.6, 2.2]                   # 올라감의 꼭대기 시각 (초)
+
+occluders:
+  trapdoor_rise: [0.08, 0.2]           # v3t: 판이 일어서는 시간 (s). VOBench late = 3 프레임 (30 fps, 0.1 s)
+  gap: [0.08, 0.5]                     # target 앞 거리 (m)
+  barrier_static_w: {board: 0.45, wall: 0.25, table: 0.3}   # 탁자는 측면 · 위 카메라만
+  board_th: [0.02, 0.05]
+  wall_th: [0.12, 0.25]
+  slide_speed: [0.25, 1.0]             # 레일 위 판 (m/s, 일정 속도)
+  object_static_shapes: {cube: 0.4, cylinder: 0.25, sphere: 0.1, capsule: 0.25}   # 상자 · 통 · 큰 공 · 키 큰 물체 (병 · 기둥 꼴, 위에서 볼 때 1.8 배 안에서 덮을 수 있는 유일한 꼴)
+  object_screen_ratio: [1.1, 1.8]      # 가리는 물체 화면 크기 / target (너무 크지 않게)
+  object_moving_mu: [0.003, 0.012]     # 굴러가는 공
+  object_gap: [0.05, 0.35]
+
+env:
+  indoor_p: 0.5
+  indoor_hdri: [interior, studio]
+  outdoor_hdri: [courtyard, city, forest, sunrise, sunset]
+  indoor_floor: [wood, tile, carpet]
+  outdoor_floor: [concrete, tile, carpet]
+
+render:
+  samples: 16
+  denoise: true
+  jpeg_quality: 95
+  crf: 17
+  gop: 8
+  gpus_per_node: 6
+  workers_per_gpu: 5
+  threads: 3
+  nodes: [vll7]
+  node_gpus: [6]
+  claim: true
+  smoke_gpus: 1
+
+checks:
+  design_streams: 2                    # 장면 하나에 1,500 × 2 번 (안 되는 요인 조합에 CPU 를 오래 쓰지 않게 — 후보를 2.5 배 설계해 고른다)

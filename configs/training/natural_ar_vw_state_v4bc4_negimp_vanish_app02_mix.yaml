@@ -1,0 +1,19 @@
+# AR 처음부터 학습: 자연 영상 (K710 · SSv2 · HowTo 1 %) + v4bc4 합성에 음의 손실 p 0.2 (2026-11-10, 사용자 "이거 취소하고 scratch 부터
+#   v4bc4 negative loss p 0.2 이거 해보자" — v5id scratch 판은 epoch 63 에서 사용자 지시로 취소).
+#   v5id 판 (natural_ar_vw_state_v5id_negimp_mix) 과 합성 데이터 · 음성 확률만 다르고 나머지는 같다:
+#     자연 token 예산 758 장 + 합성 rank 당 6 × 32 장 = step 당 950 장 (원래 AR 과 같은 계산량, 합성 20 %), 70 epoch × 294 step, lr 5.2e-4, val = real bench.
+#   음의 손실 = 이어 학습 기준판 v4bc4_ar_vw_state_negimp_vanish_app02 와 같은 확률 (물체 문맥 0.5 → 사라짐, 빈 문맥 0.2 → 나타남, 바꿔치기 없음, margin 1, λ 1)
+#     → batch 구성 가능 약 61 % · 사라짐 31 % · 나타남 7.5 % (v4bc4 는 물체 영상 63 %).
+#   ⚠️ v4bc4 는 목록 19,131 줄 (고유 11,757 편) 이라 20,580 step × 48 = 약 99 만 샘플 → 목록을 약 52 번 돈다 (v5id 는 약 5 번).
+#   GPUS=8 bash z_training/tmux_train.sh natural_ar_vw_state_v4bc4_negimp_vanish_app02_mix
+extends: natural_ar_vw_state_v5id_negimp_mix
+
+data:
+  datasets:
+    - {name: blender_track_v4bc4_all, weight: 1.0}
+
+negimp:
+  families: ${DATA_CSV}/blender_track_v4bc4_negimp/families.json
+  p: 0.2
+  p_object_ctx: 0.5
+  swap_frac: 0.0

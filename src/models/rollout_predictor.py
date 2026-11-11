@@ -41,6 +41,7 @@ import torch.nn as nn
 
 from src.masks.utils import apply_masks
 from src.models.utils.modules import ACBlock, PrefixSpec
+from src.models.slot_memory import SlotMemory, SlotXAttn
 from src.utils.tensors import trunc_normal_
 
 logger = logging.getLogger(__name__)
@@ -211,8 +212,50 @@ class VisionTransformerPredictorPrefix(nn.Module):
                     attn_drop=attn_drop_rate, drop_path=dpr[i], norm_layer=norm_layer,
                     use_sdpa=use_sdpa)
             for i in range(depth)])
+        # 2026-11-06 what–when 분리: 헤드별 시간 RoPE 척도 (src/models/utils/modules.py ACRoPEAttention.set_time_scale)
+        #   none (기본) | split:K | zero | learned. 'learned' 는 층 · 헤드마다 파라미터 1 개 (1 로 시작 = 원래 모델과 같다)
+        self.time_scale = str(kwargs.get("time_scale") or "none")
+        if self.time_scale != "none":
+            if not use_rope:
+                raise ValueError("time_scale 은 use_rope 일 때만")
+            for blk in self.predictor_blocks:
+                blk.attn.set_time_scale(self.time_scale)
+        # 2026-11-06 시간을 value · 출력에 (VO). 보통 time_scale: zero (고르기에서 시간 제거) 와 같이 쓴다
+        # 2026-11-07 now/past gate (ACRoPEAttention.set_past_gate): 이전 블록 key logit 에 query 별 학습 가산점. 끄면 (기본) 만들지 않는다
+        self.past_gate = bool(kwargs.get("past_gate", False))
+        if self.past_gate:
+            if mask_mode != "ar":
+                raise ValueError("past_gate 는 kind=ar 전용")
+            for blk in self.predictor_blocks:
+                blk.attn.set_past_gate(True)
+        # 2026-11-07 Harmonic 시간 RoPE (MASH-VLM 식): 시간 회전 짝 일부만 회전 (ACRoPEAttention.set_time_pairs). none = 예전과 같다
+        self.time_pairs = str(kwargs.get("time_pairs") or "none")
+        if self.time_pairs not in ("none", "all"):
+            for blk in self.predictor_blocks:
+                blk.attn.set_time_pairs(self.time_pairs)
+        self.vo_time = str(kwargs.get("vo_time") or "none")
+        if self.vo_time != "none":
+            for blk in self.predictor_blocks:
+                blk.attn.set_vo_time(self.vo_time)
         self.predictor_norm = norm_layer(predictor_embed_dim)
         self.predictor_proj = nn.Linear(predictor_embed_dim, out_embed_dim or embed_dim, bias=True)
+        # 다중 블록 예측 (2026-11-07, 사용자 노트 "Multi-token Prediction — post-train"): 블록 k 에서 k+2 · k+3 … 도 예측하는 학습 전용 head.
+        #   head j (j = 1..mtp_n, 예측 거리 h = j+1) = transformer 1 층 + norm + proj, 입력 = trunk 끝에서 둘째 층 출력 (Gloeckle 2024 식 공유 trunk).
+        #   h = 1 출력은 그대로 (trunk 마지막 층). 초기값은 trunk 마지막 층 · norm · proj 복사 (mtp_init_from_trunk) → 시작 출력 = 1 블록 예측.
+        #   손실은 TF 에서만 (app/vjepa_frozen/ar.py ar_losses, loss.mtp_weights). 추론 · 채점은 h = 1 rollout 만 → head 는 채점기가 버린다.
+        self.mtp_n = int(kwargs.get("mtp_n", 0) or 0)
+        if self.mtp_n:
+            if mask_mode != "ar" or kwargs.get("gating_residual") or self.ar_oneshot or self.n_registers or self.ar_unc or int(kwargs.get("hint_cross_dim", 0) or 0):
+                raise ValueError("mtp_n 은 kind=ar 기본 출력 전용 (gating · oneshot · registers · unc · hint 와 같이 안 쓴다)")
+            self.mtp_layers = nn.ModuleList([ACBlock(use_rope=use_rope, grid_size=self.grid_height, grid_depth=self.max_blocks,
+                                                     dim=predictor_embed_dim, num_heads=num_heads, mlp_ratio=mlp_ratio,
+                                                     qkv_bias=qkv_bias, qk_scale=qk_scale, drop=drop_rate,
+                                                     act_layer=nn.SiLU if use_silu else nn.GELU, wide_silu=wide_silu,
+                                                     attn_drop=attn_drop_rate, drop_path=0.0, norm_layer=norm_layer, use_sdpa=use_sdpa)
+                                             for _ in range(self.mtp_n)])
+            self.mtp_norms = nn.ModuleList([norm_layer(predictor_embed_dim) for _ in range(self.mtp_n)])
+            self.mtp_projs = nn.ModuleList([nn.Linear(predictor_embed_dim, out_embed_dim or embed_dim, bias=True) for _ in range(self.mtp_n)])
+        self._mtp_pen = None        # forward_seq 의 끝에서 둘째 층 출력 (head 입력) 과 (idx, spec)
         if bool(kwargs.get("ar_unc", False)):             # 2026-10-28: 토큰별 log b (Laplace 척도). 시작 b = 0.55 (학습 초 토큰 L1 크기), 기울기 0
             self.unc_head = nn.Linear(predictor_embed_dim, 1, bias=True)
         # 움직임 크기 헤드 (2026-10-14, mask_mode=ar 전용): 이웃 상태 차 |s_{t+1}-s_t| → 토큰별 스칼라. 꺼져 있으면 안 만든다
@@ -227,10 +270,16 @@ class VisionTransformerPredictorPrefix(nn.Module):
         #   출력 뒤 LN 은 뺀다 (LN(g·A) = A 라 g 가 지워진다). 시작 시 w = 0, b = 2, predictor_proj = 0 → ŷ = A 정확히.
         #   끄면 (기본) 만들지 않는다 → 파라미터 · 연산이 기존과 같다
         self.gating_residual = bool(kwargs.get("gating_residual", False))
+        # gating_fixed (2026-11-07, 사용자 노트 "Δ 예측 (residual predictor)": ẑ_{k+1} = x_k + P(x), 손실 추가 없음, 출력 proj 0 시작):
+        #   g ≡ 1 (gate 파라미터 없음). ar 전용. gating_anchor: prev 와 같이 쓰면 x_k = TF 직전 입력 블록 / rollout 직전 걸음 예측 (LN).
+        self.gating_fixed = bool(kwargs.get("gating_fixed", False))
+        if self.gating_fixed and not (self.gating_residual and mask_mode == "ar"):
+            raise ValueError("gating_fixed 는 mask_mode='ar' + gating_residual 전용")
         if self.gating_residual:
             if mask_mode not in ("ctx_state", "ar"):
                 raise ValueError("gating_residual 는 mask_mode='ctx_state' | 'ar' 전용")
-            self.keep_gate = nn.Linear(predictor_embed_dim, 1, bias=True)
+            if not self.gating_fixed:
+                self.keep_gate = nn.Linear(predictor_embed_dim, 1, bias=True)
             self.register_buffer("sig_b0", torch.sigmoid(torch.tensor(2.0)), persistent=False)
         # gating_anchor (2026-10-18, 사용자 결정, ar 전용): rollout 걸음의 anchor
         #   last_obs (기본) = 마지막 문맥 블록 고정 / prev = **직전 블록** — 첫 걸음은 마지막 문맥 블록, 그 뒤는 LN(직전 걸음 예측).
@@ -257,6 +306,49 @@ class VisionTransformerPredictorPrefix(nn.Module):
                               grid_size=self.grid_height, norm_layer=norm_layer)
                 for _ in range(depth)])
 
+        # slot 메모리 (2026-11-07, 사용자 "Pretrained AR 위에 Slot 메모리 post-training"): src/models/slot_memory.py.
+        #   slot_n = slot 개수 (0 = 끔, 기본 — 파라미터 · 연산이 기존과 같다). slot_layers = 패치 → slot cross-attention 을 붙일 층 (0-index, 그 층 뒤).
+        #   ar + ar_feedback=state 전용 (register · oneshot · gating · hint · unc 와 같이 안 쓴다).
+        self.slot_n = int(kwargs.get("slot_n", 0) or 0)
+        if self.slot_n:
+            if mask_mode != "ar" or self.ar_feedback != "state":
+                raise ValueError("slot_n 은 kind=ar + ar_feedback=state 전용")
+            if self.n_registers or self.ar_oneshot or self.gating_residual or self.hint_cross_dim or self.ar_unc:
+                raise ValueError("slot_n 은 registers · ar_oneshot · gating_residual · hint · ar_unc 와 같이 쓰지 않는다")
+            _sl = kwargs.get("slot_layers", "2,5,8,11")
+            _sl = _sl if isinstance(_sl, (list, tuple)) else str(_sl).replace("-", ",").replace(" ", ",").split(",")
+            self.slot_layers = tuple(sorted({int(t) for t in _sl if str(t).strip() != ""}))
+            if not self.slot_layers or min(self.slot_layers) < 0 or max(self.slot_layers) >= depth:
+                raise ValueError(f"slot_layers {self.slot_layers} 가 층 0..{depth - 1} 밖이다")
+            self.slot_mem = SlotMemory(out_embed_dim or embed_dim, predictor_embed_dim, n_slots=self.slot_n,
+                                       iters=int(kwargs.get("slot_iters", 2)), grid=self.grid_height,
+                                       gate_bias=float(kwargs.get("slot_gate_bias", 2.0)))
+            self.slot_xattn = nn.ModuleDict({str(l): SlotXAttn(predictor_embed_dim, heads=int(kwargs.get("slot_heads", 6)),
+                                                               gain=float(kwargs.get("slot_gain", 10.0))) for l in self.slot_layers})
+        self._slot_tf = None        # forward_seq 의 (attention (B, nb, K, S), gate (B, nb, K)) — 보조 손실 · 모니터용
+        self._slot_roll = None      # rollout_kv 의 (attention (B, R-1, K, S), gate (B, R-1, K)) — 모니터용
+        self._slot_traj = None      # rollout_kv 가 몸통에 준 slot (블록 순서) — 형제 맞바꾸기용
+
+        # 2026-11-08 시간 누적 하이브리드 (사용자 "Gated Attention 해보자 … 시간축 … 구조가 시간 누적이면"; Qwen3-Next 를 블록 단위로).
+        #   mem_period P (0 = 끔, 기본): 층 i 는 (i+1) % P != 0 이면 **누적 층** (자기 블록 softmax + 블록 기억, ACRoPEAttention.set_block_mem),
+        #   아니면 **전역 층** (지금과 같은 블록 인과 attention). P = 4 → 층 3 · 7 · 11 이 전역, 나머지 9 층이 누적 (3 : 1).
+        #   attn_out_gate: 전역 층 (P = 0 이면 전 층) 에 Qwen 출력 게이트 (set_out_gate). 둘 다 kind=ar 전용.
+        self.mem_period = int(kwargs.get("mem_period", 0) or 0)
+        self.attn_out_gate = bool(kwargs.get("attn_out_gate", False))
+        if self.mem_period or self.attn_out_gate:
+            if mask_mode != "ar":
+                raise ValueError("mem_period · attn_out_gate 는 kind=ar 전용")
+            if (self.past_gate or self.n_registers or self.slot_n or self.hint_cross_dim or self.ar_oneshot
+                    or self.vo_time != "none" or self.mtp_n):
+                raise ValueError("mem_period · attn_out_gate 는 past_gate · registers · slot · hint · oneshot · vo_time · mtp 와 같이 쓰지 않는다")
+            if self.mem_period < 0 or self.mem_period == 1:
+                raise ValueError(f"mem_period 는 0 (끔) 또는 ≥ 2: {self.mem_period}")
+            for i, blk in enumerate(self.predictor_blocks):
+                if self.mem_period and (i + 1) % self.mem_period != 0:
+                    blk.attn.set_block_mem(True)
+                elif self.attn_out_gate:
+                    blk.attn.set_out_gate(True)
+
         # prefix 구현: split(기본, 마스크 없는 블록별 dense SDPA) | flex(DDP 에서 컴파일 실패 사례 있음) | dense
         self.prefix_impl = str(kwargs.get("prefix_impl", "split"))
         self.use_flex = self.prefix_impl == "flex"
@@ -274,10 +366,20 @@ class VisionTransformerPredictorPrefix(nn.Module):
             for m in self.hint_attn:
                 m.zero_init()
         if self.gating_residual:                                   # _init_weights 뒤에 덮는다 → 시작 시 ŷ = A
-            nn.init.zeros_(self.keep_gate.weight); nn.init.constant_(self.keep_gate.bias, 2.0)
+            if not self.gating_fixed:
+                nn.init.zeros_(self.keep_gate.weight); nn.init.constant_(self.keep_gate.bias, 2.0)
             nn.init.zeros_(self.predictor_proj.weight); nn.init.zeros_(self.predictor_proj.bias)
         if getattr(self, "unc_head", None) is not None:   # 2026-10-28: log b 시작 = log 0.55, 기울기 0
             nn.init.zeros_(self.unc_head.weight); nn.init.constant_(self.unc_head.bias, float(torch.log(torch.tensor(0.55))))
+        if self.slot_n:                                   # 2026-11-07: slot 초기값 · 위치 · gate 편향 · 전이 잔차 0 (cross-attn 문 a = 0 은 생성 때부터)
+            self.slot_mem.reset_special()
+        if self.past_gate:                                # 2026-11-07: now/past gate 0 시작 (_init_weights 가 덮어쓴 것을 되돌림) → 기존과 같은 출력
+            for blk in self.predictor_blocks:
+                nn.init.zeros_(blk.attn.past_gate.weight); nn.init.zeros_(blk.attn.past_gate.bias)
+        if self.mem_period:                               # 2026-11-08: 누적 층 편향 (α 0.95 · β 0.5 · 게이트 0.5)
+            for blk in self.predictor_blocks:
+                if getattr(blk.attn, "mem_gate", None) is not None:
+                    blk.attn.reset_block_mem()
 
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
@@ -378,12 +480,19 @@ class VisionTransformerPredictorPrefix(nn.Module):
                 # log b 를 forward 출력으로 돌려준다 — DDP (find_unused_parameters) 가 unc_head 를 "안 쓰임" 으로 보지 않게
                 return p_tf, p_ar, self.unc_head(s_tf).squeeze(-1), self.unc_head(s_ar).squeeze(-1)   # (B, N_tf) · (B, R*S)
             p_tf = self.forward_seq(x[:, :-S], idx[:, :-S], hint=ar.get("hint"))   # 힌트는 TF 에만. rollout 은 힌트 없음
+            mtp = self.mtp_heads_out() if self.mtp_n else None   # 2026-11-07: TF 위치마다 블록 k+2.. 예측 (DDP 가 보도록 forward 출력으로 낸다)
             if getattr(self, "ar_kv_rollout", True):          # 2026-10-11: KV 캐시판 (값·grad 동일, 긴 K 에서 빠르다)
                 p_ar = self.rollout_kv(x[:, : C * S], idx[:, : C * S], R)
             else:
                 first = p_tf[:, (C - 1) * S: C * S]
                 p_ar = self.rollout(x[:, : C * S], idx[:, : C * S], R, first=first)
-            return p_tf, p_ar
+            if ar.get("slot_perm") is not None:               # 2026-11-07 형제 slot 맞바꾸기 (app/vjepa_frozen/slot_swap.py): 같은 문맥, 형제의 slot 궤적으로 다시 굴린다
+                if not self.slot_n or self._slot_traj is None:
+                    raise ValueError("slot_perm 은 slot_n + rollout_kv 경로 전용")
+                p_sw = self._rollout_kv_slot_given(x[:, : C * S], idx[:, : C * S], R, [q[ar["slot_perm"]] for q in self._slot_traj])
+                self._slot_traj = None
+                return p_tf, p_ar, p_sw
+            return (p_tf, p_ar, mtp) if self.mtp_n else (p_tf, p_ar)
         if self.mask_mode in ("ar", "ctx_ar", "ctx_state"):
             raise RuntimeError(f"mask_mode='{self.mask_mode}' predictor 는 mask token 규약 forward(x, masks_x, masks_y) 를 지원하지 않는다 — "
                                "forward_seq(LN(h) 전 블록) / rollout(LN(h) 문맥, R) 을 쓸 것 (app/vjepa_frozen/ar.py)")
@@ -484,17 +593,134 @@ class VisionTransformerPredictorPrefix(nn.Module):
         h = self._ar_embed_obs(x)
         # 블록 0 을 '문맥 1 블록' 으로, 나머지를 인과 미래로 두면 PrefixSpec 이 그대로 블록 인과다 (flash 경로, 마스크 없음)
         spec = PrefixSpec(1, nb - 1, S, future_causal=True) if nb > 1 else None
+        if self.slot_n:                                             # 2026-11-07: slot 을 블록 순서대로 (관측 LN(h_b)), 패치는 자기 블록의 slot 을 읽는다
+            if hint is not None:
+                raise ValueError("slot_n: forward_seq 의 hint 는 없다")
+            sl, att, gt = self._slot_run(x.reshape(x.size(0), nb, S, -1))
+            self._slot_tf = (att, gt)
+            h = self._run_blocks_slot(h, idx, spec, sl)
+            st = self.predictor_norm(h)
+            out = self._ar_out(st, x)
+            return (out, st) if return_states else out
         if hint is not None and hint["x"].size(1) > 0:
             # hint={"x": (B, nb*Nh, embed_dim) LN 된 힌트 encoder 토큰 (블록 1..nb), "idx": (B, nb*Nh) 절대 인덱스, "gate": float}
             if not self.hint_cross_dim:
                 raise ValueError("hint 를 받았는데 hint_cross_dim = 0")
             hx = self.predictor_embed(hint["x"])                    # 공유 투영 (type embedding 없음)
             h = self._run_blocks_hint(h, idx, spec, hx, hint["idx"], float(hint.get("gate", 1.0)))
+        elif self.mtp_n:                                            # 2026-11-07 다중 블록 예측: 끝에서 둘째 층 출력을 head 입력으로 남긴다
+            for blk in self.predictor_blocks[:-1]:
+                h = blk(h, mask=idx, attn_mask=spec, T=None, H=self.grid_height, W=self.grid_width, action_tokens=0)
+            self._mtp_pen = (h, idx, spec)
+            h = self.predictor_blocks[-1](h, mask=idx, attn_mask=spec, T=None, H=self.grid_height, W=self.grid_width, action_tokens=0)
         else:
             h = self._run_blocks(h, idx, spec)                      # 힌트 0 개 → cross-attn 을 부르지 않는다
         st = self.predictor_norm(h)
         out = self._ar_out(st, x)                                   # gating 이면 위치 b 의 anchor = 입력 블록 b (마지막 관측)
         return (out, st) if return_states else out
+
+    # ---------------------------------------------------------------- 다중 블록 예측 (2026-11-07)
+    def mtp_heads_out(self):
+        """forward_seq 직후. return [head j 출력 (B, N, out) LN] — TF 위치 b 의 head j 출력 = 블록 b+1+j 예측."""
+        h_pen, idx, spec = self._mtp_pen
+        self._mtp_pen = None
+        outs = []
+        for lay, nrm, prj in zip(self.mtp_layers, self.mtp_norms, self.mtp_projs):
+            y = lay(h_pen, mask=idx, attn_mask=spec, T=None, H=self.grid_height, W=self.grid_width, action_tokens=0)
+            y = prj(nrm(y))
+            outs.append(torch.nn.functional.layer_norm(y, (y.size(-1),)))
+        return outs
+
+    @torch.no_grad()
+    def mtp_init_from_trunk(self):
+        """head 를 trunk 마지막 층 · predictor_norm · predictor_proj 복사로 (출발 체크포인트를 읽은 뒤 부른다)."""
+        for lay, nrm, prj in zip(self.mtp_layers, self.mtp_norms, self.mtp_projs):
+            lay.load_state_dict(self.predictor_blocks[-1].state_dict())
+            nrm.load_state_dict(self.predictor_norm.state_dict())
+            prj.load_state_dict(self.predictor_proj.state_dict())
+
+    # ---------------------------------------------------------------- slot 메모리 (2026-11-07)
+    def _slot_run(self, u):
+        """u (B, nb, S, in_dim) 블록 토큰 (encoder 공간). return slot (B, nb, K, D) — 블록 b 까지 본 상태, attention (B, nb, K, S), gate (B, nb, K)."""
+        s = self.slot_mem.init(u.size(0))
+        sl, att, gt = [], [], []
+        for b in range(u.size(1)):
+            s, a, g = self.slot_mem.step(s, u[:, b], first=(b == 0))
+            sl.append(s); att.append(a); gt.append(g[..., 0])
+        return torch.stack(sl, 1), torch.stack(att, 1), torch.stack(gt, 1)
+
+    def _slot_x(self, i, h, sl):
+        """층 i 뒤 cross-attention. h (B, n*S, D), sl (B, n, K, D) — 블록 b 의 패치는 sl[:, b] 만 본다."""
+        B, n = sl.shape[:2]
+        S, D = self.tokens_per_block, h.size(-1)
+        y = self.slot_xattn[str(i)](h.reshape(B * n, S, D), sl.reshape(B * n, sl.size(2), sl.size(3)))
+        return h + y.reshape(B, n * S, D)
+
+    def _run_blocks_slot(self, h, idx, spec, sl):
+        for i, blk in enumerate(self.predictor_blocks):
+            if self.use_activation_checkpointing and torch.is_grad_enabled():
+                h = torch.utils.checkpoint.checkpoint(
+                    blk, h, idx, spec, None, self.grid_height, self.grid_width, 0, use_reentrant=False)
+            else:
+                h = blk(h, mask=idx, attn_mask=spec, T=None, H=self.grid_height, W=self.grid_width, action_tokens=0)
+            if i in self.slot_layers:
+                h = self._slot_x(i, h, sl)
+        return h
+
+    def _ar_step_kv_slot(self, h, idx_blk, caches, s):
+        """_ar_step_kv 의 slot 판: h (B, S, D) 이미 임베딩된 블록 (관측 또는 상태 되먹임), s (B, K, D) 이 블록까지 갱신된 slot."""
+        Hg, Wg = self.grid_height, self.grid_width
+        new = []
+        for i, blk in enumerate(self.predictor_blocks):
+            h, kv = blk.forward_kv(h, idx_blk, Hg, Wg, None if caches is None else caches[i])
+            new.append(kv)
+            if i in self.slot_layers:
+                h = self._slot_x(i, h, s[:, None])
+        st = self.predictor_norm(h)
+        return self._ar_out(st), new, st
+
+    def _rollout_kv_slot(self, x_ctx, idx_ctx, n_steps, return_states=False):
+        """rollout_kv 의 slot 판. 문맥 블록은 관측 LN(h_b) 로, rollout 블록은 AR 이 그린 예측 p_b (같은 encoder 공간) 로 slot 을 갱신한다."""
+        S = self.tokens_per_block
+        C = x_ctx.size(1) // S
+        s = self.slot_mem.init(x_ctx.size(0))
+        caches, p, st, traj = None, None, None, []
+        for b in range(C):
+            xb = x_ctx[:, b * S:(b + 1) * S]
+            s, _, _ = self.slot_mem.step(s, xb, first=(b == 0))
+            traj.append(s)
+            p, caches, st = self._ar_step_kv_slot(self._ar_embed_obs(xb), idx_ctx[:, b * S:(b + 1) * S], caches, s)
+        preds, states, att, gt = [p], [st], [], []
+        pos = idx_ctx[:, -S:]
+        for _ in range(1, int(n_steps)):
+            pos = pos + S
+            s, a, g = self.slot_mem.step(s, p, first=False)            # 블록 C+r 의 내용 = 직전 걸음이 그린 예측
+            att.append(a); gt.append(g[..., 0])
+            traj.append(s)
+            p, caches, st = self._ar_step_kv_slot(st + self.type_embed[1], pos, caches, s)
+            preds.append(p); states.append(st)
+        self._slot_roll = (torch.stack(att, 1), torch.stack(gt, 1)) if att else None
+        self._slot_traj = traj
+        if return_states:
+            return torch.cat(preds, dim=1), torch.cat(states, dim=1)
+        return torch.cat(preds, dim=1)
+
+    def _rollout_kv_slot_given(self, x_ctx, idx_ctx, n_steps, traj):
+        """_rollout_kv_slot 와 같되 slot 을 갱신하지 않고 traj (블록마다 (B, K, D)) 를 그대로 읽는다. 형제 맞바꾸기 전용."""
+        S = self.tokens_per_block
+        C = x_ctx.size(1) // S
+        if len(traj) != C + int(n_steps) - 1:
+            raise ValueError(f"slot 궤적 {len(traj)} 개 (기대 {C + int(n_steps) - 1})")
+        caches, p, st = None, None, None
+        for b in range(C):
+            p, caches, st = self._ar_step_kv_slot(self._ar_embed_obs(x_ctx[:, b * S:(b + 1) * S]), idx_ctx[:, b * S:(b + 1) * S], caches, traj[b])
+        preds = [p]
+        pos = idx_ctx[:, -S:]
+        for r in range(1, int(n_steps)):
+            pos = pos + S
+            p, caches, st = self._ar_step_kv_slot(st + self.type_embed[1], pos, caches, traj[C + r - 1])
+            preds.append(p)
+        return torch.cat(preds, dim=1)
 
     def _ar_out(self, st, anchor=None):
         """ar 출력: 기본 LN(proj(st)). gating_residual (2026-10-17): g · A + proj(st) (LN 없음), g = σ(wᵀst + b) / σ(2).
@@ -504,7 +730,10 @@ class VisionTransformerPredictorPrefix(nn.Module):
             return torch.nn.functional.layer_norm(h, (h.size(-1),))
         if anchor is None or anchor.shape[:2] != st.shape[:2]:
             raise ValueError(f"ar gating: anchor {None if anchor is None else tuple(anchor.shape)} 가 상태 {tuple(st.shape)} 와 안 맞는다")
-        g = torch.sigmoid(self.keep_gate(st).float()) / self.sig_b0
+        if self.gating_fixed:                                      # 2026-11-07 Δ 예측: ẑ = x_k + P(x)
+            g = st.new_ones(st.shape[:-1] + (1,), dtype=torch.float32)
+        else:
+            g = torch.sigmoid(self.keep_gate(st).float()) / self.sig_b0
         self._gate_cache = g
         y = g * anchor.float() + self.predictor_proj(st).float()
         return torch.nn.functional.layer_norm(y, (y.size(-1),)) if self.gating_out_ln else y
@@ -763,6 +992,8 @@ class VisionTransformerPredictorPrefix(nn.Module):
             if return_states:
                 raise ValueError("ar_oneshot: return_states 없음")
             return self._ar_oneshot(x_ctx, idx_ctx, int(n_steps))
+        if self.slot_n:                                      # 2026-11-07: slot 메모리 판
+            return self._rollout_kv_slot(x_ctx, idx_ctx, int(n_steps), return_states=return_states)
         if self.n_registers:                                 # 2026-10-27: register 판
             if return_states or self.gating_residual:
                 raise ValueError("ar registers: rollout_kv 의 return_states · gating 은 아직 없다")
@@ -799,8 +1030,8 @@ def _rollout_kv_multi(self, x, idx, starts, rollouts):
     블록을 앞에서부터 한 번만 채우며 (KV 캐시), 시작점 c (= 관측 c 블록 뒤) 에 닿을 때마다 그 캐시에서 rollouts[i] 블록을 굴린다.
     캐시는 cat 으로 새 텐서가 되므로 시작점끼리 문맥 계산·그래프를 공유한다. return [ (B, R_i*S, out) ] 시작점 순.
     시작점 c 의 첫 예측 = 위치 c-1 의 출력 (= rollout_kv(x[:, :c*S], ..) 의 첫 블록과 같다)."""
-    if self.gating_residual:
-        raise NotImplementedError("ar gating_residual 은 multistart 를 아직 지원하지 않는다")
+    if self.gating_residual or self.slot_n:
+        raise NotImplementedError("ar gating_residual · slot 은 multistart 를 아직 지원하지 않는다")
     S = self.tokens_per_block
     order = sorted(range(len(starts)), key=lambda i: starts[i])
     caches, p, st = None, None, None

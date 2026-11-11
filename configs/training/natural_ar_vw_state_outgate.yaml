@@ -1,0 +1,34 @@
+# AR 처음부터: Qwen 출력 게이트만 (2026-11-08, 시간 누적 하이브리드 natural_ar_vw_state_tmem 의 대조 — 게이트 효과만 분리).
+#   12 층 전부 지금과 같은 블록 인과 attention + attention 출력에 query 토큰별 · 채널별 σ(W x) (Qiu et al. NeurIPS 2025, G1).
+#   나머지는 natural_ar_vw_state 와 같다. val = real world permanence (매 epoch).
+#   GPUS=8 bash z_training/tmux_train.sh natural_ar_vw_state_outgate
+extends: natural_ar_vw_state
+
+model:
+  predictor:
+    attn_out_gate: true
+
+val:                            # 2026-11-07 사용자 "val 은 real world permanence bench 로" (scratch 판 관례) — 95 장면 × 4 = 380 클립 (채점기와 같은 로더 · 같은 창), 매 epoch (약 34 초)
+  dataset: null
+  n_frames: 32
+  context_length: 16
+  batch_size: 4
+  every_epochs: 1
+  at_start: true
+  n_blocks_per_type: 1000
+  seed: 0
+  data:
+    root: ${DATA_CSV}/real_world_permanence_uniform
+    index_csv: index.csv
+    video_root: /workspace/dataset/benchmarks/real_world_permanence
+    frames_index_column: frames
+    block_column: block_id
+    pair_column: pair_id
+    plausible_column: plausible
+    variant_column: variant
+    type_column: condition
+    frames_root: null           # 부모 (IntPhys1 dev PNG) 에서 상속되는 키를 지운다
+    frames_pattern: null
+    frames_start: null
+    frames_stride: null
+    raw_frames: null

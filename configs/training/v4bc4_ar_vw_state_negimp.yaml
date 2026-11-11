@@ -1,0 +1,13 @@
+# 자동 탐색 묶음 3 (2026-11-06): v4b_ar_vw_state_negimp (짝 없음) 과 데이터 · λ 만 다르다 — 데이터 blender_track_v4bc4_all (v4b + 지나가는 가림막 v4c), λ 1.0.
+#   왜: 묶음 1 · 2 에서 λ 만으로는 합성 조건 (VOB v3 평균 ≥ 95.6) 을 지키는 real95 가 71 에서 멈췄다 (λ 0.75 71.1 · 0.85 70.5 · 0.92 72.6 조건 X).
+#        λ 를 올리면 VOB 지나가는 가림막 칸이 먼저 무너진다 — 학습 분포에 움직이는 가림막이 없다. v4c 가 그 칸을 지켜 더 큰 λ 를 허용하는지 본다.
+#   GPUS=8 bash z_training/tmux_train.sh v4bc4_ar_vw_state_negimp
+extends: v4b_ar_vw_state_negimp
+
+data:
+  datasets:
+    - {name: blender_track_v4bc4_all, weight: 1.0}
+
+negimp:
+  families: ${DATA_CSV}/blender_track_v4bc4_negimp/families.json
+  weight: 1.0

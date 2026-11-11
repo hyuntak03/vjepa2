@@ -1,0 +1,9 @@
+# 사라짐 : 나타남 = 1 : 1 (2026-11-06, 사용자): v4bc4_release_negimp_dm (λ 1 · batch 96 데이터 맞춤) 과 물체 문맥 불가능 확률만 다르다.
+#   v4bc4 λ 1 판 실측 (20 epoch 합): vanish 21,050 · appear 18,059 · swap 8,735 → 사라짐 : 나타남 1.17 : 1.
+#   물체 있는 문맥 (A_k) 의 불가능 확률 0.5 → 0.43 (= 0.5 / 1.17): vanish ≈ appear, vanish : swap 비는 그대로. 빈 장면 문맥 (B → appear) 은 0.5.
+#   가능 클립 수는 batch 96 의 약 절반 이상 (L1 판 48 과 같은 규모). app/vjepa_frozen/negimp.py p_object_ctx.
+#   GPUS=8 bash z_training/tmux_train.sh v4bc4_release_negimp_va11_dm
+extends: v4bc4_release_negimp_dm
+
+negimp:
+  p_object_ctx: 0.43

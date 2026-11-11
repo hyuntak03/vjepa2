@@ -217,6 +217,19 @@ def main():
         die("mask 리스트가 비어 있다")
 
     def check_frames(spec, label, n=n):
+        if spec.get("video_root") or spec.get("frames_index_column"):    # 2026-11-07: mp4 + 행마다 프레임 목록 (real bench 등) — 영상 파일만 확인
+            ipath = os.path.join(spec["root"], spec.get("index_csv", "index.csv"))
+            if not os.path.isfile(ipath):
+                die(f"{label}: index 가 없다 -> {ipath}")
+            with open(ipath, newline="", encoding="utf-8") as f:
+                row = next(csv.DictReader(f), None)
+            vp = os.path.join(spec.get("video_root") or spec["root"], row["file"])
+            if not os.path.isfile(vp):
+                die(f"{label}: 영상이 없다 -> {vp}")
+            col = spec.get("frames_index_column")
+            if col and len(row[col].split()) != n:
+                die(f"{label}: {col} 에 {len(row[col].split())} 장인데 n_frames {n}")
+            return
         for k in ("root", "frames_root"):
             if not os.path.isdir(spec[k]):
                 die(f"{label}.{k} 가 없다 -> {spec[k]}")
@@ -296,7 +309,7 @@ def main():
         print(f"  masks    : {cfg['mask']}" if not d.get("window_grid") else f"  grid     : {d['window_grid'].get('_resolved')}  (mask.context_frames 는 무시된다)")
         print(f"  optim    : epochs {O['epochs']} ipe {O.get('ipe') or 'auto'} lr {O['lr']} warmup {O.get('warmup')} wd {O.get('weight_decay')}")
         v = cfg.get("val")
-        print(f"  val      : {v['dataset']} n_blocks_per_type={v.get('n_blocks_per_type')} C={v.get('context_length')} every {v.get('every_epochs')} ep"
+        print(f"  val      : {v.get('dataset') or v['data'].get('root')} n_blocks_per_type={v.get('n_blocks_per_type')} C={v.get('context_length')} every {v.get('every_epochs')} ep"
               if v else "  val      : (없음)")
 
 

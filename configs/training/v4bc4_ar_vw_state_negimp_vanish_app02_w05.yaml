@@ -1,0 +1,8 @@
+# =============================================================================
+# 음의 손실 p 0.2 기준판 (v4bc4_ar_vw_state_negimp_vanish_app02, λ 1) 과 λ 만 다르다: λ 0.5 (2026-11-11, 사용자 "0.5 2 이렇게 돌려봐")
+#   λ = 불가능 쪽 손실 가중 (negimp.weight). 나머지 (AR e70 출발 · v4bc4 · 사라짐 음성 문맥 0.5 · 나타남 음성 p 0.2 · 바꿔치기 없음 · margin 1 · 2,000 step · 전역 48) 같다.
+#   GPUS=8 bash z_training/tmux_train.sh v4bc4_ar_vw_state_negimp_vanish_app02_w05
+# =============================================================================
+extends: v4bc4_ar_vw_state_negimp_vanish_app02
+negimp:
+  weight: 0.5

@@ -1,0 +1,8 @@
+# 자동 탐색 (2026-11-06, 사용자 "v4bc4 그냥 pft 한 건 성능 어떻게 돼"): v4bc4 (v4b + 지나가는 가림막 v4c × 4, 51 %) 데이터로 L1 만 (음의 손실 없음).
+#   v4bc4_ar_vw_state_negimp (λ 1) 의 데이터 효과와 손실 효과를 가르는 대조. 대조 v4b_ar_vw_state_postft (v4b L1).
+#   GPUS=8 bash z_training/tmux_train.sh v4bc4_ar_vw_state_postft
+extends: v4vc_ar_vw_state_postft
+
+data:
+  datasets:
+    - {name: blender_track_v4bc4_all, weight: 1.0}

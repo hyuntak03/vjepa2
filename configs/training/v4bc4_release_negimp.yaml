@@ -1,0 +1,12 @@
+# v4bc4 (2026-11-06, 사용자 "release pft, negative pft (ar 에 한 거랑 동일하게) 올려놔"): v4b_release_negimp (짝 없는 음의 손실 λ 1) 과 데이터만 다르다 — blender_track_v4bc4_all.
+#   짝 판: v4bc4_ar_vw_state_negimp (AR, 같은 데이터 · 같은 손실 · λ 1).
+#   GPUS=8 bash z_training/tmux_train.sh v4bc4_release_negimp
+extends: v4b_release_negimp
+
+data:
+  datasets:
+    - {name: blender_track_v4bc4_all, weight: 1.0}
+
+negimp:
+  families: ${DATA_CSV}/blender_track_v4bc4_negimp/families.json
+  weight: 1.0

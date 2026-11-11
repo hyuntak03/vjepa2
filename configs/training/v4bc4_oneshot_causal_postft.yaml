@@ -1,0 +1,14 @@
+# =============================================================================
+# 블록 입력 · 블록 인과 · one-shot 판 (natural_ar_vw_state_oneshot_causal, e70) post-FT — v4bc4 L1 만 (2026-11-11, 사용자 "이거 하고 pft 로 v4bc4 하고 negative loss p 0.2 까지 chain")
+#
+#   GPUS=8 bash z_training/tmux_train.sh v4bc4_oneshot_causal_postft
+#
+# v4bc4_ar_vw_state_postft (블록 AR 출발, L1) 와 다른 것: 출발 체크포인트 (one-shot e70) · predictor 가 one-shot (ar_oneshot + 블록 인과).
+#   one-shot 이라 손실 = 미래 8 블록 한 번에 L1 (TF 없음, 출발판 학습과 같다). 데이터 · 창 (문맥 8 · 미래 8) · lr 5e-5 · 2,000 step · 전역 48 은 같다.
+# =============================================================================
+extends: v4bc4_ar_vw_state_postft
+model:
+  predictor_init_checkpoint: /workspace/world_model/vjepa2/z_training/runs/natural_ar_vw_state_oneshot_causal/e70.pt
+  predictor:
+    ar_oneshot: true
+    ar_oneshot_causal: true

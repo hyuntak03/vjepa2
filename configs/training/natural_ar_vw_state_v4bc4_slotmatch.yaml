@@ -1,0 +1,35 @@
+# =============================================================================
+# AR scratch + slot 메모리 + 보이는 마스크 맞추기 (2026-11-08, 사용자 "slot + 맞추기로 ar scratch 학습 해보자 (데이터는 ssv2, k710, HowTo100M)", "v4bc4 도 넣어서")
+#
+#   GPUS=8 bash z_training/tmux_train.sh natural_ar_vw_state_v4bc4_slotmatch
+#
+# natural_ar_vw_state (AR 기본판: K710 + SSv2 + HowTo 1 %, 가변 창, 70 epoch × 294 = 20,580 step, 같은 seed) 와 다른 것:
+#   1. predictor 에 slot 메모리 (v4bc4_ar_vw_state_slot 와 같은 구조: slot 8 · 반복 2 · 패치→slot 층 3·6·9·12 뒤). 0 step 출력 = 같은 초기화의 AR.
+#   2. step 의 10 % 를 v4bc4 (19,131 편) 고정 창으로 (natural_ar_vw_state_v4vc 와 같은 방식, 목록만 v4bc4).
+#      맞추기 손실은 라벨이 있는 이 step 에만 걸린다 — 자연 영상에는 물체 마스크 · ID 가 없다.
+#   3. 맞추기 가중치 0.5 (v4bc4_ar_vw_state_slotmatch 와 같다). slot lr 배수는 1 — 이어 학습 판의 ×10 은 사전학습된 몸통을 따라잡게 한 것이고
+#      scratch 는 몸통도 새로 배우므로 같은 lr 로 둔다.
+# 대조: natural_ar_vw_state_v4bc4 (같은 섞기, slot 없음) — slot 효과와 v4bc4 섞기 효과를 가른다.
+# =============================================================================
+extends: natural_ar_vw_state
+
+model:
+  predictor:
+    slot_n: 8
+    slot_iters: 2
+    slot_layers: "2,5,8,11"
+    slot_heads: 6
+    slot_gain: 10.0
+    slot_gate_bias: 2.0
+
+data:
+  var_window:
+    fixed:
+      p: 0.10
+      sources:
+        - {name: v4bc4, type: mp4_list, list: "${DATA_CSV}/blender_track_v4bc4/arms/all_mp4list.csv",
+           starts: [0, 1], stride: 2, n_frames: 32, context_frames: [16], slot_labels: true}
+
+slot:
+  lr_mult: 1.0
+  match_weight: 0.5

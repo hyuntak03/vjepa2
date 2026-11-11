@@ -1,0 +1,6 @@
+# 자동 탐색 묶음 2 (2026-11-06): 챔피언 (v4b 짝 없음 λ 0.75) + 자연 영상 반 (K710 frame_step 3 · SSv2 frame_step 1, 음의 손실 없음).
+#   GPUS=8 bash z_training/tmux_train.sh v4bnat_ar_vw_state_negimp_w075
+extends: v4bnat_ar_vw_state_negimp
+
+negimp:
+  weight: 0.75

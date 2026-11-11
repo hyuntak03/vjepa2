@@ -1,0 +1,12 @@
+# 자동 탐색 후보 (2026-11-06): v4b_ar_vw_state_negimp (짝 없음 λ 1, real95 75.3 · 합성 조건 실패) 에 자연 영상을 반 섞는다 — 음의 손실은 v4b 묶음에만.
+#   왜: 데이터 설계 원칙 (z_training/docs/DATA_DESIGN_PRINCIPLES_2026-10-26.md) "합성만으로 학습하지 말고 자연 영상과 섞는다". 이어 학습이 합성 전용이라
+#       AR 기본판의 자연 영상 예측이 흐려질 수 있다. 시간 간격은 v4 (0.1 s / 장) 와 비슷하게: K710 frame_step 3 (0.1 s) · SSv2 frame_step 1 (0.083 s).
+#   자연 영상 항목은 negimp_off (app/vjepa_frozen/negmix.py) — 짝 정보 없이 '가능' 으로만.
+#   GPUS=8 bash z_training/tmux_train.sh v4bnat_ar_vw_state_negimp
+extends: v4b_ar_vw_state_negimp
+
+data:
+  datasets:
+    - {name: blender_track_v4b_all, weight: 0.5}
+    - {name: k710_320_fs3, weight: 0.25, negimp_off: true}
+    - {name: ssv2_fs1_min32, weight: 0.25, negimp_off: true}

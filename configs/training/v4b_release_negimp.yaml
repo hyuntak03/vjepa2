@@ -1,0 +1,10 @@
+# v4b (2026-11-06): v4vc_release_negimp (음의 손실 λ 1, 짝 없음) 과 데이터만 다르다 — 가림을 길게 한 v4 (blender_track_v4b_all).
+#   GPUS=8 bash z_training/tmux_train.sh v4b_release_negimp
+extends: v4vc_release_negimp
+
+data:
+  datasets:
+    - {name: blender_track_v4b_all, weight: 1.0}
+
+negimp:
+  families: ${DATA_CSV}/blender_track_v4b_negimp/families.json   # z_research/scripts/data/blender_track/v4a_static.py index_root

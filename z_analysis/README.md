@@ -28,6 +28,8 @@
 
 | 파일 | 무엇 |
 |---|---|
+| `presence_probe_20261110/` | 음의 손실은 왜 필요했나 — 진단 1 (가려진 물체가 예측 미래에 남는가, 실제 표현 판별기) · 진단 2 (분리도 d′, AR 0.64 배) · 검증 (실제 영상 사라짐 36.8 → 71.6). 문서 `docs/PRESENCE_PROBE_2026-11-10.md`, 그림 `figures/presence_transfer_20261110` · `figures/presence_vector_signal_20261110` |
+| `hidden_curvature_20261107/` | predictor 은닉 곡률 진단 (가림 · 빈 장면 · 정지 화면 · 표류 주입). 문서 `docs/HIDDEN_CURVATURE_2026-11-07.md` |
 | `future_set_score.json` | 미래 집합 채점 (가장 가까운 미래로 surprise), VOBench 끝 가림 |
 | `wta_set_rescore.json` | 다중 가설 3 의 가설별 · 집합 점수 (IntPhys1 · InfLevel · IntPhys2 · IntPhys2 late) |
 | `pred_object_fidelity.json` | 릴리즈 vs 블록 AR: 걸음 · 거리별 진하기 · 잔상 · 정체 판독 · decoder 응답 |
@@ -117,6 +119,8 @@
 | `concept_vobench_vs_phys3d.json` | (앞판, 끝 가림 캐시만 1,200 표본) VOBench vs 3D 합성 개념 cos 모양 0.54 · 색 0.64 |
 | `decode_identity_steer.json` | 정체 개념 4 배를 물체 칸에 더한 AR 예측을 VOBench decoder 로 그림 (예시 4: 정지 2 · 이동 2). 물체 상자 픽셀 오차 거의 그대로 (±0.03) — 물체가 나타나지 않는다. 그림에서 드러난 것: 끝 가림에서 실제로는 가림막이 쓰러지며 물체가 드러나는데, AR 예측은 가림막을 그대로 세워 둔다 (가림막도 움직이지 않음) → 물체가 계속 가려진 채. 그림 `figures/decode_identity_steer.png` |
 | `probe_subtract_objcell.json` | 개념 빼기 막대의 물체 칸 판 (계산 확인용, 수학적으로 정해진 결과). 그림은 지움 (2026-10-26 사용자 지시: 쓸데없는 그래프 삭제 — 계산 확인용이라 증거가 아님) |
+| `slot_diag_20261107/` | **slot 판 진단 (학습 없음, 저장 surprise 재현 오차 1e-4 아래)**: 시험 때 문 닫기 · slot 맞바꾸기 · gate 닫기를 해도 시트 점수 불변 (real 95 slot 판 67.4 → 67.4 · 67.4 · 65.8). slot 판은 한 slot 이 토큰 86 %, 클립별 에너지 0.2 %. 맞추기 판은 물체 dice 0.68, VOBench 판별 95 %, real 55 %. 맞바꾸기 효과는 A · B 예측 차이의 0.8–2.8 %. `z_research/scripts/analysis/slot_diag.py` · 외형 변경 (회색 · 색상 · 음화) `slot_appearance_diag.py`: dice 0.66–0.68, VOBench 98.3–99.0 그대로, real95 60.5–67 · 주소 위치 오차 중앙값 3.8 px `slot_address_state.py` · 주소 질량만의 상태 surprise `slot_state_surprise.py` 여섯 보드 50–55 (빈 문맥에서도 질량 포화) · 형제 slot 맞바꾸기 500 step `vast_ar_vw_state_v4bc4_slotswap.json`: 맞바꾸기 효과 real95 10.1 % · VOBench 9.0 % (기준 30 % 미달), real95 63.7, 실제 영상 slot 판별 47–57 % |
+| `domain_read_20261107/` | **도메인 무관 읽기 (학습 없음)**: v4 에서 정한 '물체를 봤다' 방향을 다른 도메인에 그대로 적용, 실제 영상 95: encoder 94 · AR 상태 학습 전 75 → v4 L1 84 · 예측 77 → 86 · slot 53 / 48. VOBench 100, Surrogate 93–97. 방향은 맞는데 예측에 들어가는 크기가 작다. `z_research/scripts/analysis/domain_read_transfer.py` |
 
 ### 속도 그림 묶음 (2026-10-27) — `figures/velocity/`
 

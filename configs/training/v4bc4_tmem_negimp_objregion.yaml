@@ -1,0 +1,10 @@
+# 2026-11-08 사용자 "그 동시에 gating 모듈도 (물체 토큰에만 그렇게 loss 걸도록) — 학습 2 개 동시에":
+#   시간 누적 하이브리드 e43 → v4bc4 음의 손실 (v4bc4_tmem_negimp) 와 한 가지만 다르다: negimp.region: target
+#   (불가능 손실의 L1 을 target 이 보이는 토큰에서만 — v4bc4_ar_vw_state_negimp_objregion 과 같은 손실, 출발 · 구조만 다름).
+#   GPUS=8 bash z_training/tmux_train.sh v4bc4_tmem_negimp_objregion
+#   GPU 8 장 × 6 = 전체 48 — 기준판과 같은 world size · seed → 같은 step 에 같은 batch (2026-11-08 사용자 "원래 8 gpu 로").
+extends: v4bc4_tmem_negimp
+
+
+negimp:
+  region: target

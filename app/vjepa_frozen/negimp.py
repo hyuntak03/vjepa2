@@ -42,6 +42,14 @@ class ImpTable:
     def __init__(self, cfg: dict, paths, starts, stride: int, n_frames: int):
         d = json.load(open(cfg["families"]))
         self.p = float(cfg.get("p", 0.5))
+        # 2026-11-06 (사용자 "사라짐 : 나타남 1 : 1"): 물체 있는 문맥 (A_k → vanish · swap) 의 불가능 확률. 빈 장면 문맥 (B → appear) 은 p.
+        #   문맥은 계속 뽑힌 영상 자신이고 문맥마다 가능 ≥ 불가능 (p_object_ctx ≤ 0.5) 이라 배경 토큰을 미는 힘은 생기지 않는다. 기본 = p (예전과 같다).
+        self.p_obj = float(cfg.get("p_object_ctx", self.p))
+        # 2026-11-08 (사용자 "물체 영역에만 negative loss 걸어봐 — target 물체에다가"): region = target 이면 불가능 손실의 L1 을
+        #   target 이 보이는 토큰 (가능 미래 = 문맥 영상 자신 ∪ 불가능 미래 = 짝 영상, 생성기 보임 마스크) 에서만 잰다. none = 전 토큰 (예전과 같다).
+        self.region = str(cfg.get("region", "none") or "none")
+        if self.region not in ("none", "target"):
+            raise ValueError(f"negimp.region 은 none | target: {self.region!r}")
         self.swap_frac = float(cfg.get("swap_frac", 0.5))
         self.mode = str(cfg.get("mode", "single"))
         if self.mode not in ("single", "paired"):
@@ -81,8 +89,8 @@ class ImpTable:
         if self.mode == "paired":
             return (f"paired · type_w (vanish, appear, swap) {self.type_w} · 이음 {self.splice} · 문맥 {self.n_ctx} 장 · "
                     f"묶음에 든 영상 {sum(f is not None for f in self.fam_of)}/{self.n}")
-        return (f"p {self.p} · swap_frac {self.swap_frac} · 이음 {self.splice} · 문맥 {self.n_ctx} 장 · "
-                f"짝을 만들 수 있는 영상 {self.n_elig}/{self.n}")
+        return (f"p {self.p} · 물체 문맥 p {self.p_obj} · swap_frac {self.swap_frac} · 이음 {self.splice} · 문맥 {self.n_ctx} 장 · "
+                f"짝을 만들 수 있는 영상 {self.n_elig}/{self.n} · 불가능 L1 영역 {self.region}")
 
     def draw_pair(self, i: int):
         """paired: (code, 문맥 영상 X, 미래 영상 Y). code 1 vanish · 2 appear · 3 swap, 0 = 짝 없음 (X = i, Y = None)."""
@@ -104,7 +112,7 @@ class ImpTable:
     def draw(self, i: int):
         """(code, 미래 영상 번호). code 0 = 가능. rank 마다 worker RNG 가 같으므로 (같은 seed) 영상 번호 i 를 섞는다."""
         r = random.Random((random.getrandbits(62) << 20) ^ int(i))
-        if r.random() >= self.p:
+        if r.random() >= (self.p if self.vanish[i] is None else self.p_obj):
             return 0, None
         if self.vanish[i] is not None:
             if self.swap[i] and r.random() < self.swap_frac:
@@ -136,8 +144,28 @@ def release_loss(p, h, imp, margin: float, loss_exp: float, weight: float = 1.0)
     return loss, _stats(imp, d, torch.zeros_like(d), d, il)
 
 
+def release_pair_loss(p, h, h_imp, imp, loss_exp: float, weight: float = 1.0):
+    """kind=oneshot paired (2026-11-06, 사용자 "릴리즈 pft 짝 있는 음의 손실 람다 3"). ar_pair_loss 의 릴리즈 판.
+    p (B, M, D) = 같은 문맥에서 한 번 낸 예측, h = 가능 클립 창 전체 정답 (LN, 미래 M 토큰), h_imp = 불가능 클립 (문맥 같음 · 미래만 다름) 창 전체 정답 (LN, 같은 M 토큰).
+    손실 = L1(p, 가능) + λ · [L1(p, 가능) − L1(p, 불가능)] (짝 없는 샘플은 괄호 0) — 샘플 평균. 정답이 하나면 λ 와 무관하게 p = 가능 이 최적.
+    stats 는 ar_pair_loss 와 같은 자리 (TF 칸은 0): n_pos = 전체, Σ가능 L1, 0, n_imp = 짝 있는 샘플, Σ불가능 L1, Σ(가능 − 불가능), n(불가능이 더 먼 짝)."""
+    if h_imp.shape != h.shape:
+        raise ValueError(f"negimp release_pair_loss: h {tuple(h.shape)} != h_imp {tuple(h_imp.shape)}")
+    dp = (p.float() - h.float()).abs().pow(loss_exp).mean(dim=(1, 2)) / loss_exp
+    di = (p.float() - h_imp.float()).abs().pow(loss_exp).mean(dim=(1, 2)) / loss_exp
+    paired = imp > 0
+    diff = torch.where(paired, dp - di, torch.zeros_like(dp))
+    loss = (dp + float(weight) * diff).mean()
+    st = [torch.tensor(float(dp.numel()), device=dp.device), dp.sum(), torch.zeros((), device=dp.device), paired.sum(), di[paired].sum(),
+          diff[paired].sum(), (di[paired] > dp[paired]).sum()]
+    for c in (1, 2, 3):
+        m = imp == c
+        st += [m.sum(), di[m].sum()]
+    return loss, torch.stack([x.detach().double() for x in st])
+
+
 def ar_loss(predictor, h, S: int, C: int, K: int, loss_exp: float, rollout_steps: int, imp, margin: float, terms: str, h_in=None,
-            weight: float = 1.0):
+            weight: float = 1.0, region=None):
     """kind=ar 기본 경로 (ar.ar_losses 의 hint · delta · tf_span · unc 없는 판). return (loss, jloss, sloss, R, stats).
     가능 샘플: TF L1 + 굴린 L1 (기존과 같다). 불가능 샘플: max(0, margin − L1_imp), L1_imp = 굴린 L1 (rollout) 또는 TF + 굴린 (sum).
     jloss · sloss 는 가능 샘플만의 평균 (로그용).
@@ -150,12 +178,30 @@ def ar_loss(predictor, h, S: int, C: int, K: int, loss_exp: float, rollout_steps
     R = max(1, min(int(K), int(rollout_steps)))
     _o = predictor(h if h_in is None else h_in, ar={"idx": AR.block_indices(B, nb, S, h.device), "n_ctx_blocks": C, "rollout_steps": R})
     p_tf, p_ar = _o[0], _o[1]
-    if p_tf is None or len(_o) != 2:
-        raise ValueError("negimp 는 kind=ar 기본 출력 (p_tf, p_ar) 만 받는다 (ar_oneshot · ar_unc 아님)")
-    tf = (p_tf.float() - h[:, S:].float()).abs().pow(loss_exp).mean(dim=(1, 2)) / loss_exp
+    if len(_o) != 2:
+        raise ValueError("negimp 는 kind=ar 기본 출력 (p_tf, p_ar) 만 받는다 (ar_unc 아님)")
     ro = (p_ar.float() - h[:, C * S: (C + R) * S].float()).abs().pow(loss_exp).mean(dim=(1, 2)) / loss_exp
+    if p_tf is None:
+        # 2026-11-11 (사용자 "one-shot 판 PFT 로 v4bc4 + negative loss p 0.2"): ar_oneshot 은 TF 가 없다 (ar.ar_losses 와 같다) —
+        #   가능 샘플 = 미래 K 블록 한 번에 L1, 불가능 샘플 = max(0, margin − 그 L1). TF 항은 0.
+        if region is not None or terms != "rollout":
+            raise ValueError("negimp + ar_oneshot 은 region 없음 · ar_terms=rollout 만")
+        tf = torch.zeros_like(ro)
+    else:
+        tf = (p_tf.float() - h[:, S:].float()).abs().pow(loss_exp).mean(dim=(1, 2)) / loss_exp
     l1_imp = ro if terms == "rollout" else tf + ro
-    il = torch.clamp(margin - l1_imp, min=0.0)
+    has_reg = torch.ones_like(ro, dtype=torch.bool)
+    if region is not None:
+        # 2026-11-08 region=target: region (B, nb, S) 0/1 = target 보이는 토큰 (가능 ∪ 불가능 미래). 불가능 L1 = 굴린 예측의 그 토큰 평균.
+        #   target 이 미래 블록에서 한 번도 안 보이는 불가능 샘플은 손실 0 (밀 자리가 없다). 가능 샘플은 그대로 (전 토큰 TF + 굴린 L1).
+        if terms != "rollout":
+            raise ValueError("negimp.region 은 ar_terms: rollout 전용")
+        m = region[:, C: C + R].reshape(region.size(0), R * S).to(p_ar.device, torch.float32)
+        tok = (p_ar.float() - h[:, C * S: (C + R) * S].float()).abs().pow(loss_exp).mean(dim=-1) / loss_exp    # (B, R*S)
+        cnt = m.sum(1)
+        has_reg = cnt > 0
+        l1_imp = torch.where(has_reg, (tok * m).sum(1) / cnt.clamp(min=1.0), ro)
+    il = torch.where(has_reg, torch.clamp(margin - l1_imp, min=0.0), torch.zeros_like(l1_imp))
     loss = torch.where(imp == 0, tf + ro, float(weight) * il).mean()     # weight (λ, 2026-11-05): 불가능 쪽에만
     pos = imp == 0
     jl = tf[pos].mean() if pos.any() else tf.sum() * 0.0
@@ -174,7 +220,8 @@ def summarize(st) -> dict:
             "n_swap": s[11], "l1_swap": q(s[12], s[11])}
 
 
-def ar_pair_loss(predictor, h, h_imp_fut, S: int, C: int, K: int, loss_exp: float, rollout_steps: int, imp, weight: float = 1.0, h_in=None):
+def ar_pair_loss(predictor, h, h_imp_fut, S: int, C: int, K: int, loss_exp: float, rollout_steps: int, imp, weight: float = 1.0, h_in=None,
+                 form: str = "linear", dist: str = "l1", margin: float = 1.0):
     """paired (2026-11-05). h = 가능 클립 블록별 LN 토큰 (B, (C+K)*S, D), h_imp_fut = 불가능 클립 미래 K 블록 (B, K*S, D).
     손실 = TF + 굴린 L1(p, 가능) + λ · [굴린 L1(p, 가능) − 굴린 L1(p, 불가능)] (짝 없는 샘플은 괄호 0). return (loss, jl, sl, R, stats).
     stats 는 _stats 와 같은 자리를 쓰되 뜻이 다르다: n_pos = 전체 샘플, Σ가능 L1 = Σ굴린 L1(가능), n_imp = 짝 있는 샘플,
@@ -193,7 +240,24 @@ def ar_pair_loss(predictor, h, h_imp_fut, S: int, C: int, K: int, loss_exp: floa
     ro = (p_ar.float() - h[:, C * S: (C + R) * S].float()).abs().pow(loss_exp).mean(dim=(1, 2)) / loss_exp
     ri = (p_ar.float() - h_imp_fut[:, : R * S].float()).abs().pow(loss_exp).mean(dim=(1, 2)) / loss_exp
     paired = imp > 0
-    diff = torch.where(paired, ro - ri, torch.zeros_like(ro))
+    # 2026-11-09 손실 모양 (사용자 "negative loss 의 철학은 이어가는데 loss 설계를 바꿔도 돼"):
+    #   form linear (기본, 11-05 판): λ · [d(p, 가능) − d(p, 불가능)]
+    #   form hinge : λ · max(0, margin − d(p, 불가능)) — 가능 L1 (tf + ro) 이 **같은 예측**에 걸려 있어, 두 미래가 잡음 수준으로만 다른 좌표에서는
+    #                λ < 1 이면 당김이 이겨 예측이 정답에 머문다 (single 판처럼 다른 샘플끼리 밀고 당기다 쏠리지 않는다). 실제로 다른 좌표만 밀린다.
+    #   dist l1 (기본) | l2 : d = 토큰 · 차원 평균 제곱 거리 (linear 와 쓰면 p 에 대해 선형 → (가능 − 불가능) 방향으로만 민다).
+    if dist == "l2":
+        ro_d = (p_ar.float() - h[:, C * S: (C + R) * S].float()).pow(2).mean(dim=(1, 2))
+        ri_d = (p_ar.float() - h_imp_fut[:, : R * S].float()).pow(2).mean(dim=(1, 2))
+    elif dist == "l1":
+        ro_d, ri_d = ro, ri
+    else:
+        raise ValueError(f"negimp.pair_dist 는 l1 | l2: {dist!r}")
+    if form == "linear":
+        diff = torch.where(paired, ro_d - ri_d, torch.zeros_like(ro))
+    elif form == "hinge":
+        diff = torch.where(paired, torch.clamp(float(margin) - ri_d, min=0.0), torch.zeros_like(ro))
+    else:
+        raise ValueError(f"negimp.pair_form 은 linear | hinge: {form!r}")
     loss = (tf + ro + float(weight) * diff).mean()
     st = [torch.tensor(float(B), device=h.device), ro.sum(), tf.sum(), paired.sum(), ri[paired].sum(), diff[paired].sum(),
           (ri[paired] > ro[paired]).sum()]

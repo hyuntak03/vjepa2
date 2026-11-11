@@ -1,0 +1,30 @@
+# AR 처음부터 학습: 자연 영상 0.84M (K710 · SSv2 · HowTo 1 %) + v5id 합성 0.19M ≈ 1M, 합성에 음의 손실 p 0.2 (2026-11-09, 사용자
+#   "이거 scratch 부터 negative loss 걸어서 해보자. p = 0.2 이렇게 한번. 1M 데이터셋으로 하는 거네").
+#   자연 영상: natural_ar_vw_state 레시피 그대로 (가변 창, 70 ep × 294 = 20,580 step, lr 5.2e-4).
+#   합성: v5id (blender_track_v5id_all, 190,819 편), 매 step rank 당 mix_batch_size 개 (32 장 stride 2, 문맥 8 · 미래 8 블록).
+#     20,580 step × 8 rank × 6 = 약 99 만 편 → v5id 를 약 5 번 본다.
+#   음의 손실 = 이어 학습 기준판 v4bc4_ar_vw_state_negimp_vanish_app02 (p 0.2) 와 같은 식 · 같은 batch 구성: 사라짐 약 31 % · 나타남 약 7.5 % · 가능 약 61 %,
+#     바꿔치기 (속도 · 정체 바뀜) 없음, margin 1, λ 1, 굴린 미래만. ⚠️ 정체 위반 (색 · 모양) 음성은 아직 코드에 없다 — 이 판은 쓰지 않는다.
+#   ⚠️ 확률을 그대로 (물체 문맥 0.5 · 빈 문맥 0.2) 쓰면 v5id 는 물체 영상 비율이 84 % (v4bc4 63 %) 라 사라짐 42.5 % · 나타남 3.1 % 가 된다 [측정, 2 만 번 뽑기].
+#     그래서 batch 구성을 p 0.2 판과 맞추도록 물체 문맥 0.37 · 빈 문맥 0.48 로 둔다 (0.844 × 0.37 = 31.2 %, 0.156 × 0.48 = 7.5 %).
+#   ⚠️ 11-10 00:3x 계산 예산 맞춤 (사용자 "원래 AR 9 시간 걸렸잖아 · 최적화"): 자연 token 예산을 950 → 758 장으로 줄이고 합성은 rank 당 6 개로
+#     step 당 프레임 (자연 758 + 합성 6 × 32 = 192 = 950) 을 원래 AR 과 같게 둔다. 같은 계산량 중 합성 20 % (≈ 0.19M / 1.03M).
+#     프로파일 [측정, GPU 1 장 · 평가와 같이 돌던 상태]: 합성 batch 기다림 0 ms · 합성 encode 약 380 ms · 합성 forward 약 300 ms (B 7, R 8)
+#     — 로더 병목은 없고, 합성 계산이 자연 위에 그대로 얹혀 step 이 길어졌다. 손실 값 float() 동기화 두 번도 뺐다 (train.py).
+#   매 step: 자연 손실 backward (동기화 없이) → 합성 batch 손실 backward (동기화) → 한 번 갱신 (negimp.mix=step, 11-07 natmix 와 같은 경로).
+#   대조: natural_ar_vw_state (자연만 처음부터) · v4bc4_ar_vw_state_negimp_vanish_app02 (자연 AR 뒤 v4bc4 이어 학습).
+#   GPUS=8 bash z_training/tmux_train.sh natural_ar_vw_state_v5id_negimp_mix
+extends: natural_ar_vw_state_v4bc4_negimp_mix
+
+data:
+  datasets:
+    - {name: blender_track_v5id_all, weight: 1.0}
+  var_window:
+    token_budget: 758
+
+negimp:
+  families: ${DATA_CSV}/blender_track_v5id_negimp/families.json
+  p: 0.48
+  p_object_ctx: 0.37
+  swap_frac: 0.0
+  mix_batch_size: 6

@@ -177,7 +177,15 @@ mp = os.path.join(rd, "metrics.jsonl")
 if os.path.isfile(mp):
     L = [json.loads(l) for l in open(mp) if l.strip()]
     vals = [(m["epoch"], m["val"]["acc"]) for m in L if isinstance(m.get("val"), dict) and "acc" in m["val"]]
-    if vals: print(f" val   IntPhys1 dev 60쌍 (감시용, 정식은 eval.sh)  " + "  ".join(f"e{e}:{100 * a:.1f}" for e, a in vals[-10:]))
+    # 2026-11-10: val 세트 이름을 run config 에서 읽는다 (예전엔 "IntPhys1 dev 60쌍" 고정 글자라 real bench val 판에서 틀리게 보였다)
+    try:
+        _v = yaml.safe_load(open(os.path.join(rd, "config.yaml"))).get("val") or {}
+        _vn = (_v.get("dataset") or os.path.basename(str((_v.get("data") or {}).get("root", "")).rstrip("/")) or "?")
+        _vn = {"real_world_permanence_uniform": "real bench 95 장면 (사라짐 · 나타남 190 쌍)"}.get(_vn, _vn)
+    except Exception:
+        _vn = "?"
+    if vals:
+        print(f" val   {_vn} (감시용, 정식은 eval.sh)  " + "  ".join(f"e{e}:{100 * a:.1f}" for e, a in vals[-10:]))
 
 # ---- GPU
 print(c("─" * W, DIM))

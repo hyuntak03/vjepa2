@@ -1,0 +1,8 @@
+# 2026-11-09 사용자 "margin 1.5 해봐 그리고 지금 다시 ar, gating 이거 다시 학습 해봐":
+#   v4bc4_tmem_negimp_objregion (물체 토큰 음의 손실, margin 1.0) 과 margin 만 다르다 — 1.0 판은 target 토큰 L1 이 1 epoch 만에 1.05–1.12 로 margin 을 넘어
+#   음의 손실 항이 0.001–0.015 로 꺼졌다 (L1 만 판과 같은 결과). 1.5 면 학습 내내 켜져 있다.
+#   GPUS=8 bash z_training/tmux_train.sh v4bc4_tmem_negimp_objregion_m15
+extends: v4bc4_tmem_negimp_objregion
+
+negimp:
+  margin: 1.5

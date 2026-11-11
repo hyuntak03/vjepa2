@@ -1,0 +1,8 @@
+# v4bc4 (2026-11-06, 사용자 "release pft, negative pft (ar 에 한 거랑 동일하게) 올려놔"): v4b_release_postft 와 데이터만 다르다 — v4b + 지나가는 가림막 v4c (blender_track_v4bc4_all).
+#   손실 L1 만. 짝 판: v4bc4_ar_vw_state_postft (AR). 같은 출발 (릴리즈) · batch 48 · 2,000 step · seed 0 · lr.
+#   GPUS=8 bash z_training/tmux_train.sh v4bc4_release_postft
+extends: v4b_release_postft
+
+data:
+  datasets:
+    - {name: blender_track_v4bc4_all, weight: 1.0}

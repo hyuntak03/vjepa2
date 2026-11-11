@@ -1,0 +1,12 @@
+# 2026-11-06: v4bc4_ar_vw_state_negimp 레시피 (짝 없는 음의 손실) + 가속 데이터 (v4d 가파른 빗면 · v4e 평면 가속), λ 0.75. 데이터 blender_track_v4bc4de_all.
+#   왜: v4bc4 λ1 의 약점이 가속하는 물체의 사라짐 (VOB v3 판 · 움직임 빗면 내려감 40, VOB v1 영속 사라짐 83). 학습 가속이 약하거나 (빗면) 없었다 (평면).
+#   GPUS=8 bash z_training/tmux_train.sh v4bc4de_ar_vw_state_negimp_w075
+extends: v4b_ar_vw_state_negimp
+
+data:
+  datasets:
+    - {name: blender_track_v4bc4de_all, weight: 1.0}
+
+negimp:
+  families: ${DATA_CSV}/blender_track_v4bc4de_negimp/families.json
+  weight: 0.75

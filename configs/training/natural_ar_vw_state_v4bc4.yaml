@@ -1,0 +1,11 @@
+# AR scratch + v4bc4 10 % 섞기 (2026-11-08) — natural_ar_vw_state_v4bc4_slotmatch 의 대조 (slot · 맞추기 없음, 나머지 같다).
+#   GPUS=8 bash z_training/tmux_train.sh natural_ar_vw_state_v4bc4
+extends: natural_ar_vw_state
+
+data:
+  var_window:
+    fixed:
+      p: 0.10
+      sources:
+        - {name: v4bc4, type: mp4_list, list: "${DATA_CSV}/blender_track_v4bc4/arms/all_mp4list.csv",
+           starts: [0, 1], stride: 2, n_frames: 32, context_frames: [16]}

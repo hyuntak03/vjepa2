@@ -1,0 +1,11 @@
+# v4b (2026-11-06, 사용자 "짝 있는 음의 손실 람다 3"): v4vc_ar_vw_state_negpair_w3 (짝 손실 · λ 3 · 종류 1:1:1) 와 데이터만 다르다 — 긴 가림 v4b.
+#   이론 · 기대는 v4vc_ar_vw_state_negpair_w3.yaml 머리말. 같은 v4b 묶음: v4b_ar_vw_state_postft (L1) · v4b_ar_vw_state_negimp (짝 없음 λ 1).
+#   GPUS=8 bash z_training/tmux_train.sh v4b_ar_vw_state_negpair_w3
+extends: v4vc_ar_vw_state_negpair_w3
+
+data:
+  datasets:
+    - {name: blender_track_v4b_all, weight: 1.0}
+
+negimp:
+  families: ${DATA_CSV}/blender_track_v4b_negimp/families.json

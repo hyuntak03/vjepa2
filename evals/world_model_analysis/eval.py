@@ -37,6 +37,8 @@ import torch
 import torch.distributed as dist
 
 from analysis.intphys2.model import build_from_config
+from analysis.attention.knockout_sdpa import block_knockout
+from analysis.attention.time_remap import clock_table, time_remap
 from analysis.intphys2.surprise import _context_target_indices, _distance
 from evals.analysis_vlm.occlusion_identity import forward as fwd
 from evals.analysis_vlm.occlusion_identity import probe as probelib
@@ -727,6 +729,32 @@ def run_surprise(ds, cfg, device):
     copy_bl = bool(S.get("copy_baseline", False))
     if (fut_only or copy_bl) and not (kind == "l1" and exp == 1.0):
         raise ValueError("target_future_only · copy_baseline 은 distance=l1, loss_exp=1.0 에서만 쓴다")
+    # 2026-11-05 (정답 공간 교차): target_blockwise = 정답을 tubelet 마다 따로 target encoder 에 넣어 만든다
+    #   (kind=ar 채점의 블록별 정답과 같은 _ArBlockEncoder). 릴리즈 계열을 AR 의 정답 공간에서 채점할 때. 복사 기준선도 블록별 공간이 된다.
+    blk_tgt = bool(S.get("target_blockwise", False))
+    # 2026-11-06 (cvpr_auto): per_future_block = 미래 tubelet 마다 surprise 를 per_video_surprise 에 'fb1'..'fbK' 로 같이 남긴다 (먼 블록 짝 정답률).
+    per_fb = bool(S.get("per_future_block", False))
+    # 2026-11-06 (사용자: 추론 시점 개입): time_remap = scale:<δ> | novelty | oracle — 블록 AR 의 시간 RoPE 위치를 클립별 시계로 바꾼다
+    #   (analysis/attention/time_remap.py). oracle 은 index 의 samples 열 (가려진 샘플 H) 을 쓰는 판별 상한.
+    tr_mode = S.get("time_remap")
+    tr_samples = None
+    if tr_mode == "oracle":
+        import csv as _csv
+        _ix = os.path.join(cfg["data"]["root"], cfg["data"].get("index_csv", "index.csv"))
+        tr_samples = {r["video_id"]: r.get("samples", "") for r in _csv.DictReader(open(_ix))}
+        if not any(tr_samples.values()):
+            raise ValueError(f"time_remap=oracle: {_ix} 에 samples 열 값이 없다")
+    if per_fb and not (kind == "l1" and exp == 1.0):
+        raise ValueError("per_future_block 은 distance=l1, loss_exp=1.0 에서만 쓴다")
+    tgt_enc = bundle.target_encoder
+    if blk_tgt:
+        from analysis.intphys2.model import _ArBlockEncoder
+        if fut_only:
+            raise ValueError("target_blockwise 와 target_future_only 는 같이 못 쓴다")
+        if isinstance(bundle.target_encoder, _ArBlockEncoder):
+            raise ValueError("target_blockwise: 이미 블록별 정답 (kind=ar) — 켤 필요 없다")
+        tgt_enc = _ArBlockEncoder(bundle.target_encoder, ts).eval()
+        logger.info("[surprise] target_blockwise: 정답 = tubelet 마다 따로 인코딩 (블록별 공간)")
 
     # Match the Garrido/IntPhys numerical path when requested: keep checkpoint
     # weights in FP32, but execute encoder/predictor/target forward in FP16.
@@ -759,14 +787,22 @@ def run_surprise(ds, cfg, device):
             ac = (torch.autocast("cuda", dtype=ac_dtype) if ac_dtype else contextlib.nullcontext())
             with ac:
                 z = bundle.context_encoder(x, masks=[ci[:n]])
-                p = bundle.predictor(z, ci[:n], ti[:n], mask_index=int(S.get("mask_index", 0)))
+                # 2026-11-06 (cvpr_auto T1 · T2): surprise.attn_knockout = past | last — predictor attention 만 블록 단위로 끊는다
+                _tab = None
+                if tr_mode:
+                    _nc = ci.size(1) // spatial
+                    _tab = clock_table(str(tr_mode), n, _nc + ti.size(1) // spatial, _nc, z=z, spatial=spatial,
+                                       samples=[tr_samples[ds.records[i].video_id] for i in chunk] if tr_samples else None,
+                                       device=x.device)
+                with block_knockout(S.get("attn_knockout"), spatial, ci.size(1) // spatial - 1), time_remap(_tab):
+                    p = bundle.predictor(z, ci[:n], ti[:n], mask_index=int(S.get("mask_index", 0)))
                 if fut_only:
                     h = bundle.target_encoder(x[:, :, ctx:N].contiguous())
                     if h.size(1) != ti.size(1):
                         raise ValueError(f"target_future_only: 미래 pass 토큰 {h.size(1)} != 타깃 {ti.size(1)}")
                     hc = bundle.target_encoder(x[:, :, :ctx].contiguous())[:, -spatial:] if copy_bl else None
                 else:
-                    hf = bundle.target_encoder(x)
+                    hf = tgt_enc(x)
                     h = torch.gather(hf, 1, ti[:n].unsqueeze(-1).expand(-1, -1, hf.size(-1)))
                     hc = hf[:, ci.size(1) - spatial: ci.size(1)] if copy_bl else None
                     del hf
@@ -775,7 +811,7 @@ def run_surprise(ds, cfg, device):
                     if hc is not None:
                         hc = torch.nn.functional.layer_norm(hc, (hc.size(-1),))
             p = p.float()
-            if modes == ["all"] and not (fut_only or copy_bl):   # 기존 경로 그대로 (수치 보존)
+            if modes == ["all"] and not (fut_only or copy_bl or per_fb):   # 기존 경로 그대로 (수치 보존)
                 for k, i in enumerate(chunk):
                     out[ds.records[i].video_id] = {"all": float(
                         _distance(p[k : k + 1], h[k : k + 1].float(), kind, loss_exp=exp))}
@@ -794,6 +830,9 @@ def run_surprise(ds, cfg, device):
                     if ec is not None:
                         out[vid].update({f"copy_{m}": float(ec[k].mean() if masks[m] is None else ec[k][masks[m][vid]].mean())
                                          for m in modes})
+                    if per_fb:
+                        eb = e[k].reshape(-1, spatial).mean(1)            # (미래 tubelet 수,)
+                        out[vid].update({f"fb{j + 1}": float(v) for j, v in enumerate(eb)})
             if (s // bs) % 20 == 0:                  # rank0 만 찍으면 어느 rank 가 느린지 안 보인다
                 logger.info(f"[surprise] rank{rank} {s+n}/{len(idx)} "
                             f"({time.time()-t_all:.0f}s 경과)")

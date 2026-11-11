@@ -1,0 +1,50 @@
+# 시간을 고르기에서 가져오기로 (2026-11-06, 사용자 "RoPE 구현해볼래 · vast AR 에 5 epoch 정도 원래 real world video 로 PFT 해서 달라지는지 보자").
+#   AR 기본판 (natural_ar_vw_state ep70) 에서 이어 학습 — 같은 자연 영상 (K710 · SSv2 · HowTo 1 : 1 : 1, fps4, 가변 창) · batch 512 · 5 epoch (1,470 step).
+#   판끼리 다른 것: 고르기 (q·k) 의 시간 회전 [time_scale] · 가져오기 (value · 출력) 의 시간 회전 [vo_time].
+#     control = 고르기 시간 있음 · 가져오기 없음 (구조 그대로, 추가 학습만) | notime = 고르기 시간 없음 · 가져오기 없음 | ours = 고르기 시간 없음 · 가져오기 시간 (세기 학습, 0 에서 시작)
+#   구현: src/models/utils/modules.py ACRoPEAttention.set_vo_time (정확한 짝 회전, 주파수 2π/(16·2^k), 상대 시간 — 블록 번호 +3 밀기 불변 확인)
+#   GPUS=8 bash z_training/tmux_train.sh vo_nat_notime
+extends: natural_ar_vw_state
+
+meta:
+  save_every_freq: 5
+
+model:
+  predictor_init_checkpoint: /workspace/world_model/vjepa2/z_training/runs/natural_ar_vw_state/latest.pt
+  predictor:
+    time_scale: "zero"
+    vo_time: "none"
+
+optimization:
+  epochs: 5
+  ipe: 294
+  lr: 5.0e-5
+  start_lr: 1.0e-6
+  final_lr: 1.0e-6
+  warmup: 1
+  anneal_epochs: null
+
+val:                            # 2026-11-07 사용자 "val 을 real bench 로, 1 ep 마다" — real world permanence 95 장면 × 4 = 380 클립 (채점기와 같은 로더 · 같은 창)
+  dataset: null
+  n_frames: 32
+  context_length: 16
+  batch_size: 4
+  every_epochs: 1
+  at_start: true
+  n_blocks_per_type: 1000
+  seed: 0
+  data:
+    root: /workspace/world_model/vjepa2/data_csv/real_world_permanence_uniform
+    index_csv: index.csv
+    video_root: /workspace/dataset/benchmarks/real_world_permanence
+    frames_index_column: frames
+    block_column: block_id
+    pair_column: pair_id
+    plausible_column: plausible
+    variant_column: variant
+    type_column: condition
+    frames_root: null           # 부모 (IntPhys1 dev PNG) 에서 상속되는 키를 지운다
+    frames_pattern: null
+    frames_start: null
+    frames_stride: null
+    raw_frames: null

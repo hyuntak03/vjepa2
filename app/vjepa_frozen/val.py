@@ -49,13 +49,34 @@ def _select_rows(spec: dict, n_blocks_per_type: int, seed: int) -> List[dict]:
     return chosen
 
 
+class _WMAValDS:
+    """2026-11-07 (사용자 "val 을 real bench 로, 1 ep 마다"): mp4 + 행마다 프레임 목록 (frames_index_column) 벤치를 채점기와 같은 로더
+    (evals/world_model_analysis/data.py WMADataset — 같은 디코딩 · 리사이즈 · 정규화) 로 읽는다. read_uint8 은 이미 정규화된 클립을 낸다."""
+
+    def __init__(self, spec: dict, n_frames: int, resolution: int, rows: List[dict]):
+        from evals.world_model_analysis.data import WMADataset
+        self.w = WMADataset({"data": {**spec, "n_frames": n_frames, "resolution": resolution}})
+        self.n_frames = int(n_frames)
+        pos = {r.video_id: i for i, r in enumerate(self.w.records)}
+        self.rows = rows
+        self._idx = [pos[r["video_id"]] for r in rows]
+        self.transform = lambda x: x
+
+    def read_uint8(self, i):
+        return self.w.clip(self._idx[i])
+
+
 class ValSet:
     def __init__(self, cfg_val: dict, n_frames: int, resolution: int):
         spec = dict(cfg_val["data"])
         spec["include"] = {}                    # 가능·불가능 전부
         self.spec = spec
-        self.ds = FramesIndexDataset(spec, n_frames, ClipTransform(resolution))
-        self.ds.rows = _select_rows(spec, int(cfg_val.get("n_blocks_per_type", 8)), int(cfg_val.get("seed", 0)))
+        rows = _select_rows(spec, int(cfg_val.get("n_blocks_per_type", 8)), int(cfg_val.get("seed", 0)))
+        if spec.get("video_root") or spec.get("frames_index_column"):     # mp4 벤치 (real bench 등)
+            self.ds = _WMAValDS(spec, n_frames, resolution, rows)
+        else:
+            self.ds = FramesIndexDataset(spec, n_frames, ClipTransform(resolution))
+            self.ds.rows = rows
         self.bcol = spec.get("block_column", "block_id")
         self.pcol = spec.get("pair_column", "pair_id")
         self.plcol = spec.get("plausible_column", "plausible")
@@ -119,6 +140,7 @@ def _score(vs: ValSet, sur: Dict[str, float], elapsed: float) -> Dict:
     for r in vs.ds.rows:
         blocks[r[vs.bcol]].append(r)
     hits_by_type = defaultdict(list)
+    hits_by_pair = defaultdict(list)            # 2026-11-07: 짝별 (real bench 는 A = 사라짐 · B = 나타남)
     pos_s, neg_s, ties = [], [], 0
     for bid, recs in blocks.items():
         by_pair = defaultdict(list)
@@ -134,6 +156,7 @@ def _score(vs: ValSet, sur: Dict[str, float], elapsed: float) -> Dict:
             ties += int(a == b)
             t = pos[0].get(vs.tcol, "") if vs.tcol else "all"
             hits_by_type[t].append(hit)
+            hits_by_pair[str(pid)].append(hit)
             pos_s.append(a)
             neg_s.append(b)
     all_hits = [h for v in hits_by_type.values() for h in v]
@@ -141,6 +164,7 @@ def _score(vs: ValSet, sur: Dict[str, float], elapsed: float) -> Dict:
            "surprise_pos": float(np.mean(pos_s)), "surprise_neg": float(np.mean(neg_s)),
            "margin": float(np.mean(np.array(neg_s) - np.array(pos_s))),
            "by_type": {t: {"acc": float(np.mean(v)), "n_pair": len(v)} for t, v in sorted(hits_by_type.items())},
+           "by_pair": {k: {"acc": float(np.mean(v)), "n_pair": len(v)} for k, v in sorted(hits_by_pair.items())},
            "elapsed_s": round(elapsed, 1)}
     return res
 
@@ -148,7 +172,9 @@ def _score(vs: ValSet, sur: Dict[str, float], elapsed: float) -> Dict:
 def format_val(res: Dict) -> str:
     if not res:
         return ""
-    s = (f"val acc {100*res['acc']:.1f}% (n_pair {res['n_pair']}, ties {res['n_ties']}) | "
+    _bp = res.get("by_pair") or {}
+    _ab = (" (" + " / ".join(f"{k} {100*v['acc']:.1f}" for k, v in _bp.items()) + ")") if 1 < len(_bp) <= 4 else ""
+    s = (f"val acc {100*res['acc']:.1f}%{_ab} (n_pair {res['n_pair']}, ties {res['n_ties']}) | "
          f"surprise pos {res['surprise_pos']:.4f} neg {res['surprise_neg']:.4f} margin {res['margin']:+.4f} | "
          f"{res['elapsed_s']}s")
     if len(res["by_type"]) > 1:

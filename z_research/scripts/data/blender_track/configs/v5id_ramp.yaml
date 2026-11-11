@@ -1,0 +1,190 @@
+# BlenderTrack v5idr (2026-11-09) — configs/v4b_ramp.yaml 와 같은 장면 · 속도 단계 · 가림 + target 정체 (모양 × 색) 변형 3 칸 (gen_design_v5id.py). 렌더 번호 = 묶음 × 7.
+#   사용자 11-09: general data 0.2M, shape × color compositional + 정체 위반. seed 는 v4b (170 · 180) 와 안 겹치게.
+name: v5idr
+design: gen_design_v5id
+out: /data/hyuntak/project/2026/2027_cvpr/nfs_cache/blender_track/v5id
+fps: 20
+frames: 64
+size: 256
+g: 9.81
+cells:
+  place:
+  - ramp
+  objset:
+  - primitive
+  - realistic
+  camera:
+  - front
+  - side
+  occ:
+  - board
+  - wall
+  - trapdoor
+velocity:
+  levels: 3
+  ratio_step: 1.26
+  u0_rel:
+  - 0.132
+  - 0.17
+  mu_roll:
+  - 0.0005
+  - 0.004
+  mu_slide:
+  - 0.003
+  - 0.012
+  keep_speed: 0.8
+  hide:
+  - '10'
+  - '11'
+  - '12'
+  fast_hide:
+  - 5.0
+  - 7.0
+  trap_hold:
+  - 7.0
+  - 10.0
+  max_off: 0.25
+splits:
+  rtrain_fam:
+    seed: 380
+    families: 11100
+    candidates: 21600
+    n: 151200
+  rprobe:
+    seed: 389
+    families: 24
+    candidates: 72
+    n: 504
+timing:
+  late:
+    start:
+    - 9
+    - 15
+    end:
+    - 16
+    - 27
+camera:
+  front:
+    h:
+    - 0.25
+    - 0.7
+    azim:
+    - -10
+    - 10
+    lens:
+    - 35
+    - 55
+  side:
+    h:
+    - 0.25
+    - 0.7
+    azim:
+    - 30
+    - 60
+    lens:
+    - 32
+    - 50
+  jitter_deg: 3
+objects:
+  target_px:
+  - 26
+  - 40
+  min_px: 18
+  extra_min_px: 28
+  extra_visible_min: 0.7
+  extra_max_hidden: 0.1
+  min_hue_diff: 0.167
+  moving_shapes:
+    sphere: 0.6
+    cube: 0.25
+    cylinder: 0.15
+  static_shapes:
+  - sphere
+  - cube
+  - cylinder
+  - cone
+  - torus
+  - capsule
+  - pyramid
+  size_m:
+  - 0.15
+  - 0.4
+  roll_speed:
+  - 0.35
+  - 1.3
+  roll_mu:
+  - 0.004
+  - 0.02
+  slide_speed:
+  - 0.6
+  - 1.6
+  slide_mu:
+  - 0.03
+  - 0.08
+  heading_deg:
+  - -12
+  - 12
+  shadows: true
+ramp:
+  deg_down:
+  - 2
+  - 5
+  deg_up:
+  - 3
+  - 8
+  len:
+  - 1.4
+  - 4.5
+  max_h: 0.7
+occluders:
+  trapdoor_rise:
+  - 0.08
+  - 0.2
+  gap:
+  - 0.08
+  - 0.5
+  board_th:
+  - 0.02
+  - 0.05
+  wall_th:
+  - 0.12
+  - 0.25
+  object_static_shapes:
+    cube: 0.4
+    cylinder: 0.25
+    sphere: 0.1
+    capsule: 0.25
+  object_screen_ratio:
+  - 1.1
+  - 3.0
+  object_gap:
+  - 0.05
+  - 0.35
+env:
+  indoor_p: 0.5
+  indoor_hdri:
+  - interior
+  - studio
+  outdoor_hdri:
+  - courtyard
+  - city
+  - forest
+  - sunrise
+  - sunset
+  indoor_floor:
+  - wood
+  - tile
+  - carpet
+  outdoor_floor:
+  - concrete
+  - tile
+  - carpet
+render:
+  samples: 16
+  denoise: true
+  jpeg_quality: 95
+  crf: 17
+  gop: 8
+  threads: 2
+checks:
+  design_streams: 3

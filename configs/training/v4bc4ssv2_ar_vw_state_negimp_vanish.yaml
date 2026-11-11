@@ -1,0 +1,35 @@
+# 2026-11-09 전이 탐색 3 묶음 — 1 묶음 통과판 '사라짐 음성만' (v4bc4_ar_vw_state_negimp_vanish: 합성 유지 · real +6.8 · IP2 late +2.5) 을 바탕으로.
+#   사용자 기준: 같은 데이터 L1 만 판 대비 합성 (VOB · Surrogate) 유지 + IP2 late · real 상승.
+#   v4bc4 0.8 + SSv2 0.2 (자연 영상은 L1 만) · 사라짐 음성만. 기준 = v4bc4ssv2 L1 만.
+#   GPUS=8 bash z_training/tmux_train.sh v4bc4ssv2_ar_vw_state_negimp_vanish
+extends: v4bc4_ar_vw_state_negimp_vanish
+
+data:
+  datasets:
+    - {name: blender_track_v4bc4_all, weight: 0.8}
+    - {name: ssv2_fs1_min32, weight: 0.2, negimp_off: true}
+
+val:                            # 2026-11-08 사용자 "training val 로 real bench 성능 보여주도록" — 95 장면 × 4 = 380 클립 (채점기와 같은 로더), 매 epoch — 95 장면 × 4 = 380 클립 (채점기와 같은 로더 · 같은 창), 매 epoch (약 34 초)
+  dataset: null
+  n_frames: 32
+  context_length: 16
+  batch_size: 4
+  every_epochs: 1
+  at_start: true
+  n_blocks_per_type: 1000
+  seed: 0
+  data:
+    root: ${DATA_CSV}/real_world_permanence_uniform
+    index_csv: index.csv
+    video_root: /workspace/dataset/benchmarks/real_world_permanence
+    frames_index_column: frames
+    block_column: block_id
+    pair_column: pair_id
+    plausible_column: plausible
+    variant_column: variant
+    type_column: condition
+    frames_root: null           # 부모 (IntPhys1 dev PNG) 에서 상속되는 키를 지운다
+    frames_pattern: null
+    frames_start: null
+    frames_stride: null
+    raw_frames: null

@@ -1,0 +1,14 @@
+# 2026-11-07 (사용자 "네" — 가려진 동안 옮겨지는 장면을 학습에 넣어 보기): v4bc4_ar_vw_state_negimp (real95 72.1 기준판) 과 같고
+#   데이터에 v4f 덮어 미는 상자 (z_research/scripts/data/blender_track/v4f_cover.py, 1,290 묶음 × {밀림 · 그대로 · 빈 장면}) 를 4 번 반복해 더한다.
+#   왜: 74.7 판이 틀리는 실제 영상 쌍이 '가려진 동안 위치가 바뀜' (PerceptionTest moved 사라짐 46 % 틀림) · '덮개 · 그릇' 에 몰리고, 학습 데이터에 그런 장면이 없다.
+#   판정: realbench PerceptionTest moved 사라짐 쌍 · RubricOffice containment 이 오르는가 (z_research/scripts/analysis/realbench_by_case.py) + real95 > 72.1.
+#   GPUS=8 bash z_training/tmux_train.sh v4bc4f_ar_vw_state_negimp
+extends: v4bc4_ar_vw_state_negimp
+
+data:
+  datasets:
+    - {name: blender_track_v4bc4f_all, weight: 1.0}
+
+negimp:
+  families: ${DATA_CSV}/blender_track_v4bc4f_negimp/families.json
+  weight: 1.0

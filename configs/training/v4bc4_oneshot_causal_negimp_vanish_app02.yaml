@@ -1,0 +1,14 @@
+# =============================================================================
+# 블록 입력 · 블록 인과 · one-shot 판 (natural_ar_vw_state_oneshot_causal, e70) post-FT — v4bc4 음의 손실 p 0.2 (2026-11-11, 사용자 같은 지시)
+#
+#   GPUS=8 bash z_training/tmux_train.sh v4bc4_oneshot_causal_negimp_vanish_app02
+#
+# v4bc4_ar_vw_state_negimp_vanish_app02 (블록 AR 출발, 사라짐 음성 문맥 0.5 · 나타남 음성 빈 문맥 p 0.2 · 바꿔치기 없음 · λ 1 · margin 1) 와 다른 것:
+#   출발 체크포인트 (one-shot e70) · predictor 가 one-shot. 가능 = 미래 8 블록 한 번에 L1, 불가능 = max(0, 1 − 그 L1) (TF 없음, app/vjepa_frozen/negimp.py ar_loss 의 one-shot 경로).
+# =============================================================================
+extends: v4bc4_ar_vw_state_negimp_vanish_app02
+model:
+  predictor_init_checkpoint: /workspace/world_model/vjepa2/z_training/runs/natural_ar_vw_state_oneshot_causal/e70.pt
+  predictor:
+    ar_oneshot: true
+    ar_oneshot_causal: true

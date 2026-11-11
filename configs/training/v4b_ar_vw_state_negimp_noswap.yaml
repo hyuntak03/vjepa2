@@ -1,0 +1,7 @@
+# 자동 탐색 묶음 1 (2026-11-06): v4b_ar_vw_state_negimp (짝 없음 λ 1, real95 75.3 · 합성 조건 실패) 에서 바꿔치기 음성을 뺀다 (swap_frac 0 → 단계 문맥의 불가능은 전부 사라짐).
+#   왜: 묶음 0 에서 짝 없음 λ 1 은 합성 (VOB 지나가는 움직임 나타남 58 · 판 움직임 사라짐 75) 이 깨졌고, 학습 묶음 순위에서 바꿔치기 순위가 무너졌다 (84 → 55, v4). 그 몫을 가른다.
+#   GPUS=8 bash z_training/tmux_train.sh v4b_ar_vw_state_negimp_noswap
+extends: v4b_ar_vw_state_negimp
+
+negimp:
+  swap_frac: 0.0

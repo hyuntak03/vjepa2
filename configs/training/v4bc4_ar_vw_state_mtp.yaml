@@ -1,0 +1,15 @@
+# 다중 블록 예측 post-train (2026-11-07, 사용자 노트 "3. Multi-token Prediction — post-train 과 궁합 제일 좋음", "구현해서 지금 올려봐 pft 로").
+#   v4bc4_ar_vw_state_postft (AR + v4bc4 + 예측 L1 만, batch 48, 2,000 step) 과 같고 학습 전용 head 2 개만 더한다:
+#     head j (h = 2, 3) = transformer 1 층 + norm + proj, 입력 = trunk 끝에서 둘째 층 출력 (블록 인과 attention 그대로 → 공간 이동 표현 가능).
+#     초기값 = trunk 마지막 층 · norm · proj 복사 (zero-init 아님) → 시작 출력 = 1 블록 예측 수준.
+#   손실 = 기존 (TF h=1 + rollout) + Σ w_h L1(ẑ^(h)_{k+h}, z_{k+h}), w = [0.5, 0.25] (h = 2, 3), TF pass 에서만.
+#   추론 · surprise 는 h = 1 rollout 만 → 평가 프로토콜 그대로 (채점기는 head 가중치를 버린다).
+#   GPUS=8 bash z_training/tmux_train.sh v4bc4_ar_vw_state_mtp
+extends: v4bc4_ar_vw_state_postft
+
+model:
+  predictor:
+    mtp_n: 2
+
+loss:
+  mtp_weights: [0.5, 0.25]

@@ -109,8 +109,27 @@ def build_predictor(m: dict, encoder_embed_dim: int, state: Optional[dict], devi
         extra["gating_anchor"] = str(pc["gating_anchor"])
     if pc.get("gating_out_ln"):                               # 출력 LN(g·A + proj(s)) (2026-10-18, ar)
         extra["gating_out_ln"] = True
+    if pc.get("gating_fixed"):                                # g ≡ 1 = Δ 예측 ẑ = x_k + P(x) (2026-11-07, ar)
+        extra["gating_fixed"] = True
+    if int(pc.get("mtp_n", 0) or 0):                          # 다중 블록 예측 head 수 (2026-11-07, ar · 학습 전용)
+        extra["mtp_n"] = int(pc["mtp_n"])
     if pc.get("ar_unc"):                                      # 토큰별 Laplace 척도 (2026-10-28)
         extra["ar_unc"] = True
+    if pc.get("time_scale") and str(pc["time_scale"]) != "none":   # 헤드별 시간 RoPE 척도 (2026-11-06, what–when 분리)
+        extra["time_scale"] = str(pc["time_scale"])
+    if pc.get("past_gate"):                                   # now/past gate (2026-11-07, kind=ar)
+        extra["past_gate"] = True
+    if int(pc.get("mem_period", 0) or 0):                     # 시간 누적 하이브리드 (2026-11-08, kind=ar): 층 P 개마다 1 개 전역, 나머지 누적
+        extra["mem_period"] = int(pc["mem_period"])
+    if pc.get("attn_out_gate"):                               # Qwen 출력 게이트 (전역 층, 2026-11-08)
+        extra["attn_out_gate"] = True
+    if pc.get("time_pairs") and str(pc["time_pairs"]) not in ("none", "all"):   # Harmonic 시간 RoPE (2026-11-07)
+        extra["time_pairs"] = str(pc["time_pairs"])
+    if pc.get("vo_time") and str(pc["vo_time"]) != "none":         # 시간을 value · 출력에 (2026-11-06)
+        extra["vo_time"] = str(pc["vo_time"])
+    for _k in ("slot_n", "slot_iters", "slot_layers", "slot_heads", "slot_gain", "slot_gate_bias"):   # slot 메모리 (2026-11-07, src/models/slot_memory.py)
+        if pc.get(_k) is not None:
+            extra[_k] = pc[_k]
     if pc.get("ar_oneshot"):                                  # kind=ar 인데 미래 K 블록 한 번에 (2026-10-28)
         extra["ar_oneshot"] = True
     if pc.get("ar_oneshot_causal"):                           # 위 + attention 전부 블록 인과 (문맥 포함, 2026-11-04)

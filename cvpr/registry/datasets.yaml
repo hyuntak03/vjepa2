@@ -515,6 +515,21 @@ vobench_v1:                       # 2026-10-10. UE 5.4 TestBed, 720 block × 4 a
   type_column: condition            # <objset>/<violation>/<occlusion>
   engine: wma
   legacy_results_root: ${CVPR_REPO}/z_research/VOBench_v1/exp_results
+vobench_v1_perm:                  # 2026-11-06 vast (cvpr_auto predictor 사다리 · 끊기 T1 · T2): vobench_v1 의 permanence 만 (가시 24 · early/mid/late 각 72 블록 × 4 arm = 960). 가시와 가림을 같은 세트로 대조. index = vobench_v1 index.csv 를 violation_type==permanence 로 거른 것
+  raw_frames: 96
+  cache_tag: vobench_v1_perm
+  root: ${CVPR_DATA_CSV}/vobench_v1_perm
+  index_csv: index.csv
+  frames_root: ${CVPR_VOBENCH}
+  frames_pattern: '{file_name}/{frame:06d}.png'
+  frames_start: 0
+  frames_stride: 3
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: condition            # <objset>/<violation>/<occlusion>
+  engine: wma
 vobench_v1_late:                  # 2026-10-16 vast: vobench_v1 의 occlusion=late 만 (216 block × 4 arm = 864). index = vobench_v1 index.csv 를 occlusion==late 로 거른 것. 채점 규약 같음
   raw_frames: 96
   cache_tag: vobench_v1_late
@@ -761,6 +776,67 @@ vobench_v3:                       # 2026-11-02 사용자: "VOBench_v3 로 다 �
   video_root: /workspace/dataset/benchmarks/VOBench_v3
   frames_start: 0
   frames_stride: 3
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: condition
+  engine: wma
+vobench_v3_vem:                   # 2026-11-09 사용자 "VOBench_v3_visible_early_mid 이거 release 평가해봐". VOBench_v3 의 visible · early · mid (2,520 블록 × 4 팔 = 10,080 mp4).
+                                  #   이음 48 은 가려지지 않는다 (early · mid 는 문맥 안에서 2k 샘플 가림, k = 1–3). condition = <occlusion>_<가림막 none | panel | mover>.
+                                  #   index = z_research/scripts/data/build_vobench_v3_index.py --src ... --out data_csv/vobench_v3_vem. 칸 = z_research/scripts/analysis/op_cells_vob3_vem.py
+  raw_frames: 96
+  cache_tag: vobench_v3_vem
+  root: ${CVPR_DATA_CSV}/vobench_v3_vem
+  index_csv: index.csv
+  video_root: /workspace/dataset/benchmarks/VOBench_v3_visible_early_mid
+  frames_start: 0
+  frames_stride: 3
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: condition
+  engine: wma
+realneg_v1_holdout:               # 2026-11-05 실제 영상 negative (SSv2 사건) 의 보류 24 사건. 짝 A = possible vs impossible (재등장 뒤 물체 지움),
+                                  #   짝 B = possible vs artifact_positive (흔적 대조 — artifact 는 가능하다, 짝 구조만 빌림. 50 % 면 흔적에 둔감).
+                                  #   창 = 영상 32 장 그대로 (12 fps, 240² 정사각). index = vast-negloss z_training/data/build_realneg_eval_index.py
+  raw_frames: 32
+  cache_tag: realneg_v1_holdout
+  root: ${CVPR_DATA_CSV}/realneg_v1_holdout
+  index_csv: index.csv
+  video_root: /workspace/dataset/training_data/vmx_occ/real_neg_v1
+  frames_index_column: frames
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: condition
+  engine: wma
+realneg_v1_train:                 # 같은 구성, 학습 split 232 사건 (학습에 쓴 clip — 외움 정도를 보려고. 일반화 판단은 holdout)
+  raw_frames: 32
+  cache_tag: realneg_v1_train
+  root: ${CVPR_DATA_CSV}/realneg_v1_train
+  index_csv: index.csv
+  video_root: /workspace/dataset/training_data/vmx_occ/real_neg_v1
+  frames_index_column: frames
+  block_column: block_id
+  pair_column: pair_id
+  variant_column: variant
+  plausible_column: plausible
+  type_column: condition
+  engine: wma
+v4bc4x_test:                      # 2026-11-11 사용자 "v4bc4 test 진짜 조그맣게". v4bc4x (0.2M 증축) 에서 묶음 단위로 뗀 200 묶음 (v4b 140 · v4c 60) × 4 팔 = 800 영상 · 짝 400.
+                                  #   학습 목록 (blender_track_v4bc4x_train) 에서는 뺐다. 원본 64 장 중 0, 2, …, 62 → 32 장 PNG, 이음 = 샘플 16, 불가능 팔은 hardlink (문맥 비트 같음).
+                                  #   index = z_research/scripts/data/blender_track/holdout_v4bc4x.py. 짝 A = 사라짐 (pos_a vs imp_ab) · B = 나타남 (pos_b vs imp_ba)
+  raw_frames: 32
+  cache_tag: v4bc4x_test
+  root: ${CVPR_DATA_CSV}/v4bc4x_test
+  index_csv: index.csv
+  frames_root: /workspace/dataset/benchmarks/v4bc4x_test/frames
+  frames_pattern: '{video_id}/{frame:02d}.png'
+  frames_start: 0
+  frames_stride: 1
   block_column: block_id
   pair_column: pair_id
   variant_column: variant

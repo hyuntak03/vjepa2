@@ -1,0 +1,9 @@
+# what–when 분리 2 단계 (2026-11-06): 1 단계 판 (whatwhen_nat_learned) 에서 기준판 레시피 그대로 — v4bc4 + 짝 없는 음의 손실 λ 1 · batch 48 · 2,000 step.
+#   비교: 기준판 (v4bc4_ar_vw_state_negimp = AR 기본판에서 바로) · 대조 (whatwhen_v4bc4_none = 1 단계 대조판에서).
+#   GPUS=8 bash z_training/tmux_train.sh whatwhen_v4bc4_learned
+extends: v4bc4_ar_vw_state_negimp
+
+model:
+  predictor_init_checkpoint: /workspace/world_model/vjepa2/z_training/runs/whatwhen_nat_learned/latest.pt
+  predictor:
+    time_scale: "learned"

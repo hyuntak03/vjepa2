@@ -1,0 +1,33 @@
+# 2026-11-09 전이 탐색 (사용자: "바꿔치기는 별로 · VRAM 남으니 최대한 다양하게 · 데이터를 바꾸면 그 데이터의 L1 만 판도 · 다른 건 유지하고 IP2 와 real 이 올라야").
+#   v4bc4f (v4bc4 + 덮는 상자 v4f ×4 — v4f 는 real bench 에서 틀린 사건을 보고 만든 데이터) 의 L1 만 기준판.
+#   val = real world permanence 매 epoch. GPUS=8 bash z_training/tmux_train.sh v4bc4f_ar_vw_state_postft
+extends: v4bc4_ar_vw_state_postft
+
+data:
+  datasets:
+    - {name: blender_track_v4bc4f_all, weight: 1.0}
+
+val:                            # 2026-11-08 사용자 "training val 로 real bench 성능 보여주도록" — 95 장면 × 4 = 380 클립 (채점기와 같은 로더), 매 epoch — 95 장면 × 4 = 380 클립 (채점기와 같은 로더 · 같은 창), 매 epoch (약 34 초)
+  dataset: null
+  n_frames: 32
+  context_length: 16
+  batch_size: 4
+  every_epochs: 1
+  at_start: true
+  n_blocks_per_type: 1000
+  seed: 0
+  data:
+    root: ${DATA_CSV}/real_world_permanence_uniform
+    index_csv: index.csv
+    video_root: /workspace/dataset/benchmarks/real_world_permanence
+    frames_index_column: frames
+    block_column: block_id
+    pair_column: pair_id
+    plausible_column: plausible
+    variant_column: variant
+    type_column: condition
+    frames_root: null           # 부모 (IntPhys1 dev PNG) 에서 상속되는 키를 지운다
+    frames_pattern: null
+    frames_start: null
+    frames_stride: null
+    raw_frames: null

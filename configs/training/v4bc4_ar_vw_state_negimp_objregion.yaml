@@ -1,0 +1,39 @@
+# 2026-11-08 사용자 "물체 영역에만 negative loss 걸어봐 — target 물체에다가, 기본 ar + v4bc4 + negative loss".
+#   v4bc4_ar_vw_state_negimp (기준판, real 72.1 = A 74.7 / B 69.5) 와 한 가지만 다르다:
+#     불가능 손실 max(0, margin − L1) 의 L1 을 **target 이 보이는 토큰**에서만 잰다 (negimp.region: target).
+#     토큰 = 가능 미래 (문맥 영상 자신) ∪ 불가능 미래 (짝 영상) 에서 target 이 보이는 자리 — 생성기 보임 마스크를 블록 (2 장) · 토큰 (16×16) 으로.
+#     target 이 미래에 한 번도 안 보이는 불가능 샘플은 손실 0. 가능 샘플 손실 (TF + 굴린 L1, 전 토큰) · margin 1 · λ 1 · 데이터 · 출발 (AR scratch e70) 은 같다.
+#   왜: 전 토큰 음의 손실은 늘 켜져 있고 (margin 1 > L1 0.5) 화면 90 % 인 배경을 밀어 손실을 줄인다 → 예측이 배경에서 멀어져 A ↑ · B ↓ (쏠림).
+#   val = real world permanence 매 epoch (사용자 관례).
+#   GPUS=8 bash z_training/tmux_train.sh v4bc4_ar_vw_state_negimp_objregion
+#   GPU 8 장 × 6 = 전체 48 — 기준판과 같은 world size · seed → 같은 step 에 같은 batch (2026-11-08 사용자 "원래 8 gpu 로").
+extends: v4bc4_ar_vw_state_negimp
+
+
+negimp:
+  region: target
+
+val:                            # 2026-11-08 사용자 "training val 로 real bench 성능 보여주도록" — 95 장면 × 4 = 380 클립 (채점기와 같은 로더), 매 epoch — 95 장면 × 4 = 380 클립 (채점기와 같은 로더 · 같은 창), 매 epoch (약 34 초)
+  dataset: null
+  n_frames: 32
+  context_length: 16
+  batch_size: 4
+  every_epochs: 1
+  at_start: true
+  n_blocks_per_type: 1000
+  seed: 0
+  data:
+    root: ${DATA_CSV}/real_world_permanence_uniform
+    index_csv: index.csv
+    video_root: /workspace/dataset/benchmarks/real_world_permanence
+    frames_index_column: frames
+    block_column: block_id
+    pair_column: pair_id
+    plausible_column: plausible
+    variant_column: variant
+    type_column: condition
+    frames_root: null           # 부모 (IntPhys1 dev PNG) 에서 상속되는 키를 지운다
+    frames_pattern: null
+    frames_start: null
+    frames_stride: null
+    raw_frames: null

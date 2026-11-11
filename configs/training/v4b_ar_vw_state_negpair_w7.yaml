@@ -1,0 +1,6 @@
+# 자동 탐색 후보 1 (2026-11-06): v4b_ar_vw_state_negpair_w3 와 λ 만 다르다 (3 → 7, 물체 문턱 q* 0.125 → 0.0625, 토큰별 이론).
+#   GPUS=8 bash z_training/tmux_train.sh v4b_ar_vw_state_negpair_w7
+extends: v4b_ar_vw_state_negpair_w3
+
+negimp:
+  weight: 7.0

@@ -1,0 +1,27 @@
+# 형제 slot 맞바꾸기 (2026-11-07, 사용자 "그래 그러면 그거로 올려봐"). 맞추기 판 체크포인트에서 이어서 짧은 판 500 step.
+#   손실 = 예측 L1 + 맞추기 0.5 + λ 1 · L1(p(문맥 X, 형제 slot), 형제 미래). app/vjepa_frozen/slot_swap.py.
+#   판정 1 (짧은 판): 맞바꾸기 효과 ÷ A · B 예측 차이가 벤치에서 0.8–2.8 % → 30 % 이상 (slot_diag.py). 못 넘으면 본 판 안 올린다.
+#   판정 2 (본 판): real95 > 72.1 · real48 > 76.0 · IP2 late ≥ 60 · VOB 판 움직임 ≥ 95 (음의 손실 기준판 v4bc4_ar_vw_state_negimp).
+#   batch 3 쌍 = 6 클립 × GPU 8 = 전역 48 클립.
+#   GPUS=8 bash z_training/tmux_train.sh v4bc4_ar_vw_state_slotswap
+extends: v4bc4_ar_vw_state_slotmatch
+
+model:
+  predictor_init_checkpoint: /workspace/world_model/vjepa2/z_training/runs/v4bc4_ar_vw_state_slotmatch/latest.pt
+
+data:
+  batch_size: 3
+
+slot:
+  swap:
+    families: ${DATA_CSV}/blender_track_v4bc4_negimp/families.json
+    weight: 1.0
+    type_w: [1, 1, 1]
+    context_frames: 16
+
+optimization:
+  epochs: 5
+  ipe: 100
+
+val:
+  every_epochs: 1

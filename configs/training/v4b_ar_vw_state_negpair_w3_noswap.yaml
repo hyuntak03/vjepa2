@@ -1,0 +1,7 @@
+# 자동 탐색 후보 1 (2026-11-06): v4b_ar_vw_state_negpair_w3 에서 불가능 종류의 바꿔치기를 뺀다 (vanish : appear : swap = 1 : 1 : 0).
+#   왜: 짝 없는 음의 손실은 학습 묶음에서 속도 바꿔치기 순위를 84 → 55 % 로 무너뜨렸다 (family_rank_headroom). 짝 손실에서 바꿔치기가 하는 몫을 가른다.
+#   GPUS=8 bash z_training/tmux_train.sh v4b_ar_vw_state_negpair_w3_noswap
+extends: v4b_ar_vw_state_negpair_w3
+
+negimp:
+  type_w: [1, 1, 0]

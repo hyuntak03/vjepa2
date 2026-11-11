@@ -1,0 +1,12 @@
+# now/past gate post-train (2026-11-07, 사용자 "게이팅 해봐 포스트 트레이닝으로").
+#   v4bc4_ar_vw_state_postft (AR + v4bc4 + 예측 L1 만, batch 48, 2,000 step) 과 같고 attention 하나만 다르다:
+#     모든 층 · head 에서 query 마다 학습되는 가산점 δ 를 **이전 블록 key 의 logit 에만** 더한다 (src/models/utils/modules.py set_past_gate).
+#     = 자기 블록 attention 과 과거 블록 attention 을 따로 정규화하고 g = σ(LSE_과거 − LSE_자기 + δ) 로 섞는 것과 같다.
+#     왜: 측정상 블록 9 를 만드는 query 의 61–66 % 가 자기 블록 (가림 중이면 가림막) 에 가고 과거 물체 몫은 3 % — 한 softmax 안의 경쟁.
+#   δ = Linear(384 → 12 head), 0 시작 → 0 step 출력 = 출발 AR (실측 차이 1e-5, 커널 반올림). 새 파라미터 5.5 만. RoPE · 마스크 그대로.
+#   GPUS=8 bash z_training/tmux_train.sh v4bc4_ar_vw_state_pastgate
+extends: v4bc4_ar_vw_state_postft
+
+model:
+  predictor:
+    past_gate: true

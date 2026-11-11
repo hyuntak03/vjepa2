@@ -1,0 +1,8 @@
+# slot 메모리 + 보이는 마스크 맞추기 (2026-11-07). v4bc4_ar_vw_state_slot (L1 만) 과 같고 맞추기 손실만 켠다.
+#   클립마다 slot ↔ 물체 (target · distractor) 를 클립 전체에서 한 번 Hungarian 으로 짝짓고, 보이는 블록에서 1 − soft dice (app/vjepa_frozen/slot_aux.py).
+#   가려진 블록은 감독하지 않는다. amodal 마스크는 안 쓴다. real 채점에는 라벨이 필요 없다.
+#   GPUS=4 DEVICES="cuda:4 cuda:5 cuda:6 cuda:7" bash z_training/tmux_train.sh v4bc4_ar_vw_state_slotmatch
+extends: v4bc4_ar_vw_state_slot
+
+slot:
+  match_weight: 0.5

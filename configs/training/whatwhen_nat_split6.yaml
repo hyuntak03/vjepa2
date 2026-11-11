@@ -1,0 +1,23 @@
+# what–when 분리 1 단계 (2026-11-06, 사용자 "simple 한 우리만의 것, 설계 잘하고 다 올려"): AR 기본판 (natural_ar_vw_state ep70) 에서 이어 학습,
+#   같은 자연 영상 데이터 · 같은 창 · batch 512 로 7 epoch (2,058 step = 처음부터 학습의 10 %). 판끼리 다른 것은 시간 RoPE 의 헤드별 척도 하나:
+#     none = 대조 (구조 그대로, 추가 학습 효과만) · split:6 = 층마다 앞 6 헤드 시간 없음 (고정) · learned = 헤드별 척도 학습 (1 에서 시작) · zero = 전부 시간 없음
+#   근거: 추론 때 시간 RoPE 를 빼면 AR 기본판 VOB 판 움직임 85.8 → 99.5 · real95 58.2 → 65.3 (짝 p 0.004) 인데 Surrogate 움직임 82.0 → 53.5 (z_analysis/results/release_ladder_20261106).
+#   GPUS=8 bash z_training/tmux_train.sh whatwhen_nat_split6
+extends: natural_ar_vw_state
+
+meta:
+  save_every_freq: 7
+
+model:
+  predictor_init_checkpoint: /workspace/world_model/vjepa2/z_training/runs/natural_ar_vw_state/latest.pt
+  predictor:
+    time_scale: "split:6"
+
+optimization:
+  epochs: 7
+  ipe: 294
+  lr: 5.0e-5
+  start_lr: 1.0e-6
+  final_lr: 1.0e-6
+  warmup: 1
+  anneal_epochs: null

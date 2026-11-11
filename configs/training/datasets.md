@@ -510,6 +510,104 @@ csv: ${DATA_CSV}/blender_track_v4vc/arms/all_mp4list.csv
 stride: 2
 starts: [0, 1]
 
+## blender_track_v4a_all
+
+**BlenderTrack v4a = v4 (blender_track_v4vc_all) 전체 + 평면 trapdoor 묶음의 정지 물체 단계 = 2,250 묶음 · 11,559 편** (2026-11-05, 사용자 데이터 계획 A).
+가림막은 v4 그대로 (판 · 벽 · trapdoor · 서 있는 물체, 지나가는 가림막 없음). 평면 trapdoor 337 묶음은 이 머신에서 다시 그렸고 (같은 설계, 라벨 원본과 비트 같음),
+그중 309 묶음에 정지 물체 영상 하나 (가려지는 구간 가운데에 서 있는 target, 판이 일어섰다 누움) 를 더했다. 나머지 묶음은 v4 원본 영상. 창 · 간격은 v4 와 같다.
+⚠️ 정정 (11-05 KST 00:05): 처음 판은 가림막을 판 · trapdoor 로 좁혔다 → 사용자 "v4 가림막 상속" 으로 기본을 전부로 바꿨다. 좁힌 판은 `blender_track_v4a_bt_all`.
+만드는 법 `z_research/scripts/data/blender_track/v4a_static.py` (design → `run_v4a.sh` 렌더 → index). 불가능 짝 정보 `${DATA_CSV}/blender_track_v4a_negimp/families.json`.
+
+type: mp4_list
+csv: ${DATA_CSV}/blender_track_v4a/arms/all_mp4list.csv
+stride: 2
+starts: [0, 1]
+
+## blender_track_v4a_bt_all
+
+**v4a 에서 가림막을 판 · trapdoor 로 좁힌 판 = 1,421 묶음 · 7,414 편** (2026-11-05 첫 판, ablation 용). 벽 · 서 있는 물체 묶음을 뺐다. 짝 정보 `${DATA_CSV}/blender_track_v4a_bt_negimp/families.json`.
+
+type: mp4_list
+csv: ${DATA_CSV}/blender_track_v4a_bt/arms/all_mp4list.csv
+stride: 2
+starts: [0, 1]
+
+## blender_track_v4b_all
+
+**BlenderTrack v4b = v4 설계기 · 가림막 (판 · 벽 · trapdoor · 서 있는 물체) 그대로, 가림을 길게** (2026-11-06, 사용자 "그럼 긴 가림을 넣어봐").
+왜: real 영속 95 장면은 모델이 보는 32 샘플 중 가려진 샘플 중앙값 10 (문맥 안 5) 인데 v4 · v4a 는 4 (문맥 안 2) [측정]. v4b 학습 목록은 9 (문맥 안 5).
+규모 (11-06 02:41 KST 완료): 2,246 묶음 (평면 1,133 · 빗면 1,113) · 9,299 편 (속도 3 단계 + 빈 장면, 정지 315). 렌더 타이밍 탈락 평면 57 · 빗면 87 묶음.
+바꾼 것: 가려지기 시작 샘플 14–15 → 10–12, 가장 빠른 단계 가림 1.6–2.4 → 5–7 샘플, trapdoor 유지 2.5–4.5 → 7–10 샘플, 속도 4 → 3 단계 (v4 의 가장 느린 단계를 뺌 — 긴 가림에서 창 안에 다시 못 나옴, 단계 비 1.26 그대로),
+서 있는 물체 가림막 화면 크기 상한 2 → 3 배. 평면 trapdoor 묶음에는 정지 물체 단계 (v4a 와 같은 정의). 대조 분할 (train_ind) 없음 — 목록 = 모든 단계가 렌더 타이밍을 통과한 묶음 전부.
+설정 `z_research/scripts/data/blender_track/configs/v4b.yaml` · `v4b_ramp.yaml`, 사슬 `run_v4b.sh`, 짝 정보 `${DATA_CSV}/blender_track_v4b_negimp/families.json`.
+
+type: mp4_list
+csv: ${DATA_CSV}/blender_track_v4b/arms/all_mp4list.csv
+stride: 2
+starts: [0, 1]
+
+## blender_track_v4mix_all
+
+**v4 (blender_track_v4vc_all, 11,250 편) + v4b (blender_track_v4b_all, 9,299 편) = 20,549 편** (2026-11-06 자동 탐색 후보 2: 가림 길이 다양화 — v4 짧은 가림 · v4b 긴 가림).
+짝 정보 `${DATA_CSV}/blender_track_v4mix_negimp/families.json` (두 짝 정보를 목록 번호만 옮겨 합침, 묶음마다 src 표시).
+
+type: mp4_list
+csv: ${DATA_CSV}/blender_track_v4mix/arms/all_mp4list.csv
+stride: 2
+starts: [0, 1]
+
+## blender_track_v4bc2_all
+
+**v4b (9,299 편) + v4c 지나가는 가림막 (2,458 편) × 2 번 반복** (2026-11-06 자동 탐색 묶음 3, 영상 비율 v4c 약 35 %). v4c = `z_research/scripts/data/blender_track/v4c_slide.py` (v4b 판 · 벽 장면의 가림막을 미끄러지는 판으로, 움직이는 · 정지 target 묶음 1,229 개).
+짝 정보 `${DATA_CSV}/blender_track_v4bc2_negimp/families.json`.
+
+type: mp4_list
+csv: ${DATA_CSV}/blender_track_v4bc2/arms/all_mp4list.csv
+stride: 2
+starts: [0, 1]
+
+## blender_track_v4bc4_all
+
+**v4b (9,299 편) + v4c 지나가는 가림막 (2,458 편) × 4 번 반복** (2026-11-06 자동 탐색 묶음 3, 영상 비율 v4c 약 51 %). v4c = `z_research/scripts/data/blender_track/v4c_slide.py` (v4b 판 · 벽 장면의 가림막을 미끄러지는 판으로, 움직이는 · 정지 target 묶음 1,229 개).
+짝 정보 `${DATA_CSV}/blender_track_v4bc4_negimp/families.json`.
+
+type: mp4_list
+csv: ${DATA_CSV}/blender_track_v4bc4/arms/all_mp4list.csv
+stride: 2
+starts: [0, 1]
+
+## blender_track_v4bc4de_all
+
+**v4bc4 (19,131 편) + v4d 가파른 빗면 (4,164 편) + v4e 평면 가속 (4,552 편) = 27,847 편** (2026-11-06 사용자 "1, 2 두 개 다 추가" · "평면 가속 넣긴 해야지").
+v4d = `z_research/scripts/data/blender_track/configs/v4d_ramp.yaml` (내려감 4–10°, 실제 4.3–7.8°, 속도 × 1.5), v4e = `configs/v4e.yaml` + `gen_design_v4e.py` (평면 가속 alpha 0.4–0.8). 짝 정보 `${DATA_CSV}/blender_track_v4bc4de_negimp/families.json`.
+
+type: mp4_list
+csv: ${DATA_CSV}/blender_track_v4bc4de/arms/all_mp4list.csv
+stride: 2
+starts: [0, 1]
+
+## blender_track_v4bc4f_all
+
+**v4bc4 (19,131 편) + v4f 덮어 미는 상자 (3,870 편) × 4 번 반복** (2026-11-07, 가려진 동안 물체가 옮겨지는 장면). v4f = `z_research/scripts/data/blender_track/v4f_cover.py`
+(v4b 평면 판 · 벽 장면 680 개 × 2, 앞이 트인 상자가 미끄러져 와 덮고 멈췄다 되돌아감 — 묶음 = 밀림 P · 그대로 N · 빈 장면 B). 합치기 `concat_negimp_lists.py`.
+짝 정보 `${DATA_CSV}/blender_track_v4bc4f_negimp/families.json`.
+
+type: mp4_list
+csv: ${DATA_CSV}/blender_track_v4bc4f/arms/all_mp4list.csv
+stride: 2
+starts: [0, 1]
+
+## realneg_v1_events
+
+**실제 영상 사건 짝 (SSv2 가림 사건 232 개, 학습 split)** — `z_training/docs/REAL_NEGATIVE_DATA_2026-11-05.md` (vast-negloss). 목록 = possible mp4 (32 장, 12 fps, 240² 정사각),
+같은 이름의 impossible (재등장 뒤 물체를 지움) · artifact_positive (같은 자리 · 같은 때를 빈 배경에 지움) 가 형제 폴더에. 보류 24 사건은 `events_holdout.txt` (채점셋 realneg_v1_holdout).
+학습에서 `real_pair: {p_art: 0.5}` 를 붙이면 [가능 또는 흔적 가능, 불가능] 짝 · 코드 4 로 읽는다 (rank 전용, 2026-11-07).
+
+type: mp4_list
+csv: ${TRAIN_DATA_ROOT}/vmx_occ/real_neg_v1/lists/events_train.txt
+stride: 1
+starts: [0]
+
 ## realbench_perm_train
 
 **real world permanence 학습 절반의 가능 영상 = 47 영상 × 2 (가능 있음 · 가능 없음) = 94 편** (2026-11-02, 사용자: "real bench 로 PFT · held out").
@@ -519,3 +617,25 @@ starts: [0, 1]
 
 type: mp4_list
 csv: ${DATA_CSV}/real_world_permanence_uniform/train_possible_mp4list.csv
+
+## blender_track_v5id_all
+
+**v5id (2026-11-09, 사용자 "general data 0.2M, shape × color compositional + 정체 위반")** — v4bc4 와 같은 장면 꼴 (평면 긴 가림 · 빗면 · 미끄러지는 가림막) 에
+target 정체 변형 (색만 · 모양만 · 둘 다, 같은 궤적) 을 묶음마다 더했다. 렌더 200,430 편 → 렌더 타이밍 통과 190,819 편 · 묶음 29,787 (반복 없음).
+생성기 `z_research/scripts/data/blender_track/gen_design_v5id.py` · `v5c_slide.py` · 목록 `index_v5id.py`. 짝 정보 `${DATA_CSV}/blender_track_v5id_negimp/families.json`
+(A 마다 속도 단계 lvl · 변형 ident · 바뀐 것 idc — 정체 위반 짝 = 같은 lvl 다른 ident).
+
+type: mp4_list
+csv: ${DATA_CSV}/blender_track_v5id/arms/all_mp4list.csv
+stride: 2
+starts: [0, 1]
+
+## blender_track_v4bc4x_train_all
+
+**v4bc4 0.2M 증축 학습 목록** (2026-11-11, 사용자 "v4bc4 distribution 그대로 · scale 만 · 최종 학습 데이터 1M"). v4bc4 와 같은 설계 · 같은 구성 (v4bx 평면 + 빗면 = v4b 설정 그대로 묶음 × 17, seed 270 · 280 / v4cx = 그 판 · 벽 장면의 미끄러지는 판 × 4 가중).
+생성 `z_research/scripts/data/blender_track/run_v4bc4x.sh`, 시험 200 묶음을 뺀 목록 (`holdout_v4bc4x.py`, 시험 = cvpr 레지스트리 `v4bc4x_test`). 짝 정보 `${DATA_CSV}/blender_track_v4bc4x_train_negimp/families.json`.
+
+type: mp4_list
+csv: ${DATA_CSV}/blender_track_v4bc4x_train/arms/all_mp4list.csv
+stride: 2
+starts: [0, 1]

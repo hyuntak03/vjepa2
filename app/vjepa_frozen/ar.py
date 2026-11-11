@@ -184,7 +184,8 @@ def ar_losses_video(predictor, zc: torch.Tensor, zf: torch.Tensor, S: int, C: in
 
 
 def ar_losses(predictor, h: torch.Tensor, S: int, C: int, K: int, loss_exp: float, rollout_steps: int, hint=None,
-              delta_weight: float = 0.0, aux: dict = None, tf_span: str = "all", out: dict = None, h_in: torch.Tensor = None):
+              delta_weight: float = 0.0, aux: dict = None, tf_span: str = "all", out: dict = None, h_in: torch.Tensor = None,
+              mtp_weights=None):
     """h (B, nb*S, D) LN 된 블록 토큰. return (loss, jloss, sloss, R). predictor 는 DDP 래퍼여도 된다 (forward 한 번).
     hint = encode_hints 의 (hx, hidx, keep) 또는 None. 주면 TF 에만 힌트를 넣고 jloss 에서 힌트 자리를 뺀다 (rollout 은 힌트 없음).
     tf_span (2026-10-15, 사용자 결정): "all" = TF 손실을 위치 0..nb-2 전부 (기존), "predict" = 예측 구간만 —
@@ -239,6 +240,23 @@ def ar_losses(predictor, h: torch.Tensor, S: int, C: int, K: int, loss_exp: floa
         jloss = l1(p_tf, h[:, S:], loss_exp)
     sloss = l1(p_ar, h[:, C * S: (C + R) * S], loss_exp)
     loss = jloss + sloss
+    if getattr(core, "mtp_n", 0):                             # 2026-11-07 다중 블록 예측: TF 위치 b 의 head j → 블록 b+1+j, Σ w_j L1
+        if hint is not None or delta_weight or tf_span != "all":
+            raise ValueError("mtp 는 hint · delta_weight · tf_span 과 아직 같이 쓰지 않는다")
+        mtp = _o[2]
+        ws = [float(w) for w in (mtp_weights if mtp_weights is not None else [0.5 ** (j + 1) for j in range(len(mtp))])]
+        if len(ws) != len(mtp):
+            raise ValueError(f"loss.mtp_weights 길이 {len(ws)} 가 head 수 {len(mtp)} 와 다르다")
+        terms = []
+        for j, (pj, w) in enumerate(zip(mtp, ws)):
+            d = j + 2                                         # 예측 거리 (블록)
+            if nb - d < 1:
+                continue
+            lj = l1(pj[:, : (nb - d) * S], h[:, d * S:], loss_exp)
+            terms.append(lj)
+            loss = loss + w * lj
+        if aux is not None:
+            aux["mtp"] = [float(t.detach()) for t in terms]
     if delta_weight:
         # teacher forcing: p_tf 블록 1..nb-1 의 이웃 예측끼리 / rollout: p_ar 블록 C..C+R-1 의 이웃 걸음끼리
         terms = [d for d in (delta_l1(p_tf, h[:, S:], S, loss_exp),

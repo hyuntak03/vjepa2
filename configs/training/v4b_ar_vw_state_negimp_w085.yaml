@@ -1,0 +1,7 @@
+# 자동 탐색 묶음 2 (2026-11-06): v4b_ar_vw_state_negimp 와 λ 만 다르다 (1 → 0.85). 묶음 1 에서 λ 0.75 = 합성 조건 O · real95 71.1 (챔피언), λ 1 = 조건 X · 75.3.
+#   그 사이에서 조건을 지키는 가장 큰 λ 를 찾는다 (토큰별 이론: 배경 당김 0.5 − 0.5λ, 물체 문턱 q* = (1 − λ)/2).
+#   GPUS=8 bash z_training/tmux_train.sh v4b_ar_vw_state_negimp_w085
+extends: v4b_ar_vw_state_negimp
+
+negimp:
+  weight: 0.85

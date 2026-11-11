@@ -1,0 +1,13 @@
+# 은닉 곡률 손실 (2026-11-07, 사용자 "lambda 1 이 아니라 그냥 L1 post training" · "그냥 지금 올려 봐").
+#   대조 v4bc4_ar_vw_state_postft (같은 출발 · 데이터 · batch 48 · 2,000 step · seed 0) 과 곡률 손실 하나만 다르다. 음의 손실 없음.
+#   진단 z_analysis/docs/HIDDEN_CURVATURE_2026-11-07.md. 코드 app/vjepa_frozen/curv.py (키 설명).
+#   bash z_training/tmux_train_curv.sh v4bc4_ar_vw_state_curv   (train.sh 가 아니다 — 런처가 다르다)
+extends: v4bc4_ar_vw_state_postft
+
+curv:
+  weight: 0.01        # 첫 step 측정: |∇곡률| 3.14 vs |∇예측| 0.128 (25 배). λ 0.01 이면 비 약 0.25 ("λ 작게")
+  layer: 9
+  warmup_steps: 200
+  paths: [tf, ro]
+  mask_q: 0.0
+  probe_every: 100

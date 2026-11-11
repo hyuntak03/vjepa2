@@ -1,0 +1,11 @@
+# 자동 탐색 묶음 1 (2026-11-06): 짝 없음 λ 1 · 데이터 = v4 + v4b (blender_track_v4mix_all 20,549 편, 가림 길이 다양화).
+#   비교: v4vc_ar_vw_state_negimp (v4, real95 71.6) · v4b_ar_vw_state_negimp (v4b, 75.3).
+#   GPUS=8 bash z_training/tmux_train.sh v4mix_ar_vw_state_negimp
+extends: v4b_ar_vw_state_negimp
+
+data:
+  datasets:
+    - {name: blender_track_v4mix_all, weight: 1.0}
+
+negimp:
+  families: ${DATA_CSV}/blender_track_v4mix_negimp/families.json

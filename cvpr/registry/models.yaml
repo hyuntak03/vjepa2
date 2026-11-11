@@ -303,7 +303,7 @@ vast_ar_oneshot_vidctx_e40:       # 위와 같은 run 의 epoch 40 체크포인�
   predictor.ar_oneshot: true
   predictor.ar_input: video
   predictor.ar_target: window
-vast_ar_oneshot_causal:           # ⚠️ 2026-11-04 19:20 KST e14 에서 멈춤 (사용자: 문맥은 영상으로 → vast_ar_oneshot_vidctx_causal). 블록 문맥판: 한 번에 예측 (mask token) + attention 전부 블록 인과 (문맥 포함). 입력 · 정답 = 블록별 (블록 AR 과 같다). configs/training/natural_ar_vw_state_oneshot_causal.yaml
+vast_ar_oneshot_causal:           # 2026-11-11 02:23 KST e15 → e70 이어 학습 (사용자 "이거 해봐", 예측 방식 축 ablation). 11-04 에 e14 에서 멈췄던 판. 블록 문맥판: 한 번에 예측 (mask token) + attention 전부 블록 인과 (문맥 포함). 입력 · 정답 = 블록별 (블록 AR 과 같다). configs/training/natural_ar_vw_state_oneshot_causal.yaml
   base: vith
   predictor_checkpoint: ${CVPR_REPO}/z_training/runs/natural_ar_vw_state_oneshot_causal/latest.pt
   predictor.kind: ar
@@ -590,5 +590,496 @@ vast_ar_vw_state_vobpft_lora:     # AR └ VOBench — 대조 vast_ar_vw_state_v
 vast_ar_vw_state_realbench_lora:  # AR └ real permanence — 대조 vast_ar_vw_state_realbench (채점은 보류 절반 rwpT)
   base: vith
   predictor_checkpoint: ${CVPR_REPO}/z_training/runs/realbench_ar_vw_state_postft_lora/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+# 2026-11-05 실제 영상 negative (SSv2 사건 232 + VMX 채우기, 2,000 step · 48 · lr 5e-5 · seed 0). run 은 worktree vjepa2_negloss (심볼릭 링크).
+#   데이터 문서 vjepa2_negloss/z_training/docs/REAL_NEGATIVE_DATA_2026-11-05.md · 결과 vjepa2_negloss/z_analysis/results/realneg_v1_20261105/
+vith_release_realneg_A:           # 팔 A (대조): possible + artifact_positive, L1 만 (configs/training/realneg_release_A.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/realneg_release_A/latest.pt
+vith_release_realneg_B:           # 팔 B: 팔 A + impossible 에 max(0, 1 − L1) (configs/training/realneg_release_B.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/realneg_release_B/latest.pt
+# ── 2026-11-06 v4b (긴 가림, configs/training/datasets.md blender_track_v4b_all) × 손실 (사용자: "L1 · 짝 없는 음의 손실 λ1 · 짝 있는 음의 손실 λ3 · 릴리즈 pft · 릴리즈 pft 짝 λ3")
+vast_ar_vw_state_v4b:             # AR 기본판 출발 · L1 (configs/training/v4b_ar_vw_state_postft.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4b_ar_vw_state_postft/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_v4b_negimp:      # 짝 없는 음의 손실 λ 1 (configs/training/v4b_ar_vw_state_negimp.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4b_ar_vw_state_negimp/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_v4b_negpair_w3:  # 짝 손실 λ 3 · 종류 1:1:1 (configs/training/v4b_ar_vw_state_negpair_w3.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4b_ar_vw_state_negpair_w3/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vith_release_v4b:                 # 릴리즈 출발 · L1 (configs/training/v4b_release_postft.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4b_release_postft/latest.pt
+vith_release_v4b_negpair_w3:      # 릴리즈 출발 · 짝 손실 λ 3 (configs/training/v4b_release_negpair_w3.yaml, negimp.py release_pair_loss)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4b_release_negpair_w3/latest.pt
+# ── 2026-11-06 자동 탐색 묶음 1 (z_training/docs/AUTO_EXPLORE_LOG_2026-11-06.md)
+vast_ar_vw_state_v4b_negpair_w3_noswap:   # 짝 λ 3 · 종류 1:1:0 (configs/training/v4b_ar_vw_state_negpair_w3_noswap.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4b_ar_vw_state_negpair_w3_noswap/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_v4b_negimp_noswap:       # 짝 없음 λ 1 · swap_frac 0 (configs/training/v4b_ar_vw_state_negimp_noswap.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4b_ar_vw_state_negimp_noswap/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_v4b_negimp_w075:         # 짝 없음 λ 0.75 (configs/training/v4b_ar_vw_state_negimp_w075.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4b_ar_vw_state_negimp_w075/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_v4mix_negimp:            # 짝 없음 λ 1 · v4 + v4b (configs/training/v4mix_ar_vw_state_negimp.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4mix_ar_vw_state_negimp/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+# ── 2026-11-06 자동 탐색 묶음 2
+vast_ar_vw_state_v4b_negimp_w085:         # 짝 없음 λ 0.85 (configs/training/v4b_ar_vw_state_negimp_w085.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4b_ar_vw_state_negimp_w085/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_v4b_negimp_w092:         # 짝 없음 λ 0.92 (configs/training/v4b_ar_vw_state_negimp_w092.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4b_ar_vw_state_negimp_w092/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_v4bnat_negimp_w075:      # v4b + 자연 영상 반 · 짝 없음 λ 0.75 (configs/training/v4bnat_ar_vw_state_negimp_w075.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bnat_ar_vw_state_negimp_w075/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_v4bnat_negimp:           # v4b + 자연 영상 반 · 짝 없음 λ 1 (configs/training/v4bnat_ar_vw_state_negimp.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bnat_ar_vw_state_negimp/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+# ── 2026-11-06 자동 탐색 묶음 3 (v4b + 지나가는 가림막 v4c)
+vast_ar_vw_state_v4bc2_negimp_w075:   # v4bc2 · λ 0.75 (configs/training/v4bc2_ar_vw_state_negimp_w075.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc2_ar_vw_state_negimp_w075/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_v4bc2_negimp_w092:   # v4bc2 · λ 0.92 (configs/training/v4bc2_ar_vw_state_negimp_w092.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc2_ar_vw_state_negimp_w092/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_v4bc2_negimp:   # v4bc2 · λ 1 (configs/training/v4bc2_ar_vw_state_negimp.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc2_ar_vw_state_negimp/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_v4bc4_negimp:   # v4bc4 · λ 1 (configs/training/v4bc4_ar_vw_state_negimp.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4_ar_vw_state_negimp/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_v4bc4f_negimp:   # 2026-11-07 v4bc4 + v4f 덮어 미는 상자 ×4 · 음의 손실 λ 1 (configs/training/v4bc4f_ar_vw_state_negimp.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4f_ar_vw_state_negimp/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_v4bc4f_rank:   # 2026-11-07 v4bc4f 데이터 · 음의 손실 대신 짝 순위 손실 (configs/training/v4bc4f_ar_vw_state_rank.yaml, app/vjepa_frozen/rank_pair.py)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4f_ar_vw_state_rank/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_v4bc4de_negimp:   # 2026-11-07 v4bc4 + 가속 데이터 (v4d 가파른 빗면 · v4e 평면 가속) · 음의 손실 λ 1 (configs/training/v4bc4de_ar_vw_state_negimp.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4de_ar_vw_state_negimp/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_v4bc4_slot:   # 2026-11-07 v4bc4 · L1 만 · slot 메모리 (맞추기 없음) (configs/training/v4bc4_ar_vw_state_slot.yaml, src/models/slot_memory.py)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4_ar_vw_state_slot/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+  predictor.slot_n: 8
+  predictor.slot_iters: 2
+  predictor.slot_layers: "2,5,8,11"
+  predictor.slot_heads: 6
+  predictor.slot_gain: 10.0
+  predictor.slot_gate_bias: 2.0
+vast_ar_vw_state_v4bc4_slotmatch:   # 2026-11-07 v4bc4 · L1 만 · slot 메모리 + 보이는 마스크 맞추기 0.5 (configs/training/v4bc4_ar_vw_state_slotmatch.yaml, src/models/slot_memory.py)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4_ar_vw_state_slotmatch/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+  predictor.slot_n: 8
+  predictor.slot_iters: 2
+  predictor.slot_layers: "2,5,8,11"
+  predictor.slot_heads: 6
+  predictor.slot_gain: 10.0
+  predictor.slot_gate_bias: 2.0
+vast_ar_vw_state_v4bc4_slotswap:   # 2026-11-07 맞추기 판 + 형제 slot 맞바꾸기 500 step (configs/training/v4bc4_ar_vw_state_slotswap.yaml, app/vjepa_frozen/slot_swap.py)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4_ar_vw_state_slotswap/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+  predictor.slot_n: 8
+  predictor.slot_iters: 2
+  predictor.slot_layers: "2,5,8,11"
+  predictor.slot_heads: 6
+  predictor.slot_gain: 10.0
+  predictor.slot_gate_bias: 2.0
+vast_ar_vw_state_v4bc4_delta:   # 2026-11-07 v4bc4 · L1 만 · Δ 예측 ẑ = x_k + P (gate 1 고정, rollout x_k = 직전 예측 사슬, proj 0 시작) (configs/training/v4bc4_ar_vw_state_delta.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4_ar_vw_state_delta/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+  predictor.gating_residual: true
+  predictor.gating_anchor: prev
+  predictor.gating_fixed: true
+vast_ar_vw_state_v4bc4_mtp:   # 2026-11-07 v4bc4 · L1 만 · 다중 블록 예측 head 2 개 (h=2,3, w 0.5/0.25, TF 만, 학습 전용 — 채점은 h=1 rollout) (configs/training/v4bc4_ar_vw_state_mtp.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4_ar_vw_state_mtp/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_v4bc4_pastgate:   # 2026-11-07 v4bc4 · L1 만 · now/past gate (이전 블록 key logit 에 query 별 학습 가산점) (configs/training/v4bc4_ar_vw_state_pastgate.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4_ar_vw_state_pastgate/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+  predictor.past_gate: true
+vast_ar_vw_state_v4bc4_negimp_pastgate:   # 2026-11-07 v4bc4 · 음의 손실 λ1 · now/past gate (configs/training/v4bc4_ar_vw_state_negimp_pastgate.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4_ar_vw_state_negimp_pastgate/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+  predictor.past_gate: true
+vast_ar_vw_state_natmix_v4bc4_negimp:   # 2026-11-07 AR 처음부터: 자연 영상 (원래 레시피, 70 ep) + 매 step v4bc4 음의 손실 batch (약 9 %) (configs/training/natural_ar_vw_state_v4bc4_negimp_mix.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/natural_ar_vw_state_v4bc4_negimp_mix/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_tmem:   # 2026-11-08 AR 처음부터: 시간 누적 하이브리드 (누적 층 9 : 전역 층 3, Qwen3-Next 를 블록 단위로) (configs/training/natural_ar_vw_state_tmem.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/natural_ar_vw_state_tmem/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+  predictor.mem_period: 4
+  predictor.attn_out_gate: true
+vast_ar_vw_state_tmem_v4bc4_negimp:   # 2026-11-08 시간 누적 하이브리드 e43 → v4bc4 음의 손실 λ1 이어 학습 (configs/training/v4bc4_tmem_negimp.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4_tmem_negimp/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+  predictor.mem_period: 4
+  predictor.attn_out_gate: true
+vast_ar_vw_state_v4bc4_negimp_objregion:   # 2026-11-08 AR e70 → v4bc4 음의 손실 λ1, 불가능 L1 을 target 토큰에서만 (configs/training/v4bc4_ar_vw_state_negimp_objregion.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4_ar_vw_state_negimp_objregion/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_tmem_v4bc4_negimp_objregion:   # 2026-11-08 하이브리드 e43 → 위와 같은 손실 (configs/training/v4bc4_tmem_negimp_objregion.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4_tmem_negimp_objregion/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+  predictor.mem_period: 4
+  predictor.attn_out_gate: true
+vast_ar_vw_state_tmem_v4bc4:   # 2026-11-08 하이브리드 e43 → v4bc4 L1 만 이어 학습 (configs/training/v4bc4_tmem_postft.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4_tmem_postft/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+  predictor.mem_period: 4
+  predictor.attn_out_gate: true
+vast_ar_vw_state_v4bc4_negimp_objregion_m15:   # 2026-11-09 AR e70 → v4bc4 음의 손실 (target 토큰만, margin 1.5) (configs/training/v4bc4_ar_vw_state_negimp_objregion_m15.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4_ar_vw_state_negimp_objregion_m15/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_tmem_v4bc4_negimp_objregion_m15:   # 2026-11-09 하이브리드 e43 → 위와 같은 손실 (configs/training/v4bc4_tmem_negimp_objregion_m15.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4_tmem_negimp_objregion_m15/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+  predictor.mem_period: 4
+  predictor.attn_out_gate: true
+vast_ar_vw_state_v4bc4_negimp_noswap:   # 2026-11-09 전이 탐색 (configs/training/v4bc4_ar_vw_state_negimp_noswap.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4_ar_vw_state_negimp_noswap/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_v4bc4_negimp_noswap_w075:   # 2026-11-09 전이 탐색 (configs/training/v4bc4_ar_vw_state_negimp_noswap_w075.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4_ar_vw_state_negimp_noswap_w075/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_v4bc4_negimp_vanish:   # 2026-11-09 전이 탐색 (configs/training/v4bc4_ar_vw_state_negimp_vanish.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4_ar_vw_state_negimp_vanish/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_v4bc4_negimp_appear:   # 2026-11-09 전이 탐색 (configs/training/v4bc4_ar_vw_state_negimp_appear.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4_ar_vw_state_negimp_appear/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_v4bc4f:   # 2026-11-09 전이 탐색 (configs/training/v4bc4f_ar_vw_state_postft.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4f_ar_vw_state_postft/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_v4bc4f_negimp_noswap:   # 2026-11-09 전이 탐색 (configs/training/v4bc4f_ar_vw_state_negimp_noswap.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4f_ar_vw_state_negimp_noswap/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_v4bc4f_rank_real:   # 2026-11-09 전이 탐색 (configs/training/v4bc4f_ar_vw_state_rank_real.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4f_ar_vw_state_rank_real/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_v4bc4_negpair_hinge_w075:   # 2026-11-09 전이 탐색 2 묶음 (configs/training/v4bc4_ar_vw_state_negpair_hinge_w075.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4_ar_vw_state_negpair_hinge_w075/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_v4bc4_negpair_hinge_w090:   # 2026-11-09 전이 탐색 2 묶음 (configs/training/v4bc4_ar_vw_state_negpair_hinge_w090.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4_ar_vw_state_negpair_hinge_w090/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_v4bc4_negpair_lin_l1:   # 2026-11-09 전이 탐색 2 묶음 (configs/training/v4bc4_ar_vw_state_negpair_lin_l1.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4_ar_vw_state_negpair_lin_l1/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_v4bc4_negpair_lin_l2:   # 2026-11-09 전이 탐색 2 묶음 (configs/training/v4bc4_ar_vw_state_negpair_lin_l2.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4_ar_vw_state_negpair_lin_l2/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_v4bc4_negimp_noswap_m065:   # 2026-11-09 전이 탐색 2 묶음 (configs/training/v4bc4_ar_vw_state_negimp_noswap_m065.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4_ar_vw_state_negimp_noswap_m065/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_v4bc4ssv2:   # 2026-11-09 v4bc4 + SSv2 20 % (configs/training/v4bc4ssv2_ar_vw_state_postft.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4ssv2_ar_vw_state_postft/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_v4bc4ssv2_negimp_noswap:   # 2026-11-09 v4bc4 + SSv2 20 % (configs/training/v4bc4ssv2_ar_vw_state_negimp_noswap.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4ssv2_ar_vw_state_negimp_noswap/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_v4bc4f_negimp_vanish:   # 2026-11-09 전이 탐색 3 묶음 (configs/training/v4bc4f_ar_vw_state_negimp_vanish.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4f_ar_vw_state_negimp_vanish/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_v4bc4_negimp_vanish_app02:   # 2026-11-09 전이 탐색 3 묶음 (configs/training/v4bc4_ar_vw_state_negimp_vanish_app02.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4_ar_vw_state_negimp_vanish_app02/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_v4bc4ssv2_negimp_vanish:   # 2026-11-09 전이 탐색 3 묶음 (configs/training/v4bc4ssv2_ar_vw_state_negimp_vanish.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4ssv2_ar_vw_state_negimp_vanish/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_v4bc4_negimp_vanish_w125:   # 2026-11-09 전이 탐색 3 묶음 (configs/training/v4bc4_ar_vw_state_negimp_vanish_w125.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4_ar_vw_state_negimp_vanish_w125/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_v4bc4_negimp_vanish_p07:   # 2026-11-09 전이 탐색 3 묶음 (configs/training/v4bc4_ar_vw_state_negimp_vanish_p07.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4_ar_vw_state_negimp_vanish_p07/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_v4bc4_negimp_vanish_app03:   # 2026-11-09 전이 탐색 4 묶음 (configs/training/v4bc4_ar_vw_state_negimp_vanish_app03.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4_ar_vw_state_negimp_vanish_app03/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_v4bc4_negimp_vanish_m065:   # 2026-11-09 전이 탐색 4 묶음 (configs/training/v4bc4_ar_vw_state_negimp_vanish_m065.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4_ar_vw_state_negimp_vanish_m065/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_v4bc4_negimp_vanish_app02_m065:   # 2026-11-09 전이 탐색 4 묶음 (configs/training/v4bc4_ar_vw_state_negimp_vanish_app02_m065.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4_ar_vw_state_negimp_vanish_app02_m065/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_v4bc4f_negimp_vanish_app02:   # 2026-11-09 전이 탐색 4 묶음 (configs/training/v4bc4f_ar_vw_state_negimp_vanish_app02.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4f_ar_vw_state_negimp_vanish_app02/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_v4bc4_negimp_vanish_app01:   # 2026-11-09 전이 탐색 4 묶음 (configs/training/v4bc4_ar_vw_state_negimp_vanish_app01.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4_ar_vw_state_negimp_vanish_app01/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_outgate:   # 2026-11-08 AR 처음부터: Qwen 출력 게이트만 (위 판의 대조) (configs/training/natural_ar_vw_state_outgate.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/natural_ar_vw_state_outgate/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+  predictor.attn_out_gate: true
+# ── 2026-11-06 자동 탐색 묶음 4
+vast_ar_vw_state_v4bc4_negimp_w075:   # v4bc4 · λ 0.75 (configs/training/v4bc4_ar_vw_state_negimp_w075.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4_ar_vw_state_negimp_w075/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_v4bc4_negimp_w085:   # v4bc4 · λ 0.85 (configs/training/v4bc4_ar_vw_state_negimp_w085.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4_ar_vw_state_negimp_w085/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_v4bc2_negimp_w085:   # v4bc2 · λ 0.85 (configs/training/v4bc2_ar_vw_state_negimp_w085.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc2_ar_vw_state_negimp_w085/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_v4bc2_negimp_w075_long:   # v4bc2 · λ 0.75 · 4,000 step (configs/training/v4bc2_ar_vw_state_negimp_w075_long.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc2_ar_vw_state_negimp_w075_long/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_v4bc4:           # v4bc4 · L1 만 (configs/training/v4bc4_ar_vw_state_postft.yaml) — 2026-11-06 사용자 요청 대조
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4_ar_vw_state_postft/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+# ── 2026-11-06 사용자: v4bc4 데이터로 릴리즈도 (AR v4bc4 L1 · λ 1 과 짝)
+vith_release_v4bc4:               # 릴리즈 출발 · L1 (configs/training/v4bc4_release_postft.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4_release_postft/latest.pt
+vith_release_v4bc4_negimp:        # 릴리즈 출발 · 짝 없는 음의 손실 λ 1 (configs/training/v4bc4_release_negimp.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4_release_negimp/latest.pt
+vith_release_v4bc4_negimp_vanish_app02:   # 2026-11-09 릴리즈 출발 · 사라짐 + 나타남 p 0.2 · 바꿔치기 없음 (configs/training/v4bc4_release_negimp_vanish_app02.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4_release_negimp_vanish_app02/latest.pt
+# ── 2026-11-06 사용자: 음의 손실 판 데이터 맞춤 (batch 96 = 가능 약 48 + 불가능 약 48, L1 판의 가능 48 과 같게)
+vast_ar_vw_state_v4bc4_negimp_dm:       # AR · v4bc4 · 짝 없는 음의 손실 λ 1 · batch 96 (configs/training/v4bc4_ar_vw_state_negimp_dm.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4_ar_vw_state_negimp_dm/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_v4bc4_negimp_w075_dm:  # AR · v4bc4 · λ 0.75 · batch 96 (configs/training/v4bc4_ar_vw_state_negimp_w075_dm.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4_ar_vw_state_negimp_w075_dm/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vith_release_v4bc4_negimp_dm:           # 릴리즈 · v4bc4 · λ 1 · batch 96 (configs/training/v4bc4_release_negimp_dm.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4_release_negimp_dm/latest.pt
+vith_release_v4bc4_negimp_w075_dm:      # 릴리즈 · v4bc4 · λ 0.75 · batch 96 (configs/training/v4bc4_release_negimp_w075_dm.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4_release_negimp_w075_dm/latest.pt
+vast_ar_vw_state_v4bc4_negimp_va11_dm:  # AR · λ 1 · batch 96 · 사라짐 : 나타남 1 : 1 (configs/training/v4bc4_ar_vw_state_negimp_va11_dm.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4_ar_vw_state_negimp_va11_dm/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vith_release_v4bc4_negimp_va11_dm:      # 릴리즈 · λ 1 · batch 96 · 사라짐 : 나타남 1 : 1 (configs/training/v4bc4_release_negimp_va11_dm.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4_release_negimp_va11_dm/latest.pt
+# ── 2026-11-06 시간을 고르기에서 가져오기로 (configs/training/vo_nat_*.yaml): AR 기본판에서 자연 영상 5 epoch 이어 학습
+vast_ar_vo_control:               # 고르기 시간 있음 · 가져오기 없음 (추가 학습만)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/vo_nat_control/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vo_notime:                # 고르기 시간 없음 · 가져오기 없음
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/vo_nat_notime/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+  predictor.time_scale: zero
+vast_ar_vo_ours:                  # 고르기 시간 없음 · 가져오기 시간 (VO, 세기 학습)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/vo_nat_ours/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+  predictor.time_scale: zero
+  predictor.vo_time: learned
+# ── 2026-11-07 사용자: 은닉 곡률 손실 (L1 post-training 에 곡률 항만 더함, 대조 vast_ar_vw_state_v4bc4)
+vast_ar_vw_state_v4bc4_curv:      # configs/training/v4bc4_ar_vw_state_curv.yaml
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4_ar_vw_state_curv/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+# ── 2026-11-08 사용자: AR scratch + slot 메모리 + 맞추기 (K710 + SSv2 + HowTo 1 % + v4bc4 10 % step), 70 epoch
+vast_ar_vw_state_v4bc4_slotmatch_scratch:   # configs/training/natural_ar_vw_state_v4bc4_slotmatch.yaml
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/natural_ar_vw_state_v4bc4_slotmatch/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+  predictor.slot_n: 8
+  predictor.slot_iters: 2
+  predictor.slot_layers: "2,5,8,11"
+  predictor.slot_heads: 6
+  predictor.slot_gain: 10.0
+  predictor.slot_gate_bias: 2.0
+
+vast_ar_vw_state_v5id_negimp_mix:   # 2026-11-10 처음부터: 자연 0.84M + v5id 0.19M, 합성에 음의 손실 (p 0.2 판과 같은 batch 구성) — configs/training/natural_ar_vw_state_v5id_negimp_mix.yaml
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/natural_ar_vw_state_v5id_negimp_mix/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+
+vast_ar_vw_state_v4bc4_negimp_vanish_app02_mix:   # 2026-11-10 처음부터: 자연 + v4bc4 합성 20 % 에 음의 손실 p 0.2 — configs/training/natural_ar_vw_state_v4bc4_negimp_vanish_app02_mix.yaml
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/natural_ar_vw_state_v4bc4_negimp_vanish_app02_mix/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+
+# ── 2026-11-11 사용자 "one-shot 판 PFT 로 v4bc4 하고 negative loss p 0.2 까지": 블록 입력 · 블록 인과 · one-shot (e70) 출발
+vast_ar_oneshot_causal_v4bc4:     # v4bc4 L1 만 (configs/training/v4bc4_oneshot_causal_postft.yaml) — vast_ar_vw_state_v4bc4 의 one-shot 짝
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4_oneshot_causal_postft/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+  predictor.ar_oneshot: true
+  predictor.ar_oneshot_causal: true
+vast_ar_oneshot_causal_v4bc4_negimp_vanish_app02:   # v4bc4 음의 손실 p 0.2 (configs/training/v4bc4_oneshot_causal_negimp_vanish_app02.yaml) — vast_ar_vw_state_v4bc4_negimp_vanish_app02 의 one-shot 짝
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4_oneshot_causal_negimp_vanish_app02/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+  predictor.ar_oneshot: true
+  predictor.ar_oneshot_causal: true
+
+# ── 2026-11-11 사용자 "0.5 2 이렇게 돌려봐": 음의 손실 p 0.2 기준판의 λ 비교
+vast_ar_vw_state_v4bc4_negimp_vanish_app02_w05:   # λ 0.5 (configs/training/v4bc4_ar_vw_state_negimp_vanish_app02_w05.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4_ar_vw_state_negimp_vanish_app02_w05/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_v4bc4_negimp_vanish_app02_w2:    # λ 2.0 (configs/training/v4bc4_ar_vw_state_negimp_vanish_app02_w2.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/v4bc4_ar_vw_state_negimp_vanish_app02_w2/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+# ── 2026-11-11 사용자 "v4bc4 0.2M 증축 · 자연 0.84M 과 1M · scratch 부터 negative loss p 0.2 · 합성 batch 줄이고 val 5 ep 마다"
+vast_ar_vw_state_v4bc4x_negimp_vanish_app02_mix:   # configs/training/natural_ar_vw_state_v4bc4x_negimp_vanish_app02_mix.yaml
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/natural_ar_vw_state_v4bc4x_negimp_vanish_app02_mix/latest.pt
+  predictor.kind: ar
+  predictor.ar_feedback: state
+vast_ar_vw_state_v4bc4x_negimp_anneal:   # 2026-11-11 AR e62 → 감쇠 구간 (epoch 63–70) 에만 자연 + v4bc4x 음의 손실 p 0.2 (configs/training/natural_ar_vw_state_v4bc4x_negimp_anneal.yaml)
+  base: vith
+  predictor_checkpoint: ${CVPR_REPO}/z_training/runs/natural_ar_vw_state_v4bc4x_negimp_anneal/latest.pt
   predictor.kind: ar
   predictor.ar_feedback: state

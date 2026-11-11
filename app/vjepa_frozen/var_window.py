@@ -57,6 +57,33 @@ class _Table:
         return len(self.n4) - self.first_ok(W)
 
 
+def _slot_labels_fixed(path: str, idx, tf, M: int = 3):
+    """2026-11-08 고정 창 clip 의 slot 라벨 (data.Mp4ListDataset._slot_labels 와 같은 꼴). 보이는 마스크 (프레임 · 물체별 64×64 비트) 를
+    transform 이 방금 고른 크롭 창 (tf.last_box) 으로 자르고 16×16 토큰 격자 덮인 비율로 줄인 뒤 블록 (2 장) 평균, 반전도 따라간다.
+    크롭이 없으면 4×4 평균 = _slot_labels 와 같은 값. return (마스크 (nb, M, 256) uint8 0..255, 역할 (M,) int8: 1 target · 2 distractor)."""
+    import torch.nn.functional as F
+    lp = path.replace("/clips/", "/labels/")[:-4] + ".npz"
+    T = len(idx)
+    nb = T // 2
+    out = torch.zeros(nb, M, 16, 16)
+    roles = torch.zeros(M, dtype=torch.int8)
+    with np.load(lp) as z:
+        m = int(z["visible"].shape[1])
+        if m > M:
+            raise ValueError(f"slot_labels: {lp} 물체 {m} 개 > {M}")
+        if m:
+            v = torch.from_numpy(np.unpackbits(z["visible"][np.asarray(idx)], axis=-1).astype(np.float32))   # (T, m, 64, 64)
+            top, left, h, w, H, W = tf.last_box
+            if (top, left, h, w) != (0, 0, H, W):
+                v = F.interpolate(v, size=(H, W), mode="nearest")[..., top: top + h, left: left + w]
+            v = F.adaptive_avg_pool2d(v, 16)                                                              # (T, m, 16, 16)
+            out[:, :m] = v[: nb * 2].reshape(nb, 2, m, 16, 16).mean(1)
+            roles[:m] = torch.tensor([1 if str(r) == "target" else 2 for r in z["roles"]], dtype=torch.int8)
+    if getattr(tf, "last_flip", False):
+        out = out.flip(-1)
+    return (out * 255.0).round().to(torch.uint8).reshape(nb, M, 256), roles
+
+
 class VarWindowBatches(torch.utils.data.IterableDataset):
     def __init__(self, cfg: Dict, transform, tubelet: int, seed: int, rank: int, start_step: int = 0):
         super().__init__()
@@ -99,6 +126,14 @@ class VarWindowBatches(torch.utils.data.IterableDataset):
             return
         self.fixed_p = float(fx["p"])
         self.fixed_spec = None
+        # 2026-11-08 (사용자 "slot + 맞추기로 AR scratch, v4bc4 도 넣어서"): mp4_list 소스에 slot_labels: true 면 보이는 마스크 라벨을 같이 싣는다
+        #   (같은 크롭 창 · 반전을 따라간다, _slot_labels_fixed). 한 step 의 clip 이 섞이므로 켜려면 모든 고정 창 소스가 켜야 한다.
+        flags = {bool(src.get("slot_labels", False)) for src in fx["sources"]}
+        if len(flags) > 1:
+            raise ValueError("fixed: slot_labels 는 모든 소스가 같이 켜거나 같이 꺼야 한다")
+        self.fixed_slot = flags == {True}
+        if self.fixed_slot and any(str(src.get("type", "png")) != "mp4_list" for src in fx["sources"]):
+            raise ValueError("fixed: slot_labels 는 mp4_list 소스 (BlenderTrack labels/*.npz) 전용")
         # 2026-11-02 (사용자: "scratch AR 에 v4 껴서"): type: mp4_list 소스 추가 — list = mp4 절대경로 한 줄에 하나 (all_mp4list.csv 형식),
         #   starts: [..] 중 하나를 clip 마다 고른다 (Mp4ListDataset 과 같은 창: start + stride·k). PNG 소스는 예전과 난수 소비까지 같다.
         for src in fx["sources"]:
@@ -141,7 +176,7 @@ class VarWindowBatches(torch.utils.data.IterableDataset):
         B = max(self.b_min, min(self.b_max, self.budget // W))
         rng = random.Random(f"{self.seed}-fixeddata-{step}-{self.rank}")
         from PIL import Image
-        clips = []
+        clips, labs = [], []
         for _ in range(B):
             name, kind, root, pat, fn, starts = self.fixed_items[rng.randrange(len(self.fixed_items))]
             st = starts[0] if len(starts) == 1 else starts[rng.randrange(len(starts))]
@@ -155,6 +190,8 @@ class VarWindowBatches(torch.utils.data.IterableDataset):
             else:
                 arr = np.stack([np.asarray(Image.open(os.path.join(root, pat.format(file_name=fn, frame=st + sd * k))).convert("RGB")) for k in range(n)])
             clips.append(self.transform(arr))
+            if self.fixed_slot:
+                labs.append(_slot_labels_fixed(fn, idx, self.transform))
         x = torch.stack(clips)
         names = sorted({it[0] for it in self.fixed_items})
         tag = "vob" if all(it[1] == "png" for it in self.fixed_items) else "+".join(names)
@@ -162,6 +199,9 @@ class VarWindowBatches(torch.utils.data.IterableDataset):
                 "context_blocks": c // self.tubelet, "predict_blocks": (n - c) // self.tubelet,
                 "gap_blocks": 0, "win_blocks": W // self.tubelet, "context_frames": c,
                 "type": f"var C{c}K{n - c} {tag} B{B}", "read_fails": 0}
+        if self.fixed_slot:
+            info["slot_mask"] = torch.stack([l[0] for l in labs])          # (B, 블록, M, 256) uint8
+            info["slot_role"] = torch.stack([l[1] for l in labs])          # (B, M) int8
         return x, info
 
     # ---------------------------------------------------------------- 경계 정렬 mp4 소스 (2026-10-16, object_permanence_320)

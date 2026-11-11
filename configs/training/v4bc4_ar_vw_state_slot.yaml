@@ -1,0 +1,25 @@
+# slot 메모리 (2026-11-07, 사용자 "Pretrained AR 위에 Slot 메모리 post-training … v4bc4 로 2000 step", "L1 만 되어 있는 걸로").
+#   v4bc4_ar_vw_state_postft (AR + v4bc4 + 예측 L1 만, batch 48, 2,000 step) 과 같고 predictor 에 slot 메모리만 더한다. 음의 손실 없음.
+#   slot 8 개 · 블록마다 전이 → slot attention 2 회 → gate (src/models/slot_memory.py). 입력 = encoder 공간 블록 토큰 (관측 / rollout 예측).
+#   패치 → slot cross-attention 을 층 3 · 6 · 9 · 12 뒤 (0-index 2,5,8,11) 에, 문 tanh(10a) a = 0 → 0 step 출력 = 출발 AR.
+#   맞추기 손실 없음 (가중치 0, 라벨은 gate 모니터용으로만 읽는다). 새 파라미터 lr × 10.
+#   GPUS=4 DEVICES="cuda:0 cuda:1 cuda:2 cuda:3" bash z_training/tmux_train.sh v4bc4_ar_vw_state_slot
+extends: v4bc4_ar_vw_state_postft
+
+model:
+  predictor:
+    slot_n: 8
+    slot_iters: 2
+    slot_layers: "2,5,8,11"
+    slot_heads: 6
+    slot_gain: 10.0
+    slot_gate_bias: 2.0
+
+data:
+  batch_size: 12      # GPU 4 장 × 12 = 48 (대조 v4bc4_ar_vw_state_postft 의 8 × 6 과 같은 전체 배치) — 두 판을 GPU 0–3 / 4–7 에 동시에
+  datasets:
+    - {name: blender_track_v4bc4_all, weight: 1.0, slot_labels: true}
+
+slot:
+  lr_mult: 10.0
+  match_weight: 0.0

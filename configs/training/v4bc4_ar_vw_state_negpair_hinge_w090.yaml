@@ -1,0 +1,38 @@
+# 2026-11-09 전이 탐색 2 묶음 — 손실 설계 (사용자 "negative loss 의 철학은 이어가는데 loss 설계를 바꿔도 되고 다양하게"). 데이터 v4bc4, 바꿔치기 없음, 기준 = v4bc4 L1 만.
+#   근거 [측정 11-09]: 블록 latent 은 보이지 않는 화소 ±1 잡음에 0.47 움직이고 (한 블록 시간 변화 0.49 와 같다), 가능 vs 불가능 미래 차이는 그 1.1–1.25 배뿐.
+#   → single 판 음의 손실 (L1 ≥ 1) 은 잡음 바닥을 밀어 예측 전체가 쏠린다. 짝 판은 가능 · 불가능을 같은 예측에 걸어 잡음 좌표에서 당김 · 밀기가 상쇄된다.
+#   짝 hinge, λ 0.9 (위보다 미는 힘 큼).
+#   GPUS=8 bash z_training/tmux_train.sh v4bc4_ar_vw_state_negpair_hinge_w090
+extends: v4bc4_ar_vw_state_negimp
+
+negimp:
+  mode: paired
+  type_w: [1, 1, 0]          # 사라짐 · 나타남 1:1, 바꿔치기 없음
+  pair_form: hinge
+  margin: 1.0
+  weight: 0.9
+
+val:                            # 2026-11-08 사용자 "training val 로 real bench 성능 보여주도록" — 95 장면 × 4 = 380 클립 (채점기와 같은 로더), 매 epoch — 95 장면 × 4 = 380 클립 (채점기와 같은 로더 · 같은 창), 매 epoch (약 34 초)
+  dataset: null
+  n_frames: 32
+  context_length: 16
+  batch_size: 4
+  every_epochs: 1
+  at_start: true
+  n_blocks_per_type: 1000
+  seed: 0
+  data:
+    root: ${DATA_CSV}/real_world_permanence_uniform
+    index_csv: index.csv
+    video_root: /workspace/dataset/benchmarks/real_world_permanence
+    frames_index_column: frames
+    block_column: block_id
+    pair_column: pair_id
+    plausible_column: plausible
+    variant_column: variant
+    type_column: condition
+    frames_root: null           # 부모 (IntPhys1 dev PNG) 에서 상속되는 키를 지운다
+    frames_pattern: null
+    frames_start: null
+    frames_stride: null
+    raw_frames: null

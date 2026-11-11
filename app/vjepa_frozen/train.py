@@ -205,27 +205,76 @@ def main(args, resume_preempt=False):
     O = cfg["optimization"]
     V = cfg.get("val")
     # ── negimp (2026-11-02, 사용자 지시): 불가능 미래 (문맥 · 미래 이어 붙임) 에 max(0, margin − L1). app/vjepa_frozen/negimp.py
+    from app.vjepa_frozen import slot_aux as SAUX   # 2026-11-07 slot 메모리 보조 손실 · 모니터
     NEG = cfg.get("negimp") or None
+    # 2026-11-07 (사용자 "negative loss 젤 잘 나온 거 기준 + K710 SSv2 HowTo 섞어서 scratch"): negimp.mix = step —
+    #   자연 영상은 가변 창 로더 (data.var_window) 그대로, **매 step** data.datasets (mp4_list, 고정 창) 의 음의 손실 batch 를 따로 더한다.
+    NEG_MIX = bool(NEG and str(NEG.get("mix", "")) == "step")
+    # 2026-11-07 형제 slot 맞바꾸기 (app/vjepa_frozen/slot_swap.py). slot.swap 블록이 있을 때만 켜진다
+    SWAP = dict((cfg.get("slot") or {}).get("swap") or {})
+    if SWAP:
+        from app.vjepa_frozen import slot_swap as SSW
+        if NEG:
+            raise ValueError("slot.swap 은 negimp 와 같이 쓰지 않는다")
+        if any(s.get("type") != "mp4_list" for s in D["datasets"]):
+            raise ValueError("slot.swap 은 data.datasets 가 전부 mp4_list 여야 한다")
+        for s in D["datasets"]:
+            s["slot_sib"] = {k: SWAP[k] for k in ("families", "type_w", "context_frames") if k in SWAP}
+    # 2026-11-07 짝 순위 손실 (app/vjepa_frozen/rank_pair.py). rank 블록이 있을 때만 켜진다. 형제 짝 로딩은 slot.swap 과 같은 길 (slot_sib)
+    RANK = dict(cfg.get("rank") or {})
+    if RANK:
+        from app.vjepa_frozen import rank_pair as RKP
+        if NEG or SWAP:
+            raise ValueError("rank 는 negimp · slot.swap 과 같이 쓰지 않는다")
+        if any(s.get("type") != "mp4_list" for s in D["datasets"]):
+            raise ValueError("rank 는 data.datasets 가 전부 mp4_list 여야 한다")
+        for s in D["datasets"]:
+            if s.get("real_pair") is None:              # 실제 영상 사건 (real_pair) 은 묶음 대신 가능 · 불가능 짝 (코드 4)
+                s["slot_sib"] = {k: RANK[k] for k in ("families", "type_w", "context_frames") if k in RANK}
     if NEG:
         from app.vjepa_frozen import negimp as NI
-        _bad = [n for n, v in (("var_window", D.get("var_window")), ("window_grid", D.get("window_grid")), ("mask_mode=all", str(cfg.get("mask_mode", "sample")) == "all"),
+        _bad = [n for n, v in (("var_window", D.get("var_window") and not NEG_MIX), ("window_grid", D.get("window_grid")), ("mask_mode=all", str(cfg.get("mask_mode", "sample")) == "all"),
                                ("model.aux", MD.get("aux")), ("state_head", cfg.get("state_head")), ("motion", cfg.get("motion")), ("latent_action", cfg.get("latent_action")),
                                ("hint", HINT), ("delta_weight", delta_weight), ("dyn_weight", dyn_weight),
-                               ("tf_span", tf_span != "all"), ("gating", GATING), ("ar_input", ar_input != "block"), ("ar_oneshot", AR_ONESHOT)) if v]
+                               ("tf_span", tf_span != "all"), ("gating", GATING), ("ar_input", ar_input != "block"),
+                               # 2026-11-11: ar_oneshot 은 mode=single · mix 없음 · region 없음일 때만 (negimp.ar_loss 의 TF 없는 경로)
+                               ("ar_oneshot", AR_ONESHOT and (NEG_MIX or str(NEG.get("mode", "single")) != "single"
+                                                              or str(NEG.get("region", "none") or "none") != "none"))) if v]
         if kind not in ("oneshot", "ar") or _bad:
             raise ValueError(f"negimp 는 kind=oneshot | ar 기본 경로 전용이다 (kind {kind}, 같이 못 쓰는 것 {_bad})")
-        if any(s.get("type") != "mp4_list" for s in D["datasets"]):
-            raise ValueError("negimp 는 data.datasets 가 전부 mp4_list 여야 한다")
+        # 2026-11-06: negimp_off: true 인 항목 (자연 영상 등) 은 짝 정보 없이 '가능' 으로만 섞는다 (app/vjepa_frozen/negmix.py)
+        if any(s.get("type") != "mp4_list" for s in D["datasets"] if not s.get("negimp_off")):
+            raise ValueError("negimp 는 data.datasets 가 (negimp_off 가 아닌 것은) 전부 mp4_list 여야 한다")
+        if all(s.get("negimp_off") for s in D["datasets"]):
+            raise ValueError("negimp: 모든 data.datasets 가 negimp_off 다")
         if str(NEG.get("ar_terms", "rollout")) not in ("rollout", "sum"):
             raise ValueError(f"negimp.ar_terms 는 rollout | sum: {NEG.get('ar_terms')!r}")
         for s in D["datasets"]:
-            s["negimp"] = {k: NEG[k] for k in ("families", "p", "swap_frac", "context_frames") if k in NEG}
+            if s.get("negimp_off"):
+                continue
+            s["negimp"] = {k: NEG[k] for k in ("families", "p", "p_object_ctx", "swap_frac", "context_frames", "region") if k in NEG}   # region: 2026-11-08
         NEG_MARGIN, NEG_TERMS, NEG_CTX = float(NEG.get("margin", 1.0)), str(NEG.get("ar_terms", "rollout")), int(NEG.get("context_frames", 16))
         NEG_W = float(NEG.get("weight", 1.0))      # λ (2026-11-05): 불가능 쪽 손실 가중. 1.0 = 11-02 판
+        if str(NEG.get("region", "none") or "none") != "none" and (NEG_MIX or str(NEG.get("mode", "single")) != "single" or kind != "ar"
+                                                                    or any(s.get("negimp_off") for s in D["datasets"])):
+            raise ValueError("negimp.region 은 kind=ar · mode=single · mix 없음 · negimp_off 없음 전용 (2026-11-08)")
+        if NEG_MIX:
+            if not D.get("var_window") or kind != "ar":
+                raise ValueError("negimp.mix=step 은 data.var_window (자연 영상) + kind=ar 전용")
+            if str(NEG.get("mode", "single")) != "single":
+                raise ValueError("negimp.mix=step 은 mode=single 만")
+            NEG_NF = int(NEG.get("n_frames", 32))                      # 음의 손실 batch 창 (장)
+            _tb = int(MD.get("tubelet_size", 2))                         # (tubelet 변수는 아래에서 정해진다)
+            NEG_C, NEG_K = NEG_CTX // _tb, (NEG_NF - NEG_CTX) // _tb
         NEG_MODE = str(NEG.get("mode", "single"))  # 2026-11-05: paired = 짝 손실 (app/vjepa_frozen/negimp.py)
-        if NEG_MODE == "paired" and kind != "ar":
-            raise ValueError("negimp.mode=paired 는 지금 kind=ar 만 (릴리즈 판은 아직)")
+        if NEG_MODE not in ("single", "paired"):
+            raise ValueError(f"negimp.mode 는 single | paired: {NEG_MODE!r}")
+        # 2026-11-06: paired 는 kind=ar (ar_pair_loss) 와 kind=oneshot (release_pair_loss, 불가능 클립도 창 전체로 target encoder) 둘 다
+        if NEG_MODE == "paired" and any(s.get("negimp_off") for s in D["datasets"]):
+            raise ValueError("negimp.mode=paired 는 negimp_off 데이터셋과 같이 못 쓴다 (collator 가 모든 샘플에 불가능 클립을 기대한다)")
         for s in D["datasets"]:
+            if s.get("negimp_off"):
+                continue
             s["negimp"].update({k: NEG[k] for k in ("mode", "type_w") if k in NEG})
 
     random.seed(seed); np.random.seed(seed); torch.manual_seed(seed)
@@ -314,9 +363,23 @@ def main(args, resume_preempt=False):
     predictor = U.build_predictor(MD, ctx_enc.embed_dim, state if MD.get("load_predictor") else None, device, n_frames)
     if MD.get("predictor_init_checkpoint"):   # 2026-10-22: 우리 학습 run 의 predictor 에서 시작 (AR post-FT). resume 이 있으면 그쪽이 덮는다
         _ck = torch.load(MD["predictor_init_checkpoint"], map_location="cpu", weights_only=False)
-        _msg = predictor.load_state_dict(_ck["predictor"], strict=True)
+        # 2026-11-06: time_scale=learned 의 헤드별 척도 (*.attn.t_learn) 는 출발 체크포인트에 없을 수 있다 — 그것만 허용 (1 로 시작)
+        _msg = predictor.load_state_dict(_ck["predictor"], strict=False)
+        # 2026-11-07: slot 메모리 (slot_mem.* · slot_xattn.*) 는 새로 짓는다 (cross-attn 문 a = 0 → 시작 출력은 출발 체크포인트와 같다)
+        _bad = [k for k in _msg.missing_keys if not (k.endswith((".attn.t_scale", ".attn.t_learn", ".attn.vo_learn")) or k.startswith(("slot_mem.", "slot_xattn.", "mtp_layers.", "mtp_norms.", "mtp_projs.")) or ".attn.past_gate." in k)] + list(_msg.unexpected_keys)
+        if _bad:
+            raise RuntimeError(f"predictor_init_checkpoint: 키가 안 맞는다 {_bad[:6]}")
         logger.info(f"predictor init <- {MD['predictor_init_checkpoint']} (epoch {_ck.get('epoch')}, {_msg})")
         del _ck
+        if int(getattr(predictor, "mtp_n", 0) or 0) and any(k.startswith("mtp_layers.") for k in _msg.missing_keys):   # 2026-11-07 다중 블록 예측
+            predictor.mtp_init_from_trunk()
+            logger.info(f"mtp: head {predictor.mtp_n} 개 <- trunk 마지막 층 · norm · proj 복사 (시작 출력 = 1 블록 예측)")
+        if MD.get("predictor_init_zero_proj"):   # 2026-11-07 Δ 예측 (gating_fixed): 출력 proj 를 0 으로 → 시작 출력 = x_k (복사) 정확히
+            if not getattr(predictor, "gating_residual", False):
+                raise ValueError("model.predictor_init_zero_proj 는 gating_residual (Δ 예측) 판에서만 — 아니면 출력이 0 이 된다")
+            with torch.no_grad():
+                predictor.predictor_proj.weight.zero_(); predictor.predictor_proj.bias.zero_()
+            logger.info("predictor_init_zero_proj: predictor_proj = 0 (시작 출력 = x_k 복사)")
     if MD.get("aux"):   # 2026-10-30 보조 기억 모듈 (app/vjepa_frozen/aux_memory.py): 릴리즈 predictor 고정, 모듈 · cross · gate 만 학습
         if kind != "oneshot" or not MD.get("load_predictor"):
             raise ValueError("model.aux 는 kind=oneshot + load_predictor (릴리즈 predictor 고정) 전용이다")
@@ -438,6 +501,12 @@ def main(args, resume_preempt=False):
     # ---- 데이터 -------------------------------------------------------------------
     VW = D.get("var_window")           # 2026-10-02: 가변 창 batch 로더 (app/vjepa_frozen/var_window.py)
     dataset = None if VW else build_dataset(D, n_frames, res)
+    if NEG and dataset is not None:   # 2026-11-06 negimp_off 항목: 둘째 값 (라벨) 을 불가능 코드 0 으로 (app/vjepa_frozen/negmix.py)
+        from app.vjepa_frozen.negmix import ZeroCode
+        for _k, _s in enumerate(D["datasets"]):
+            if _s.get("negimp_off"):
+                dataset.datasets[_k] = ZeroCode(dataset.datasets[_k])
+                logger.info(f"[negimp] {_s.get('name', _k)}: negimp_off — 불가능 코드 0 (가능) 으로만 섞음")
     # seed 를 주어 **rank 마다 같은 (C, K)** 가 나오게 한다 (VRAM·부하 균형. data.py MaskSampler docstring).
     sampler_masks = MaskSampler(cfg["mask"], n_frames, res, patch, tubelet, seed=seed)
     if D.get("window_grid"):
@@ -448,7 +517,7 @@ def main(args, resume_preempt=False):
         collator = WindowGridCollator(grid, sampler_masks, dataset.transform)
         logger.info(f"window_grid: {grid.describe()} | raw_span {grid.raw_span} jitter {grid.jitter}")
     else:
-        collator = TrainCollator(None, with_rows=bool((MD.get("aux") or {}).get("sup")), with_imp=bool(NEG))   # 마스크는 아래 루프가 step 당 한 번 만든다
+        collator = TrainCollator(None, with_rows=bool((MD.get("aux") or {}).get("sup")), with_imp=bool(NEG or SWAP or RANK))   # 마스크는 아래 루프가 step 당 한 번 만든다
     _restore_affinity('before build_loader')   # DataLoader worker 가 여기서 mask 를 상속한다
     if VW:
         # 로더는 resume 뒤에 만든다 (start_step 이 필요하다). ipe 는 config 로 고정해야 한다
@@ -516,6 +585,32 @@ def main(args, resume_preempt=False):
                         g["lr"] = v * g["lora_lr_mult"]
                 return v
         scheduler = _LoraLrSched(scheduler)
+    SLOT = dict(cfg.get("slot") or {})   # 2026-11-07 slot 메모리: {lr_mult, match_weight} (predictor 쪽 키는 model.predictor.slot_*)
+    if int(getattr(pred_mod, "slot_n", 0) or 0):
+        _sid = {id(q) for n_, q in pred_mod.named_parameters() if n_.startswith(("slot_mem.", "slot_xattn."))}
+        for g in optimizer.param_groups:
+            g["params"] = [q for q in g["params"] if id(q) not in _sid]
+        _sp = [(n_, q) for n_, q in pred_mod.named_parameters() if id(q) in _sid]
+        _smul = float(SLOT.get("lr_mult", 10.0))
+        optimizer.add_param_group({"params": [q for _, q in _sp if q.ndim > 1], "lr": float(O["lr"]), "slot_lr_mult": _smul})
+        optimizer.add_param_group({"params": [q for _, q in _sp if q.ndim <= 1], "lr": float(O["lr"]), "slot_lr_mult": _smul,
+                                   "WD_exclude": True, "weight_decay": 0.0})
+
+        class _SlotLrSched:
+            def __init__(self, base):
+                self.base = base
+
+            def step(self):
+                v = self.base.step()
+                for g in optimizer.param_groups:
+                    if "slot_lr_mult" in g:
+                        g["lr"] = v * g["slot_lr_mult"]
+                return v
+        scheduler = _SlotLrSched(scheduler)
+        logger.info(f"slot 메모리: slot {pred_mod.slot_n} · cross-attn 층 {pred_mod.slot_layers} · 새 파라미터 {sum(q.numel() for _, q in _sp)/1e6:.2f}M · "
+                    f"lr × {_smul} · 맞추기 가중치 {float(SLOT.get('match_weight', 0.0))}")
+    elif SLOT:
+        raise ValueError("slot: 블록이 있는데 model.predictor.slot_n 이 0 이다")
     if lam_mod is not None:         # latent action 그룹 (역동역학 · 변조): predictor 와 같은 일정, 1-D 는 weight decay 없음
         optimizer.add_param_group({"params": [q for q in lam_params if q.ndim > 1], "lr": float(O["lr"]), "lr_scale": float(LA.get("lr_mult", 1.0))})
         optimizer.add_param_group({"params": [q for q in lam_params if q.ndim <= 1], "lr": float(O["lr"]), "lr_scale": float(LA.get("lr_mult", 1.0)),
@@ -642,6 +737,28 @@ def main(args, resume_preempt=False):
                 logger.info(f"boundary mix=sum: 매 step 자연 batch + 합성 batch (token 예산 {syn_ds.budget}, 합성 latent ×{BX.get('latent_weight', 1.0)} · 상태 ×{(SH or {}).get('weight', 1.0)})")
         else:
             vw_ds, loader = build_var_window_loader(VW, vw_tf, tubelet, seed, rank, start_epoch * ipe, **_ld)
+        if NEG_MIX:   # 2026-11-07: 음의 손실 batch 로더 (data.datasets = mp4_list, 고정 창 NEG_NF 장, 불가능 코드 포함)
+            if MIX:
+                raise ValueError("negimp.mix=step 은 boundary.mix=sum 과 같이 쓰지 않는다")
+            _nd = {"datasets": D["datasets"], "aug": NEG.get("aug") or {"hflip_p": 0.5, "square_crop": "center"}, "transfer_uint8": True}
+            neg_ds = build_dataset(_nd, NEG_NF, res)
+            neg_loader, neg_sampler = build_loader(neg_ds, TrainCollator(None, with_imp=True), int(NEG.get("mix_batch_size", 3)), rank, world_size,
+                                                   int(NEG.get("num_workers", 4)), bool(D.get("pin_mem", True)), bool(D.get("persistent_workers", True)),
+                                                   seed + 104729, drop_last=True, prefetch_factor=int(D.get("prefetch_factor", 2)),
+                                                   timeout_s=float(D.get("loader_timeout_s", 0)))
+            _neg_state = {"ep": start_epoch, "it": iter(neg_loader)}
+
+            def _next_neg():
+                try:
+                    return next(_neg_state["it"])
+                except StopIteration:
+                    _neg_state["ep"] += 1
+                    neg_sampler.set_epoch(_neg_state["ep"])
+                    _neg_state["it"] = iter(neg_loader)
+                    return next(_neg_state["it"])
+            if rank == 0:
+                logger.info(f"negimp mix=step: 매 step 자연 batch (가변 창) + 음의 손실 batch rank 당 {NEG.get('mix_batch_size', 3)} 개 "
+                            f"(창 {NEG_NF} 장, 문맥 {NEG_C} · 미래 {NEG_K} 블록, λ {NEG_W}, 가중 {NEG.get('mix_weight', 1.0)}, 클립 {len(neg_ds)})")
         if rank == 0:
             logger.info(f"var_window: ipe {ipe}, token_budget {vw_ds.budget}, 조합 {len(vw_ds.combos)}개, 시작 step {start_epoch * ipe}\n"
                         + vw_ds.describe())
@@ -668,9 +785,19 @@ def main(args, resume_preempt=False):
                     loader_it = iter(loader)
                     clips, m_enc, m_pred, info = next(loader_it)
             occ_rows = info.pop("row") if (not VW and isinstance(info, dict) and "row" in info) else None   # model.aux.sup
+            swap_codes = None
+            if SWAP or RANK:                             # 2026-11-07 배치 = [X, 형제 Y]. 아래 경로는 2B 개 클립으로 그대로 간다
+                swap_codes = info.pop("imp").to(device, non_blocking=True)
+                clips = torch.cat([clips, info.pop("imp_clip")], 0)
+                if "slot_mask" in info:                  # 11-07: 라벨은 slot 판만 (rank 는 없다)
+                    info["slot_mask"] = torch.cat([info["slot_mask"], info.pop("slot_mask2")], 0)
+                    info["slot_role"] = torch.cat([info["slot_role"], info.pop("slot_role2")], 0)
             imp_codes = info.pop("imp").to(device, non_blocking=True) if (NEG and isinstance(info, dict) and "imp" in info) else None   # negimp
+            neg_region = info.pop("neg_region").to(device, non_blocking=True) if (NEG and isinstance(info, dict) and "neg_region" in info) else None   # 2026-11-08 negimp.region=target
             # negimp paired: 불가능 클립도 가능 클립과 똑같이 GPU 에서 정규화한다 (2026-11-05 버그 수정 — 처음 판은 uint8 0–255 를 그대로 encoder 에 넣었다)
             imp_clip = normalize_clips(info.pop("imp_clip").to(device, non_blocking=True)) if (NEG and isinstance(info, dict) and "imp_clip" in info) else None
+            # 2026-11-07 slot 라벨: 아래 마스크 샘플러가 info 를 새로 만들기 전에 꺼낸다
+            slot_lab = (info.pop("slot_mask"), info.pop("slot_role")) if (isinstance(info, dict) and "slot_mask" in info) else None
             if VW:
                 pass
             elif m_enc is None and mask_all:       # 릴리즈 사전학습: 스펙 전부 (창 = n_frames 전체, 자르지 않는다)
@@ -695,7 +822,7 @@ def main(args, resume_preempt=False):
                     o = sampler_masks.rng.randint(0, sampler_masks.T - n_blk)
                     clips = clips[:, :, o * tubelet: (o + n_blk) * tubelet]
                     info = {**info, "win_blocks": n_blk, "win_offset": o}
-            if NEG:      # 이음은 문맥 끝 바로 뒤여야 한다 (창을 자르거나 문맥 길이가 다르면 불가능 샘플의 뜻이 바뀐다)
+            if NEG and not NEG_MIX:      # 이음은 문맥 끝 바로 뒤여야 한다 (창을 자르거나 문맥 길이가 다르면 불가능 샘플의 뜻이 바뀐다)
                 if imp_codes is None or int(info.get("context_frames", -1)) != NEG_CTX or int(info.get("win_offset", 0)) != 0 or clips.size(2) != n_frames:
                     raise RuntimeError(f"negimp: 문맥 {info.get('context_frames')} (기대 {NEG_CTX}) · 창 offset {info.get('win_offset', 0)} · 길이 {clips.size(2)} · 코드 {imp_codes is not None}")
             clips = normalize_clips(clips.to(device, non_blocking=True))   # uint8 전송 -> GPU 정규화
@@ -811,7 +938,14 @@ def main(args, resume_preempt=False):
                 with _ac():
                     lab = info.get("labels") if state_head is not None else None    # 2026-10-19: 합성 (phys2d_sup) step 에만 있다
                     outs = {} if (lab is not None or motion_mod is not None) else None
-                    if NEG:                        # 2026-11-02 negimp: 가능 = TF + 굴린 L1, 불가능 = max(0, margin − 굴린 L1)
+                    if SWAP:                       # 2026-11-07 형제 slot 맞바꾸기
+                        loss, jl, sl, R, aux["swap"] = SSW.ar_swap_loss(predictor, h, spatial, int(info["context_blocks"]), int(info["predict_blocks"]),
+                                                                        loss_exp, rollout_steps, swap_codes, weight=float(SWAP.get("weight", 1.0)))
+                    elif RANK:                     # 2026-11-07 짝 순위 손실
+                        loss, jl, sl, R, aux["rank"] = RKP.ar_rank_loss(predictor, h, spatial, int(info["context_blocks"]), int(info["predict_blocks"]),
+                                                                        loss_exp, rollout_steps, swap_codes, weight=float(RANK.get("weight", 1.0)),
+                                                                        tau=float(RANK.get("tau", 0.005)), delta=float(RANK.get("delta", 0.01)))
+                    elif NEG and not NEG_MIX:      # 2026-11-02 negimp: 가능 = TF + 굴린 L1, 불가능 = max(0, margin − 굴린 L1)
                         # 2026-11-02 encoder LoRA 같이 (사용자: "context encoder LoRA 붙여서 같이 학습"): 입력 = LoRA 복사본 블록별 (grad), 타깃 = h (얼림)
                         h_in = AR.encode_blocks(in_enc, clips.to(enc_dtype), tubelet) if in_enc is not None else None
                         if NEG_MODE == "paired":   # 2026-11-05 짝 손실: 불가능 클립의 미래 블록만 블록별로 (문맥 블록은 가능 클립과 같다)
@@ -821,11 +955,13 @@ def main(args, resume_preempt=False):
                             with torch.no_grad():
                                 h_imp = AR.encode_blocks(tgt_enc, imp_clip.to(enc_dtype)[:, :, _C * tubelet: (_C + _K) * tubelet], tubelet)
                             loss, jl, sl, R, aux["neg_st"] = NI.ar_pair_loss(predictor, h, h_imp, spatial, _C, _K, loss_exp, rollout_steps,
-                                                                              imp_codes, weight=NEG_W, h_in=h_in)
+                                                                              imp_codes, weight=NEG_W, h_in=h_in,
+                                                                              form=str(NEG.get("pair_form", "linear")), dist=str(NEG.get("pair_dist", "l1")),
+                                                                              margin=NEG_MARGIN)   # 2026-11-09 손실 모양 (기본 = 11-05 판)
                         else:
                             loss, jl, sl, R, aux["neg_st"] = NI.ar_loss(predictor, h, spatial, int(info["context_blocks"]), int(info["predict_blocks"]),
                                                                          loss_exp, rollout_steps, imp_codes, NEG_MARGIN, NEG_TERMS, h_in=h_in,
-                                                                         weight=NEG_W)
+                                                                         weight=NEG_W, region=neg_region)
                     elif lam_mod is not None:      # 2026-10-24: latent action — 정답 쌍 z 로 변조한 TF + rollout L1 + β·KL
                         loss, jl, sl, R, aux["lam"] = LAM.lam_losses(predictor, h, spatial, int(info["context_blocks"]),
                                                                      int(info["predict_blocks"]), loss_exp, rollout_steps, float(LA.get("beta", 1e-4)))
@@ -840,7 +976,8 @@ def main(args, resume_preempt=False):
                             h_in = torch.cat([zc.to(h.dtype), h[:, zc.size(1):]], 1)
                         loss, jl, sl, R = AR.ar_losses(predictor, h, spatial, int(info["context_blocks"]),
                                                        int(info["predict_blocks"]), loss_exp, rollout_steps, hint=hint,
-                                                       delta_weight=delta_weight, aux=aux, tf_span=tf_span, out=outs, h_in=h_in)
+                                                       delta_weight=delta_weight, aux=aux, tf_span=tf_span, out=outs, h_in=h_in,
+                                                       mtp_weights=L.get("mtp_weights"))
                     if motion_mod is not None:     # 2026-10-24: DISReg 이식 — ① 차분 encoder · 예측기 맞추기 ② 고정 예측기로 predictor 손실
                         lm, mlog = MOM.motion_losses(motion_mod, clips, h, outs["p_tf"], outs["p_ar"], spatial,
                                                      int(info["context_blocks"]), R, MO)
@@ -867,7 +1004,57 @@ def main(args, resume_preempt=False):
                                 _W = float(SH.get("weight", 1.0))
                                 aux["gprobe"] = _grad_probe(pred_mod, {"lat": loss, "head": _W * lh, **{k: _W * v for k, v in (locals().get("_parts") or {}).items()}})
                             loss = loss + float(SH.get("weight", 1.0)) * lh
+                if int(getattr(pred_mod, "slot_n", 0) or 0) and pred_mod._slot_tf is not None:   # 2026-11-07 slot: 맞추기 손실 · gate 모니터
+                    _att, _gt = pred_mod._slot_tf
+                    pred_mod._slot_tf = None
+                    aux["slot_xg"] = [m.gate_value() for m in pred_mod.slot_xattn.values()]
+                    if slot_lab is not None:
+                        _n = _att.size(1)                                        # TF 가 본 블록 수 (= nb - 1)
+                        _sm = slot_lab[0].to(device, non_blocking=True)[:, :_n].float() / 255.0
+                        _sr = slot_lab[1].to(device, non_blocking=True)
+                        _valid = torch.ones(_att.size(0), _n, dtype=torch.bool, device=device)
+                        if imp_codes is not None:                                # 불가능 이음 클립: 문맥 블록만
+                            _C = int(info["context_blocks"])
+                            _valid[imp_codes != 0, _C:] = False
+                        _mw = float(SLOT.get("match_weight", 0.0))
+                        with _ac():
+                            _lm, aux["slot"] = SAUX.slot_match(_att, _gt, _sm, _sr, _valid)
+                        if _mw > 0:
+                            loss = loss + _mw * _lm
+                    else:
+                        aux["slot"] = {"g_all": float(_gt.detach().float().mean())}
+                    if pred_mod._slot_roll is not None:
+                        aux["slot"]["g_roll"] = float(pred_mod._slot_roll[1].float().mean())
+                        pred_mod._slot_roll = None
                 loss_nat = None
+                if NEG_MIX:   # 2026-11-07: 자연 손실 gradient 는 동기화 없이 쌓고, 음의 손실 batch backward 때 합쳐 한 번 동기화 (boundary.mix 와 같은 방식)
+                    if scaler is not None:
+                        raise ValueError("negimp.mix=step 은 bf16 (scaler 없음) 에서만")
+                    _prof = os.environ.get("WM_NEGMIX_PROF") == "1"   # 2026-11-10 구간별 시간 (동기화해서 잰다 — 켜면 느려진다, 진단용)
+                    if _prof:
+                        torch.cuda.synchronize(); _tp = [time.time()]
+                    with (predictor.no_sync() if hasattr(predictor, "no_sync") else contextlib.nullcontext()):
+                        loss.backward()
+                    loss_nat = loss.detach()
+                    if _prof:
+                        torch.cuda.synchronize(); _tp.append(time.time())
+                    _cn, _, _, _in = _next_neg()                                   # TrainCollator(None, with_imp) → (clips, None, None, {imp})
+                    if _prof:
+                        _tp.append(time.time())
+                    _imp = _in["imp"].to(device, non_blocking=True)
+                    _cn = normalize_clips(_cn.to(device, non_blocking=True))
+                    with torch.no_grad(), _ac():
+                        _hn = AR.encode_blocks(tgt_enc, _cn.to(enc_dtype), tubelet)
+                    if _prof:
+                        torch.cuda.synchronize(); _tp.append(time.time())
+                    with _ac():
+                        _ln, _jn, _sn, _Rn, aux["neg_st"] = NI.ar_loss(predictor, _hn, spatial, NEG_C, NEG_K, loss_exp, rollout_steps, _imp,
+                                                                        NEG_MARGIN, NEG_TERMS, weight=NEG_W)
+                    if _prof:
+                        torch.cuda.synchronize(); _tp.append(time.time())
+                        aux["negprof"] = [round(1000 * (b - a)) for a, b in zip(_tp[:-1], _tp[1:])] + [int(_cn.shape[0]), int(_Rn)]
+                    aux["nat_loss"] = loss_nat; aux["neg_loss"] = _ln.detach()
+                    loss = float(NEG.get("mix_weight", 1.0)) * _ln
                 if MIX:     # 2026-10-20: 자연 손실은 DDP 동기화 없이 gradient 만 쌓고, 합성 손실 backward 때 합쳐서 한 번 동기화
                     if scaler is not None:
                         raise ValueError("boundary.mix=sum 은 bf16 (scaler 없음) 에서만")
@@ -1119,7 +1306,16 @@ def main(args, resume_preempt=False):
                         occ_lg = auxo["occ"]
                     else:
                         p = predictor(z, m_enc, m_pred, mask_index=int(info.get("mask_index", mask_index)))   # (B, M, D); block3d 는 스펙별 mask token
-                if NEG:      # 2026-11-02: 가능 L1 · 불가능 max(0, margin − L1), 샘플 평균
+                if NEG and NEG_MODE == "paired":   # 2026-11-06 짝 손실 (릴리즈): 불가능 클립 (문맥 같음) 을 창 전체로 target encoder → 같은 미래 토큰
+                    if imp_clip is None:
+                        raise RuntimeError("negimp paired: 불가능 클립이 없다 (collator)")
+                    with torch.no_grad(), _ac():
+                        h_imp = tgt_enc(imp_clip.to(enc_dtype))
+                        h_imp = torch.gather(h_imp, 1, m_pred.unsqueeze(-1).expand(-1, -1, h_imp.size(-1)))
+                        if target_ln:
+                            h_imp = torch.nn.functional.layer_norm(h_imp, (h_imp.size(-1),))
+                    loss, aux["neg_st"] = NI.release_pair_loss(p, h, h_imp, imp_codes, loss_exp, weight=NEG_W)
+                elif NEG:    # 2026-11-02: 가능 L1 · 불가능 max(0, margin − L1), 샘플 평균
                     loss, aux["neg_st"] = NI.release_loss(p, h, imp_codes, NEG_MARGIN, loss_exp, weight=NEG_W)
                 else:
                     loss = (p.float() - h.float()).abs().pow(loss_exp).mean() / loss_exp
@@ -1240,6 +1436,8 @@ def main(args, resume_preempt=False):
                         ar_s += " conc %.1f" % g_["ar_conc"]
                 if state_head is not None and "gn" in aux:
                     ar_s += " gn %.2f" % aux["gn"]
+                if aux.get("negprof"):                            # 2026-11-10 WM_NEGMIX_PROF=1: 자연 backward / 합성 batch 기다림 / 올리기·encode / 합성 forward (ms) · 합성 B · R
+                    ar_s += " negprof " + "/".join(str(v) for v in aux["negprof"])
                 if aux.get("gprobe"):                             # 2026-10-26: predictor 로 가는 grad norm — 자연 latent / 합성 latent / head (가중 적용) / 성분 · cos(·, 합성 latent)
                     g_ = aux["gprobe"]
                     ar_s += " gprobe nat %.3f lat %.3f head %.3f (cos %.3f)" % tuple(g_.get(k, float("nan")) for k in ("nat", "lat", "head", "cos_head"))
@@ -1248,6 +1446,19 @@ def main(args, resume_preempt=False):
                     ar_s += " b %.3f/%.3f" % (aux["unc_b_tf"], aux["unc_b_ar"])
                 if aux.get("hw"):                                 # 2026-10-26: grad_match 성분 가중치
                     ar_s += " hw " + " ".join("%s %.2e" % (k, v) for k, v in aux["hw"].items())
+                if aux.get("mtp"):                                # 2026-11-07 다중 블록 예측: head 별 TF L1 (블록 k+2, k+3 …)
+                    ar_s += " mtp " + "/".join("%.4f" % v for v in aux["mtp"])
+                if aux.get("rank") is not None:                   # 2026-11-07 짝 순위: 형제 미래 − 자기 미래 margin · 순서 맞음 · 벌점 켜짐 · 종류별 순서 맞음 (사라짐 · 나타남 · 바꿔치기)
+                    g_ = RKP.summarize(aux["rank"].cpu())
+                    ar_s += " rank n %d m %.4f ok %.2f act %.2f pen %.4f (v %.2f a %.2f s %.2f real %.2f)" % (g_["n"], g_["margin"], g_["order_ok"], g_["active"], g_["pen"], g_["ok_v"], g_["ok_a"], g_["ok_s"], g_["ok_r"])
+                if aux.get("swap") is not None:                   # 2026-11-07 형제 맞바꾸기: 형제 미래 L1 / slot 무시 대조 / 두 미래 거리 · 맞바꾸기 효과 ÷ A·B 예측 차이
+                    g_ = SSW.summarize(aux["swap"].cpu())
+                    ar_s += " swap n %d L1 %.4f ign %.4f fut %.4f eff %.4f dab %.4f r %.3f" % (g_["n"], g_["sw"], g_["ign"], g_["fut"], g_["eff"], g_["dab"], g_["ratio"])
+                if aux.get("slot"):                               # 2026-11-07 slot: 맞추기 손실 · 짝지은 target slot dice · gate (전체 / target 보임 / target 가려짐 / rollout) · cross-attn 문
+                    g_ = aux["slot"]
+                    ar_s += " slot m %.3f dice %.2f g %.2f tv %.2f th %.2f gr %.2f xg %s" % (
+                        g_.get("match", float("nan")), g_.get("t_dice", float("nan")), g_.get("g_all", float("nan")), g_.get("g_tvis", float("nan")),
+                        g_.get("g_thid", float("nan")), g_.get("g_roll", float("nan")), "/".join("%.3f" % v for v in aux.get("slot_xg", [])))
                 if lora_params and "lgn" in aux:                  # 2026-10-25: encoder LoRA grad norm (clip 전)
                     ar_s += " lora gn %.3f" % aux["lgn"]
                 if lam_mod is not None and aux.get("lam"):        # 2026-10-24: KL · z 표준편차 · μ² · σ 평균 · grad norm (predictor / 역동역학+변조)

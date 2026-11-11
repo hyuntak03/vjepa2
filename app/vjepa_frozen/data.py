@@ -122,6 +122,7 @@ class ClipTransform:
             top, left, h, w = self._square_box(H, W)
         else:
             top, left, h, w = 0, 0, H, W
+        self.last_box = (top, left, h, w, H, W)                       # 2026-11-08 slot 라벨이 같은 크롭 창을 따라가게 (var_window 고정 창)
         if (top, left, h, w) != (0, 0, H, W):
             buffer = buffer[:, top: top + h, left: left + w, :]
         x = buffer.permute(3, 0, 1, 2).float().div_(255.0)          # (3, T, H, W) 0..1
@@ -129,8 +130,10 @@ class ClipTransform:
             # 채점과 같은 커널: bilinear / antialias=False (공식 Garrido 전처리와 동일)
             x = F.interpolate(x.transpose(0, 1), size=(r, r), mode="bilinear",
                               align_corners=False).transpose(0, 1)
+        self.last_flip = False                                        # 2026-11-07 slot 라벨이 같은 반전을 따라가게 (같은 worker 안에서 바로 읽는다)
         if self.hflip_p > 0 and random.random() < self.hflip_p:
             x = x.flip(-1)
+            self.last_flip = True
         x = x.contiguous()
         if self.out_uint8:
             return x.mul_(255.0).round_().clamp_(0, 255).to(torch.uint8)
@@ -289,6 +292,21 @@ class Mp4ListDataset(torch.utils.data.Dataset):
             raise ValueError(f"mp4_list 가 비어 있다: {spec['csv']}")
         logger.info(f"[mp4_list] {spec['csv']}: {len(self.paths)} clips, starts={self.starts}, "
                     f"stride={self.stride}, n_frames={self.n_frames}")
+        self.real_pair = None
+        if spec.get("real_pair") is not None:   # 2026-11-07 실제 영상 사건 짝 (rank): [가능 또는 흔적 가능, 불가능] · 코드 4. 목록 = …/possible/<id>.mp4
+            rp = dict(spec["real_pair"])
+            self.real_pair = {"p_art": float(rp.get("p_art", 0.5)),
+                              "imp": [p.replace("/possible/", "/impossible/") for p in self.paths],
+                              "art": [p.replace("/possible/", "/artifact_positive/") for p in self.paths]}
+            bad = [p for p in self.paths if "/possible/" not in p] + [q for q in self.real_pair["imp"] + self.real_pair["art"] if not os.path.isfile(q)]
+            if bad:
+                raise ValueError(f"real_pair: 목록은 …/possible/<id>.mp4 이고 impossible · artifact_positive 형제가 있어야 한다: {bad[:3]}")
+            logger.info(f"[mp4_list] real_pair: 사건 {len(self.paths)} · 흔적 가능 확률 {self.real_pair['p_art']}")
+        self.sib = None
+        if spec.get("slot_sib"):        # 2026-11-07 형제 slot 맞바꾸기 (app/vjepa_frozen/slot_swap.py): 묶음 정보는 negimp 와 같다
+            from app.vjepa_frozen.negimp import ImpTable
+            self.sib = ImpTable({"mode": "paired", **spec["slot_sib"]}, self.paths, self.starts, self.stride, self.n_frames)
+            logger.info(f"[mp4_list] slot_sib: {self.sib.describe()}")
         self.neg = None
         if spec.get("negimp"):
             from app.vjepa_frozen.negimp import ImpTable
@@ -298,6 +316,47 @@ class Mp4ListDataset(torch.utils.data.Dataset):
     def __len__(self):
         return len(self.paths)
 
+    SLOT_M = 3   # BlenderTrack v4b/v4c 의 물체 수 최대 (target 1 + distractor 2)
+
+    def _slot_labels(self, i: int, idx):
+        """2026-11-07 slot 보조 손실 라벨 (spec slot_labels: true). 클립 i 의 보이는 마스크 (64×64, 프레임 · 물체별) 를
+        블록 (2 장 평균) · 토큰 (4×4 평균 → 16×16) 비율로. 반전은 transform 의 결정을 따른다.
+        return (마스크 (nb, M, 256) uint8 0..255, 역할 (M,) int8: 1 target · 2 distractor · 0 없음)."""
+        lp = self.paths[i].replace("/clips/", "/labels/")[:-4] + ".npz"
+        M, T = self.SLOT_M, len(idx)
+        nb = T // 2
+        out = np.zeros((nb, M, 16, 16), dtype=np.float32)
+        roles = np.zeros((M,), dtype=np.int8)
+        with np.load(lp) as z:
+            m = int(z["visible"].shape[1])
+            if m > M:
+                raise ValueError(f"slot_labels: {lp} 물체 {m} 개 > {M}")
+            if m:
+                v = np.unpackbits(z["visible"][np.asarray(idx)], axis=-1).astype(np.float32)        # (T, m, 64, 64)
+                out[:, :m] = v[: nb * 2].reshape(nb, 2, m, 16, 4, 16, 4).mean(axis=(1, 4, 6))
+                roles[:m] = [1 if str(r) == "target" else 2 for r in z["roles"]]
+        if getattr(self.transform, "last_flip", False):
+            out = out[..., ::-1]
+        return torch.from_numpy(np.ascontiguousarray(out * 255.0).round().astype(np.uint8)).reshape(nb, M, 256), torch.from_numpy(roles)
+
+    def _target_region(self, clips, idx):
+        """2026-11-08 negimp.region=target: 영상들 (clips = 영상 번호 목록) 에서 target 이 보이는 토큰의 합집합.
+        생성기 보임 마스크 (64×64, 프레임 · 물체별) → 블록 (2 장 중 하나라도) · 토큰 (4×4 칸 중 한 화소라도) → (nb, 256) uint8 0/1.
+        target 없는 영상 (빈 장면 B) 은 0. 반전은 transform 의 결정을 따른다 (transform 을 부른 뒤에 부를 것)."""
+        nb = len(idx) // 2
+        out = np.zeros((nb, 16, 16), dtype=bool)
+        for c in clips:
+            lp = self.paths[c].replace("/clips/", "/labels/")[:-4] + ".npz"
+            with np.load(lp) as z:
+                t = [j for j, r in enumerate(z["roles"]) if str(r) == "target"]
+                if not t:
+                    continue
+                v = np.unpackbits(z["visible"][np.asarray(idx)][:, t], axis=-1).astype(bool).any(axis=1)   # (T, 64, 64)
+                out |= v[: nb * 2].reshape(nb, 2, 16, 4, 16, 4).any(axis=(1, 3, 5))
+        if getattr(self.transform, "last_flip", False):
+            out = out[..., ::-1]
+        return torch.from_numpy(np.ascontiguousarray(out).astype(np.uint8)).reshape(nb, 256)
+
     def __getitem__(self, i: int):
         import decord
         if self.fixed[i] is not None:
@@ -305,6 +364,26 @@ class Mp4ListDataset(torch.utils.data.Dataset):
         else:
             st = random.choice(self.starts)
             idx = np.arange(st, st + self.n_frames * self.stride, self.stride, dtype=np.int64)
+        if self.real_pair is not None:    # 2026-11-07 실제 영상 사건: X = 가능 (확률 p_art 로 같은 자리를 지운 흔적 가능), Y = 불가능 (문맥은 화소 단위로 같다)
+            rp = self.real_pair
+            r = random.Random((random.getrandbits(62) << 20) ^ int(i))
+            px = rp["art"][i] if r.random() < rp["p_art"] else self.paths[i]
+            xa = decord.VideoReader(px, num_threads=self.threads).get_batch(list(idx)).asnumpy()
+            xb = decord.VideoReader(rp["imp"][i], num_threads=self.threads).get_batch(list(idx)).asnumpy()
+            t = self.transform(torch.from_numpy(np.concatenate([xa, xb])))
+            T = len(idx)
+            return [t[:, :T].contiguous(), t[:, T:].contiguous()], 4, [idx]
+        if self.sib is not None:          # 2026-11-07 [클립 X, 형제 클립 Y] 같은 프레임 번호 · 같은 증강. 형제 없으면 Y = X, 코드 0
+            if self.fixed[i] is not None:
+                raise ValueError("slot_sib 은 프레임 번호를 고정한 mp4_list 줄 (탭) 과 같이 쓰지 않는다")
+            code, x, y = self.sib.draw_pair(i)
+            y = x if y is None else y
+            xa = decord.VideoReader(self.paths[x], num_threads=self.threads).get_batch(list(idx)).asnumpy()
+            xb = decord.VideoReader(self.paths[y], num_threads=self.threads).get_batch(list(idx)).asnumpy()
+            t = self.transform(torch.from_numpy(np.concatenate([xa, xb])))
+            T = len(idx)
+            labs = [*self._slot_labels(x, idx), *self._slot_labels(y, idx)] if self.spec.get("slot_labels") else []   # 11-07: 라벨은 slot 판만
+            return [t[:, :T].contiguous(), t[:, T:].contiguous()], code, [idx, *labs]
         if self.neg is not None and self.neg.mode == "paired":   # 2026-11-05 짝 손실: [가능 클립, 불가능 클립] (같은 증강)
             if self.fixed[i] is not None:
                 raise ValueError("negimp 는 프레임 번호를 고정한 mp4_list 줄 (탭) 과 같이 쓰지 않는다")
@@ -326,11 +405,20 @@ class Mp4ListDataset(torch.utils.data.Dataset):
                 n_c = self.neg.n_ctx
                 xc = decord.VideoReader(self.paths[i], num_threads=self.threads).get_batch(list(idx[:n_c])).asnumpy()
                 xf = decord.VideoReader(self.paths[fut], num_threads=self.threads).get_batch(list(idx[n_c:])).asnumpy()
-                return [self.transform(torch.from_numpy(np.concatenate([xc, xf])))], code, [idx]
+                x = self.transform(torch.from_numpy(np.concatenate([xc, xf])))
+                if self.spec.get("slot_labels"):   # 문맥 쪽 라벨만 유효 (미래는 짝 영상) — 학습 루프가 문맥 블록만 쓴다
+                    return [x], code, [idx, *self._slot_labels(i, idx)]
+                if self.neg.region == "target":    # 2026-11-08: 가능 미래 (영상 i) ∪ 불가능 미래 (짝 영상) 의 target 토큰
+                    return [x], code, [idx, self._target_region([i, fut], idx)]
+                return [x], code, [idx]
         vr = decord.VideoReader(self.paths[i], num_threads=self.threads)
         if idx[-1] >= len(vr):
             raise IndexError(f"{self.paths[i]}: {len(vr)} 장인데 프레임 {idx[-1]} 이 필요하다")
         x = self.transform(torch.from_numpy(vr.get_batch(list(idx)).asnumpy()))
+        if self.spec.get("slot_labels"):
+            return [x], 0, [idx, *self._slot_labels(i, idx)]
+        if self.neg is not None and self.neg.mode != "paired" and self.neg.region == "target":   # 2026-11-08: 가능 샘플은 영역을 안 쓴다 (모양만 맞춤)
+            return [x], 0, [idx, torch.zeros((len(idx) // 2, 256), dtype=torch.uint8)]
         return [x], 0, [idx]
 
 
@@ -649,9 +737,20 @@ class TrainCollator:
             info = {"imp": torch.tensor([int(b[1]) for b in batch], dtype=torch.long)}
             if len(batch[0][0]) > 1:                              # 2026-11-05 negimp paired: 불가능 클립
                 info["imp_clip"] = torch.stack([b[0][1] for b in batch])
+            if len(batch[0][2]) == 2:                             # 2026-11-08 negimp.region=target: 불가능 L1 을 잴 target 토큰 (nb, 256)
+                info["neg_region"] = torch.stack([b[2][1] for b in batch])
+            elif len(batch[0][2]) > 1:                            # 2026-11-07 slot 라벨 (spec slot_labels)
+                info["slot_mask"] = torch.stack([b[2][1] for b in batch])
+                info["slot_role"] = torch.stack([b[2][2] for b in batch])
+            if len(batch[0][2]) > 3:                              # 2026-11-07 형제 클립의 slot 라벨
+                info["slot_mask2"] = torch.stack([b[2][3] for b in batch])
+                info["slot_role2"] = torch.stack([b[2][4] for b in batch])
             return clips, None, None, info
         if self.mask_sampler is None:
-            return clips, None, None, ({"row": torch.tensor([int(b[1]) for b in batch])} if self.with_rows else None)
+            info = {"row": torch.tensor([int(b[1]) for b in batch])} if self.with_rows else None
+            if len(batch[0][2]) > 1:                              # 2026-11-07 slot 라벨 (음의 손실 없는 경로)
+                info = {**(info or {}), "slot_mask": torch.stack([b[2][1] for b in batch]), "slot_role": torch.stack([b[2][2] for b in batch])}
+            return clips, None, None, info
         enc, pred, info = self.mask_sampler(len(batch))
         return clips, enc, pred, info
 

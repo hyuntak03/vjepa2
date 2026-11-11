@@ -1,0 +1,12 @@
+# 2026-11-07 (사용자 "네" — 순위 손실을 실제 영상 사건에도, 합성과 같이): v4bc4f_ar_vw_state_rank 와 같고 데이터에 실제 영상 사건 짝을 20 % 섞는다.
+#   합성 (v4bc4f) 은 지금처럼 형제 짝 순위, 실제 영상 사건 (SSv2 232 개) 은 [가능 또는 흔적 가능, 불가능] 짝 순위 (코드 4, 불가능 줄은 L1 · 순위에 안 쓴다).
+#   흔적 가능 확률 0.5 — 둘 다 지운 흔적이 있어 흔적이 아니라 물체 유무로만 순서를 맞출 수 있다.
+#   왜: 순위 손실 판은 합성 짝의 83 % 가 이미 순서가 맞아 (벌점 17 %) 실제 영상 사라짐 쌍을 못 밀었다 (real95 69.5, 사라짐 60).
+#   대조: v4bc4f_ar_vw_state_rank (69.5) · v4bc4f_ar_vw_state_negimp (73.7) · v4bc4_ar_vw_state_negimp (72.1). 보류 24 사건 (realneg_v1_holdout) 도 채점.
+#   GPUS=8 bash z_training/tmux_train.sh v4bc4f_ar_vw_state_rank_real
+extends: v4bc4f_ar_vw_state_rank
+
+data:
+  datasets:
+    - {name: blender_track_v4bc4f_all, weight: 0.8}
+    - {name: realneg_v1_events, weight: 0.2, real_pair: {p_art: 0.5}}

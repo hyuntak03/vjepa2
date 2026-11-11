@@ -1,0 +1,19 @@
+# =============================================================================
+# 자연 영상 (K710 · SSv2 · HowTo 1 %, 0.84M) + v4bc4x (v4bc4 0.2M 증축, 시험 200 묶음 뺌) — scratch 부터 음의 손실 p 0.2 (2026-11-11, 사용자)
+#
+#   GPUS=8 bash z_training/tmux_train.sh natural_ar_vw_state_v4bc4x_negimp_vanish_app02_mix
+#
+# natural_ar_vw_state_v4bc4_negimp_vanish_app02_mix (v4bc4 1.2 만 편, 합성 클립당 약 83 번 노출 → 실제 영상 val e7 최고 뒤 하락) 와 다른 것:
+#   데이터 = 0.2M 증축판 · 합성 batch rank 당 6 → 4 (사용자 "합성 batch 일단 줄이고", 전역 32 × 20,580 step ≈ 66 만 = 클립당 약 3.3 번)
+#   · val (실제 영상 벤치) 5 epoch 마다 (사용자). 나머지 (음의 손실 사라짐 문맥 0.5 · 나타남 p 0.2 · 바꿔치기 없음 · margin 1 · λ 1 · 70 epoch WSD · token 758) 같다.
+#   측정 (11-11 04:0x): 섞기 판 step 2.32 s (자연만 1.61 s), 데이터 대기 0 — 전부 GPU. 합성 batch 6 → 4 로 약 2.05 s 예상 → 약 11.7 시간.
+# =============================================================================
+extends: natural_ar_vw_state_v4bc4_negimp_vanish_app02_mix
+data:
+  datasets:
+    - {name: blender_track_v4bc4x_train_all, weight: 1.0}
+negimp:
+  families: ${DATA_CSV}/blender_track_v4bc4x_train_negimp/families.json
+  mix_batch_size: 4
+val:
+  every_epochs: 5

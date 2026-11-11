@@ -1,0 +1,11 @@
+# 데이터 맞춤 (2026-11-06, 사용자 "negative loss 할 때는 data scale 맞춰야"): v4bc4_release_negimp 와 batch 만 다르다 — 48 → 96 (GPU 당 6 → 12).
+#   왜: negimp single 은 샘플마다 p = 0.5 로 미래를 불가능으로 '바꾼다' → batch 48 중 가능 클립은 약 24. L1 판 (가능 48) 과 가능 클립 수를 맞추려고
+#   batch 를 두 배로 (가능 약 48 + 불가능 약 48), update 수 (2,000 step) · lr · λ 0.75 은 그대로. 짝 판: v4bc4_release_postft (L1, batch 48).
+#   GPUS=8 bash z_training/tmux_train.sh v4bc4_release_negimp_w075_dm
+extends: v4bc4_release_negimp
+
+data:
+  batch_size: 12
+
+negimp:
+  weight: 0.75

@@ -1,0 +1,40 @@
+# AR 처음부터: 시간 누적 하이브리드 (2026-11-08, 사용자 "Gated Attention 해보자 … 시간축 … 구조가 시간 누적이면" → "이걸로 테스트 해봐").
+#   Qwen3-Next (Gated DeltaNet 3 : Gated Attention 1) 를 블록 단위로 옮긴 판 — src/models/utils/modules.py set_block_mem · set_out_gate.
+#   12 층 = 4 층 묶음 × 3. 묶음마다 앞 3 층 = 누적 층, 마지막 1 층 = 전역 층 (층 3 · 7 · 11).
+#     누적 층: 자기 블록 안 softmax attention + 과거는 블록 기억 S (head 마다 32×32 key→value 사전) 에서만 읽는다.
+#              S 는 블록이 끝날 때마다 α (잊기) · β (쓰기) 로 delta 갱신, 기억 읽기는 시간 회전 없음.
+#              출력 = σ(g_own)⊙자기 블록 읽기 + σ(g_mem)⊙기억 읽기 (시간축 게이트).
+#     전역 층: 지금과 같은 블록 인과 attention (RoPE 유지) + Qwen 출력 게이트.
+#   나머지 (데이터 · 창 · 예산 · lr · 손실) 는 natural_ar_vw_state (AR scratch 기준판) 와 같다. val = real world permanence (매 epoch).
+#   GPUS=8 bash z_training/tmux_train.sh natural_ar_vw_state_tmem
+extends: natural_ar_vw_state
+
+model:
+  predictor:
+    mem_period: 4
+    attn_out_gate: true
+
+val:                            # 2026-11-07 사용자 "val 은 real world permanence bench 로" (scratch 판 관례) — 95 장면 × 4 = 380 클립 (채점기와 같은 로더 · 같은 창), 매 epoch (약 34 초)
+  dataset: null
+  n_frames: 32
+  context_length: 16
+  batch_size: 4
+  every_epochs: 1
+  at_start: true
+  n_blocks_per_type: 1000
+  seed: 0
+  data:
+    root: ${DATA_CSV}/real_world_permanence_uniform
+    index_csv: index.csv
+    video_root: /workspace/dataset/benchmarks/real_world_permanence
+    frames_index_column: frames
+    block_column: block_id
+    pair_column: pair_id
+    plausible_column: plausible
+    variant_column: variant
+    type_column: condition
+    frames_root: null           # 부모 (IntPhys1 dev PNG) 에서 상속되는 키를 지운다
+    frames_pattern: null
+    frames_start: null
+    frames_stride: null
+    raw_frames: null

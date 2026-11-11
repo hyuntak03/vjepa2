@@ -1,0 +1,11 @@
+# v4a (2026-11-05, 사용자 데이터 계획 A): v4vc_ar_vw_state_negimp (음의 손실 λ 1, 짝 없음) 과 데이터만 다르다 — v4 전체 + 평면 trapdoor 309 묶음에 정지 물체 단계 (blender_track_v4a_all, 11,559 편). 가림막은 v4 그대로.
+#   불가능 짝: 정지 단계도 묶음의 단계로 들어가 사라짐 · 나타남 · 바꿔치기 (정지 ↔ 움직임 = 가려진 사이 저절로 움직이거나 멈춤) 에 쓰인다.
+#   GPUS=8 bash z_training/tmux_train.sh v4a_ar_vw_state_negimp
+extends: v4vc_ar_vw_state_negimp
+
+data:
+  datasets:
+    - {name: blender_track_v4a_all, weight: 1.0}
+
+negimp:
+  families: ${DATA_CSV}/blender_track_v4a_negimp/families.json   # z_research/scripts/data/blender_track/v4a_static.py index

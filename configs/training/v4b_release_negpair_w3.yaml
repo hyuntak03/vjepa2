@@ -1,0 +1,15 @@
+# v4b (2026-11-06, 사용자 "릴리즈 pft 짝 있는 음의 손실 람다 3"): 릴리즈 출발 · 짝 손실 λ 3 · 종류 vanish : appear : swap = 1 : 1 : 1.
+#   손실 = L1(p, 가능) + λ · [L1(p, 가능) − L1(p, 불가능)] (같은 문맥, app/vjepa_frozen/negimp.py release_pair_loss — 불가능 클립도 창 전체로 target encoder).
+#   대조: v4b_release_postft (같은 데이터 · step · seed, L1 만). 데이터 · step 은 v4vc_release_negimp 와 같은 꼴 (2,000 step × 48).
+#   GPUS=8 bash z_training/tmux_train.sh v4b_release_negpair_w3
+extends: v4vc_release_negimp
+
+data:
+  datasets:
+    - {name: blender_track_v4b_all, weight: 1.0}
+
+negimp:
+  families: ${DATA_CSV}/blender_track_v4b_negimp/families.json
+  mode: paired
+  weight: 3.0
+  type_w: [1, 1, 1]

@@ -1,0 +1,10 @@
+# 자동 탐색 후보 2 (2026-11-06): 짝 손실 λ 3 · 데이터 = v4 + v4b (가림 길이 다양화, blender_track_v4mix_all 20,549 편).
+#   GPUS=8 bash z_training/tmux_train.sh v4mix_ar_vw_state_negpair_w3
+extends: v4b_ar_vw_state_negpair_w3
+
+data:
+  datasets:
+    - {name: blender_track_v4mix_all, weight: 1.0}
+
+negimp:
+  families: ${DATA_CSV}/blender_track_v4mix_negimp/families.json

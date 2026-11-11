@@ -1,3 +1,4 @@
+import math
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 #
 # This source code is licensed under the MIT license found in the
@@ -156,6 +157,177 @@ class ACRoPEAttention(nn.Module):
         self.w_dim = int(2 * ((head_dim // 3) // 2))
         self.grid_size = grid_size
         self.is_causal = is_causal
+        self.register_buffer("t_scale", None, persistent=False)   # 2026-11-06 헤드별 시간 척도 (set_time_scale). None = 예전과 같다
+        self.vo_on = False   # 2026-11-06 시간을 value · 출력에 (set_vo_time)
+        self.register_buffer("t_pair_keep", None, persistent=False)   # 2026-11-07 Harmonic 시간 RoPE (set_time_pairs). None = 예전과 같다
+
+    def set_time_pairs(self, spec):
+        """2026-11-07 (사용자: "딱 mash-vlm 처럼", MASH-VLM Harmonic-RoPE 를 시간 축에): 시간 RoPE 의 회전 짝 (차원 2p, 2p+1) 중
+        spec 에 든 짝만 시간 회전 (고유 번호 = 순서·간격), 나머지 짝은 회전 안 함 (균형 번호 = 모든 블록 같은 시간 → 최근 편향 없는 내용 매칭).
+        spec: None | 'all' | '0-2-4' 같은 짝 번호 목록 (d_dim/2 = 5 짝). 원 코드의 짝 버그 (주파수가 짝을 가로질러 반복) 는 그대로 — 회전 짝 단위로 고른다."""
+        if spec in (None, "", "none", "all"):
+            self.t_pair_keep = None
+            return
+        P = self.d_dim // 2
+        keep = sorted({int(t) for t in str(spec).replace(",", "-").split("-") if str(t).strip() != ""})
+        if not keep or min(keep) < 0 or max(keep) >= P:
+            raise ValueError(f"time_pairs: 0..{P - 1} 의 짝 번호 목록: {spec!r}")
+        m = torch.zeros(self.d_dim, dtype=torch.bool)
+        for p_ in keep:
+            m[2 * p_: 2 * p_ + 2] = True
+        self.register_buffer("t_pair_keep", m, persistent=False)
+
+    def set_past_gate(self, on: bool):
+        """2026-11-07 now/past gate (사용자 "게이팅 해봐 포스트 트레이닝으로"): query 마다 · head 마다 학습되는 δ 를 **이전 블록 key 의 logit 에만** 더한다.
+        = 자기 블록 attention O_now 와 과거 블록 attention O_past 를 g = σ(LSE_past − LSE_now + δ) 로 섞는 것과 수식상 같다
+        (각 갈래는 따로 정규화 → 자기 블록이 과거 몫을 뺏지 않는다). δ = past_gate(x) (Linear(dim → heads), 0 시작 → 기존과 같다).
+        구현: q·k 에 차원 하나를 덧붙인다 (q 쪽 δ·√d, k 쪽 과거 1 · 자기 블록 0) → 마스크 없이 SDPA (flash) 그대로. 8 의 배수로 0 패딩."""
+        if not on:
+            return
+        self.past_gate = nn.Linear(self.num_heads * self.head_dim, self.num_heads, bias=True)
+        nn.init.zeros_(self.past_gate.weight); nn.init.zeros_(self.past_gate.bias)
+
+    def _pg_sdpa(self, q, k, v, delta, n_own):
+        """q (B,H,Nq,D), k/v (B,H,Nk,D), delta (B,H,Nq): 마지막 n_own 개 key = 자기 블록 (가산점 없음), 그 앞 = 과거 (logit + delta)."""
+        B, H, Nq, D = q.shape
+        Nk = k.size(2)
+        pad = (-(D + 1)) % 8
+        qe = torch.cat([q, (delta * math.sqrt(D)).unsqueeze(-1).to(q.dtype), q.new_zeros(B, H, Nq, pad)], -1)
+        flag = torch.cat([k.new_ones(Nk - n_own), k.new_zeros(n_own)]).view(1, 1, Nk, 1).expand(B, H, Nk, 1)
+        ke = torch.cat([k, flag, k.new_zeros(B, H, Nk, pad)], -1)
+        ve = torch.cat([v, v.new_zeros(B, H, Nk, pad + 1)], -1)
+        out = F.scaled_dot_product_attention(qe, ke, ve, dropout_p=self.proj_drop_prob, scale=1.0 / math.sqrt(D))
+        return out[..., :D]
+
+    # ------------------------------------------------------------------ 2026-11-08 시간 누적 하이브리드
+    # (사용자 "Gated Attention 해보자 … 시간축 … 구조가 시간 누적이면", Qwen3-Next 의 Gated DeltaNet 3 : Gated Attention 1 을 블록 단위로)
+    def set_out_gate(self, on: bool):
+        """Qwen Gated Attention (G1, Qiu et al. NeurIPS 2025): attention 출력 (head 합친 뒤, proj 전) 에
+        query 토큰별 · 채널별 σ(W x) 를 곱한다. x = attention 입력 (norm 뒤)."""
+        if on:
+            C = self.num_heads * self.head_dim
+            self.out_gate = nn.Linear(C, C, bias=True)
+
+    def set_block_mem(self, on: bool):
+        """누적 층: 자기 블록 안 = softmax attention (공간 전체), 과거 블록 = **블록 기억 S 에서만** 읽는다.
+        S (head 마다 D×D, key → value 사전) 는 블록 하나가 끝날 때마다 갱신된다 (블록 단위 delta 규칙, _mem_prep · _mem_step):
+            S_t = α · S ;  S ← S_t + (Kᵀ diag(β) K + I)⁻¹ Kᵀ diag(β) (V − K S_t)
+          = 옛 기억 쪽으로 규제한 가중 최소제곱 (블록 안 토큰은 순서 없이 동시에 쓴다). 기억 연산은 autocast 를 끄고 float32.
+        α (잊기, head · 블록마다, 그 블록 입력 평균으로) · β (쓰기 세기, 토큰 · head 마다).
+        기억 query/key = 시간 회전 없음 (행 · 열 RoPE 만) + L2 정규화 → 먼 과거는 내용 · 자리로 찾는다.
+        출력 = σ(g_own) ⊙ O_own + σ(g_mem) ⊙ O_mem (시간축 게이트: 자기 블록 읽기와 기억 읽기가 softmax 로 경쟁하지 않는다)."""
+        if not on:
+            return
+        C = self.num_heads * self.head_dim
+        self.mem_gate = nn.Linear(C, 2 * C, bias=True)
+        self.mem_beta = nn.Linear(C, self.num_heads, bias=True)
+        self.mem_alpha = nn.Linear(C, self.num_heads, bias=True)
+
+    def reset_block_mem(self):
+        """predictor 의 _init_weights 뒤에 부른다: α 편향 3 (σ = 0.95, 처음엔 거의 안 잊는다) · β · 게이트 편향 0 (0.5)."""
+        nn.init.constant_(self.mem_alpha.bias, 3.0)
+        nn.init.zeros_(self.mem_beta.bias)
+        nn.init.zeros_(self.mem_gate.bias)
+
+    def _mem_qk(self, q_raw, k_raw, q, k):
+        """기억용 query/key (float32): 앞 d_dim (시간) 차원은 회전 전 값, 행 · 열 · 나머지는 회전된 값. L2 정규화."""
+        d = self.d_dim
+        qm = torch.cat([q_raw[..., :d], q[..., d:]], -1).float()
+        km = torch.cat([k_raw[..., :d], k[..., d:]], -1).float()
+        return F.normalize(qm, dim=-1), F.normalize(km, dim=-1)
+
+    def _mem_ab(self, x, nblk, S):
+        """x (B, nblk*S, C) attention 입력 → α (B, H, nblk), β (B, H, nblk, S) (float32)."""
+        B = x.size(0)
+        alpha = torch.sigmoid(self.mem_alpha(x.view(B, nblk, S, -1).mean(2)).float()).permute(0, 2, 1)
+        beta = torch.sigmoid(self.mem_beta(x).float()).view(B, nblk, S, -1).permute(0, 3, 1, 2)
+        return alpha, beta
+
+    @staticmethod
+    def _mem_prep(km, v, beta, lam=1.0):
+        """블록마다 병렬로: G = Kᵀ diag(β) K, U = Kᵀ diag(β) V, M = (G + λI)⁻¹. km (..., S, D) 정규화, v (..., S, Dv), beta (..., S).
+        (2026-11-09 속도: 무거운 연산 (토큰 합 · 역행렬) 을 블록 축으로 한 번에 — 순차 루프에는 _mem_step 의 32×32 matmul 하나만 남는다.)"""
+        kb = km * beta.unsqueeze(-1)
+        G = kb.transpose(-1, -2) @ km
+        U = kb.transpose(-1, -2) @ v
+        eye = torch.eye(G.size(-1), device=G.device, dtype=G.dtype)
+        return torch.linalg.inv(G + lam * eye), U
+
+    @staticmethod
+    def _mem_step(Sm, M, U, alpha, lam=1.0):
+        """블록 단위 delta 규칙 = 옛 기억 (α·S) 쪽으로 규제한 가중 최소제곱:
+            S ← α·S + (G + λI)⁻¹ (U − G α·S)  =  M (λ α·S + U)        (I − M G = λ M 이라 두 식이 같다)
+        Sm (B,H,D,Dv) 또는 None (빈 기억), M (B,H,D,D), U (B,H,D,Dv), alpha (B,H) → 새 Sm (float32).
+        (2026-11-08 정정: 경사 한 걸음 (‖Kᵀ diag(β) K‖_F 로 나눔) 은 블록 안 소수 토큰 방향을 거의 못 쓴다 — 장난감 key 에서
+         물체 토큰 10 / 256 의 값 복원 12–19 % vs 이 규칙 51–59 %. 고윳값이 [0, 1) 이라 항상 안정.)"""
+        if Sm is None:
+            return M @ U
+        return M @ (lam * alpha[..., None, None] * Sm + U)
+
+    def _mem_mix(self, x_in, o_own, o_mem):
+        """x_in (B,N,C), o_own · o_mem (B,H,N,D) → proj 뒤 (B,N,C) = proj(σ(g_own) ⊙ O_own + σ(g_mem) ⊙ O_mem)."""
+        B, N, C = x_in.shape
+        g = torch.sigmoid(self.mem_gate(x_in))
+        o1 = o_own.transpose(1, 2).reshape(B, N, C)
+        o2 = o_mem.transpose(1, 2).reshape(B, N, C).to(o1.dtype)
+        return self.proj_drop(self.proj(g[..., :C].to(o1.dtype) * o1 + g[..., C:].to(o1.dtype) * o2))
+
+    def _time_pairs(self, rot, orig):
+        """Harmonic 시간 RoPE: 고른 짝만 회전 결과, 나머지는 원래 값 (시간 0)."""
+        if self.t_pair_keep is None:
+            return rot
+        return torch.where(self.t_pair_keep.to(rot.device), rot, orig)
+
+    def set_time_scale(self, mode):
+        """2026-11-06 (what–when 분리): 시간 RoPE 위치에 헤드별 척도를 곱한다. 행 · 열 위치는 그대로.
+        mode: None | 'split:K' (앞 K 헤드 시간 없음, 나머지 그대로 — 고정) | 'zero' (전부 시간 없음 — 고정) | 'learned' (헤드별 학습, 1 로 시작)."""
+        if mode in (None, "", "none"):
+            self.t_scale = None
+            return
+        H = self.num_heads
+        if mode == "learned":
+            # 척도 = 1 + gain · u, u 는 0 에서 시작 (원래 모델과 같다). gain 100 = u 의 학습률을 100 배로 쓰는 재매개화:
+            #   Adam 은 step 마다 대략 lr 만큼 움직이므로 lr 5e-5 로는 2,000 step 에 척도가 0.1 밖에 못 간다 → 100 배면 0 까지 갈 수 있다.
+            self.t_learn = nn.Parameter(torch.zeros(H))
+            self.t_gain = 100.0
+            self.register_buffer("t_scale", torch.ones(H), persistent=False)   # 자리 표시 (separate_positions 가 t_learn 을 쓴다)
+        elif mode == "zero":
+            self.register_buffer("t_scale", torch.zeros(H), persistent=False)
+        elif str(mode).startswith("scale:"):     # 모든 헤드 같은 척도 δ (시간 RoPE 주기 × 1/δ). 2026-11-06 사용자 "주기를 늘리자"
+            self.register_buffer("t_scale", torch.full((H,), float(str(mode).split(":", 1)[1])), persistent=False)
+        elif str(mode).startswith("split:"):
+            k = int(str(mode).split(":", 1)[1])
+            if not 0 < k < H:
+                raise ValueError(f"time_scale split:K 는 0 < K < {H}: {mode!r}")
+            self.register_buffer("t_scale", torch.cat([torch.zeros(k), torch.ones(H - k)]), persistent=False)
+        else:
+            raise ValueError(f"time_scale: none | split:K | zero | scale:δ | learned — {mode!r}")
+
+    def set_vo_time(self, mode):
+        """2026-11-06 (사용자: "RoPE 구현해볼래"): 시간을 가져오기 (value · 출력) 에 싣는다 (VO 방식, Su Jianlin VO-RoPE 와 같은 꼴).
+        value 의 앞 vo_dim 차원을 그 key 의 블록 시간만큼 회전하고, attention 합 뒤 출력을 query 의 블록 시간만큼 되돌린다
+        → 가져온 내용이 (key 시간 − query 시간) 만큼 회전된 채로 합쳐진다 (상대 시간). 고르기 쪽 시간 제거는 set_time_scale('zero') 로 따로.
+        세기 = gain · u (헤드별, u 는 0 에서 시작 → 처음엔 회전 없음). 정확한 짝 회전 (인접 두 차원이 같은 각도), 주파수 = 2π / (16 · 2^k)."""
+        if mode in (None, "", "none"):
+            self.vo_on = False
+            return
+        if mode != "learned":
+            raise ValueError(f"vo_time: none | learned — {mode!r}")
+        self.vo_on = True
+        self.vo_learn = nn.Parameter(torch.zeros(self.num_heads))
+        self.vo_gain = 100.0
+        self.vo_dim = 10
+        self.register_buffer("vo_freq", 2 * math.pi / (16.0 * 2.0 ** torch.arange(self.vo_dim // 2, dtype=torch.float32)), persistent=False)
+
+    def _vo(self, x, t, sign):
+        """x (B, heads, N, D), t (B, heads, N) 블록 시간. 앞 vo_dim 차원을 sign · 세기 · t · 주파수 만큼 정확히 회전."""
+        sc = (self.vo_gain * self.vo_learn).view(1, -1, 1, 1)
+        ang = sign * sc * t.float().unsqueeze(-1) * self.vo_freq                  # (B, heads, N, vo_dim/2)
+        c, sn = ang.cos(), ang.sin()
+        xr = x[..., : self.vo_dim].float()
+        x1, x2 = xr[..., 0::2], xr[..., 1::2]
+        rot = torch.stack([x1 * c - x2 * sn, x1 * sn + x2 * c], dim=-1).flatten(-2)
+        return torch.cat([rot.to(x.dtype), x[..., self.vo_dim:]], dim=-1)
 
     def _get_frame_pos(self, ids, H_patches, W_patches):
         tokens_per_frame = int(H_patches * W_patches)
@@ -179,7 +351,15 @@ class ACRoPEAttention(nn.Module):
         # --
         # Remove frame component from ids (1st term) and height component (2nd term)
         width_ids = (ids - tokens_per_frame * frame_ids) - tokens_per_row * height_ids
-        return 1.0 * frame_ids, 1.0 * height_ids, 1.0 * width_ids
+        frame_ids = 1.0 * frame_ids
+        if self.t_scale is not None:          # 2026-11-06 헤드별 시간 척도 (행 · 열은 위에서 원래 frame_ids 로 이미 뺐다)
+            t = (1.0 + self.t_gain * self.t_learn) if hasattr(self, "t_learn") else self.t_scale
+            t = t.to(frame_ids.dtype)
+            if frame_ids.dim() >= 2 and frame_ids.size(-2) == self.num_heads:
+                frame_ids = frame_ids * t.view(-1, 1)
+            else:
+                frame_ids = frame_ids.unsqueeze(-2) * t.view(-1, 1)
+        return frame_ids, 1.0 * height_ids, 1.0 * width_ids
 
     def forward_kv(self, x, mask, H, W, past=None):
         """KV 캐시 경로 (2026-09-30, ctx_state rollout). x (B, N, C) **새 토큰만**, mask (B, N) 그 절대 인덱스,
@@ -195,8 +375,8 @@ class ACRoPEAttention(nn.Module):
         qkv = self.qkv(x).unflatten(-1, (3, self.num_heads, -1)).permute(2, 0, 3, 1, 4)
         q, k, v = qkv[0], qkv[1], qkv[2]
         s = 0
-        qd = rotate_queries_or_keys(q[..., s : s + self.d_dim], pos=d_mask)
-        kd = rotate_queries_or_keys(k[..., s : s + self.d_dim], pos=d_mask)
+        qd = self._time_pairs(rotate_queries_or_keys(q[..., s : s + self.d_dim], pos=d_mask), q[..., s : s + self.d_dim])
+        kd = self._time_pairs(rotate_queries_or_keys(k[..., s : s + self.d_dim], pos=d_mask), k[..., s : s + self.d_dim])
         s += self.d_dim
         qh = rotate_queries_or_keys(q[..., s : s + self.h_dim], pos=h_mask)
         kh = rotate_queries_or_keys(k[..., s : s + self.h_dim], pos=h_mask)
@@ -210,11 +390,36 @@ class ACRoPEAttention(nn.Module):
         else:
             q = torch.cat([qd, qh, qw], dim=-1)
             k = torch.cat([kd, kh, kw], dim=-1)
+        if self.vo_on:                                       # 새 토큰 value 를 자기 블록 시간만큼 회전 (과거 캐시는 이미 회전됨)
+            t_raw = (m // int(H * W)).float()
+            v = self._vo(v, t_raw, +1.0)
+        if getattr(self, "mem_gate", None) is not None:      # 2026-11-08 누적 층: past = 블록 기억 S (B,H,D,D) 또는 None. 새 토큰 = 블록 하나
+            if N != int(H * W) or self.vo_on:
+                raise ValueError(f"block_mem forward_kv: 블록 하나씩만 (N={N}, H·W={int(H * W)}), vo_time 과 같이 못 쓴다")
+            o_own = F.scaled_dot_product_attention(q, k, v, dropout_p=self.proj_drop_prob)
+            alpha, beta = self._mem_ab(x, 1, N)
+            with torch.autocast(device_type=x.device.type, enabled=False):   # 기억은 float32
+                qm, km = self._mem_qk(qkv[0], qkv[1], q, k)
+                vf = v.float()
+                o_mem = torch.zeros_like(vf) if past is None else qm @ past
+                M, U = self._mem_prep(km, vf, beta[:, :, 0])
+                Sm = self._mem_step(past, M, U, alpha[:, :, 0])
+            return self._mem_mix(x, o_own, o_mem), Sm
+        x_in = x
+        n_new = k.size(2)
         if past is not None:
             k = torch.cat([past[0], k], dim=2)
             v = torch.cat([past[1], v], dim=2)
-        x = F.scaled_dot_product_attention(q, k, v, dropout_p=self.proj_drop_prob)
+        if getattr(self, "past_gate", None) is not None and past is not None:   # 2026-11-07 now/past gate: 캐시 = 과거, 새 토큰 = 자기 블록
+            delta = self.past_gate(x).transpose(1, 2).float()                    # (B, H, N)
+            x = self._pg_sdpa(q, k, v, delta, n_new)
+        else:
+            x = F.scaled_dot_product_attention(q, k, v, dropout_p=self.proj_drop_prob)
+        if self.vo_on:                                       # 출력을 query 블록 시간만큼 되돌림 → 상대 시간
+            x = self._vo(x, t_raw, -1.0)
         x = x.transpose(1, 2).reshape(B, N, C)
+        if getattr(self, "out_gate", None) is not None:      # 2026-11-08 Qwen 출력 게이트
+            x = x * torch.sigmoid(self.out_gate(x_in)).to(x.dtype)
         x = self.proj_drop(self.proj(x))
         return x, (k, v)
 
@@ -264,8 +469,8 @@ class ACRoPEAttention(nn.Module):
 
         s = 0
         # Rotate depth
-        qd = rotate_queries_or_keys(q[..., s : s + self.d_dim], pos=d_mask)
-        kd = rotate_queries_or_keys(k[..., s : s + self.d_dim], pos=d_mask)
+        qd = self._time_pairs(rotate_queries_or_keys(q[..., s : s + self.d_dim], pos=d_mask), q[..., s : s + self.d_dim])
+        kd = self._time_pairs(rotate_queries_or_keys(k[..., s : s + self.d_dim], pos=d_mask), k[..., s : s + self.d_dim])
         s += self.d_dim
         # Rotate height dim
         qh = rotate_queries_or_keys(q[..., s : s + self.h_dim], pos=h_mask)
@@ -298,6 +503,45 @@ class ACRoPEAttention(nn.Module):
             k = merge_(k, action_k)
             v = merge_(v, action_v)
 
+        if self.vo_on:                                       # 2026-11-06 시간을 value 에 (set_vo_time)
+            if action_tokens > 0:
+                raise ValueError("vo_time 은 action_tokens 와 같이 못 쓴다")
+            _ids = mask if mask.dim() == 3 else mask.unsqueeze(0).unsqueeze(0).expand(B, self.num_heads, -1)
+            t_raw = (_ids // int(H * W)).float()
+            v = self._vo(v, t_raw, +1.0)
+        if getattr(self, "mem_gate", None) is not None:
+            # 2026-11-08 누적 층 (teacher forcing, 블록 인과 = PrefixSpec(1, nb-1)): 자기 블록 softmax 는 (head, 블록) 을 한 묶음으로 SDPA 한 번,
+            #   기억은 블록 순서대로 쓴다 (블록 b 는 블록 < b 까지 쓴 기억을 읽는다 — forward_kv 와 같은 값)
+            if isinstance(attn_mask, PrefixSpec):
+                if attn_mask.n_ctx != 1 or not attn_mask.future_causal:
+                    raise ValueError("block_mem 은 블록 인과 (PrefixSpec(1, nb-1), kind=ar) 전용")
+                S = attn_mask.tokens_per_block
+            elif attn_mask is None and N == int(H * W):     # 블록 하나뿐 (forward_seq nb = 1)
+                S = N
+            else:
+                raise ValueError("block_mem 은 블록 인과 (PrefixSpec(1, nb-1), kind=ar) 전용")
+            if action_tokens or self.vo_on or N % S:
+                raise ValueError("block_mem: action_tokens · vo_time 없음, 토큰 수는 블록 정렬")
+            nb, Dh = N // S, q.size(-1)
+            o_own = F.scaled_dot_product_attention(q.reshape(B, -1, S, Dh), k.reshape(B, -1, S, Dh), v.reshape(B, -1, S, Dh),
+                                                   dropout_p=self.proj_drop_prob).reshape(B, self.num_heads, N, Dh)
+            alpha, beta = self._mem_ab(x, nb, S)
+            with torch.autocast(device_type=x.device.type, enabled=False):   # 기억은 float32 (bf16 행렬곱 누적 오차를 피한다)
+                qm, km = self._mem_qk(qkv[0], qkv[1], q, k)
+                H_, D_ = qm.size(1), qm.size(-1)
+                vf = v.float()
+                Dv = vf.size(-1)
+                states = [qm.new_zeros(B, H_, D_, Dv)]                     # 블록 0 이 읽는 기억 = 빈 기억
+                if nb > 1:                                                  # 블록 0..nb−2 가 쓴다 (마지막 블록의 쓰기는 아무도 안 읽는다)
+                    M, U = self._mem_prep(km.reshape(B, H_, nb, S, D_)[:, :, :-1], vf.reshape(B, H_, nb, S, Dv)[:, :, :-1],
+                                          beta[:, :, :-1])
+                    Sm = None
+                    for b in range(nb - 1):
+                        Sm = self._mem_step(Sm, M[:, :, b], U[:, :, b], alpha[:, :, b])
+                        states.append(Sm)
+                o_mem = (qm.reshape(B, H_, nb, S, D_) @ torch.stack(states, 2)).reshape(B, H_, N, Dv)   # 블록 b 는 블록 < b 까지 쓴 기억을 읽는다
+            return self._mem_mix(x, o_own, o_mem)
+        x_in = x
         # 2026-09-22: (N,N) dense bool 마스크는 flash 를 못 타 math/mem-eff 경로로 떨어진다
         # (실측 prefix 3.96 s vs full 1.85 s, B=28 N=6144). BlockMask 를 주면 flex_attention 의
         # **블록 희소 fused 커널**로 돈다 (rollout_predictor.build_prefix_block_mask).
@@ -307,15 +551,24 @@ class ACRoPEAttention(nn.Module):
             #   (N,N) bool 마스크는 mem-eff/math 경로(2 배 느림·점수 행렬 실체화)였고, flex_attention 은
             #   DDP 아래서 컴파일에 실패해 eager(점수 행렬 32 GB)로 떨어져 OOM 을 냈다. 이 경로는 컴파일 의존이 없다.
             Cq, S = attn_mask.n_ctx * attn_mask.tokens_per_block, attn_mask.tokens_per_block
+            pg = getattr(self, "past_gate", None)
+            if pg is not None and (attn_mask.n_ctx != 1 or not attn_mask.future_causal):
+                raise ValueError("past_gate 는 블록 인과 (PrefixSpec(1, nb-1), kind=ar) 전용")
+            delta = pg(x).transpose(1, 2).float() if pg is not None else None   # (B, H, N) — x = attention 입력 (norm 뒤)
             outs = [F.scaled_dot_product_attention(q[:, :, :Cq], k[:, :, :Cq], v[:, :, :Cq], dropout_p=self.proj_drop_prob)]
             if attn_mask.future_causal:
                 for t in range(attn_mask.n_pred):
                     qs, ke = slice(Cq + t * S, Cq + (t + 1) * S), Cq + (t + 1) * S
-                    outs.append(F.scaled_dot_product_attention(q[:, :, qs], k[:, :, :ke], v[:, :, :ke], dropout_p=self.proj_drop_prob))
+                    if delta is not None:   # 2026-11-07 now/past gate: 자기 블록 = 마지막 S key
+                        outs.append(self._pg_sdpa(q[:, :, qs], k[:, :, :ke], v[:, :, :ke], delta[:, :, qs], S))
+                    else:
+                        outs.append(F.scaled_dot_product_attention(q[:, :, qs], k[:, :, :ke], v[:, :, :ke], dropout_p=self.proj_drop_prob))
             else:   # prefix_full: 미래 query 전체가 [문맥 ; 미래 전부] key 를 본다 — SDPA 한 번
                 outs.append(F.scaled_dot_product_attention(q[:, :, Cq:], k, v, dropout_p=self.proj_drop_prob))
             x = torch.cat(outs, dim=2)
             attn = None
+        elif getattr(self, "past_gate", None) is not None:
+            raise ValueError("past_gate 는 PrefixSpec (블록 인과) 경로 전용")
         elif _FlexBlockMask is not None and isinstance(attn_mask, _FlexBlockMask):
             x = _flex_attention(q, k, v, block_mask=attn_mask)
             attn = None
@@ -331,7 +584,11 @@ class ACRoPEAttention(nn.Module):
             attn = self.attn_drop(attn)
             x = attn @ v
 
+        if self.vo_on:
+            x = self._vo(x, t_raw, -1.0)
         x = x.transpose(1, 2).reshape(B, N, C)
+        if getattr(self, "out_gate", None) is not None:      # 2026-11-08 Qwen 출력 게이트
+            x = x * torch.sigmoid(self.out_gate(x_in)).to(x.dtype)
         x = self.proj(x)
         x = self.proj_drop(x)
         return x

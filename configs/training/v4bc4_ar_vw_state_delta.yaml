@@ -1,0 +1,18 @@
+# Δ 예측 (residual predictor) post-train (2026-11-07, 사용자 노트 "Δ 예측 — ẑ_{k+1} = x_k + P(x), loss 추가 없음, 출력 proj zero-init",
+#   "노트에 있는 거 구현해서 v4bc4 L1 pft 로 지금 학습 올려").
+#   v4bc4_ar_vw_state_postft (AR + v4bc4 + 예측 L1 만, batch 48, 2,000 step) 과 같고 출력식만 다르다:
+#     기본 AR   ŷ_{k+1} = LN(P(s))
+#     이 판     ŷ_{k+1} = x_k + P(s)       계수 1 고정 (gate 없음, gating_fixed), 출력 LN 없음
+#       x_k = TF 위치 k: 입력 블록 k (관측 LN(h)) / rollout: 첫 걸음 = 마지막 문맥 블록, 그 뒤 = LN(직전 걸음 예측) (gating_anchor: prev = 사슬)
+#     출발 체크포인트 (natural_ar_vw_state) 를 읽은 뒤 P 의 출력 투영만 0 으로 (predictor_init_zero_proj) → 0 step 출력 = 복사 정확히.
+#   ⚠️ 노트 자체의 단서: post-train 에서만 바꾸면 zero-init 말고는 기존 P 와 수학적으로 같은 표현력이다 (사전학습부터가 원안).
+#   선행 (10-17 · 18): 자연 영상 사전학습부터 학습한 gate 판 natural_ar_vw_state_gres (g 학습, rollout 기준 고정) — VOB late 영속 93 → 60.
+#   GPUS=8 bash z_training/tmux_train.sh v4bc4_ar_vw_state_delta
+extends: v4bc4_ar_vw_state_postft
+
+model:
+  predictor:
+    gating_residual: true
+    gating_anchor: prev
+    gating_fixed: true
+  predictor_init_zero_proj: true

@@ -1,0 +1,53 @@
+# AR 처음부터 학습: 원래 자연 영상 레시피 + 매 step v4bc4 음의 손실 batch (2026-11-07, 사용자 "negative loss 젤 잘 나온 거 기준 그거랑
+#   K710 SSv2 HowTo100M 원래 ar 데이터 섞어서 scratch training 해보자" → 섞는 방식 "매 step 함께", v4bc4 비중 "약 10 %").
+#   자연 영상: natural_ar_vw_state 그대로 (가변 창 문맥 · 미래 2–32 장, 4 fps, K710 · SSv2 · HowTo 1 % = 1:1:1, 70 ep × 294 = 20,580 step, lr 5.2e-4).
+#   음의 손실 batch: 기준판 v4bc4_ar_vw_state_negimp 와 같은 데이터 · 손실 (v4bc4, 32 장 stride 2, 문맥 8 · 미래 8 블록, p 0.5, λ 1, margin 1),
+#     rank 당 3 개 (전체 24) — 자연 token 예산 950 장 대비 96 장 ≈ 9 %. 20,580 step 이면 v4bc4 (19,131 줄) 를 약 26 번 본다.
+#   매 step: 자연 손실 backward (동기화 없이) → 음의 손실 batch 손실 backward (동기화) → 한 번 갱신 (app/vjepa_frozen/train.py negimp.mix=step).
+#   대조: natural_ar_vw_state (자연만, 같은 레시피) · v4bc4_ar_vw_state_negimp (자연 AR 뒤 이어 학습).
+#   GPUS=8 bash z_training/tmux_train.sh natural_ar_vw_state_v4bc4_negimp_mix
+extends: natural_ar_vw_state
+
+data:
+  datasets:
+    - {name: blender_track_v4bc4_all, weight: 1.0}
+
+negimp:
+  families: ${DATA_CSV}/blender_track_v4bc4_negimp/families.json
+  p: 0.5
+  swap_frac: 0.5
+  context_frames: 16
+  margin: 1.0
+  ar_terms: rollout
+  weight: 1.0
+  mix: step
+  mix_batch_size: 3
+  mix_weight: 1.0
+  n_frames: 32
+  num_workers: 4
+  aug: {hflip_p: 0.5, square_crop: center}
+
+val:                            # 2026-11-07 사용자 "val 은 real world permanence bench 로" — 95 장면 × 4 = 380 클립 (채점기와 같은 로더 · 같은 창), 매 epoch (약 34 초)
+  dataset: null
+  n_frames: 32
+  context_length: 16
+  batch_size: 4
+  every_epochs: 1
+  at_start: true
+  n_blocks_per_type: 1000
+  seed: 0
+  data:
+    root: ${DATA_CSV}/real_world_permanence_uniform
+    index_csv: index.csv
+    video_root: /workspace/dataset/benchmarks/real_world_permanence
+    frames_index_column: frames
+    block_column: block_id
+    pair_column: pair_id
+    plausible_column: plausible
+    variant_column: variant
+    type_column: condition
+    frames_root: null           # 부모 (IntPhys1 dev PNG) 에서 상속되는 키를 지운다
+    frames_pattern: null
+    frames_start: null
+    frames_stride: null
+    raw_frames: null

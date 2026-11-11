@@ -1,0 +1,10 @@
+# now/past gate + 음의 손실 (2026-11-07, 사용자 "게이트에다가 neg loss 까지 해서 학습해봐").
+#   기준판 v4bc4_ar_vw_state_negimp (AR + v4bc4 + 음의 손실 λ1, batch 48, 2,000 step, real95 72.1) 과 같고 now/past gate 만 더한다
+#   (src/models/utils/modules.py set_past_gate — 이전 블록 key logit 에 query 별 학습 가산점, 0 시작 = 출발 AR).
+#   L1 판 (v4bc4_ar_vw_state_pastgate) 에서는 gate 가 거의 안 열렸다 (δ ±0.1–0.3, 시트 = 대조). 불가능 미래를 멀리 두라는 신호가 gate 를 여는지 본다.
+#   GPUS=8 bash z_training/tmux_train.sh v4bc4_ar_vw_state_negimp_pastgate
+extends: v4bc4_ar_vw_state_negimp
+
+model:
+  predictor:
+    past_gate: true

@@ -1,0 +1,19 @@
+# 2026-11-07 (사용자 "메소드 하나만 적용해서 학습해봐"): v4bc4f_ar_vw_state_negimp 와 데이터 · 길이 · 배치 (전역 48 클립) 가 같고,
+#   음의 손실 대신 짝 순위 손실 (app/vjepa_frozen/rank_pair.py) 하나만 쓴다. 같은 묶음의 형제를 짝으로 (사라짐 · 나타남 · 바꿔치기 1 : 1 : 1).
+#   벌점 = τ · softplus((δ − (S_형제 − S_자기)) / τ), τ 0.005 · δ 0.01 (굴린 L1 약 0.47 의 2 %), λ 1.
+#   대조: v4bc4f_ar_vw_state_negimp (같은 데이터 + 음의 손실, real95 73.7) · v4bc4_ar_vw_state_negimp (72.1).
+#   GPUS=8 bash z_training/tmux_train.sh v4bc4f_ar_vw_state_rank
+extends: v4bc4f_ar_vw_state_negimp
+
+negimp: null
+
+data:
+  batch_size: 3                 # 짝 3 개 = 클립 6 × GPU 8 = 48
+
+rank:
+  families: ${DATA_CSV}/blender_track_v4bc4f_negimp/families.json
+  type_w: [1, 1, 1]
+  context_frames: 16
+  weight: 1.0
+  tau: 0.005
+  delta: 0.01

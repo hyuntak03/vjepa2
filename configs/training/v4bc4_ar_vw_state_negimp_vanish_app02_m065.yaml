@@ -1,0 +1,35 @@
+# 2026-11-09 전이 탐색 4 묶음 — 3 묶음 최고 통과판 '사라짐 + 약한 나타남 (빈 문맥 p 0.2)' (합성 유지 · IP2 late +3.3 · real +7.4 · real48 +11.5) 을 다듬는다.
+#   근거 [측정]: 나타남 음성이 IP2 late 를 올리고 VOB 판 · 움직임을 깎는다 (p 0.5: VOB −6.6 · IP2 +2.5~+10, p 0.2: VOB +0.2 · IP2 +3.3, 0: VOB +1.0 · IP2 +2.5).
+#   single margin 0.65 는 real +9.5 · real48 +15.6 (B 81) 이었지만 나타남 p 0.5 때문에 VOB −7.6. 기준 = 같은 데이터 L1 만.
+#   사라짐 + 나타남 p 0.2 · margin 0.65 (최고 통과판 + 꺼지는 margin).
+#   GPUS=8 bash z_training/tmux_train.sh v4bc4_ar_vw_state_negimp_vanish_app02_m065
+extends: v4bc4_ar_vw_state_negimp_vanish
+
+negimp:
+  p: 0.2
+  margin: 0.65
+
+val:                            # 2026-11-08 사용자 "training val 로 real bench 성능 보여주도록" — 95 장면 × 4 = 380 클립 (채점기와 같은 로더), 매 epoch — 95 장면 × 4 = 380 클립 (채점기와 같은 로더 · 같은 창), 매 epoch (약 34 초)
+  dataset: null
+  n_frames: 32
+  context_length: 16
+  batch_size: 4
+  every_epochs: 1
+  at_start: true
+  n_blocks_per_type: 1000
+  seed: 0
+  data:
+    root: ${DATA_CSV}/real_world_permanence_uniform
+    index_csv: index.csv
+    video_root: /workspace/dataset/benchmarks/real_world_permanence
+    frames_index_column: frames
+    block_column: block_id
+    pair_column: pair_id
+    plausible_column: plausible
+    variant_column: variant
+    type_column: condition
+    frames_root: null           # 부모 (IntPhys1 dev PNG) 에서 상속되는 키를 지운다
+    frames_pattern: null
+    frames_start: null
+    frames_stride: null
+    raw_frames: null

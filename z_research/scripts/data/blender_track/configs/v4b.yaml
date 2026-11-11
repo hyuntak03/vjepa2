@@ -1,0 +1,86 @@
+# BlenderTrack v4b (2026-11-06, 사용자 "그럼 긴 가림을 넣어봐") — v4 (v4vc.yaml) 와 같은 설계기 · 가림막 · 속도 단계, **가림 타이밍만** 길게.
+#   왜 (측정, 11-06): real 영속 95 장면은 모델이 보는 32 샘플 중 가려진 샘플 중앙값 10 (그중 문맥 안 5 — 문맥 끝에 물체가 이미 5 샘플째 안 보임).
+#        v4 · v4a 학습 영상은 4 (문맥 안 2). 그래서 가려지기 시작하는 샘플을 14–15 → 10–12 로 당기고, 가장 빠른 단계의 가림 · trapdoor 유지를 늘린다.
+#   바꾼 키: velocity.hide · fast_hide · trap_hold · levels (4 → 3) · u0_rel (× 1.26), occluders.object_screen_ratio, name · out · splits (seed 를 바꿔 v4 렌더 번호와 안 겹치게, 대조 · 시험 분할 없음). 나머지는 v4 그대로.
+name: v4b
+design: gen_design_v4vc
+out: /data/hyuntak/project/2026/2027_cvpr/nfs_cache/blender_track/v4b_long_hide
+fps: 20
+frames: 64
+size: 256
+g: 9.81
+
+cells:                                 # 상황 = 물체 셋 × 카메라 × 가리는 것 = 16 − 2 (측면 × 서 있는 물체 제외) = 14
+  objset: [primitive, realistic]
+  camera: [front, side]
+  exclude: [primitive|side|object, realistic|side|object]   # 11-02 시험: 측면 카메라에서 서 있는 물체가 2 배 안에서 못 덮음 (성공 1/10 · 5/10)
+  occ: [board, wall, trapdoor, object]   # 판 · 낮은 벽 (옆으로 빠져나옴) / trapdoor (VOBench late 꼴: 판이 누우며 드러남) / 서 있는 다른 물체
+
+velocity:
+  levels: 3                            # K  ← v4b: v4 4 (가장 느린 단계를 뺀다 — 긴 가림에서 창 안에 다시 못 나옴, 11-06 probe late0)
+  ratio_step: 1.26                     # ρ — 단계 사이 화면 속력 비 (K 4 → 가장 느린 : 가장 빠른 = 1 : 2). 11-02 시험: 1 : 3.4 · 1 : 2.5 는 느린 단계가 창 안에서 다 빠져나오지 못함
+  u0_rel: [0.132, 0.170]              # 가장 느린 단계의 화면 속력 = target 화면 지름 × 이 값 (px / 샘플; 샘플 = 0.1 s). 32 px 물체면 3.4–4.3 → 가장 빠른 6.7–8.6. VOBench late 움직임 4–7.5  ← v4b: v4 × 1.26 (= v4 의 단계 1 이 가장 느린 단계)
+  mu_roll: [0.0005, 0.004]             # 구름 감속 = mu · g (작게 — 다시 나오기 전에 멈추지 않게)
+  mu_slide: [0.003, 0.012]
+  keep_speed: 0.8                      # 가장 느린 단계도 창 끝까지 가려질 때 속력의 80 % 이상 (11-02 시험: 50 % 면 느린 단계가 못 빠져나옴)
+  hide: ["10", "11", "12"]                   # 가려지기 시작하는 샘플 s_in (13 은 느린 단계가 창 안에서 못 빠져나옴)  ← v4b: v4 ["14", "15"]
+  fast_hide: [5.0, 7.0]                # 가장 빠른 단계가 완전히 가려져 있는 샘플 수 (적어도 샘플 16 까지). 느린 단계 ≈ × 2  ← v4b: v4 [1.6, 2.4] (가려지기 시작이 당겨져 need_fast ≈ 16.3 − s_in + φ 가 4.7–6.7 이 된다)
+  trap_hold: [7.0, 10.0]                # trapdoor: 가려지기 시작부터 판이 눕기 시작할 때까지 (샘플). VOBench late 가림 2–6 샘플  ← v4b: v4 [2.5, 4.5]
+  max_off: 0.25                        # 화면 밖 (≥ 30 %) 샘플 비율 상한 (v3 0.15 — 빠른 단계는 화면 밖에서 들어온다)
+
+splits:
+  # 묶음 f → 렌더 번호 f·(K+1) + k. 후보는 설계 성공률을 본 뒤 정한다 (probe 먼저)
+  train_fam: {seed: 170, families: 1190, candidates: 2380, n: 9520}
+  probe: {seed: 179, families: 14, candidates: 70, n: 280}
+
+timing:                                # 샘플 번호 (문맥 0–15 · 미래 16–31). late 만 (v3 와 같은 정의)
+  late: {start: [9, 15], end: [16, 27]}
+
+camera:
+  front: {h: [0.25, 0.7], azim: [-10, 10], lens: [35, 55]}
+  side:  {h: [0.25, 0.7], azim: [30, 60], lens: [32, 50]}
+  jitter_deg: 3
+
+objects:
+  target_px: [26, 40]                  # v3 32–58 보다 작게 (VOBench 27–33 px): 느린 단계가 제 폭을 지나는 데 걸리는 샘플을 줄인다
+  min_px: 18                           # v3 22 — 물체를 작게 (26–40 px) 잡아 측면 카메라 먼 끝에서 22 를 자주 밑돈다 (11-02 시험)
+  extra_min_px: 28
+  extra_visible_min: 0.7
+  extra_max_hidden: 0.1
+  min_hue_diff: 0.167
+  moving_shapes: {sphere: 0.6, cube: 0.25, cylinder: 0.15}
+  static_shapes: [sphere, cube, cylinder, cone, torus, capsule, pyramid]
+  size_m: [0.15, 0.40]
+  roll_speed: [0.35, 1.3]              # (그 밖 물체 전용 — target 속도는 velocity 절)
+  roll_mu: [0.004, 0.02]
+  slide_speed: [0.6, 1.6]
+  slide_mu: [0.03, 0.08]
+  heading_deg: [-12, 12]
+  shadows: true
+
+occluders:
+  trapdoor_rise: [0.08, 0.2]
+  gap: [0.08, 0.5]
+  board_th: [0.02, 0.05]
+  wall_th: [0.12, 0.25]
+  object_static_shapes: {cube: 0.4, cylinder: 0.25, sphere: 0.1, capsule: 0.25}
+  object_screen_ratio: [1.1, 3.0]      # v3 1.8 — 측면 카메라 × 서 있는 물체가 1.8 안에서 자주 실패 (11-02 시험)  ← v4b: v4 [1.1, 2.0] (긴 가림 구간을 덮으려면 더 커야 한다, 11-06 probe occ 100 %)
+  object_gap: [0.05, 0.35]
+
+env:
+  indoor_p: 0.5
+  indoor_hdri: [interior, studio]
+  outdoor_hdri: [courtyard, city, forest, sunrise, sunset]
+  indoor_floor: [wood, tile, carpet]
+  outdoor_floor: [concrete, tile, carpet]
+
+render:
+  samples: 16
+  denoise: true
+  jpeg_quality: 95
+  crf: 17
+  gop: 8
+  threads: 2
+
+checks:
+  design_streams: 3
